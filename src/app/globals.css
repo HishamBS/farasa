@@ -65,6 +65,17 @@
   --thinking: #7c3aed;
   --thinking-bg: rgba(124, 58, 237, 0.05);
   --thinking-border: rgba(124, 58, 237, 0.15);
+
+  --success: #059669;
+  --warning: #d97706;
+  --error: #dc2626;
+
+  --provider-openai: #059669;
+  --provider-anthropic: #ea580c;
+  --provider-google: #2563eb;
+  --provider-meta: #4f46e5;
+  --provider-groq: #e11d48;
+  --provider-cerebras: #d97706;
 }
 
 /* Base */

@@ -3,7 +3,6 @@ import {
   STREAM_EVENTS,
   STREAM_PHASES,
   CHAT_MODES,
-  TOOL_NAMES,
   LIMITS,
 } from '@/config/constants'
 import { SearchModeSchema, SearchResultSchema } from './search'
@@ -52,12 +51,12 @@ export const StreamChunkSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal(STREAM_EVENTS.TOOL_START),
-    toolName: z.enum([TOOL_NAMES.WEB_SEARCH]),
+    toolName: z.string(),
     input: z.unknown(),
   }),
   z.object({
     type: z.literal(STREAM_EVENTS.TOOL_RESULT),
-    toolName: z.enum([TOOL_NAMES.WEB_SEARCH]),
+    toolName: z.string(),
     result: z.unknown(),
   }),
   z.object({
@@ -84,7 +83,7 @@ export const ChatInputSchema = z.object({
   content: z.string().min(1).max(LIMITS.MESSAGE_MAX_LENGTH),
   mode: SearchModeSchema.default(CHAT_MODES.CHAT),
   model: z.string().optional(),
-  attachmentIds: z.array(z.string().uuid()).optional(),
+  attachmentIds: z.array(z.string().uuid()).default([]),
 })
 
 export const ToolCallSchema = z.object({

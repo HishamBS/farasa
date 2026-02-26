@@ -1,0 +1,41 @@
+import { z } from 'zod'
+import { LIMITS, CHAT_MODES } from '@/config/constants'
+
+export const SearchQuerySchema = z.object({
+  query: z.string().min(1).max(LIMITS.MESSAGE_MAX_LENGTH),
+  maxResults: z
+    .number()
+    .int()
+    .min(1)
+    .max(LIMITS.SEARCH_MAX_RESULTS)
+    .default(LIMITS.SEARCH_MAX_RESULTS),
+  includeImages: z.boolean().default(false),
+  searchDepth: z.enum(['basic', 'advanced']).default('basic'),
+})
+
+export const SearchImageSchema = z.object({
+  url: z.string().url(),
+  description: z.string().optional(),
+})
+
+export const SearchResultSchema = z.object({
+  title: z.string(),
+  url: z.string().url(),
+  snippet: z.string(),
+  score: z.number().optional(),
+  publishedDate: z.string().optional(),
+})
+
+export const SearchResponseSchema = z.object({
+  query: z.string(),
+  results: z.array(SearchResultSchema),
+  images: z.array(SearchImageSchema).optional(),
+})
+
+export const SearchModeSchema = z.enum([CHAT_MODES.CHAT, CHAT_MODES.SEARCH])
+
+export type SearchQuery = z.infer<typeof SearchQuerySchema>
+export type SearchImage = z.infer<typeof SearchImageSchema>
+export type SearchResult = z.infer<typeof SearchResultSchema>
+export type SearchResponse = z.infer<typeof SearchResponseSchema>
+export type SearchMode = z.infer<typeof SearchModeSchema>

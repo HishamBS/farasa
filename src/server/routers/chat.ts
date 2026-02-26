@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure } from '../trpc'
 import { ChatInputSchema, MessageMetadataSchema } from '@/schemas/message'
+import type { SearchResult } from '@/schemas/search'
 import { conversations, messages, attachments } from '@/lib/db/schema'
 import {
   STREAM_EVENTS,
@@ -161,7 +162,7 @@ export const chatRouter = router({
         }
 
         let searchContext = ''
-        let searchResults: unknown[] = []
+        let searchResults: SearchResult[] = []
         if (input.mode === CHAT_MODES.SEARCH) {
           const toolStartChunk: StreamChunk = {
             type: STREAM_EVENTS.TOOL_START,
@@ -189,10 +190,7 @@ export const chatRouter = router({
           searchContext =
             '\n\nSearch results:\n' +
             response.results
-              .map((r) => {
-                const result = r as { title: string; url: string; snippet: string }
-                return `- ${result.title}: ${result.snippet} (${result.url})`
-              })
+              .map((r) => `- ${r.title}: ${r.snippet} (${r.url})`)
               .join('\n')
         }
 

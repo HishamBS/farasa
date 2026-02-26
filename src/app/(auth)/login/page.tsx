@@ -3,9 +3,10 @@
 import { useCallback } from 'react'
 import { signIn } from 'next-auth/react'
 import { motion } from 'framer-motion'
-import { fadeInUp, scaleIn, staggerContainer } from '@/lib/utils/motion'
+import { fadeInUp, scaleIn, staggerContainer, hoverPress } from '@/lib/utils/motion'
 import { useReducedMotion } from 'framer-motion'
 import { ROUTES } from '@/config/routes'
+import { MOTION } from '@/config/constants'
 
 export default function LoginPage() {
   const shouldReduce = useReducedMotion()
@@ -20,7 +21,7 @@ export default function LoginPage() {
         <motion.div
           className="absolute inset-0 bg-gradient-to-br from-[--accent-muted] via-transparent to-[--thinking-bg]"
           animate={shouldReduce ? {} : { opacity: [0.4, 0.7, 0.4] }}
-          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+          transition={{ duration: MOTION.DURATION_BACKGROUND_LOOP, repeat: MOTION.REPEAT_INFINITE, ease: MOTION.EASING_IN_OUT }}
         />
       </div>
 
@@ -58,8 +59,7 @@ export default function LoginPage() {
           onClick={handleGoogleSignIn}
           className="flex w-full items-center justify-center gap-3 rounded-xl border border-[--border-default] bg-[--bg-surface] px-4 py-3 text-sm font-medium text-[--text-primary] transition-colors hover:border-[--accent] hover:bg-[--bg-surface-hover] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--accent] min-h-11"
           {...(shouldReduce ? {} : fadeInUp)}
-          whileHover={shouldReduce ? {} : { scale: 1.01 }}
-          whileTap={shouldReduce ? {} : { scale: 0.99 }}
+          {...(shouldReduce ? {} : hoverPress)}
         >
           <svg className="size-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
             <path

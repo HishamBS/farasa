@@ -5,8 +5,8 @@ import { ChevronDown } from 'lucide-react'
 import { fadeIn } from '@/lib/utils/motion'
 import { UserMessage } from './user-message'
 import { AssistantMessage } from './assistant-message'
+import { HistoricalAssistantMessage } from './historical-assistant-message'
 import { EmptyState } from './empty-state'
-import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
 import { useAutoScroll } from '../hooks/use-auto-scroll'
 import { CHAT_STREAM_STATUS } from '@/config/constants'
 import type { StreamState } from '@/types/stream'
@@ -43,13 +43,7 @@ export function MessageList({
             msg.role === 'user' ? (
               <UserMessage key={msg.id} content={msg.content} />
             ) : msg.role === 'assistant' ? (
-              <motion.div
-                key={msg.id}
-                className="flex flex-col gap-3"
-                {...(shouldReduce ? {} : fadeIn)}
-              >
-                <MarkdownRenderer content={msg.content} />
-              </motion.div>
+              <HistoricalAssistantMessage key={msg.id} message={msg} />
             ) : null,
           )}
 

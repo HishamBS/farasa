@@ -6,6 +6,7 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { Pin, PinOff, Trash2, Pencil } from 'lucide-react'
 import { fadeInUp } from '@/lib/utils/motion'
 import { cn } from '@/lib/utils/cn'
+import { formatDate } from '@/lib/utils/format'
 import { ROUTES } from '@/config/routes'
 import { trpc } from '@/trpc/provider'
 
@@ -92,10 +93,7 @@ export function ConversationItem({
     [handleRenameCommit, title],
   )
 
-  const formattedDate = new Date(updatedAt).toLocaleDateString('en', {
-    month: 'short',
-    day: 'numeric',
-  })
+  const formattedDate = formatDate(new Date(updatedAt))
 
   return (
     <motion.div
@@ -132,7 +130,7 @@ export function ConversationItem({
         <button
           type="button"
           onClick={handleRenameStart}
-          className="flex min-h-7 min-w-7 items-center justify-center rounded text-[--text-muted] hover:text-[--text-primary]"
+          className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:text-[--text-primary]"
           aria-label="Rename"
         >
           <Pencil size={12} />
@@ -140,7 +138,7 @@ export function ConversationItem({
         <button
           type="button"
           onClick={handlePin}
-          className="flex min-h-7 min-w-7 items-center justify-center rounded text-[--text-muted] hover:text-[--text-primary]"
+          className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:text-[--text-primary]"
           aria-label={isPinned ? 'Unpin' : 'Pin'}
         >
           {isPinned ? <PinOff size={12} /> : <Pin size={12} />}
@@ -148,7 +146,7 @@ export function ConversationItem({
         <button
           type="button"
           onClick={handleDeleteClick}
-          className="flex min-h-7 min-w-7 items-center justify-center rounded text-[--text-muted] hover:text-[--error]"
+          className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:text-[--error]"
           aria-label="Delete"
         >
           <Trash2 size={12} />

@@ -38,6 +38,7 @@ type EmptyStateProps = {
 
 export function EmptyState({ onSelect }: EmptyStateProps) {
   const shouldReduce = useReducedMotion()
+  const handleSelect = useCallback((text: string) => { onSelect?.(text) }, [onSelect])
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4">
@@ -59,7 +60,7 @@ export function EmptyState({ onSelect }: EmptyStateProps) {
           <SuggestionChip
             key={suggestion}
             text={suggestion}
-            onSelect={onSelect ?? (() => undefined)}
+            onSelect={handleSelect}
           />
         ))}
       </motion.div>

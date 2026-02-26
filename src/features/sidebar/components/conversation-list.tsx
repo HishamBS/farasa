@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation'
 import { trpc } from '@/trpc/provider'
 import { ConversationItem } from './conversation-item'
 import { ROUTES } from '@/config/routes'
+import { UX } from '@/config/constants'
 
 export function ConversationList() {
   const pathname = usePathname()
@@ -12,7 +13,7 @@ export function ConversationList() {
   if (isLoading) {
     return (
       <div className="flex flex-col gap-1 px-2">
-        {Array.from({ length: 6 }).map((_, i) => (
+        {Array.from({ length: UX.SIDEBAR_SKELETON_COUNT }).map((_, i) => (
           <div
             key={`skeleton-${i}`}
             className="h-11 rounded-lg bg-[--bg-surface-hover] animate-pulse"

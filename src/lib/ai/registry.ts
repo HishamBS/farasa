@@ -6,6 +6,7 @@ import {
   MODEL_DEFAULT_CONTEXT_WINDOW,
   MODEL_REGISTRY_CACHE_KEY,
   EXTERNAL_URLS,
+  MODEL_IDS,
 } from '@/config/constants'
 import { ModelConfigSchema } from '@/schemas/model'
 import { env } from '@/config/env'
@@ -45,7 +46,8 @@ async function fetchFromOpenRouter(): Promise<ModelConfig[]> {
       contextWindow: raw.context_length ?? MODEL_DEFAULT_CONTEXT_WINDOW,
       supportsVision: raw.architecture?.modality?.includes('image') ?? false,
       supportsTools: true,
-      supportsThinking: raw.id.includes('claude') && raw.id.includes('sonnet'),
+      supportsThinking:
+        raw.id === MODEL_IDS.CLAUDE_SONNET_4 || raw.id === MODEL_IDS.CLAUDE_OPUS_4,
       pricing: {
         promptPerMillion: parseFloat(raw.pricing?.prompt ?? '0') * 1_000_000,
         completionPerMillion:

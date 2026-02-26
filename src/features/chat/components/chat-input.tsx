@@ -5,7 +5,7 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { Send, Square, Globe, MessageSquare } from 'lucide-react'
 import { scaleIn } from '@/lib/utils/motion'
 import { cn } from '@/lib/utils/cn'
-import { CHAT_MODES } from '@/config/constants'
+import { CHAT_MODES, APP_CONFIG } from '@/config/constants'
 import { useChatInput } from '../hooks/use-chat-input'
 import type { ChatInput as ChatInputType } from '@/schemas/message'
 
@@ -71,7 +71,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
               value={content}
               onChange={handleContentChange}
               onKeyDown={handleKey}
-              placeholder="Message farasa..."
+              placeholder={APP_CONFIG.CHAT_PLACEHOLDER}
               rows={1}
               className="min-h-6 w-full resize-none bg-transparent text-sm text-[--text-primary] placeholder:text-[--text-ghost] outline-none max-h-48"
               disabled={isStreaming}

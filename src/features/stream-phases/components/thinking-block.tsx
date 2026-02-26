@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { ChevronRight, ChevronDown } from 'lucide-react'
 import { expand, collapse, pulse } from '@/lib/utils/motion'
-import { UX, MOTION } from '@/config/constants'
+import { UX, MOTION, STATUS_MESSAGES } from '@/config/constants'
 import type { ThinkingState } from '@/types/stream'
 
 type ThinkingBlockProps = {
@@ -54,11 +54,11 @@ export function ThinkingBlock({ thinking }: ThinkingBlockProps) {
                 />
               ))}
             </div>
-            <span className="text-xs text-[--thinking]">Thinking...</span>
+            <span className="text-xs text-[--thinking]">{STATUS_MESSAGES.THINKING}</span>
           </div>
         ) : (
           <span className="text-xs text-[--thinking]">
-            Thought for {durationSeconds}s
+            {STATUS_MESSAGES.THOUGHT_FOR_LABEL} {durationSeconds}{STATUS_MESSAGES.THOUGHT_DURATION_UNIT}
           </span>
         )}
       </button>

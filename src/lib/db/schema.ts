@@ -147,5 +147,6 @@ export const attachments = pgTable(
   },
   (table) => ({
     attUserIdx: index('att_user_idx').on(table.userId),
+    attMsgIdx: index('att_msg_idx').on(table.messageId),
   }),
 )

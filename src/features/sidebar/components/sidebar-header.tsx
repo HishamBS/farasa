@@ -18,7 +18,7 @@ export function SidebarHeader() {
       <button
         type="button"
         onClick={handleNewChat}
-        className="flex min-h-9 min-w-9 items-center justify-center rounded-lg text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-primary]"
+        className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-primary]"
         aria-label="New chat"
       >
         <PenSquare size={16} />

@@ -38,7 +38,7 @@ export function UserMenu() {
       <button
         type="button"
         onClick={toggleTheme}
-        className="flex min-h-8 min-w-8 items-center justify-center rounded-lg text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-primary]"
+        className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-primary]"
         aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
       >
         {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
@@ -47,7 +47,7 @@ export function UserMenu() {
       <button
         type="button"
         onClick={handleSignOut}
-        className="flex min-h-8 min-w-8 items-center justify-center rounded-lg text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--error]"
+        className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--error]"
         aria-label="Sign out"
       >
         <LogOut size={14} />

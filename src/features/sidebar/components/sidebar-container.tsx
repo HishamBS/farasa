@@ -17,7 +17,7 @@ export function SidebarContainer({ children, isOpen, onClose }: SidebarProps) {
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
+            className="fixed inset-0 z-40 bg-[--overlay] backdrop-blur-sm lg:hidden"
             initial={shouldReduce ? {} : { opacity: 0 }}
             animate={shouldReduce ? {} : { opacity: 1 }}
             exit={shouldReduce ? {} : { opacity: 0 }}

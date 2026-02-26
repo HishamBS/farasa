@@ -3,7 +3,7 @@
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { fadeIn } from '@/lib/utils/motion'
 import { cn } from '@/lib/utils/cn'
-import { PROVIDERS } from '@/config/constants'
+import { PROVIDERS, STATUS_MESSAGES } from '@/config/constants'
 import type { ModelSelectionState } from '@/types/stream'
 
 const PROVIDER_DOT_CLASSES: Record<string, string> = {
@@ -40,7 +40,7 @@ export function ModelBadge({ isRouting, modelSelection }: ModelBadgeProps) {
               !shouldReduce && 'animate-pulse',
             )}
           />
-          <span className="text-xs text-[--text-muted]">Selecting model...</span>
+          <span className="text-xs text-[--text-muted]">{STATUS_MESSAGES.ROUTING}</span>
         </motion.div>
       ) : modelSelection ? (
         <motion.div

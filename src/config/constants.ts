@@ -87,6 +87,8 @@ export const STATUS_MESSAGES = {
   READING_FILES: 'Processing your files...',
   GENERATING_UI: 'Building your interface...',
   GENERATING_TITLE: 'Generating title...',
+  THOUGHT_FOR_LABEL: 'Thought for',
+  THOUGHT_DURATION_UNIT: 's',
 } as const
 
 export const PROVIDERS = {
@@ -120,6 +122,8 @@ export const UX = {
   SIDEBAR_SWIPE_OPEN_THRESHOLD: 32,
   SIDEBAR_SWIPE_CLOSE_THRESHOLD: 64,
   TEXTAREA_MAX_HEIGHT_PIXELS: 192,
+  SIDEBAR_SKELETON_COUNT: 6,
+  SCROLL_BUTTON_BOTTOM_OFFSET: 24,
 } as const
 
 export const MOTION = {
@@ -128,10 +132,14 @@ export const MOTION = {
   DURATION_MEDIUM: 0.25,
   DURATION_SLOW: 0.3,
   DURATION_LOOP: 1.5,
+  DURATION_BACKGROUND_LOOP: 4,
   STAGGER_CHILDREN: 0.05,
   SPRING_STIFFNESS: 400,
   SPRING_DAMPING: 25,
   EASING: [0.4, 0, 0.2, 1] as const,
+  EASING_IN_OUT: 'easeInOut',
+  EASING_LINEAR: 'linear',
+  REPEAT_INFINITE: Infinity,
 } as const
 
 export const AI_PARAMS = {
@@ -167,4 +175,6 @@ export const APP_CONFIG = {
   DEFAULT_LOCALHOST_URL: 'http://localhost:3000',
   THEME_COLOR: '#09090b',
   DEFAULT_THEME: 'dark',
+  LOCALE: 'en',
+  CHAT_PLACEHOLDER: 'Message farasa...',
 } as const

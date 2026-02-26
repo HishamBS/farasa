@@ -63,8 +63,8 @@ export const pulse = {
   animate: { opacity: [1, 0.5, 1] },
   transition: {
     duration: MOTION.DURATION_LOOP,
-    repeat: Infinity,
-    ease: 'easeInOut',
+    repeat: MOTION.REPEAT_INFINITE,
+    ease: MOTION.EASING_IN_OUT,
   } satisfies Transition,
 }
 
@@ -72,9 +72,14 @@ export const shimmer = {
   animate: { backgroundPosition: ['200% 0', '-200% 0'] },
   transition: {
     duration: MOTION.DURATION_LOOP,
-    repeat: Infinity,
-    ease: 'linear',
+    repeat: MOTION.REPEAT_INFINITE,
+    ease: MOTION.EASING_LINEAR,
   } satisfies Transition,
+}
+
+export const hoverPress = {
+  whileHover: { scale: 1.01 },
+  whileTap: { scale: 0.99 },
 }
 
 export const springBounce: Spring = {

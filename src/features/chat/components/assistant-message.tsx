@@ -6,6 +6,7 @@ import { ModelBadge } from '@/features/stream-phases/components/model-badge'
 import { ThinkingBlock } from '@/features/stream-phases/components/thinking-block'
 import { ToolExecution } from '@/features/stream-phases/components/tool-execution'
 import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
+import { A2UIMessage } from '@/features/a2ui/components/a2ui-message'
 import { CHAT_STREAM_STATUS, STREAM_PHASES } from '@/config/constants'
 import type { StreamState } from '@/types/stream'
 
@@ -49,6 +50,10 @@ export function AssistantMessage({ streamState }: AssistantMessageProps) {
 
       {streamState.textContent && (
         <MarkdownRenderer content={streamState.textContent} />
+      )}
+
+      {streamState.a2uiMessages.length > 0 && (
+        <A2UIMessage messages={streamState.a2uiMessages} />
       )}
     </motion.div>
   )

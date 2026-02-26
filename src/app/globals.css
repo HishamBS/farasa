@@ -29,6 +29,8 @@
   --thinking-bg: rgba(167, 139, 250, 0.05);
   --thinking-border: rgba(167, 139, 250, 0.2);
 
+  --overlay: rgba(0, 0, 0, 0.4);
+
   --provider-openai: #34d399;
   --provider-anthropic: #fb923c;
   --provider-google: #60a5fa;
@@ -60,6 +62,8 @@
   --accent-hover: #0e7490;
   --accent-muted: rgba(8, 145, 178, 0.1);
   --accent-glow: rgba(8, 145, 178, 0.15);
+
+  --overlay: rgba(0, 0, 0, 0.5);
 
   --thinking: #7c3aed;
   --thinking-bg: rgba(124, 58, 237, 0.05);
@@ -119,4 +123,30 @@ body {
 ::selection {
   background-color: var(--accent-muted);
   color: var(--text-primary);
+}
+
+/* Code block line numbers (Shiki output) */
+[data-line-numbers="true"] pre code {
+  counter-reset: line-number;
+}
+
+[data-line-numbers="true"] pre code .line {
+  counter-increment: line-number;
+  display: block;
+  padding-left: 3.5rem;
+  position: relative;
+}
+
+[data-line-numbers="true"] pre code .line::before {
+  content: counter(line-number);
+  position: absolute;
+  left: 0;
+  width: 2.75rem;
+  text-align: right;
+  color: var(--text-ghost);
+  font-size: 0.75em;
+  user-select: none;
+  pointer-events: none;
+  border-right: 1px solid var(--border-subtle);
+  padding-right: 0.75rem;
 }

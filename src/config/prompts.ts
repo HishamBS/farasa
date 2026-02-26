@@ -1,4 +1,4 @@
-import { MODEL_CATEGORIES } from './constants'
+import { MODEL_CATEGORIES, PREFERRED_MODELS } from './constants'
 
 export const PROMPTS = {
   ROUTER_SYSTEM_PROMPT: `You are a model routing assistant. Analyze the user's request and select the most appropriate AI model category.
@@ -19,12 +19,12 @@ Selection guidelines:
 - ${MODEL_CATEGORIES.GENERAL}: Everything else — balanced capability and speed
 
 Preferred models by category:
-- ${MODEL_CATEGORIES.CODE}: anthropic/claude-sonnet-4-20250514
-- ${MODEL_CATEGORIES.ANALYSIS}: google/gemini-2.5-pro-preview
-- ${MODEL_CATEGORIES.CREATIVE}: anthropic/claude-sonnet-4-20250514
-- ${MODEL_CATEGORIES.VISION}: anthropic/claude-sonnet-4-20250514
-- ${MODEL_CATEGORIES.FAST}: meta-llama/llama-3.3-70b-instruct
-- ${MODEL_CATEGORIES.GENERAL}: anthropic/claude-sonnet-4-20250514
+- ${MODEL_CATEGORIES.CODE}: ${PREFERRED_MODELS[MODEL_CATEGORIES.CODE]}
+- ${MODEL_CATEGORIES.ANALYSIS}: ${PREFERRED_MODELS[MODEL_CATEGORIES.ANALYSIS]}
+- ${MODEL_CATEGORIES.CREATIVE}: ${PREFERRED_MODELS[MODEL_CATEGORIES.CREATIVE]}
+- ${MODEL_CATEGORIES.VISION}: ${PREFERRED_MODELS[MODEL_CATEGORIES.VISION]}
+- ${MODEL_CATEGORIES.FAST}: ${PREFERRED_MODELS[MODEL_CATEGORIES.FAST]}
+- ${MODEL_CATEGORIES.GENERAL}: ${PREFERRED_MODELS[MODEL_CATEGORIES.GENERAL]}
 
 Return ONLY the JSON object. No markdown, no explanation, no extra text.`,
 

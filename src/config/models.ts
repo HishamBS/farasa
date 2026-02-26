@@ -1,8 +1,8 @@
-import { MODEL_CATEGORIES, PROVIDERS } from './constants'
+import { MODEL_CATEGORIES, MODEL_IDS, PROVIDERS } from './constants'
 
 export const STATIC_MODELS = [
   {
-    id: 'anthropic/claude-sonnet-4-20250514',
+    id: MODEL_IDS.CLAUDE_SONNET_4,
     name: 'Claude Sonnet 4',
     provider: PROVIDERS.ANTHROPIC,
     capabilities: [
@@ -19,7 +19,7 @@ export const STATIC_MODELS = [
     pricing: { promptPerMillion: 3.0, completionPerMillion: 15.0 },
   },
   {
-    id: 'anthropic/claude-3-5-haiku-20241022',
+    id: MODEL_IDS.CLAUDE_HAIKU_35,
     name: 'Claude 3.5 Haiku',
     provider: PROVIDERS.ANTHROPIC,
     capabilities: [
@@ -35,7 +35,7 @@ export const STATIC_MODELS = [
     pricing: { promptPerMillion: 0.8, completionPerMillion: 4.0 },
   },
   {
-    id: 'anthropic/claude-opus-4-20250514',
+    id: MODEL_IDS.CLAUDE_OPUS_4,
     name: 'Claude Opus 4',
     provider: PROVIDERS.ANTHROPIC,
     capabilities: [
@@ -52,7 +52,7 @@ export const STATIC_MODELS = [
     pricing: { promptPerMillion: 15.0, completionPerMillion: 75.0 },
   },
   {
-    id: 'openai/gpt-4o',
+    id: MODEL_IDS.GPT_4O,
     name: 'GPT-4o',
     provider: PROVIDERS.OPENAI,
     capabilities: [
@@ -68,7 +68,7 @@ export const STATIC_MODELS = [
     pricing: { promptPerMillion: 2.5, completionPerMillion: 10.0 },
   },
   {
-    id: 'openai/gpt-4o-mini',
+    id: MODEL_IDS.GPT_4O_MINI,
     name: 'GPT-4o Mini',
     provider: PROVIDERS.OPENAI,
     capabilities: [MODEL_CATEGORIES.FAST, MODEL_CATEGORIES.GENERAL, MODEL_CATEGORIES.VISION],
@@ -79,7 +79,7 @@ export const STATIC_MODELS = [
     pricing: { promptPerMillion: 0.15, completionPerMillion: 0.6 },
   },
   {
-    id: 'openai/o4-mini',
+    id: MODEL_IDS.O4_MINI,
     name: 'o4-mini',
     provider: PROVIDERS.OPENAI,
     capabilities: [MODEL_CATEGORIES.CODE, MODEL_CATEGORIES.ANALYSIS, MODEL_CATEGORIES.GENERAL],
@@ -90,7 +90,7 @@ export const STATIC_MODELS = [
     pricing: { promptPerMillion: 1.1, completionPerMillion: 4.4 },
   },
   {
-    id: 'google/gemini-2.5-pro-preview',
+    id: MODEL_IDS.GEMINI_25_PRO,
     name: 'Gemini 2.5 Pro',
     provider: PROVIDERS.GOOGLE,
     capabilities: [
@@ -106,7 +106,7 @@ export const STATIC_MODELS = [
     pricing: { promptPerMillion: 1.25, completionPerMillion: 10.0 },
   },
   {
-    id: 'google/gemini-2.0-flash',
+    id: MODEL_IDS.GEMINI_20_FLASH,
     name: 'Gemini 2.0 Flash',
     provider: PROVIDERS.GOOGLE,
     capabilities: [MODEL_CATEGORIES.FAST, MODEL_CATEGORIES.GENERAL, MODEL_CATEGORIES.VISION],
@@ -117,7 +117,7 @@ export const STATIC_MODELS = [
     pricing: { promptPerMillion: 0.075, completionPerMillion: 0.3 },
   },
   {
-    id: 'meta-llama/llama-3.3-70b-instruct',
+    id: MODEL_IDS.LLAMA_33_70B,
     name: 'Llama 3.3 70B',
     provider: PROVIDERS.META,
     capabilities: [MODEL_CATEGORIES.CODE, MODEL_CATEGORIES.GENERAL, MODEL_CATEGORIES.FAST],
@@ -128,7 +128,7 @@ export const STATIC_MODELS = [
     pricing: { promptPerMillion: 0.12, completionPerMillion: 0.4 },
   },
   {
-    id: 'meta-llama/llama-3.1-8b-instruct',
+    id: MODEL_IDS.LLAMA_31_8B,
     name: 'Llama 3.1 8B',
     provider: PROVIDERS.META,
     capabilities: [MODEL_CATEGORIES.FAST],

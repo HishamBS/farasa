@@ -1,4 +1,9 @@
 import type { ReactNode } from 'react'
+import type { StreamPhase } from '@/schemas'
+
+export type RootLayoutProps = {
+  children: ReactNode
+}
 
 export type SidebarProps = {
   children: ReactNode
@@ -14,5 +19,5 @@ export type TitlebarProps = {
 export type PhaseBarProps = {
   isVisible: boolean
   message: string | null
-  phase: string | null
+  phase: StreamPhase | null
 }

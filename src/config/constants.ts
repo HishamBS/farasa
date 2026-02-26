@@ -30,6 +30,19 @@ export const MODEL_CATEGORIES = {
   FAST: 'fast',
 } as const
 
+export const MODEL_IDS = {
+  CLAUDE_SONNET_4: 'anthropic/claude-sonnet-4-20250514',
+  CLAUDE_HAIKU_35: 'anthropic/claude-3-5-haiku-20241022',
+  CLAUDE_OPUS_4: 'anthropic/claude-opus-4-20250514',
+  GPT_4O: 'openai/gpt-4o',
+  GPT_4O_MINI: 'openai/gpt-4o-mini',
+  O4_MINI: 'openai/o4-mini',
+  GEMINI_25_PRO: 'google/gemini-2.5-pro-preview',
+  GEMINI_20_FLASH: 'google/gemini-2.0-flash',
+  LLAMA_33_70B: 'meta-llama/llama-3.3-70b-instruct',
+  LLAMA_31_8B: 'meta-llama/llama-3.1-8b-instruct',
+} as const
+
 export const STREAM_EVENTS = {
   STATUS: 'status',
   THINKING: 'thinking',
@@ -85,8 +98,17 @@ export const PROVIDERS = {
   CEREBRAS: 'cerebras',
 } as const
 
-export const ROUTER_MODEL = 'meta-llama/llama-3.1-8b-instruct' as const
-export const DEFAULT_MODEL = 'anthropic/claude-sonnet-4-20250514' as const
+export const ROUTER_MODEL = MODEL_IDS.LLAMA_31_8B
+export const DEFAULT_MODEL = MODEL_IDS.CLAUDE_SONNET_4
+
+export const PREFERRED_MODELS = {
+  [MODEL_CATEGORIES.CODE]: MODEL_IDS.CLAUDE_SONNET_4,
+  [MODEL_CATEGORIES.ANALYSIS]: MODEL_IDS.GEMINI_25_PRO,
+  [MODEL_CATEGORIES.CREATIVE]: MODEL_IDS.CLAUDE_SONNET_4,
+  [MODEL_CATEGORIES.VISION]: MODEL_IDS.CLAUDE_SONNET_4,
+  [MODEL_CATEGORIES.FAST]: MODEL_IDS.LLAMA_33_70B,
+  [MODEL_CATEGORIES.GENERAL]: MODEL_IDS.CLAUDE_SONNET_4,
+} as const
 
 export const UX = {
   STATUS_MIN_DISPLAY_MS: 500,

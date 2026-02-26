@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
+import type { RootLayoutProps } from '@/types/layout'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -15,11 +16,7 @@ export const viewport: Viewport = {
   initialScale: 1,
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>

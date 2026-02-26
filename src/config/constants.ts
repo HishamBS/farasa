@@ -150,7 +150,6 @@ export const AI_PARAMS = {
   TITLE_TEMPERATURE: 0.3,
 } as const
 
-export const MODEL_DEFAULT_CONTEXT_WINDOW = 4096 as const
 export const MODEL_REGISTRY_CACHE_KEY = 'models' as const
 
 export const NEW_CHAT_TITLE = 'New Chat' as const

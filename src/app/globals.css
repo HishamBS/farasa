@@ -1,6 +1,5 @@
 @import "tailwindcss";
 
-/* Design tokens — expanded in Phase 7 with full light/dark palettes */
 :root {
   --bg-root: #09090b;
   --bg-surface: #18181b;

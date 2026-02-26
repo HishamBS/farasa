@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { neon } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
+import { MODEL_IDS } from '@/config/constants'
 import { conversations, messages, users } from './schema'
 
 const databaseUrl = process.env['DATABASE_URL']
@@ -54,7 +55,7 @@ await db.insert(messages).values([
     content:
       "I'm Farasa — your intelligent AI assistant. I can help with coding, research, writing, data analysis, and more. I can also search the web, read files, and render interactive UIs directly in our conversation.",
     metadata: {
-      modelUsed: 'anthropic/claude-sonnet-4-20250514',
+      modelUsed: MODEL_IDS.CLAUDE_SONNET_4,
       routerReasoning: 'General greeting — fast model sufficient.',
     },
   },

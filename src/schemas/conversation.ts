@@ -42,6 +42,10 @@ export const GenerateTitleSchema = z.object({
   firstMessage: z.string().min(1).max(LIMITS.MESSAGE_MAX_LENGTH),
 })
 
+export const ExportConversationSchema = z.object({
+  id: z.string().uuid(),
+})
+
 export const MessageListInputSchema = z.object({
   conversationId: z.string().uuid(),
   limit: z
@@ -59,4 +63,5 @@ export type DeleteConversation = z.infer<typeof DeleteConversationSchema>
 export type ConversationFilter = z.infer<typeof ConversationFilterSchema>
 export type ConversationSummary = z.infer<typeof ConversationSummarySchema>
 export type GenerateTitle = z.infer<typeof GenerateTitleSchema>
+export type ExportConversation = z.infer<typeof ExportConversationSchema>
 export type MessageListInput = z.infer<typeof MessageListInputSchema>

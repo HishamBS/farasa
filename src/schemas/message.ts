@@ -6,7 +6,7 @@ import {
   TOOL_NAMES,
   LIMITS,
 } from '@/config/constants'
-import { SearchResultSchema } from './search'
+import { SearchModeSchema, SearchResultSchema } from './search'
 
 export const MessageRoleSchema = z.enum(['user', 'assistant', 'system'])
 
@@ -82,7 +82,7 @@ export const StreamChunkSchema = z.discriminatedUnion('type', [
 export const ChatInputSchema = z.object({
   conversationId: z.string().uuid().optional(),
   content: z.string().min(1).max(LIMITS.MESSAGE_MAX_LENGTH),
-  mode: z.enum([CHAT_MODES.CHAT, CHAT_MODES.SEARCH]).default(CHAT_MODES.CHAT),
+  mode: SearchModeSchema.default(CHAT_MODES.CHAT),
   model: z.string().optional(),
   attachmentIds: z.array(z.string().uuid()).optional(),
 })

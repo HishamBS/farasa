@@ -1,0 +1,112 @@
+@import "tailwindcss";
+
+/* Design tokens — expanded in Phase 7 with full light/dark palettes */
+:root {
+  --bg-root: #09090b;
+  --bg-surface: #18181b;
+  --bg-surface-hover: #27272a;
+  --bg-surface-active: #3f3f46;
+  --bg-glass: rgba(24, 24, 27, 0.7);
+  --bg-input: rgba(39, 39, 42, 0.5);
+
+  --text-primary: #fafafa;
+  --text-secondary: #d4d4d8;
+  --text-muted: #71717a;
+  --text-ghost: #52525b;
+
+  --border-subtle: #27272a;
+  --border-default: #3f3f46;
+
+  --accent: #22d3ee;
+  --accent-hover: #67e8f9;
+  --accent-muted: rgba(34, 211, 238, 0.1);
+  --accent-glow: rgba(34, 211, 238, 0.2);
+
+  --success: #34d399;
+  --warning: #fbbf24;
+  --error: #f87171;
+
+  --thinking: #a78bfa;
+  --thinking-bg: rgba(167, 139, 250, 0.05);
+  --thinking-border: rgba(167, 139, 250, 0.2);
+
+  --provider-openai: #34d399;
+  --provider-anthropic: #fb923c;
+  --provider-google: #60a5fa;
+  --provider-meta: #818cf8;
+  --provider-groq: #fb7185;
+  --provider-cerebras: #fbbf24;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+[data-theme="light"] {
+  --bg-root: #fafafa;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #f4f4f5;
+  --bg-surface-active: #e4e4e7;
+  --bg-glass: rgba(255, 255, 255, 0.7);
+  --bg-input: rgba(244, 244, 245, 0.8);
+
+  --text-primary: #09090b;
+  --text-secondary: #3f3f46;
+  --text-muted: #71717a;
+  --text-ghost: #a1a1aa;
+
+  --border-subtle: #e4e4e7;
+  --border-default: #d4d4d8;
+
+  --accent: #0891b2;
+  --accent-hover: #0e7490;
+  --accent-muted: rgba(8, 145, 178, 0.1);
+  --accent-glow: rgba(8, 145, 178, 0.15);
+
+  --thinking: #7c3aed;
+  --thinking-bg: rgba(124, 58, 237, 0.05);
+  --thinking-border: rgba(124, 58, 237, 0.15);
+}
+
+/* Base */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background-color: var(--bg-root);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  line-height: 1.5;
+}
+
+/* Scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-default) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--border-default);
+  border-radius: 3px;
+}
+
+/* Selection */
+::selection {
+  background-color: var(--accent-muted);
+  color: var(--text-primary);
+}

@@ -1,0 +1,40 @@
+# Personal agent config — never push
+*.md
+!README.md
+!/docs/*.md
+
+.claude/
+.codex/
+
+.DS_Store
+
+# Dependencies
+node_modules/
+
+# Build outputs
+.next/
+out/
+dist/
+build/
+
+# Environment variables — never commit
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Drizzle migrations output
+drizzle/
+
+# Logs
+*.log
+bun-error.log*
+
+# TypeScript build cache
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# Misc
+*.pem
+.vercel

@@ -22,7 +22,10 @@ function streamStateReducer(state: StreamState, action: StreamAction): StreamSta
       )
       if (existing >= 0) {
         const updated = [...state.statusMessages]
-        updated[existing] = { ...updated[existing]!, completedAt: now }
+        const current = updated[existing]
+        if (current) {
+          updated[existing] = { ...current, completedAt: now }
+        }
         return { ...state, statusMessages: updated }
       }
       return {
@@ -82,10 +85,9 @@ function streamStateReducer(state: StreamState, action: StreamAction): StreamSta
       if (idx < 0) return state
       const realIdx = state.toolExecutions.length - 1 - idx
       const updated = [...state.toolExecutions]
-      updated[realIdx] = {
-        ...updated[realIdx]!,
-        result: action.result,
-        completedAt: Date.now(),
+      const current = updated[realIdx]
+      if (current) {
+        updated[realIdx] = { ...current, result: action.result, completedAt: Date.now() }
       }
       return { ...state, toolExecutions: updated }
     }

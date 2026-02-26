@@ -17,6 +17,7 @@ export const uploadRouter = router({
       const [attachment] = await ctx.db
         .insert(attachments)
         .values({
+          userId: ctx.userId,
           fileName: input.fileName,
           fileType: input.fileType,
           fileSize: input.fileSize,

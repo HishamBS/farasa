@@ -5,6 +5,7 @@ import { trpcClient } from '@/trpc/client'
 import { STREAM_EVENTS } from '@/config/constants'
 import { useStreamState } from '@/features/stream-phases/hooks/use-stream-state'
 import type { ChatInput, StreamChunk } from '@/schemas/message'
+import type { v0_8 } from '@a2ui-sdk/types'
 
 export function useChatStream() {
   const { state: streamState, dispatch, reset } = useStreamState()
@@ -57,7 +58,12 @@ export function useChatStream() {
               dispatch({ type: 'TEXT_CHUNK', content: chunk.content })
               break
             case STREAM_EVENTS.A2UI:
-              // A2UI JSONL lines rendered by a2ui-message component in Phase 15
+              try {
+                const message = JSON.parse(chunk.jsonl) as v0_8.A2UIMessage
+                dispatch({ type: 'A2UI_MESSAGE', message })
+              } catch {
+                // Non-fatal: malformed A2UI JSONL is skipped
+              }
               break
             case STREAM_EVENTS.ERROR:
               dispatch({ type: 'ERROR', message: chunk.message })

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { UX } from '@/config/constants'
 
 export function useSidebar() {
   const [isOpen, setIsOpen] = useState(false)
@@ -13,7 +14,7 @@ export function useSidebar() {
   useEffect(() => {
     function onTouchStart(e: TouchEvent) {
       const touch = e.touches[0]
-      if (touch && touch.clientX < 32) {
+      if (touch && touch.clientX < UX.SIDEBAR_SWIPE_OPEN_THRESHOLD) {
         touchStartX.current = touch.clientX
       }
     }
@@ -21,7 +22,7 @@ export function useSidebar() {
     function onTouchEnd(e: TouchEvent) {
       if (touchStartX.current === null) return
       const touch = e.changedTouches[0]
-      if (touch && touch.clientX - touchStartX.current > 64) {
+      if (touch && touch.clientX - touchStartX.current > UX.SIDEBAR_SWIPE_CLOSE_THRESHOLD) {
         setIsOpen(true)
       }
       touchStartX.current = null

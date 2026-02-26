@@ -8,7 +8,8 @@ import {
   UpdateConversationSchema,
   ConversationFilterSchema,
 } from '@/schemas/conversation'
-import { LIMITS } from '@/config/constants'
+import { LIMITS, NEW_CHAT_TITLE } from '@/config/constants'
+import type { MessageMetadata } from '@/schemas/message'
 
 export const conversationRouter = router({
   list: protectedProcedure
@@ -61,7 +62,7 @@ export const conversationRouter = router({
         .insert(conversations)
         .values({
           userId: ctx.userId,
-          title: input.title ?? 'New Chat',
+          title: input.title ?? NEW_CHAT_TITLE,
           model: input.model,
         })
         .returning()
@@ -145,7 +146,12 @@ export const conversationRouter = router({
       const [updated] = await ctx.db
         .update(conversations)
         .set({ title, updatedAt: new Date() })
-        .where(eq(conversations.id, input.conversationId))
+        .where(
+          and(
+            eq(conversations.id, input.conversationId),
+            eq(conversations.userId, ctx.userId),
+          ),
+        )
         .returning({ title: conversations.title })
 
       return { title: updated?.title ?? title }
@@ -181,8 +187,7 @@ export const conversationRouter = router({
         if (msg.role === 'user') {
           lines.push(`**You:** ${msg.content}`, '')
         } else if (msg.role === 'assistant') {
-          const modelLine = (msg.metadata as { modelUsed?: string } | null)
-            ?.modelUsed
+          const modelLine = (msg.metadata as MessageMetadata | null)?.modelUsed
           const prefix = modelLine
             ? `**Assistant** (${modelLine}):`
             : '**Assistant:**'

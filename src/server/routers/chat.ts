@@ -9,9 +9,21 @@ import {
   STATUS_MESSAGES,
   CHAT_MODES,
   TOOL_NAMES,
+  AI_REASONING,
+  AI_PARAMS,
+  LIMITS,
 } from '@/config/constants'
 import { PROMPTS } from '@/config/prompts'
 import type { StreamChunk } from '@/schemas/message'
+
+type ContentBlock =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } }
+
+type OAIMessage =
+  | { role: 'system'; content: string }
+  | { role: 'user'; content: string | ContentBlock[] }
+  | { role: 'assistant'; content: string }
 
 export const chatRouter = router({
   stream: protectedProcedure
@@ -21,7 +33,6 @@ export const chatRouter = router({
       let isNewConversation = false
 
       try {
-        // 1. Create conversation if needed
         if (!conversationId) {
           isNewConversation = true
           const [created] = await ctx.db
@@ -31,7 +42,6 @@ export const chatRouter = router({
           if (!created) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' })
           conversationId = created.id
         } else {
-          // Verify ownership
           const [conv] = await ctx.db
             .select({ id: conversations.id })
             .from(conversations)
@@ -45,7 +55,6 @@ export const chatRouter = router({
           if (!conv) throw new TRPCError({ code: 'NOT_FOUND' })
         }
 
-        // 2. Persist user message
         const [userMessage] = await ctx.db
           .insert(messages)
           .values({
@@ -56,24 +65,32 @@ export const chatRouter = router({
           .returning()
         if (!userMessage) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' })
 
-        // 3. Link pending attachments
         if (input.attachmentIds.length > 0) {
           for (const attachmentId of input.attachmentIds) {
             const [att] = await ctx.db
               .select({ id: attachments.id })
               .from(attachments)
-              .where(eq(attachments.id, attachmentId))
+              .where(
+                and(
+                  eq(attachments.id, attachmentId),
+                  eq(attachments.userId, ctx.userId),
+                ),
+              )
               .limit(1)
             if (att) {
               await ctx.db
                 .update(attachments)
                 .set({ messageId: userMessage.id })
-                .where(eq(attachments.id, attachmentId))
+                .where(
+                  and(
+                    eq(attachments.id, attachmentId),
+                    eq(attachments.userId, ctx.userId),
+                  ),
+                )
             }
           }
         }
 
-        // 4. Auto-route model selection (skip if model explicitly provided)
         let selectedModel = input.model
         let routerReasoning: string | undefined
 
@@ -100,15 +117,10 @@ export const chatRouter = router({
           const modelChunk: StreamChunk = {
             type: STREAM_EVENTS.MODEL_SELECTED,
             model: selectedModel,
-            reasoning: 'Model explicitly specified by user.',
+            reasoning: AI_REASONING.MODEL_EXPLICIT,
           }
           yield modelChunk
         }
-
-        // 5. Process attachments for multimodal content
-        type ContentBlock =
-          | { type: 'text'; text: string }
-          | { type: 'image_url'; image_url: { url: string } }
 
         let userContent: string | ContentBlock[] = input.content
         if (input.attachmentIds.length > 0) {
@@ -124,7 +136,12 @@ export const chatRouter = router({
             const [att] = await ctx.db
               .select()
               .from(attachments)
-              .where(eq(attachments.id, attachmentId))
+              .where(
+                and(
+                  eq(attachments.id, attachmentId),
+                  eq(attachments.userId, ctx.userId),
+                ),
+              )
               .limit(1)
             if (att) {
               if (att.fileType.startsWith('image/')) {
@@ -143,7 +160,6 @@ export const chatRouter = router({
           userContent = blocks
         }
 
-        // 6. Search mode
         let searchContext = ''
         let searchResults: unknown[] = []
         if (input.mode === CHAT_MODES.SEARCH) {
@@ -157,7 +173,7 @@ export const chatRouter = router({
           const { tavilySearch } = await import('@/lib/search/tavily')
           const response = await tavilySearch({
             query: input.content,
-            maxResults: 5,
+            maxResults: LIMITS.SEARCH_MAX_RESULTS,
             includeImages: false,
             searchDepth: 'basic',
           })
@@ -180,7 +196,6 @@ export const chatRouter = router({
               .join('\n')
         }
 
-        // 7. Thinking status
         const thinkingChunk: StreamChunk = {
           type: STREAM_EVENTS.STATUS,
           phase: STREAM_PHASES.THINKING,
@@ -188,26 +203,19 @@ export const chatRouter = router({
         }
         yield thinkingChunk
 
-        // 8. Build messages for OpenRouter
         const systemContent = PROMPTS.CHAT_SYSTEM_PROMPT + searchContext
-        type OAIMessage =
-          | { role: 'system'; content: string }
-          | { role: 'user'; content: string | ContentBlock[] }
-          | { role: 'assistant'; content: string }
-
         const oaiMessages: OAIMessage[] = [
           { role: 'system', content: systemContent },
           { role: 'user', content: userContent },
         ]
 
-        // 9. Stream from OpenRouter
         const { openrouter } = await import('@/lib/ai/client')
         const stream = await openrouter.chat.completions.create(
           {
             model: selectedModel,
             messages: oaiMessages,
             stream: true,
-            max_tokens: 4096,
+            max_tokens: AI_PARAMS.CHAT_MAX_TOKENS,
           },
           { signal },
         )
@@ -223,7 +231,7 @@ export const chatRouter = router({
           const delta = chunk.choices[0]?.delta
           if (!delta) continue
 
-          // Handle thinking tokens (Claude extended thinking)
+          // justified: OpenRouter thinking tokens are not in the standard OpenAI delta type
           const deltaAsRecord = delta as Record<string, unknown>
           if (
             typeof deltaAsRecord['thinking'] === 'string' &&
@@ -243,7 +251,6 @@ export const chatRouter = router({
           if (delta.content) {
             const text = delta.content
 
-            // Detect A2UI markers
             if (text.includes('```a2ui')) {
               inA2UI = true
               const a2uiStatusChunk: StreamChunk = {
@@ -282,7 +289,6 @@ export const chatRouter = router({
           }
         }
 
-        // 10. Finalize thinking block
         if (thinkingContent) {
           thinkingDurationMs = thinkingStartedAt
             ? Date.now() - thinkingStartedAt
@@ -295,7 +301,6 @@ export const chatRouter = router({
           yield thinkCompleteChunk
         }
 
-        // 11. Persist assistant message
         const metadata = MessageMetadataSchema.parse({
           modelUsed: selectedModel,
           routerReasoning,
@@ -312,29 +317,38 @@ export const chatRouter = router({
           metadata,
         })
 
-        // Update conversation updatedAt
         await ctx.db
           .update(conversations)
           .set({ updatedAt: new Date() })
-          .where(eq(conversations.id, conversationId))
+          .where(
+            and(
+              eq(conversations.id, conversationId),
+              eq(conversations.userId, ctx.userId),
+            ),
+          )
 
-        // 12. Trigger title generation for new conversations
         if (isNewConversation) {
+          const titleConversationId = conversationId
           void (async () => {
+            if (!titleConversationId) return
             try {
               const { generateTitle } = await import('@/lib/ai/title')
               const title = await generateTitle(input.content)
               await ctx.db
                 .update(conversations)
                 .set({ title, updatedAt: new Date() })
-                .where(eq(conversations.id, conversationId!))
+                .where(
+                  and(
+                    eq(conversations.id, titleConversationId),
+                    eq(conversations.userId, ctx.userId),
+                  ),
+                )
             } catch {
-              // Non-critical: title generation failure doesn't affect the chat
+              // Non-critical: title generation failure does not affect the chat
             }
           })()
         }
 
-        // 13. Done
         const doneChunk: StreamChunk = {
           type: STREAM_EVENTS.DONE,
           usage: undefined,

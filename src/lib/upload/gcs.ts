@@ -1,6 +1,6 @@
 import { Storage } from '@google-cloud/storage'
 import { env } from '@/config/env'
-import { LIMITS } from '@/config/constants'
+import { LIMITS, EXTERNAL_URLS } from '@/config/constants'
 
 const storage = new Storage({ projectId: env.GCS_PROJECT_ID })
 const bucket = storage.bucket(env.GCS_BUCKET_NAME)
@@ -29,7 +29,7 @@ export async function getPresignedUploadUrl({
     contentType: fileType,
   })
 
-  const storageUrl = `https://storage.googleapis.com/${env.GCS_BUCKET_NAME}/${objectName}`
+  const storageUrl = `${EXTERNAL_URLS.GCS_BASE}/${env.GCS_BUCKET_NAME}/${objectName}`
 
   return { uploadUrl, storageUrl }
 }

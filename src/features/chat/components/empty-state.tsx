@@ -32,12 +32,12 @@ function SuggestionChip({ text, onSelect }: SuggestionChipProps) {
   )
 }
 
-export function EmptyState() {
-  const shouldReduce = useReducedMotion()
+type EmptyStateProps = {
+  onSelect?: (text: string) => void
+}
 
-  const handleSelect = useCallback((_text: string) => {
-    // Phase 11: will connect to chat input
-  }, [])
+export function EmptyState({ onSelect }: EmptyStateProps) {
+  const shouldReduce = useReducedMotion()
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4">
@@ -59,7 +59,7 @@ export function EmptyState() {
           <SuggestionChip
             key={suggestion}
             text={suggestion}
-            onSelect={handleSelect}
+            onSelect={onSelect ?? (() => undefined)}
           />
         ))}
       </motion.div>

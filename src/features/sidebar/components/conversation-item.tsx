@@ -68,7 +68,7 @@ export function ConversationItem({
   const handleRenameStart = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     setIsEditing(true)
-    setTimeout(() => inputRef.current?.focus(), 0)
+    requestAnimationFrame(() => inputRef.current?.focus())
   }, [])
 
   const handleRenameCommit = useCallback(() => {

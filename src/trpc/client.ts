@@ -2,10 +2,11 @@ import { createTRPCClient, splitLink, httpBatchLink, httpSubscriptionLink } from
 import superjson from 'superjson'
 import type { AppRouter } from '@/server/routers/_app'
 import { ROUTES } from '@/config/routes'
+import { APP_CONFIG } from '@/config/constants'
 
-function getBaseUrl() {
+export function getBaseUrl() {
   if (typeof window !== 'undefined') return ''
-  return process.env['NEXT_PUBLIC_APP_URL'] ?? 'http://localhost:3000'
+  return process.env['NEXT_PUBLIC_APP_URL'] ?? APP_CONFIG.DEFAULT_LOCALHOST_URL
 }
 
 export const trpcClient = createTRPCClient<AppRouter>({

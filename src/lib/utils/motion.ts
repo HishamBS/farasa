@@ -1,10 +1,7 @@
 import type { Spring, Transition } from 'framer-motion'
 import { MOTION } from '@/config/constants'
 
-// Framer Motion requires a mutable tuple for cubic-bezier easing
 const ease = [...MOTION.EASING] as [number, number, number, number]
-
-// ── Fade ──────────────────────────────────────────────────────────────────────
 
 export const fadeIn = {
   initial: { opacity: 0 },
@@ -27,8 +24,6 @@ export const fadeInDown = {
   transition: { duration: MOTION.DURATION_NORMAL, ease } satisfies Transition,
 }
 
-// ── Slide ─────────────────────────────────────────────────────────────────────
-
 export const slideInRight = {
   initial: { x: '100%', opacity: 0 },
   animate: { x: 0, opacity: 1 },
@@ -43,16 +38,12 @@ export const slideInLeft = {
   transition: { duration: MOTION.DURATION_SLOW, ease } satisfies Transition,
 }
 
-// ── Scale ─────────────────────────────────────────────────────────────────────
-
 export const scaleIn = {
   initial: { scale: 0.95, opacity: 0 },
   animate: { scale: 1, opacity: 1 },
   exit: { scale: 0.95, opacity: 0 },
   transition: { duration: MOTION.DURATION_FAST, ease } satisfies Transition,
 }
-
-// ── Expand / Collapse (for disclosure panels) ─────────────────────────────────
 
 export const expand = {
   initial: { height: 0, opacity: 0 },
@@ -68,12 +59,10 @@ export const collapse = {
   transition: { duration: MOTION.DURATION_NORMAL, ease } satisfies Transition,
 }
 
-// ── Repeating ─────────────────────────────────────────────────────────────────
-
 export const pulse = {
   animate: { opacity: [1, 0.5, 1] },
   transition: {
-    duration: 1.5,
+    duration: MOTION.DURATION_LOOP,
     repeat: Infinity,
     ease: 'easeInOut',
   } satisfies Transition,
@@ -82,21 +71,17 @@ export const pulse = {
 export const shimmer = {
   animate: { backgroundPosition: ['200% 0', '-200% 0'] },
   transition: {
-    duration: 1.5,
+    duration: MOTION.DURATION_LOOP,
     repeat: Infinity,
     ease: 'linear',
   } satisfies Transition,
 }
-
-// ── Spring ────────────────────────────────────────────────────────────────────
 
 export const springBounce: Spring = {
   type: 'spring',
   stiffness: MOTION.SPRING_STIFFNESS,
   damping: MOTION.SPRING_DAMPING,
 }
-
-// ── Stagger container helper ──────────────────────────────────────────────────
 
 export const staggerContainer = {
   animate: {

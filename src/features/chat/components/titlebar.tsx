@@ -2,12 +2,14 @@
 
 import { usePathname } from 'next/navigation'
 import { Menu } from 'lucide-react'
+import { ROUTES } from '@/config/routes'
+import { NEW_CONVERSATION_TITLE } from '@/config/constants'
 import type { TitlebarProps } from '@/types/layout'
 
 export function Titlebar({ onMenuClick }: Omit<TitlebarProps, 'title'>) {
   const pathname = usePathname()
-  const isChat = pathname.startsWith('/chat/')
-  const title = isChat ? 'New Conversation' : null
+  const isChat = pathname.startsWith(`${ROUTES.CHAT}/`)
+  const title = isChat ? NEW_CONVERSATION_TITLE : null
 
   return (
     <header className="flex h-12 items-center gap-3 border-b border-[--border-subtle] px-4">

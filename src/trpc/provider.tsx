@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createTRPCReact } from '@trpc/react-query'
@@ -7,24 +8,23 @@ import { splitLink, httpBatchLink, httpSubscriptionLink } from '@trpc/client'
 import superjson from 'superjson'
 import type { AppRouter } from '@/server/routers/_app'
 import { ROUTES } from '@/config/routes'
+import { UX } from '@/config/constants'
+import { getBaseUrl } from '@/trpc/client'
 
 export const trpc = createTRPCReact<AppRouter>()
-
-function getBaseUrl() {
-  if (typeof window !== 'undefined') return ''
-  return process.env['NEXT_PUBLIC_APP_URL'] ?? 'http://localhost:3000'
-}
 
 function makeQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 60 * 1000,
+        staleTime: UX.QUERY_STALE_TIME_MS,
       },
     },
   })
 }
 
+// Module-level singleton avoids re-creating the QueryClient on every render in
+// the browser. On the server a fresh client is created per request (no singleton).
 let browserQueryClient: QueryClient | undefined
 
 function getQueryClient() {
@@ -35,7 +35,7 @@ function getQueryClient() {
   return browserQueryClient
 }
 
-export function TRPCProvider({ children }: { children: React.ReactNode }) {
+export function TRPCProvider({ children }: { children: ReactNode }) {
   const queryClient = getQueryClient()
   const [trpcClientInstance] = useState(() =>
     trpc.createClient({

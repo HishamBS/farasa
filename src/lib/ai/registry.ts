@@ -1,16 +1,21 @@
 import type { ModelConfig } from '@/schemas/model'
 import { STATIC_MODELS } from '@/config/models'
-import { LIMITS } from '@/config/constants'
+import {
+  LIMITS,
+  MODEL_CATEGORIES,
+  MODEL_DEFAULT_CONTEXT_WINDOW,
+  MODEL_REGISTRY_CACHE_KEY,
+  EXTERNAL_URLS,
+} from '@/config/constants'
 import { ModelConfigSchema } from '@/schemas/model'
 import { env } from '@/config/env'
 
 type CacheEntry = { models: ModelConfig[]; fetchedAt: number }
 
 const cache = new Map<string, CacheEntry>()
-const CACHE_KEY = 'models'
 
 async function fetchFromOpenRouter(): Promise<ModelConfig[]> {
-  const response = await fetch('https://openrouter.ai/api/v1/models', {
+  const response = await fetch(EXTERNAL_URLS.OPENROUTER_MODELS, {
     headers: { Authorization: `Bearer ${env.OPENROUTER_API_KEY}` },
   })
 
@@ -36,8 +41,8 @@ async function fetchFromOpenRouter(): Promise<ModelConfig[]> {
       id: raw.id,
       name: raw.name,
       provider,
-      capabilities: ['general'],
-      contextWindow: raw.context_length ?? 4096,
+      capabilities: [MODEL_CATEGORIES.GENERAL],
+      contextWindow: raw.context_length ?? MODEL_DEFAULT_CONTEXT_WINDOW,
       supportsVision: raw.architecture?.modality?.includes('image') ?? false,
       supportsTools: true,
       supportsThinking: raw.id.includes('claude') && raw.id.includes('sonnet'),
@@ -53,14 +58,14 @@ async function fetchFromOpenRouter(): Promise<ModelConfig[]> {
 }
 
 export async function getModelRegistry(): Promise<ModelConfig[]> {
-  const cached = cache.get(CACHE_KEY)
+  const cached = cache.get(MODEL_REGISTRY_CACHE_KEY)
   if (cached && Date.now() - cached.fetchedAt < LIMITS.MODEL_REGISTRY_CACHE_TTL_MS) {
     return cached.models
   }
 
   try {
     const models = await fetchFromOpenRouter()
-    cache.set(CACHE_KEY, { models, fetchedAt: Date.now() })
+    cache.set(MODEL_REGISTRY_CACHE_KEY, { models, fetchedAt: Date.now() })
     return models
   } catch {
     return STATIC_MODELS.map((m) => ModelConfigSchema.parse(m))

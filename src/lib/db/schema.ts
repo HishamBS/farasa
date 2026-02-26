@@ -11,8 +11,7 @@ import {
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccountType } from '@auth/core/adapters'
 import type { MessageMetadata } from '@/schemas/message'
-
-// ==================== Auth.js v5 adapter tables ====================
+import { NEW_CHAT_TITLE } from '@/config/constants'
 
 export const users = pgTable('users', {
   id: text('id')
@@ -80,8 +79,6 @@ export const verificationTokens = pgTable(
   }),
 )
 
-// ==================== Application tables ====================
-
 export const conversations = pgTable(
   'conversations',
   {
@@ -89,7 +86,7 @@ export const conversations = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    title: text('title').notNull().default('New Chat'),
+    title: text('title').notNull().default(NEW_CHAT_TITLE),
     model: text('model'),
     isPinned: boolean('is_pinned').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
@@ -130,15 +127,25 @@ export const messages = pgTable(
   }),
 )
 
-export const attachments = pgTable('attachments', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  messageId: uuid('message_id')
-    .references(() => messages.id, { onDelete: 'cascade' }),
-  fileName: text('file_name').notNull(),
-  fileType: text('file_type').notNull(),
-  fileSize: integer('file_size').notNull(),
-  storageUrl: text('storage_url').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
-    .notNull()
-    .defaultNow(),
-})
+export const attachments = pgTable(
+  'attachments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    messageId: uuid('message_id').references(() => messages.id, {
+      onDelete: 'cascade',
+    }),
+    fileName: text('file_name').notNull(),
+    fileType: text('file_type').notNull(),
+    fileSize: integer('file_size').notNull(),
+    storageUrl: text('storage_url').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    attUserIdx: index('att_user_idx').on(table.userId),
+  }),
+)

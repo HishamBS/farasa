@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback } from 'react'
+import type { ReactNode } from 'react'
 import { SidebarContainer } from '@/features/sidebar/components/sidebar-container'
 import { SidebarHeader } from '@/features/sidebar/components/sidebar-header'
 import { ConversationList } from '@/features/sidebar/components/conversation-list'
@@ -11,7 +12,7 @@ import { Titlebar } from '@/features/chat/components/titlebar'
 export default function ProtectedLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: ReactNode
 }) {
   const { isOpen, open, close } = useSidebar()
 

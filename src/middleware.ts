@@ -5,8 +5,8 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth
   const { pathname } = req.nextUrl
 
-  const isProtected = pathname.startsWith('/chat')
-  const isAuthPage = pathname.startsWith('/login')
+  const isProtected = pathname.startsWith(ROUTES.CHAT)
+  const isAuthPage = pathname.startsWith(ROUTES.LOGIN)
 
   if (isProtected && !isLoggedIn) {
     return Response.redirect(new URL(ROUTES.LOGIN, req.nextUrl))

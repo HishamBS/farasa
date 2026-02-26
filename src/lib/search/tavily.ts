@@ -2,7 +2,7 @@ import { tavily } from '@tavily/core'
 import { env } from '@/config/env'
 import { SearchResultSchema, SearchImageSchema } from '@/schemas/search'
 import { LIMITS } from '@/config/constants'
-import type { SearchQuery, SearchResponse } from '@/schemas/search'
+import type { SearchQuery, SearchResponse, SearchResult, SearchImage } from '@/schemas/search'
 
 const client = tavily({ apiKey: env.TAVILY_API_KEY })
 
@@ -23,8 +23,8 @@ export async function tavilySearch(input: SearchQuery): Promise<SearchResponse> 
         publishedDate: r.publishedDate,
       }),
     )
-    .filter((r) => r.success)
-    .map((r) => (r as { success: true; data: typeof SearchResultSchema._type }).data)
+    .filter((r): r is { success: true; data: SearchResult } => r.success)
+    .map((r) => r.data)
 
   const images = input.includeImages
     ? (result.images ?? [])
@@ -33,8 +33,8 @@ export async function tavilySearch(input: SearchQuery): Promise<SearchResponse> 
             typeof img === 'string' ? { url: img } : img,
           ),
         )
-        .filter((r) => r.success)
-        .map((r) => (r as { success: true; data: typeof SearchImageSchema._type }).data)
+        .filter((r): r is { success: true; data: SearchImage } => r.success)
+        .map((r) => r.data)
     : []
 
   return { results, images, query: input.query }

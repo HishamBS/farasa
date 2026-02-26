@@ -4,6 +4,7 @@ import { useCallback } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { slideInLeft } from '@/lib/utils/motion'
 import { cn } from '@/lib/utils/cn'
+import { MOTION } from '@/config/constants'
 import type { SidebarProps } from '@/types/layout'
 
 export function SidebarContainer({ children, isOpen, onClose }: SidebarProps) {
@@ -20,7 +21,7 @@ export function SidebarContainer({ children, isOpen, onClose }: SidebarProps) {
             initial={shouldReduce ? {} : { opacity: 0 }}
             animate={shouldReduce ? {} : { opacity: 1 }}
             exit={shouldReduce ? {} : { opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={shouldReduce ? {} : { duration: MOTION.DURATION_NORMAL }}
             onClick={handleBackdropClick}
             aria-hidden="true"
           />

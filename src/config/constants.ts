@@ -116,6 +116,10 @@ export const UX = {
   STREAM_BUFFER_FLUSH_MS: 16,
   AUTO_SCROLL_THRESHOLD: 100,
   COPY_FEEDBACK_DURATION_MS: 2_000,
+  QUERY_STALE_TIME_MS: 60_000,
+  SIDEBAR_SWIPE_OPEN_THRESHOLD: 32,
+  SIDEBAR_SWIPE_CLOSE_THRESHOLD: 64,
+  TEXTAREA_MAX_HEIGHT_PIXELS: 192,
 } as const
 
 export const MOTION = {
@@ -123,8 +127,44 @@ export const MOTION = {
   DURATION_NORMAL: 0.2,
   DURATION_MEDIUM: 0.25,
   DURATION_SLOW: 0.3,
+  DURATION_LOOP: 1.5,
   STAGGER_CHILDREN: 0.05,
   SPRING_STIFFNESS: 400,
   SPRING_DAMPING: 25,
   EASING: [0.4, 0, 0.2, 1] as const,
+} as const
+
+export const AI_PARAMS = {
+  ROUTER_MAX_TOKENS: 200,
+  TITLE_MAX_TOKENS: 50,
+  CHAT_MAX_TOKENS: 4096,
+  ROUTER_TEMPERATURE: 0,
+  TITLE_TEMPERATURE: 0.3,
+} as const
+
+export const MODEL_DEFAULT_CONTEXT_WINDOW = 4096 as const
+export const MODEL_REGISTRY_CACHE_KEY = 'models' as const
+
+export const NEW_CHAT_TITLE = 'New Chat' as const
+export const NEW_CONVERSATION_TITLE = 'New Conversation' as const
+export const CODE_BLOCK_FALLBACK_LANG = 'text' as const
+export const SHIKI_DARK_THEME = 'vitesse-dark' as const
+export const SHIKI_LIGHT_THEME = 'vitesse-light' as const
+
+export const AI_REASONING = {
+  MODEL_EXPLICIT: 'Model explicitly specified by user.',
+  ROUTING_FALLBACK: 'Fallback to default model due to routing error.',
+} as const
+
+export const EXTERNAL_URLS = {
+  OPENROUTER_API: 'https://openrouter.ai/api/v1',
+  OPENROUTER_MODELS: 'https://openrouter.ai/api/v1/models',
+  GCS_BASE: 'https://storage.googleapis.com',
+} as const
+
+export const APP_CONFIG = {
+  NAME: 'Farasa',
+  DEFAULT_LOCALHOST_URL: 'http://localhost:3000',
+  THEME_COLOR: '#09090b',
+  DEFAULT_THEME: 'dark',
 } as const

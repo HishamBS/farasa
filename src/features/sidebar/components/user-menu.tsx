@@ -4,13 +4,14 @@ import { useCallback } from 'react'
 import { signOut, useSession } from 'next-auth/react'
 import { LogOut, Sun, Moon } from 'lucide-react'
 import { useTheme } from '@/lib/utils/use-theme'
+import { ROUTES } from '@/config/routes'
 
 export function UserMenu() {
   const { data: session } = useSession()
   const { theme, toggleTheme } = useTheme()
 
   const handleSignOut = useCallback(() => {
-    void signOut({ callbackUrl: '/' })
+    void signOut({ callbackUrl: ROUTES.HOME })
   }, [])
 
   return (

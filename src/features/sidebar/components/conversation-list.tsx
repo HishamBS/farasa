@@ -14,7 +14,7 @@ export function ConversationList() {
       <div className="flex flex-col gap-1 px-2">
         {Array.from({ length: 6 }).map((_, i) => (
           <div
-            key={i}
+            key={`skeleton-${i}`}
             className="h-11 rounded-lg bg-[--bg-surface-hover] animate-pulse"
           />
         ))}

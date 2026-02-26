@@ -1,0 +1,36 @@
+'use client'
+
+import { useCallback } from 'react'
+import { SidebarContainer } from '@/features/sidebar/components/sidebar-container'
+import { SidebarHeader } from '@/features/sidebar/components/sidebar-header'
+import { ConversationList } from '@/features/sidebar/components/conversation-list'
+import { UserMenu } from '@/features/sidebar/components/user-menu'
+import { useSidebar } from '@/features/sidebar/hooks/use-sidebar'
+import { Titlebar } from '@/features/chat/components/titlebar'
+
+export default function ProtectedLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const { isOpen, open, close } = useSidebar()
+
+  const handleMenuClick = useCallback(() => open(), [open])
+
+  return (
+    <div className="flex h-screen overflow-hidden bg-[--bg-root]">
+      <SidebarContainer isOpen={isOpen} onClose={close}>
+        <SidebarHeader />
+        <div className="flex-1 overflow-y-auto py-2">
+          <ConversationList />
+        </div>
+        <UserMenu />
+      </SidebarContainer>
+
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <Titlebar onMenuClick={handleMenuClick} />
+        <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
+      </div>
+    </div>
+  )
+}

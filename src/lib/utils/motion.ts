@@ -1,0 +1,107 @@
+import type { Spring, Transition } from 'framer-motion'
+import { MOTION } from '@/config/constants'
+
+// Framer Motion requires a mutable tuple for cubic-bezier easing
+const ease = [...MOTION.EASING] as [number, number, number, number]
+
+// ── Fade ──────────────────────────────────────────────────────────────────────
+
+export const fadeIn = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit: { opacity: 0 },
+  transition: { duration: MOTION.DURATION_NORMAL, ease } satisfies Transition,
+}
+
+export const fadeInUp = {
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: 8 },
+  transition: { duration: MOTION.DURATION_MEDIUM, ease } satisfies Transition,
+}
+
+export const fadeInDown = {
+  initial: { opacity: 0, y: -8 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -8 },
+  transition: { duration: MOTION.DURATION_NORMAL, ease } satisfies Transition,
+}
+
+// ── Slide ─────────────────────────────────────────────────────────────────────
+
+export const slideInRight = {
+  initial: { x: '100%', opacity: 0 },
+  animate: { x: 0, opacity: 1 },
+  exit: { x: '100%', opacity: 0 },
+  transition: { duration: MOTION.DURATION_SLOW, ease } satisfies Transition,
+}
+
+export const slideInLeft = {
+  initial: { x: '-100%', opacity: 0 },
+  animate: { x: 0, opacity: 1 },
+  exit: { x: '-100%', opacity: 0 },
+  transition: { duration: MOTION.DURATION_SLOW, ease } satisfies Transition,
+}
+
+// ── Scale ─────────────────────────────────────────────────────────────────────
+
+export const scaleIn = {
+  initial: { scale: 0.95, opacity: 0 },
+  animate: { scale: 1, opacity: 1 },
+  exit: { scale: 0.95, opacity: 0 },
+  transition: { duration: MOTION.DURATION_FAST, ease } satisfies Transition,
+}
+
+// ── Expand / Collapse (for disclosure panels) ─────────────────────────────────
+
+export const expand = {
+  initial: { height: 0, opacity: 0 },
+  animate: { height: 'auto', opacity: 1 },
+  exit: { height: 0, opacity: 0 },
+  transition: { duration: MOTION.DURATION_MEDIUM, ease } satisfies Transition,
+}
+
+export const collapse = {
+  initial: { height: 'auto', opacity: 1 },
+  animate: { height: 0, opacity: 0 },
+  exit: { height: 'auto', opacity: 1 },
+  transition: { duration: MOTION.DURATION_NORMAL, ease } satisfies Transition,
+}
+
+// ── Repeating ─────────────────────────────────────────────────────────────────
+
+export const pulse = {
+  animate: { opacity: [1, 0.5, 1] },
+  transition: {
+    duration: 1.5,
+    repeat: Infinity,
+    ease: 'easeInOut',
+  } satisfies Transition,
+}
+
+export const shimmer = {
+  animate: { backgroundPosition: ['200% 0', '-200% 0'] },
+  transition: {
+    duration: 1.5,
+    repeat: Infinity,
+    ease: 'linear',
+  } satisfies Transition,
+}
+
+// ── Spring ────────────────────────────────────────────────────────────────────
+
+export const springBounce: Spring = {
+  type: 'spring',
+  stiffness: MOTION.SPRING_STIFFNESS,
+  damping: MOTION.SPRING_DAMPING,
+}
+
+// ── Stagger container helper ──────────────────────────────────────────────────
+
+export const staggerContainer = {
+  animate: {
+    transition: {
+      staggerChildren: MOTION.STAGGER_CHILDREN,
+    },
+  },
+}

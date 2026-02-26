@@ -133,7 +133,6 @@ export const messages = pgTable(
 export const attachments = pgTable('attachments', {
   id: uuid('id').primaryKey().defaultRandom(),
   messageId: uuid('message_id')
-    .notNull()
     .references(() => messages.id, { onDelete: 'cascade' }),
   fileName: text('file_name').notNull(),
   fileType: text('file_type').notNull(),

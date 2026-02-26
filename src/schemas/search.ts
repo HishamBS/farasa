@@ -29,7 +29,7 @@ export const SearchResultSchema = z.object({
 export const SearchResponseSchema = z.object({
   query: z.string(),
   results: z.array(SearchResultSchema),
-  images: z.array(SearchImageSchema).optional(),
+  images: z.array(SearchImageSchema).default([]),
 })
 
 export const SearchModeSchema = z.enum([CHAT_MODES.CHAT, CHAT_MODES.SEARCH])

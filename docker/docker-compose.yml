@@ -35,12 +35,15 @@ services:
     container_name: farasa-app
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${APP_PORT:-3010}:3000"
     environment:
       - NODE_ENV=production
       - HOSTNAME=0.0.0.0
       - PORT=3000
       - DATABASE_URL=postgresql://farasa_user:farasa_password@postgres:5432/farasa_db
+      - AUTH_URL=${AUTH_URL:-http://localhost:3010}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3010}
+      - AUTH_TRUST_HOST=true
     env_file:
       - ../.env
     depends_on:

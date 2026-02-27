@@ -1,10 +1,14 @@
 'use client'
 
+import { useMemo } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { CheckCircle, Search, Loader2 } from 'lucide-react'
 import { fadeInUp } from '@/lib/utils/motion'
 import { cn } from '@/lib/utils/cn'
 import { TOOL_NAMES } from '@/config/constants'
+import { SearchResultSchema, SearchImageSchema } from '@/schemas/search'
+import { SearchResults } from '@/features/search/components/search-results'
+import { ImageGallery } from '@/features/search/components/image-gallery'
 import type { ToolExecutionState } from '@/types/stream'
 
 type ToolExecutionProps = {
@@ -24,9 +28,23 @@ export function ToolExecution({ execution }: ToolExecutionProps) {
       : ''
 
   const resultCount =
-    isComplete && Array.isArray(execution.result)
-      ? execution.result.length
-      : null
+    isComplete && Array.isArray(execution.result) ? execution.result.length : null
+
+  const searchResults = useMemo(() => {
+    if (!isSearch || !Array.isArray(execution.result)) return []
+    return execution.result.flatMap((r) => {
+      const parsed = SearchResultSchema.safeParse(r)
+      return parsed.success ? [parsed.data] : []
+    })
+  }, [isSearch, execution.result])
+
+  const searchImages = useMemo(() => {
+    if (!isSearch || !Array.isArray(execution.result)) return []
+    return execution.result.flatMap((r) => {
+      const parsed = SearchImageSchema.safeParse(r)
+      return parsed.success ? [parsed.data] : []
+    })
+  }, [isSearch, execution.result])
 
   return (
     <motion.div
@@ -48,10 +66,7 @@ export function ToolExecution({ execution }: ToolExecutionProps) {
         {!isComplete ? (
           <Loader2
             size={12}
-            className={cn(
-              'text-[--accent]',
-              !shouldReduce && 'animate-spin',
-            )}
+            className={cn('text-[--accent]', !shouldReduce && 'animate-spin')}
           />
         ) : (
           <CheckCircle size={12} className="text-[--success]" />
@@ -59,9 +74,7 @@ export function ToolExecution({ execution }: ToolExecutionProps) {
 
         <div className="min-w-0 flex-1">
           {query && (
-            <span className="text-xs text-[--text-secondary]">
-              &ldquo;{query}&rdquo;
-            </span>
+            <span className="text-xs text-[--text-secondary]">&ldquo;{query}&rdquo;</span>
           )}
           {resultCount !== null && (
             <span className="ml-2 text-xs text-[--text-muted]">
@@ -70,6 +83,13 @@ export function ToolExecution({ execution }: ToolExecutionProps) {
           )}
         </div>
       </div>
+
+      {isComplete && searchResults.length > 0 && (
+        <div className="mt-3 flex flex-col gap-3">
+          <SearchResults results={searchResults} query={query} />
+          <ImageGallery images={searchImages} />
+        </div>
+      )}
     </motion.div>
   )
 }

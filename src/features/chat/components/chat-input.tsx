@@ -7,6 +7,7 @@ import { scaleIn } from '@/lib/utils/motion'
 import { cn } from '@/lib/utils/cn'
 import { CHAT_MODES, APP_CONFIG } from '@/config/constants'
 import { useChatInput } from '../hooks/use-chat-input'
+import { ModelSelector } from './model-selector'
 import type { ChatInput as ChatInputType } from '@/schemas/message'
 
 export type ChatInputHandle = {
@@ -30,6 +31,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
       selectedModel,
       textareaRef,
       setMode,
+      setSelectedModel,
       handleContentChange,
       handleKeyDown,
       clear,
@@ -79,6 +81,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
 
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1">
+                <ModelSelector value={selectedModel} onChange={setSelectedModel} />
                 <button
                   type="button"
                   onClick={handleChatMode}

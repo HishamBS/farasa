@@ -5,6 +5,7 @@ import { trpc } from '@/trpc/provider'
 import { useChatStream } from '../hooks/use-chat-stream'
 import { MessageList } from './message-list'
 import { ChatInput } from './chat-input'
+import { StreamProgress } from '@/features/stream-phases/components/stream-progress'
 import type { ChatInputHandle } from './chat-input'
 import { CHAT_STREAM_STATUS } from '@/config/constants'
 
@@ -33,6 +34,7 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
+      <StreamProgress streamState={streamState} />
       <MessageList
         messages={messages}
         streamState={streamState}

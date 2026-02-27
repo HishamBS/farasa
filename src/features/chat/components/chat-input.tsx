@@ -10,8 +10,9 @@ import {
   useImperativeHandle,
 } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
-import { Send, Square, Paperclip } from 'lucide-react'
+import { Send, Paperclip } from 'lucide-react'
 import { scaleIn } from '@/lib/utils/motion'
+import { StopButton } from './stop-button'
 import { cn } from '@/lib/utils/cn'
 import { APP_CONFIG, SUPPORTED_FILE_TYPES } from '@/config/constants'
 import { useChatInput } from '../hooks/use-chat-input'
@@ -215,15 +216,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
                 <MicButton onTranscript={handleTranscript} />
 
                 {isStreaming ? (
-                  <motion.button
-                    type="button"
-                    onClick={onAbort}
-                    className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-[--error] text-[--error] hover:bg-[--error]/10"
-                    {...(shouldReduce ? {} : scaleIn)}
-                    aria-label="Stop generating"
-                  >
-                    <Square size={14} />
-                  </motion.button>
+                  <StopButton onAbort={onAbort} />
                 ) : (
                   <motion.button
                     type="button"

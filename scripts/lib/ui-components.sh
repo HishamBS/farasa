@@ -26,6 +26,10 @@ show_progress_bar() {
     local label=${3:-"Progress"}
     local width=${4:-50}
 
+    if [[ $total -le 0 ]]; then
+        return 0
+    fi
+
     local percentage
     percentage=$(awk "BEGIN {printf \"%.1f\", ($current/$total)*100}")
 

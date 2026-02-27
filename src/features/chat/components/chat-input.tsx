@@ -223,7 +223,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
                     onClick={handleSubmit}
                     disabled={!canSend}
                     className={cn(
-                      'flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-colors',
+                      'flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-all hover:scale-110',
                       canSend
                         ? 'bg-[--accent] text-[--bg-root] hover:bg-[--accent-hover]'
                         : 'bg-[--bg-surface-hover] text-[--text-ghost]',

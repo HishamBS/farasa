@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
+import { cn } from '@/lib/utils/cn'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { scaleIn, staggerContainer, fadeInUp } from '@/lib/utils/motion'
 import type { SearchImage } from '@/schemas/search'
@@ -39,7 +40,7 @@ export function ImageGallery({ images }: ImageGalleryProps) {
             <img
               src={img.url}
               alt={img.description ?? ''}
-              className="size-full object-cover transition-transform duration-200 hover:scale-105"
+              className={cn('size-full object-cover', !shouldReduce && 'transition-transform duration-200 hover:scale-105')}
             />
           </motion.button>
         ))}

@@ -30,7 +30,7 @@ export function SidebarContainer({ children, isOpen, onClose }: SidebarProps) {
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-72 flex-col',
+          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col',
           'bg-[--bg-glass] backdrop-blur-xl border-r border-[--border-subtle]',
           'transition-transform duration-300',
           'lg:relative lg:translate-x-0 lg:transition-none',

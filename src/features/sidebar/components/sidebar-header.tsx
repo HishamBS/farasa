@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { PenSquare } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { ROUTES } from '@/config/routes'
 import { APP_CONFIG, UI_TEXT } from '@/config/constants'
 
@@ -30,7 +30,7 @@ export function SidebarHeader({ searchValue, onSearchChange }: SidebarHeaderProp
           className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-primary]"
           aria-label={UI_TEXT.NEW_CHAT_ARIA_LABEL}
         >
-          <PenSquare size={16} />
+          <Plus size={16} />
         </button>
       </div>
       <input

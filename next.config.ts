@@ -1,3 +1,4 @@
+import withSerwist from '@serwist/next'
 import type { NextConfig } from 'next'
 
 const CSP_DIRECTIVES = [
@@ -46,4 +47,10 @@ const nextConfig: NextConfig = {
   },
 }
 
-export default nextConfig
+const withPWA = withSerwist({
+  swSrc: 'src/app/sw.ts',
+  swDest: 'public/sw.js',
+  disable: process.env.NODE_ENV === 'development',
+})
+
+export default withPWA(nextConfig)

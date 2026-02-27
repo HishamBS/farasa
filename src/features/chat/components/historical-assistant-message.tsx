@@ -10,7 +10,7 @@ import { MarkdownRenderer } from '@/features/markdown/components/markdown-render
 import { A2UIMessage } from '@/features/a2ui/components/a2ui-message'
 import { TTSControls } from '@/features/voice/components/tts-controls'
 import { MessageMetadataSchema } from '@/schemas/message'
-import { TOOL_NAMES } from '@/config/constants'
+import { TOOL_NAMES, AI_PARAMS } from '@/config/constants'
 import type { Message, MessageMetadata } from '@/schemas/message'
 import type { ModelSelectionState, ThinkingState, ToolExecutionState } from '@/types/stream'
 import type { v0_8 } from '@a2ui-sdk/types'
@@ -46,8 +46,8 @@ function buildThinkingState(metadata: MessageMetadata): ThinkingState | null {
   if (!metadata.thinkingContent) return null
   return {
     content: metadata.thinkingContent,
-    startedAt: 0,
-    completedAt: metadata.thinkingDurationMs ?? 1,
+    startedAt: AI_PARAMS.THINKING_HISTORICAL_STARTAT_MS,
+    completedAt: metadata.thinkingDurationMs ?? AI_PARAMS.THINKING_HISTORICAL_STARTAT_MS,
   }
 }
 

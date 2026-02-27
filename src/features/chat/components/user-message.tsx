@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { motion, useReducedMotion } from 'framer-motion'
 import { fadeInUp } from '@/lib/utils/motion'
 import type { Attachment } from '@/schemas/message'
@@ -24,11 +25,13 @@ export function UserMessage({ content, attachments }: UserMessageProps) {
               const isImage = attachment.fileType.startsWith('image/')
               if (isImage) {
                 return (
-                  <img
+                  <Image
                     key={attachment.id}
                     src={attachment.storageUrl}
                     alt={attachment.fileName}
-                    className="max-h-48 rounded-lg object-cover"
+                    width={400}
+                    height={300}
+                    className="max-h-48 w-auto rounded-lg object-cover"
                   />
                 )
               }

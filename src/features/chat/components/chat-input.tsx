@@ -2,12 +2,13 @@
 
 import { useCallback, forwardRef, useImperativeHandle } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
-import { Send, Square, Globe, MessageSquare } from 'lucide-react'
+import { Send, Square } from 'lucide-react'
 import { scaleIn } from '@/lib/utils/motion'
 import { cn } from '@/lib/utils/cn'
-import { CHAT_MODES, APP_CONFIG } from '@/config/constants'
+import { APP_CONFIG } from '@/config/constants'
 import { useChatInput } from '../hooks/use-chat-input'
 import { ModelSelector } from './model-selector'
+import { ModeToggle } from './mode-toggle'
 import type { ChatInput as ChatInputType } from '@/schemas/message'
 
 export type ChatInputHandle = {
@@ -59,9 +60,6 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
       [handleKeyDown, handleSubmit],
     )
 
-    const handleChatMode = useCallback(() => setMode(CHAT_MODES.CHAT), [setMode])
-    const handleSearchMode = useCallback(() => setMode(CHAT_MODES.SEARCH), [setMode])
-
     const canSend = content.trim().length > 0 && !isStreaming
 
     return (
@@ -80,34 +78,9 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
             />
 
             <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-2">
                 <ModelSelector value={selectedModel} onChange={setSelectedModel} />
-                <button
-                  type="button"
-                  onClick={handleChatMode}
-                  className={cn(
-                    'flex min-h-7 items-center gap-1.5 rounded-lg px-2.5 text-xs transition-colors',
-                    mode === CHAT_MODES.CHAT
-                      ? 'bg-[--accent-muted] text-[--accent]'
-                      : 'text-[--text-muted] hover:text-[--text-primary]',
-                  )}
-                >
-                  <MessageSquare size={12} />
-                  Chat
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSearchMode}
-                  className={cn(
-                    'flex min-h-7 items-center gap-1.5 rounded-lg px-2.5 text-xs transition-colors',
-                    mode === CHAT_MODES.SEARCH
-                      ? 'bg-[--accent-muted] text-[--accent]'
-                      : 'text-[--text-muted] hover:text-[--text-primary]',
-                  )}
-                >
-                  <Globe size={12} />
-                  Search
-                </button>
+                <ModeToggle value={mode} onChange={setMode} />
               </div>
 
               {isStreaming ? (

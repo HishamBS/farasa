@@ -3,13 +3,7 @@
 import { useCallback } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { fadeInUp, staggerContainer } from '@/lib/utils/motion'
-
-const SUGGESTIONS = [
-  'Explain quantum computing in simple terms',
-  'Write a Python script to parse CSV files',
-  'Summarize the latest AI research trends',
-  'Help me debug this TypeScript error',
-] as const
+import { EMPTY_STATE_SUGGESTIONS } from '@/config/constants'
 
 type SuggestionChipProps = {
   text: string
@@ -56,7 +50,7 @@ export function EmptyState({ onSelect }: EmptyStateProps) {
         className="grid w-full max-w-sm grid-cols-2 gap-3"
         {...(shouldReduce ? {} : staggerContainer)}
       >
-        {SUGGESTIONS.map((suggestion) => (
+        {EMPTY_STATE_SUGGESTIONS.map((suggestion) => (
           <SuggestionChip
             key={suggestion}
             text={suggestion}

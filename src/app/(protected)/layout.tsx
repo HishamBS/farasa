@@ -9,6 +9,7 @@ import { ConversationList } from '@/features/sidebar/components/conversation-lis
 import { UserMenu } from '@/features/sidebar/components/user-menu'
 import { useSidebar } from '@/features/sidebar/hooks/use-sidebar'
 import { Titlebar } from '@/features/chat/components/titlebar'
+import { ChatModeProvider } from '@/features/chat/context/chat-mode-context'
 
 export default function ProtectedLayout({
   children,
@@ -21,22 +22,24 @@ export default function ProtectedLayout({
   const handleMenuClick = useCallback(() => open(), [open])
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[--bg-root]">
-      <SidebarContainer isOpen={isOpen} onClose={close}>
-        <SidebarHeader
-          searchValue={searchValue}
-          onSearchChange={setSearchValue}
-        />
-        <div className="flex-1 overflow-y-auto py-2">
-          <ConversationList search={searchValue} />
-        </div>
-        <UserMenu />
-      </SidebarContainer>
+    <ChatModeProvider>
+      <div className="flex h-screen overflow-hidden bg-[--bg-root]">
+        <SidebarContainer isOpen={isOpen} onClose={close}>
+          <SidebarHeader
+            searchValue={searchValue}
+            onSearchChange={setSearchValue}
+          />
+          <div className="flex-1 overflow-y-auto py-2">
+            <ConversationList search={searchValue} />
+          </div>
+          <UserMenu />
+        </SidebarContainer>
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Titlebar onMenuClick={handleMenuClick} />
-        <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <Titlebar onMenuClick={handleMenuClick} />
+          <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
+        </div>
       </div>
-    </div>
+    </ChatModeProvider>
   )
 }

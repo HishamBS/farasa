@@ -325,7 +325,7 @@ run_build() {
 validate_env() {
     print_section "Environment Validation"
 
-    local env_file="${SCRIPT_DIR}/.env"
+    local env_file="${SCRIPT_DIR:-.}/.env"
     local missing=0
 
     if [[ ! -f "$env_file" ]]; then

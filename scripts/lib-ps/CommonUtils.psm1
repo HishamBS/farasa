@@ -1,11 +1,6 @@
 # CommonUtils.psm1 — Farasa PowerShell Utility Library
 # Shared utilities, colors, logging, port checks
 
-$script:DEV_PORT      = 3000
-$script:STUDIO_PORT   = 4983
-$script:POSTGRES_PORT = 5432
-$script:ADMINER_PORT  = 8080
-
 function Write-FSuccess  { param($Msg) Write-Host "✓ $Msg" -ForegroundColor Green }
 function Write-FFail     { param($Msg) Write-Host "✗ $Msg" -ForegroundColor Red }
 function Write-FWarning  { param($Msg) Write-Host "⚠ $Msg" -ForegroundColor Yellow }

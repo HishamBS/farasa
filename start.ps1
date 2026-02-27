@@ -152,13 +152,11 @@ function Wait-ForPort {
 
 function Stop-Port {
     param([int]$Port)
-    $procs = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue |
-             Select-Object -ExpandProperty OwningProcess |
-             Sort-Object -Unique
-    foreach ($pid in $procs) {
-        try {
-            Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
-        } catch { }
+    $lines = netstat -ano 2>$null | Select-String ":$Port\s"
+    foreach ($line in $lines) {
+        if ($line -match "\s+(\d+)\s*$") {
+            try { Stop-Process -Id $Matches[1] -Force -ErrorAction SilentlyContinue } catch { }
+        }
     }
 }
 
@@ -239,6 +237,64 @@ function Follow-DevLogs {
     Write-FInfo "Following dev server logs... (Ctrl+C to stop)"
     Write-Host ""
     Get-Content $logPath -Wait | ForEach-Object { Write-FLogFarasa $_ }
+}
+
+function Follow-PostgresLogs {
+    if (-not (Test-Path $script:COMPOSE_DEV)) {
+        Write-FFail "Docker Compose file not found: $($script:COMPOSE_DEV)"
+        return
+    }
+    Write-FInfo "Following PostgreSQL logs... (Ctrl+C to stop)"
+    Write-Host ""
+    docker compose -f $script:COMPOSE_DEV logs -f --tail=50 postgres 2>&1 | ForEach-Object {
+        Write-FLogPostgres $_
+    }
+}
+
+function Follow-StudioLogs {
+    $logPath = Join-Path $script:SCRIPT_DIR "logs\studio.log"
+    if (-not (Test-Path $logPath)) {
+        Write-FWarning "No studio log found yet"
+        return
+    }
+    Write-FInfo "Following Drizzle Studio logs... (Ctrl+C to stop)"
+    Write-Host ""
+    Get-Content $logPath -Wait | ForEach-Object { Write-FLogStudio $_ }
+}
+
+function Follow-AllLogs {
+    Write-FSection "Following All Logs (Ctrl+C to stop)"
+    Write-Host ""
+
+    $devLog    = Join-Path $script:SCRIPT_DIR "logs\dev.log"
+    $studioLog = Join-Path $script:SCRIPT_DIR "logs\studio.log"
+
+    $jobDev    = $null
+    $jobStudio = $null
+
+    if (Test-Path $devLog) {
+        $jobDev = Start-Job -ScriptBlock { param($p) Get-Content $p -Wait } -ArgumentList $devLog
+    }
+    if (Test-Path $studioLog) {
+        $jobStudio = Start-Job -ScriptBlock { param($p) Get-Content $p -Wait } -ArgumentList $studioLog
+    }
+
+    if (-not $jobDev -and -not $jobStudio) {
+        Write-FWarning "No log files found yet"
+        return
+    }
+
+    Write-FInfo "Streaming all logs... (Ctrl+C to stop)"
+    try {
+        while ($true) {
+            if ($jobDev)    { Receive-Job $jobDev    | ForEach-Object { Write-Host "[FARASA  ] $_" -ForegroundColor Cyan } }
+            if ($jobStudio) { Receive-Job $jobStudio | ForEach-Object { Write-Host "[STUDIO  ] $_" -ForegroundColor Magenta } }
+            Start-Sleep -Milliseconds 200
+        }
+    } finally {
+        if ($jobDev)    { Stop-Job $jobDev    -ErrorAction SilentlyContinue; Remove-Job $jobDev    -ErrorAction SilentlyContinue }
+        if ($jobStudio) { Stop-Job $jobStudio -ErrorAction SilentlyContinue; Remove-Job $jobStudio -ErrorAction SilentlyContinue }
+    }
 }
 
 # ============================================================================
@@ -384,6 +440,27 @@ function Start-HybridStack {
     Write-Host "  App:      " -NoNewline; Write-Host "http://localhost:$($script:DEV_PORT)" -ForegroundColor Cyan
     Write-Host "  Postgres: " -NoNewline; Write-Host "localhost:$($script:POSTGRES_PORT)" -ForegroundColor Blue
     Write-Host ""
+}
+
+# ============================================================================
+# Post-Start Prompt
+# ============================================================================
+
+function Show-PostStartPrompt {
+    Write-Host ""
+    Write-FSuccess "Services started!"
+    Write-Host ""
+    Write-Host "  " -NoNewline; Write-Host "l)" -ForegroundColor Yellow -NoNewline
+    Write-Host " Follow logs " -NoNewline; Write-Host "(colored, live)" -ForegroundColor Green
+    Write-Host "  " -NoNewline; Write-Host "s)" -ForegroundColor Yellow -NoNewline; Write-Host " Show status"
+    Write-Host "  " -NoNewline; Write-Host "Enter)" -ForegroundColor Yellow -NoNewline; Write-Host " Return to menu"
+    Write-Host ""
+
+    $choice = Read-Host "Choice"
+    switch ($choice.ToLower()) {
+        "l" { Follow-DevLogs }
+        "s" { Show-ServiceStatus; Read-Host "Press Enter to continue" }
+    }
 }
 
 # ============================================================================
@@ -580,6 +657,133 @@ function Show-ServiceStatus {
 }
 
 # ============================================================================
+# Advanced Utilities
+# ============================================================================
+
+function Show-TrackedProcesses {
+    Write-FSection "Tracked Processes"
+    if (-not (Test-Path $script:PIDS_FILE)) {
+        Write-FInfo "No tracked processes found"
+        return
+    }
+    $lines = Get-Content $script:PIDS_FILE -ErrorAction SilentlyContinue
+    if (-not $lines -or $lines.Count -eq 0) {
+        Write-FInfo "No tracked processes found"
+        return
+    }
+    foreach ($line in $lines) {
+        $parts = $line -split ":"
+        if ($parts.Count -ge 2) {
+            $procId   = $parts[0]
+            $procName = $parts[1]
+            $proc     = Get-Process -Id $procId -ErrorAction SilentlyContinue
+            $status   = if ($proc) { "Running" } else { "Stopped" }
+            $color    = if ($proc) { "Green" }   else { "DarkGray" }
+            Write-Host "  PID $procId ($procName): " -NoNewline
+            Write-Host $status -ForegroundColor $color
+        }
+    }
+}
+
+function Start-ServiceAdminer {
+    if (-not (Test-DockerRunning)) {
+        Write-FFail "Docker is not running. Please start Docker Desktop."
+        return
+    }
+    if (-not (Test-Path $script:COMPOSE_DEV)) {
+        Write-FFail "Docker Compose file not found: $($script:COMPOSE_DEV)"
+        return
+    }
+    Write-FStep "Starting Adminer..."
+    docker compose -f $script:COMPOSE_DEV up -d adminer 2>&1 | ForEach-Object { Write-FLogPostgres $_ }
+    Write-FSuccess "Adminer → http://localhost:$($script:ADMINER_PORT)"
+    Write-FInfo "  Server: postgres | User: farasa_user | DB: farasa_db"
+}
+
+# ============================================================================
+# Logs Submenu
+# ============================================================================
+
+function Show-LogsMenu {
+    while ($true) {
+        Clear-Host
+        Write-FHeader "Logs — Farasa"
+
+        Write-Host "  " -NoNewline; Write-Host "1)" -ForegroundColor Yellow -NoNewline
+        Write-Host " Follow Dev Server     " -NoNewline; Write-Host "live, cyan prefix" -ForegroundColor DarkGray
+        Write-Host "  " -NoNewline; Write-Host "2)" -ForegroundColor Yellow -NoNewline
+        Write-Host " Follow Postgres       " -NoNewline; Write-Host "live, blue prefix (Docker)" -ForegroundColor DarkGray
+        Write-Host "  " -NoNewline; Write-Host "3)" -ForegroundColor Yellow -NoNewline
+        Write-Host " Follow Studio         " -NoNewline; Write-Host "live, magenta prefix" -ForegroundColor DarkGray
+        Write-Host "  " -NoNewline; Write-Host "4)" -ForegroundColor Yellow -NoNewline
+        Write-Host " Follow All Logs       " -NoNewline; Write-Host "all services combined" -ForegroundColor DarkGray
+        Write-Host "  " -NoNewline; Write-Host "5)" -ForegroundColor Yellow -NoNewline
+        Write-Host " Last 100 Lines        " -NoNewline; Write-Host "dev server" -ForegroundColor DarkGray
+        Write-Host "  " -NoNewline; Write-Host "0)" -ForegroundColor Yellow -NoNewline; Write-Host " Back"
+        Write-Host ""
+
+        $choice = Read-Host "Choice [0-5]"
+        switch ($choice) {
+            "1" { Follow-DevLogs }
+            "2" { Follow-PostgresLogs; Read-Host "Press Enter to continue" }
+            "3" { Follow-StudioLogs }
+            "4" { Follow-AllLogs }
+            "5" {
+                $logPath = Join-Path $script:SCRIPT_DIR "logs\dev.log"
+                if (Test-Path $logPath) {
+                    Get-Content $logPath -Tail 100 | ForEach-Object { Write-FLogFarasa $_ }
+                } else {
+                    Write-FWarning "No dev log found yet"
+                }
+                Read-Host "Press Enter to continue"
+            }
+            "0" { return }
+            default { Write-FFail "Invalid option"; Start-Sleep 1 }
+        }
+    }
+}
+
+# ============================================================================
+# Advanced Submenu
+# ============================================================================
+
+function Show-AdvancedMenu {
+    while ($true) {
+        Clear-Host
+        Write-FHeader "Advanced — Farasa"
+
+        Write-Host "  " -NoNewline; Write-Host "1)" -ForegroundColor Yellow -NoNewline; Write-Host " Force Cleanup All Processes"
+        Write-Host "  " -NoNewline; Write-Host "2)" -ForegroundColor Yellow -NoNewline; Write-Host " Show Tracked Processes"
+        Write-Host "  " -NoNewline; Write-Host "3)" -ForegroundColor Yellow -NoNewline; Write-Host " Validate Environment"
+        Write-Host "  " -NoNewline; Write-Host "4)" -ForegroundColor Yellow -NoNewline; Write-Host " Start Adminer (DB GUI)"
+        Write-Host "  " -NoNewline; Write-Host "0)" -ForegroundColor Yellow -NoNewline; Write-Host " Back"
+        Write-Host ""
+
+        $choice = Read-Host "Choice [0-4]"
+        switch ($choice) {
+            "1" {
+                Write-FHeader "Force Cleanup"
+                if (Test-DockerRunning) {
+                    foreach ($cf in @($script:COMPOSE_DEV, $script:COMPOSE_PROD)) {
+                        if (Test-Path $cf) { docker compose -f $cf down --timeout 10 2>$null }
+                    }
+                }
+                Stop-Port $script:DEV_PORT
+                Stop-Port $script:STUDIO_PORT
+                Clear-StateFiles
+                Write-FSuccess "Cleanup complete"
+                Read-Host "Press Enter to continue"
+            }
+            "2" { Show-TrackedProcesses; Read-Host "Press Enter to continue" }
+            "3" { $null = Invoke-ValidateEnv; Read-Host "Press Enter to continue" }
+            "4" { Start-ServiceAdminer; Read-Host "Press Enter to continue" }
+            "0" { return }
+            default { Write-FFail "Invalid option"; Start-Sleep 1 }
+        }
+    }
+}
+
+# ============================================================================
 # Interactive Menu
 # ============================================================================
 
@@ -614,6 +818,7 @@ function Show-MainMenu {
         Write-Host "──────" -ForegroundColor DarkGray
         Write-Host "  " -NoNewline; Write-Host "s)" -ForegroundColor Yellow -NoNewline; Write-Host " Status"
         Write-Host "  " -NoNewline; Write-Host "v)" -ForegroundColor Yellow -NoNewline; Write-Host " Validate Environment"
+        Write-Host "  " -NoNewline; Write-Host "x)" -ForegroundColor Yellow -NoNewline; Write-Host " Advanced"
         Write-Host "  " -NoNewline; Write-Host "0)" -ForegroundColor Yellow -NoNewline; Write-Host " Exit"
         Write-Host ""
 
@@ -626,11 +831,12 @@ function Show-MainMenu {
                 if ($confirm -ne "n" -and $confirm -ne "N") { Stop-All }
                 Read-Host "Press Enter to continue"
             }
-            "3" { Follow-DevLogs }
+            "3" { Show-LogsMenu }
             "4" { Show-DatabaseMenu }
             "5" { Show-QualityMenu }
             "s" { Show-ServiceStatus; Read-Host "Press Enter to continue" }
             "v" { $null = Invoke-ValidateEnv; Read-Host "Press Enter to continue" }
+            "x" { Show-AdvancedMenu }
             "0" { Write-FInfo "Goodbye!"; exit 0 }
             default { Write-FFail "Invalid option"; Start-Sleep 1 }
         }
@@ -653,9 +859,9 @@ function Show-StartMenu {
 
         $choice = Read-Host "Choice [0-3]"
         switch ($choice) {
-            "1" { Start-ServiceDev; Read-Host "Press Enter to continue" }
-            "2" { Start-HybridStack; Read-Host "Press Enter to continue" }
-            "3" { Start-DockerStack; Read-Host "Press Enter to continue" }
+            "1" { Start-ServiceDev; Show-PostStartPrompt }
+            "2" { Start-HybridStack; Show-PostStartPrompt }
+            "3" { Start-DockerStack; Show-PostStartPrompt }
             "0" { return }
             default { Write-FFail "Invalid option"; Start-Sleep 1 }
         }

@@ -1,0 +1,4 @@
+services:
+  app:
+    volumes:
+      - ${HOME}/.config/gcloud/application_default_credentials.json:/var/secrets/google/adc.json:ro

@@ -5,6 +5,7 @@
   --bg-surface-active: #3f3f46;
   --bg-glass: rgba(24, 24, 27, 0.7);
   --bg-input: rgba(39, 39, 42, 0.5);
+  --bg-user-message: rgba(34, 211, 238, 0.08);
 
   --text-primary: #fafafa;
   --text-secondary: #d4d4d8;
@@ -78,6 +79,7 @@
   --bg-surface-active: #e4e4e7;
   --bg-glass: rgba(255, 255, 255, 0.7);
   --bg-input: rgba(244, 244, 245, 0.8);
+  --bg-user-message: rgba(34, 211, 238, 0.11);
 
   --text-primary: #09090b;
   --text-secondary: #3f3f46;

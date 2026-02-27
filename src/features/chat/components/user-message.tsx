@@ -15,7 +15,7 @@ export function UserMessage({ content }: UserMessageProps) {
       className="flex justify-end"
       {...(shouldReduce ? {} : fadeInUp)}
     >
-      <div className="max-w-[80%] rounded-2xl rounded-br-sm bg-[--bg-surface] px-4 py-3 lg:max-w-[72%]">
+      <div className="max-w-[80%] rounded-2xl rounded-br-sm bg-[--bg-user-message] px-4 py-3 lg:max-w-[72%]">
         <p className="text-sm leading-relaxed text-[--text-primary] whitespace-pre-wrap">
           {content}
         </p>

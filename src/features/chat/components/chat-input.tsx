@@ -14,7 +14,7 @@ import { Send, Paperclip } from 'lucide-react'
 import { scaleIn } from '@/lib/utils/motion'
 import { StopButton } from './stop-button'
 import { cn } from '@/lib/utils/cn'
-import { APP_CONFIG, SUPPORTED_FILE_TYPES } from '@/config/constants'
+import { APP_CONFIG, SUPPORTED_FILE_TYPES, UI_TEXT } from '@/config/constants'
 import { useChatInput } from '../hooks/use-chat-input'
 import { useFileUpload } from '../hooks/use-file-upload'
 import { ModelSelector } from './model-selector'
@@ -195,6 +195,10 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
                 />
                 <ModeToggle value={mode} onChange={setMode} />
               </div>
+
+              <span className="hidden text-xs text-[--text-ghost] sm:block">
+                {UI_TEXT.CHAT_KEYBOARD_HINT}
+              </span>
 
               <div className="flex items-center gap-1">
                 <input

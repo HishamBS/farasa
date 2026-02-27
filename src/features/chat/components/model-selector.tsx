@@ -13,21 +13,9 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { ChevronDown, Sparkles } from 'lucide-react'
 import { trpc } from '@/trpc/provider'
 import { fadeInDown, chevronSpin } from '@/lib/utils/motion'
-import { LIMITS, PROVIDERS } from '@/config/constants'
+import { LIMITS, PROVIDER_DOT_CLASSES } from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
 import type { ModelConfig } from '@/schemas/model'
-
-const PROVIDER_DOT_CLASSES: Record<string, string> = {
-  [PROVIDERS.ANTHROPIC]: 'bg-[--provider-anthropic]',
-  [PROVIDERS.OPENAI]: 'bg-[--provider-openai]',
-  [PROVIDERS.GOOGLE]: 'bg-[--provider-google]',
-  [PROVIDERS.META]: 'bg-[--provider-meta]',
-  [PROVIDERS.GROQ]: 'bg-[--provider-groq]',
-  [PROVIDERS.CEREBRAS]: 'bg-[--provider-cerebras]',
-}
-
-// Context window display: tokens per kilo-token
-const TOKENS_PER_K = 1_000 as const
 
 export type ModelSelectorHandle = {
   open: () => void
@@ -260,7 +248,7 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
                       >
                         <span className="flex-1 truncate font-mono">{m.name}</span>
                         <span className="shrink-0 text-[--text-ghost]">
-                          {Math.round(m.contextWindow / TOKENS_PER_K)}k
+                          {Math.round(m.contextWindow / LIMITS.TOKENS_PER_K)}k
                         </span>
                         <span className="shrink-0 text-[--text-ghost]">
                           ${m.pricing.promptPerMillion}/M

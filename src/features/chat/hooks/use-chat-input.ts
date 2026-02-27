@@ -1,12 +1,10 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { CHAT_MODES, UX } from '@/config/constants'
-import type { SearchMode } from '@/schemas/search'
+import { UX } from '@/config/constants'
 
 export function useChatInput(initialModel?: string | null) {
   const [content, setContent] = useState('')
-  const [mode, setMode] = useState<SearchMode>(CHAT_MODES.CHAT)
   const [attachmentIds, setAttachmentIds] = useState<string[]>([])
   const [selectedModel, setSelectedModel] = useState<string | undefined>(
     initialModel ?? undefined,
@@ -76,11 +74,9 @@ export function useChatInput(initialModel?: string | null) {
 
   return {
     content,
-    mode,
     attachmentIds,
     selectedModel,
     textareaRef,
-    setMode,
     setSelectedModel,
     handleContentChange,
     handleKeyDown,

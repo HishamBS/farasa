@@ -17,8 +17,8 @@ import { cn } from '@/lib/utils/cn'
 import { APP_CONFIG, SUPPORTED_FILE_TYPES, UI_TEXT } from '@/config/constants'
 import { useChatInput } from '../hooks/use-chat-input'
 import { useFileUpload } from '../hooks/use-file-upload'
+import { useChatMode } from '../context/chat-mode-context'
 import { ModelSelector } from './model-selector'
-import { ModeToggle } from './mode-toggle'
 import { AttachmentPreview } from './attachment-preview'
 import { MicButton } from '@/features/voice/components/mic-button'
 import type { ModelSelectorHandle } from './model-selector'
@@ -45,11 +45,9 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
 
     const {
       content,
-      mode,
       attachmentIds,
       selectedModel,
       textareaRef,
-      setMode,
       setSelectedModel,
       handleContentChange,
       handleKeyDown,
@@ -58,6 +56,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
       removeAttachment,
       setExternalContent,
     } = useChatInput(initialModel)
+
+    const { mode } = useChatMode()
 
     const { uploadFile, uploadStates, removeFile } = useFileUpload()
 
@@ -193,7 +193,6 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
                   value={selectedModel}
                   onChange={setSelectedModel}
                 />
-                <ModeToggle value={mode} onChange={setMode} />
               </div>
 
               <span className="hidden text-xs text-[--text-ghost] sm:block">

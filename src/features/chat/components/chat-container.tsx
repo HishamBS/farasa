@@ -7,7 +7,7 @@ import { MessageList } from './message-list'
 import { ChatInput } from './chat-input'
 import { StreamProgress } from '@/features/stream-phases/components/stream-progress'
 import type { ChatInputHandle } from './chat-input'
-import { CHAT_STREAM_STATUS, SESSION_KEYS } from '@/config/constants'
+import { CHAT_STREAM_STATUS, SESSION_KEYS, UX } from '@/config/constants'
 import { ChatInputSchema } from '@/schemas/message'
 
 type ChatContainerProps = {
@@ -21,12 +21,12 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
 
   const { data: conversation } = trpc.conversation.getById.useQuery(
     { id: conversationId },
-    { staleTime: Infinity },
+    { staleTime: UX.QUERY_STALE_TIME_FOREVER },
   )
 
   const { data: messages = [] } = trpc.conversation.messages.useQuery(
     { conversationId },
-    { staleTime: Infinity },
+    { staleTime: UX.QUERY_STALE_TIME_FOREVER },
   )
 
   const handleSuggestionSelect = useCallback((text: string) => {

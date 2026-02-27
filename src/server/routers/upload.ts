@@ -1,11 +1,12 @@
+import { and, eq } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
-import { router, protectedProcedure } from '../trpc'
-import { UploadRequestSchema } from '@/schemas/upload'
+import { router, rateLimitedUploadProcedure } from '../trpc'
+import { UploadRequestSchema, ConfirmUploadSchema } from '@/schemas/upload'
 import { attachments } from '@/lib/db/schema'
 import { LIMITS } from '@/config/constants'
 
 export const uploadRouter = router({
-  presignedUrl: protectedProcedure
+  presignedUrl: rateLimitedUploadProcedure
     .input(UploadRequestSchema)
     .mutation(async ({ ctx, input }) => {
       const { getPresignedUploadUrl } = await import('@/lib/upload/gcs')
@@ -31,9 +32,29 @@ export const uploadRouter = router({
 
       return {
         uploadUrl,
-        storageUrl,
         attachmentId: attachment.id,
         expiresAt: Date.now() + LIMITS.UPLOAD_URL_EXPIRY_MS,
       }
+    }),
+
+  confirmUpload: rateLimitedUploadProcedure
+    .input(ConfirmUploadSchema)
+    .mutation(async ({ ctx, input }) => {
+      const [confirmed] = await ctx.db
+        .update(attachments)
+        .set({ confirmedAt: new Date() })
+        .where(
+          and(
+            eq(attachments.id, input.attachmentId),
+            eq(attachments.userId, ctx.userId),
+          ),
+        )
+        .returning({ id: attachments.id })
+
+      if (!confirmed) {
+        throw new TRPCError({ code: 'NOT_FOUND' })
+      }
+
+      return { id: confirmed.id }
     }),
 })

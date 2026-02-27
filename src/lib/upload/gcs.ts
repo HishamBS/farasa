@@ -15,11 +15,19 @@ type PresignedUrlResult = {
   storageUrl: string
 }
 
+function sanitizeFileName(fileName: string): string {
+  return fileName
+    .replace(/[^a-zA-Z0-9._\-]/g, '_')
+    .replace(/^\.+/, '_')
+    .slice(0, LIMITS.FILE_NAME_MAX_LENGTH)
+}
+
 export async function getPresignedUploadUrl({
   fileName,
   fileType,
 }: PresignedUrlOptions): Promise<PresignedUrlResult> {
-  const objectName = `uploads/${crypto.randomUUID()}/${fileName}`
+  const safeFileName = sanitizeFileName(fileName)
+  const objectName = `uploads/${crypto.randomUUID()}/${safeFileName}`
   const file = bucket.file(objectName)
 
   const [uploadUrl] = await file.getSignedUrl({

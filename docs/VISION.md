@@ -47,7 +47,7 @@ This is the definitive, locked specification for the AI Chat System project. Eve
 | Motion | Framer Motion | latest | Orchestrated layout animations, spring physics, gesture support |
 | Code Highlighting | Shiki | latest | VS Code engine, SSR-safe, all languages supported |
 | Markdown Rendering | react-markdown | latest | Parse AI markdown responses |
-| Markdown Plugins | remark-gfm, rehype-raw, rehype-katex | latest | GFM tables, raw HTML, math rendering |
+| Markdown Plugins | remark-gfm, rehype-sanitize, rehype-katex | latest | GFM tables, sanitized HTML (XSS-safe), math rendering |
 | Search API | Tavily | latest | Purpose-built for AI apps, returns structured results + images |
 | PWA | @serwist/next | latest | Service worker, offline shell, installable |
 | Fonts | next/font | built-in | Geist Sans + Geist Mono |
@@ -727,7 +727,7 @@ Toggle in input area with `springBounce` animation. Active: query triggers `tool
 
 ### F6. Markdown Rendering & Syntax Highlighting
 
-react-markdown + remark-gfm + rehype-raw + rehype-katex. Shiki for code: VS Code themes, language label, copy button with checkmark feedback, line numbers above threshold. Inline code: `font-mono`, subtle background. Tables: rounded container, horizontal scroll, alternating rows. Block quotes: accent left border. Links: accent color, new tab.
+react-markdown + remark-gfm + rehype-sanitize + rehype-katex. Shiki for code: VS Code themes, language label, copy button with checkmark feedback, line numbers above threshold. Inline code: `font-mono`, subtle background. Tables: rounded container, horizontal scroll, alternating rows. Block quotes: accent left border. Links: accent color, new tab.
 
 ### F7. Chat History & Conversation Management
 
@@ -912,3 +912,74 @@ Live demo URL. Architecture diagrams (Mermaid). Key design decisions with justif
 | *(not asked)* | Complete design system: motion presets, glassmorphism, color tokens, dark/light |
 | *(not asked)* | Comprehensive README with architecture diagrams and production roadmap |
 | *(not asked)* | tRPC for entire API surface including streaming — single typed protocol |
+
+---
+
+## 12. Security Requirements
+
+### S-01 — Rate Limiting (Core Requirement)
+
+Per-user in-memory sliding window rate limiting is applied to all stateful endpoints. Constants in `RATE_LIMITS`:
+- `CHAT_PER_MINUTE`: 20 requests/min per user on `chat.stream`
+- `UPLOAD_PER_MINUTE`: 30 requests/min per user on `upload.presignedUrl`
+- `WINDOW_MS`: 60,000 ms window
+
+Implemented as tRPC middleware in `src/server/trpc.ts` (`rateLimitedChatProcedure`, `rateLimitedUploadProcedure`) backed by `src/lib/security/rate-limit.ts`. Production deployments with multiple instances must use a shared store (Redis) replacing the in-memory map.
+
+### S-02 — Security Headers (Core Requirement)
+
+All responses include the following HTTP security headers via `next.config.ts`:
+- `Content-Security-Policy`: restricts script/style/image/connect origins
+- `X-Frame-Options: DENY`: blocks clickjacking
+- `X-Content-Type-Options: nosniff`: prevents MIME sniffing
+- `Strict-Transport-Security`: enforces HTTPS
+- `Referrer-Policy: strict-origin-when-cross-origin`: limits referrer leakage
+- `Permissions-Policy`: disables camera, microphone, geolocation
+
+### S-03 — Prompt Injection Protection (Core Requirement)
+
+All user-controlled input passed to AI models is wrapped with XML delimiters to establish a clear data boundary:
+- Router: `<user_request>…</user_request>` via `PROMPTS.ROUTER_SYSTEM_PROMPT`
+- Title generator: `<message>…</message>` appended to `PROMPTS.TITLE_GENERATION_PROMPT`
+- Web search results: `<search_results><result>…</result></search_results>` injected into system prompt
+
+System prompts for all three AI calls explicitly instruct the model to treat wrapped content as data only and to ignore any instructions within. This applies to both direct prompt injection (user input) and indirect prompt injection (search result content).
+
+### S-04 — A2UI Security Model (Core Requirement)
+
+A2UI messages streamed from the server must pass runtime structural validation before dispatch. The client (`use-chat-stream.ts`) validates that any JSON parsed from an A2UI chunk has a `type: string` field before dispatching to the renderer. Unknown `type` values are silently ignored by the renderer.
+
+Content policy enforced in `PROMPTS.A2UI_SYSTEM_PROMPT`:
+- `Image.src`: must be a relative path, data URI, or HTTPS URL from a trusted source
+- `Button.action`: must be a single alphanumeric action identifier
+- Unknown component types are documented as ignored by the renderer
+
+A2UI stream detection uses a line-buffer to avoid false positives from token-boundary splits. Only complete newline-terminated lines are emitted as A2UI chunks.
+
+### S-05 — Error Sanitization Policy (Core Requirement)
+
+Internal error details must never reach clients in production:
+- `chat.stream` catch block: logs full error server-side in development; sends generic message `"An error occurred while processing your request."` to client in all environments
+- tRPC subscription transport errors (`onError` in `use-chat-stream.ts`): always sends generic `"Connection error. Please try again."` regardless of actual error
+- tRPC procedure errors (`TRPCError`): handled by tRPC's built-in stripping in production (existing behavior, preserved)
+
+### S-06 — XSS Prevention via rehype-sanitize (Core Requirement)
+
+`rehype-raw` is prohibited. All AI-generated markdown is rendered through `rehype-sanitize` (configured with `defaultSchema` plus `className` on `code`/`span` for Shiki compatibility). This prevents arbitrary HTML from AI responses executing in the browser.
+
+Anchor tags additionally validate that `href` values use only `https:`, `http:`, `mailto:`, or relative paths — all other protocols (including `javascript:`) are stripped before rendering.
+
+### Security Architecture Invariants
+
+| Invariant | Implementation |
+|---|---|
+| All DB queries scoped to `ctx.userId` | `protectedProcedure` + explicit `WHERE userId = ctx.userId` |
+| OAuth tokens encrypted at rest | AES-256-GCM via `src/lib/security/token-crypto.ts`, key derived from `AUTH_SECRET` |
+| User input XML-delimited before AI submission | `<user_request>` / `<message>` wrappers in all AI callers |
+| Search results XML-delimited before AI submission | `<search_results>` wrapper in `chat.ts` |
+| Model IDs validated against live registry | `getModelRegistry()` called on explicit model selection |
+| Attachment ownership enforced with error on unauthorized | Batch query + `FORBIDDEN` throw in `chat.ts` |
+| Uploaded file names sanitized | `sanitizeFileName()` in `gcs.ts` before object path construction |
+| Upload orphan prevention | `confirmUpload` procedure sets `confirmedAt`; unconfirmed records are orphan candidates |
+| Middleware covers `/api/trpc` routes | Matcher excludes only `api/auth`, `_next/*`, `favicon.ico` |
+| Registry fetch has timeout | `AbortSignal.timeout(LIMITS.REGISTRY_FETCH_TIMEOUT_MS)` on all registry fetches |

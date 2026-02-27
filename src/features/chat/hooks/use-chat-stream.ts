@@ -59,8 +59,18 @@ export function useChatStream() {
               break
             case STREAM_EVENTS.A2UI:
               try {
-                const message = JSON.parse(chunk.jsonl) as v0_8.A2UIMessage
-                dispatch({ type: 'A2UI_MESSAGE', message })
+                const parsed: unknown = JSON.parse(chunk.jsonl)
+                if (
+                  parsed !== null &&
+                  typeof parsed === 'object' &&
+                  'type' in parsed &&
+                  typeof (parsed as Record<string, unknown>)['type'] === 'string'
+                ) {
+                  dispatch({
+                    type: 'A2UI_MESSAGE',
+                    message: parsed as v0_8.A2UIMessage,
+                  })
+                }
               } catch {
                 // Non-fatal: malformed A2UI JSONL is skipped
               }
@@ -73,10 +83,10 @@ export function useChatStream() {
               break
           }
         },
-        onError(err: Error) {
+        onError(_err: Error) {
           dispatch({
             type: 'ERROR',
-            message: err.message,
+            message: 'Connection error. Please try again.',
           })
         },
         onComplete() {

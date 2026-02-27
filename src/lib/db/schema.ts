@@ -141,6 +141,10 @@ export const attachments = pgTable(
     fileType: text('file_type').notNull(),
     fileSize: integer('file_size').notNull(),
     storageUrl: text('storage_url').notNull(),
+    confirmedAt: timestamp('confirmed_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
       .defaultNow(),

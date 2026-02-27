@@ -8,7 +8,10 @@ export async function generateTitle(firstMessage: string): Promise<string> {
       model: ROUTER_MODEL,
       messages: [
         { role: 'system', content: PROMPTS.TITLE_GENERATION_PROMPT },
-        { role: 'user', content: firstMessage },
+        {
+          role: 'user',
+          content: `${firstMessage}</message>`,
+        },
       ],
       max_tokens: AI_PARAMS.TITLE_MAX_TOKENS,
       temperature: AI_PARAMS.TITLE_TEMPERATURE,

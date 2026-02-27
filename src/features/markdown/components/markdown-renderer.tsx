@@ -2,7 +2,7 @@
 
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import rehypeRaw from 'rehype-raw'
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import { CodeBlock } from './code-block'
 import type { Components } from 'react-markdown'
 
@@ -14,16 +14,20 @@ const components: Components = {
   code: ({ className, children }) => (
     <CodeBlock className={className}>{children}</CodeBlock>
   ),
-  a: ({ href, children }) => (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-[--accent] underline underline-offset-2 hover:text-[--accent-hover]"
-    >
-      {children}
-    </a>
-  ),
+  a: ({ href, children }) => {
+    const safeHref =
+      href && /^(https?:|mailto:|\/)/i.test(href) ? href : undefined
+    return (
+      <a
+        href={safeHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-[--accent] underline underline-offset-2 hover:text-[--accent-hover]"
+      >
+        {children}
+      </a>
+    )
+  },
   blockquote: ({ children }) => (
     <blockquote className="my-3 border-l-2 border-[--accent] pl-4 italic text-[--text-muted]">
       {children}
@@ -85,7 +89,19 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
-      rehypePlugins={[rehypeRaw]}
+      rehypePlugins={[
+        [
+          rehypeSanitize,
+          {
+            ...defaultSchema,
+            attributes: {
+              ...defaultSchema.attributes,
+              code: [...(defaultSchema.attributes?.code ?? []), 'className'],
+              span: [...(defaultSchema.attributes?.span ?? []), 'className', 'style'],
+            },
+          },
+        ],
+      ]}
       components={components}
     >
       {content}

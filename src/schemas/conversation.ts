@@ -25,7 +25,7 @@ export const ConversationFilterSchema = z.object({
     .max(LIMITS.PAGINATION_MAX_LIMIT)
     .default(LIMITS.PAGINATION_DEFAULT_LIMIT),
   cursor: z.string().datetime().optional(),
-  search: z.string().optional(),
+  search: z.string().max(LIMITS.SEARCH_QUERY_MAX_LENGTH).optional(),
 })
 
 export const ConversationSummarySchema = z.object({

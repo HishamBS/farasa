@@ -24,6 +24,7 @@ const cache = new Map<string, CacheEntry>()
 async function fetchFromOpenRouter(): Promise<ModelConfig[]> {
   const response = await fetch(EXTERNAL_URLS.OPENROUTER_MODELS, {
     headers: { Authorization: `Bearer ${env.OPENROUTER_API_KEY}` },
+    signal: AbortSignal.timeout(LIMITS.REGISTRY_FETCH_TIMEOUT_MS),
   })
 
   if (!response.ok) {

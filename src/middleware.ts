@@ -7,9 +7,17 @@ export default auth((req) => {
 
   const isProtected = pathname.startsWith(ROUTES.CHAT)
   const isAuthPage = pathname.startsWith(ROUTES.LOGIN)
+  const isTrpcApi = pathname.startsWith('/api/trpc')
 
   if (isProtected && !isLoggedIn) {
     return Response.redirect(new URL(ROUTES.LOGIN, req.nextUrl))
+  }
+
+  if (isTrpcApi && !isLoggedIn) {
+    return new Response(
+      JSON.stringify({ error: { message: 'Unauthorized' } }),
+      { status: 401, headers: { 'Content-Type': 'application/json' } },
+    )
   }
 
   if (isAuthPage && isLoggedIn) {
@@ -18,5 +26,5 @@ export default auth((req) => {
 })
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!api/auth|_next/static|_next/image|favicon.ico).*)'],
 }

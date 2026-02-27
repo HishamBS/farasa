@@ -1,6 +1,6 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
-import { router, protectedProcedure } from '../trpc'
+import { router, rateLimitedChatProcedure } from '../trpc'
 import { ChatInputSchema, MessageMetadataSchema } from '@/schemas/message'
 import type { SearchResult } from '@/schemas/search'
 import { conversations, messages, attachments } from '@/lib/db/schema'
@@ -27,7 +27,7 @@ type OAIMessage =
   | { role: 'assistant'; content: string }
 
 export const chatRouter = router({
-  stream: protectedProcedure
+  stream: rateLimitedChatProcedure
     .input(ChatInputSchema)
     .subscription(async function* ({ ctx, input, signal }) {
       let conversationId = input.conversationId
@@ -67,29 +67,34 @@ export const chatRouter = router({
         if (!userMessage) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' })
 
         if (input.attachmentIds.length > 0) {
-          for (const attachmentId of input.attachmentIds) {
-            const [att] = await ctx.db
-              .select({ id: attachments.id })
-              .from(attachments)
-              .where(
-                and(
-                  eq(attachments.id, attachmentId),
-                  eq(attachments.userId, ctx.userId),
-                ),
-              )
-              .limit(1)
-            if (att) {
-              await ctx.db
-                .update(attachments)
-                .set({ messageId: userMessage.id })
-                .where(
-                  and(
-                    eq(attachments.id, attachmentId),
-                    eq(attachments.userId, ctx.userId),
-                  ),
-                )
-            }
+          const owned = await ctx.db
+            .select({ id: attachments.id })
+            .from(attachments)
+            .where(
+              and(
+                inArray(attachments.id, input.attachmentIds),
+                eq(attachments.userId, ctx.userId),
+              ),
+            )
+          const ownedIds = new Set(owned.map((a) => a.id))
+          const unauthorized = input.attachmentIds.filter(
+            (id) => !ownedIds.has(id),
+          )
+          if (unauthorized.length > 0) {
+            throw new TRPCError({
+              code: 'FORBIDDEN',
+              message: 'Attachment not found or access denied.',
+            })
           }
+          await ctx.db
+            .update(attachments)
+            .set({ messageId: userMessage.id })
+            .where(
+              and(
+                inArray(attachments.id, input.attachmentIds),
+                eq(attachments.userId, ctx.userId),
+              ),
+            )
         }
 
         let selectedModel = input.model
@@ -115,6 +120,15 @@ export const chatRouter = router({
           }
           yield modelChunk
         } else {
+          // Validate the explicitly-provided model against the live registry
+          const { getModelRegistry } = await import('@/lib/ai/registry')
+          const registry = await getModelRegistry()
+          if (!registry.some((m) => m.id === selectedModel)) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: 'Invalid model selection.',
+            })
+          }
           const modelChunk: StreamChunk = {
             type: STREAM_EVENTS.MODEL_SELECTED,
             model: selectedModel,
@@ -133,29 +147,26 @@ export const chatRouter = router({
           yield statusChunk
 
           const blocks: ContentBlock[] = [{ type: 'text', text: input.content }]
-          for (const attachmentId of input.attachmentIds) {
-            const [att] = await ctx.db
-              .select()
-              .from(attachments)
-              .where(
-                and(
-                  eq(attachments.id, attachmentId),
-                  eq(attachments.userId, ctx.userId),
-                ),
-              )
-              .limit(1)
-            if (att) {
-              if (att.fileType.startsWith('image/')) {
-                blocks.push({
-                  type: 'image_url',
-                  image_url: { url: att.storageUrl },
-                })
-              } else {
-                blocks.push({
-                  type: 'text',
-                  text: `[Attachment: ${att.fileName} — ${att.fileType}]`,
-                })
-              }
+          const attachmentRows = await ctx.db
+            .select()
+            .from(attachments)
+            .where(
+              and(
+                inArray(attachments.id, input.attachmentIds),
+                eq(attachments.userId, ctx.userId),
+              ),
+            )
+          for (const att of attachmentRows) {
+            if (att.fileType.startsWith('image/')) {
+              blocks.push({
+                type: 'image_url',
+                image_url: { url: att.storageUrl },
+              })
+            } else {
+              blocks.push({
+                type: 'text',
+                text: `[Attachment: ${att.fileName} — ${att.fileType}]`,
+              })
             }
           }
           userContent = blocks
@@ -187,11 +198,16 @@ export const chatRouter = router({
           }
           yield toolResultChunk
 
+          // XML-wrap search results to block indirect prompt injection
           searchContext =
-            '\n\nSearch results:\n' +
+            '\n\n<search_results>\n' +
             response.results
-              .map((r) => `- ${r.title}: ${r.snippet} (${r.url})`)
-              .join('\n')
+              .map(
+                (r) =>
+                  `<result><title>${r.title}</title><snippet>${r.snippet}</snippet><url>${r.url}</url></result>`,
+              )
+              .join('\n') +
+            '\n</search_results>'
         }
 
         const thinkingChunk: StreamChunk = {
@@ -224,6 +240,7 @@ export const chatRouter = router({
         let thinkingDurationMs: number | undefined
         let a2uiLines: string[] = []
         let inA2UI = false
+        let a2uiBuffer = ''
 
         for await (const chunk of stream) {
           const delta = chunk.choices[0]?.delta
@@ -251,6 +268,7 @@ export const chatRouter = router({
 
             if (text.includes('```a2ui')) {
               inA2UI = true
+              a2uiBuffer = ''
               const a2uiStatusChunk: StreamChunk = {
                 type: STREAM_EVENTS.STATUS,
                 phase: STREAM_PHASES.GENERATING_UI,
@@ -260,11 +278,25 @@ export const chatRouter = router({
               continue
             }
             if (inA2UI && text.includes('```')) {
+              // Flush remaining buffer content
+              if (a2uiBuffer.trim()) {
+                a2uiLines.push(a2uiBuffer.trim())
+                const a2uiChunk: StreamChunk = {
+                  type: STREAM_EVENTS.A2UI,
+                  jsonl: a2uiBuffer.trim(),
+                }
+                yield a2uiChunk
+              }
               inA2UI = false
+              a2uiBuffer = ''
               continue
             }
             if (inA2UI) {
-              for (const line of text.split('\n')) {
+              // Buffer tokens until we have complete lines to avoid token-boundary issues
+              a2uiBuffer += text
+              const lines = a2uiBuffer.split('\n')
+              a2uiBuffer = lines.pop() ?? ''
+              for (const line of lines) {
                 const trimmed = line.trim()
                 if (trimmed) {
                   a2uiLines.push(trimmed)
@@ -355,11 +387,13 @@ export const chatRouter = router({
       } catch (err) {
         if (err instanceof TRPCError) throw err
 
-        const message =
-          err instanceof Error ? err.message : 'An unexpected error occurred'
+        const isDev = process.env.NODE_ENV === 'development'
+        if (err instanceof Error) {
+          console.error('[chat.stream]', isDev ? err : err.message)
+        }
         const errorChunk: StreamChunk = {
           type: STREAM_EVENTS.ERROR,
-          message,
+          message: 'An error occurred while processing your request.',
         }
         yield errorChunk
       }

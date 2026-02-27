@@ -10,7 +10,10 @@ export async function routeModel(prompt: string): Promise<ModelSelection> {
       model: ROUTER_MODEL,
       messages: [
         { role: 'system', content: PROMPTS.ROUTER_SYSTEM_PROMPT },
-        { role: 'user', content: prompt },
+        {
+          role: 'user',
+          content: `<user_request>${prompt}</user_request>`,
+        },
       ],
       response_format: { type: 'json_object' },
       max_tokens: AI_PARAMS.ROUTER_MAX_TOKENS,

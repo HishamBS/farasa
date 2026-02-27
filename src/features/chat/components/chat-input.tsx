@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, forwardRef, useImperativeHandle } from 'react'
+import { useCallback, useMemo, useEffect, useRef, forwardRef, useImperativeHandle } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Send, Square } from 'lucide-react'
 import { scaleIn } from '@/lib/utils/motion'
@@ -9,6 +9,7 @@ import { APP_CONFIG } from '@/config/constants'
 import { useChatInput } from '../hooks/use-chat-input'
 import { ModelSelector } from './model-selector'
 import { ModeToggle } from './mode-toggle'
+import type { ModelSelectorHandle } from './model-selector'
 import type { ChatInput as ChatInputType } from '@/schemas/message'
 
 export type ChatInputHandle = {
@@ -20,11 +21,14 @@ type ChatInputProps = {
   onAbort: () => void
   isStreaming: boolean
   conversationId?: string
+  initialModel?: string | null
 }
 
 export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
-  function ChatInput({ onSend, onAbort, isStreaming, conversationId }, ref) {
+  function ChatInput({ onSend, onAbort, isStreaming, conversationId, initialModel }, ref) {
     const shouldReduce = useReducedMotion()
+    const modelSelectorRef = useRef<ModelSelectorHandle>(null)
+
     const {
       content,
       mode,
@@ -37,9 +41,21 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
       handleKeyDown,
       clear,
       setExternalContent,
-    } = useChatInput()
+    } = useChatInput(initialModel)
 
     useImperativeHandle(ref, () => ({ setContent: setExternalContent }))
+
+    // Cmd/Ctrl+K opens the model selector from anywhere in the page
+    useEffect(() => {
+      const handler = (e: KeyboardEvent) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+          e.preventDefault()
+          modelSelectorRef.current?.open()
+        }
+      }
+      document.addEventListener('keydown', handler)
+      return () => document.removeEventListener('keydown', handler)
+    }, [])
 
     const handleSubmit = useCallback(() => {
       if (!content.trim() || isStreaming) return
@@ -60,12 +76,17 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
       [handleKeyDown, handleSubmit],
     )
 
-    const canSend = content.trim().length > 0 && !isStreaming
+    const canSend = useMemo(
+      () => content.trim().length > 0 && !isStreaming,
+      [content, isStreaming],
+    )
 
     return (
-      <div className="border-t border-[--border-subtle] bg-[--bg-root]">
+      // env(safe-area-inset-bottom) prevents the input from being obscured on notched devices
+      <div className="border-t border-[--border-subtle] bg-[--bg-root] [padding-bottom:env(safe-area-inset-bottom)]">
         <div className="mx-auto max-w-2xl px-4 py-3 lg:px-6">
           <div className="flex flex-col gap-2 rounded-2xl border border-[--border-default] bg-[--bg-glass] px-4 pb-2 pt-3 backdrop-blur-xl">
+            {/* max-h-48 = UX.TEXTAREA_MAX_HEIGHT_PIXELS (192px) */}
             <textarea
               ref={textareaRef}
               value={content}
@@ -79,7 +100,11 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
 
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <ModelSelector value={selectedModel} onChange={setSelectedModel} />
+                <ModelSelector
+                  ref={modelSelectorRef}
+                  value={selectedModel}
+                  onChange={setSelectedModel}
+                />
                 <ModeToggle value={mode} onChange={setMode} />
               </div>
 
@@ -87,7 +112,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
                 <motion.button
                   type="button"
                   onClick={onAbort}
-                  className="flex min-h-8 min-w-8 items-center justify-center rounded-xl border border-[--error] text-[--error] hover:bg-[--error]/10"
+                  className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-[--error] text-[--error] hover:bg-[--error]/10"
                   {...(shouldReduce ? {} : scaleIn)}
                   aria-label="Stop generating"
                 >
@@ -99,7 +124,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
                   onClick={handleSubmit}
                   disabled={!canSend}
                   className={cn(
-                    'flex min-h-8 min-w-8 items-center justify-center rounded-xl transition-colors',
+                    'flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-colors',
                     canSend
                       ? 'bg-[--accent] text-[--bg-root] hover:bg-[--accent-hover]'
                       : 'bg-[--bg-surface-hover] text-[--text-ghost]',

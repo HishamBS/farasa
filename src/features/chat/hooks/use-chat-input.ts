@@ -1,15 +1,24 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { CHAT_MODES, UX } from '@/config/constants'
 import type { SearchMode } from '@/schemas/search'
 
-export function useChatInput() {
+export function useChatInput(initialModel?: string | null) {
   const [content, setContent] = useState('')
   const [mode, setMode] = useState<SearchMode>(CHAT_MODES.CHAT)
   const [attachmentIds, setAttachmentIds] = useState<string[]>([])
-  const [selectedModel, setSelectedModel] = useState<string | undefined>()
+  const [selectedModel, setSelectedModel] = useState<string | undefined>(
+    initialModel ?? undefined,
+  )
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Sync selectedModel when navigating to a different conversation
+  useEffect(() => {
+    if (initialModel != null) {
+      setSelectedModel(initialModel)
+    }
+  }, [initialModel])
 
   const handleContentChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -50,16 +59,19 @@ export function useChatInput() {
     setAttachmentIds((prev) => prev.filter((a) => a !== id))
   }, [])
 
-  const setExternalContent = useCallback((text: string) => {
-    setContent(text)
-    requestAnimationFrame(() => {
-      const el = textareaRef.current
-      if (!el) return
-      el.style.height = 'auto'
-      el.style.height = `${Math.min(el.scrollHeight, UX.TEXTAREA_MAX_HEIGHT_PIXELS)}px`
-      el.focus()
-    })
-  }, [textareaRef])
+  const setExternalContent = useCallback(
+    (text: string) => {
+      setContent(text)
+      requestAnimationFrame(() => {
+        const el = textareaRef.current
+        if (!el) return
+        el.style.height = 'auto'
+        el.style.height = `${Math.min(el.scrollHeight, UX.TEXTAREA_MAX_HEIGHT_PIXELS)}px`
+        el.focus()
+      })
+    },
+    [textareaRef],
+  )
 
   return {
     content,

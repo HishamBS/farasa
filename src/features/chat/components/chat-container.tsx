@@ -17,6 +17,11 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
   const isStreaming = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
   const chatInputRef = useRef<ChatInputHandle>(null)
 
+  const { data: conversation } = trpc.conversation.getById.useQuery(
+    { id: conversationId },
+    { staleTime: Infinity },
+  )
+
   const { data: messages = [] } = trpc.conversation.messages.useQuery(
     { conversationId },
     { staleTime: Infinity },
@@ -40,6 +45,7 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
         onAbort={abort}
         isStreaming={isStreaming}
         conversationId={conversationId}
+        initialModel={conversation?.model}
       />
     </div>
   )

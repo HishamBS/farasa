@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState, useRef } from 'react'
+import { useCallback, useMemo, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Pin, PinOff, Trash2, Pencil, Download } from 'lucide-react'
@@ -38,12 +38,18 @@ export function ConversationItem({
     onSuccess: () => {
       void utils.conversation.list.invalidate()
     },
+    onError: (err) => {
+      console.error('Failed to update conversation', err)
+    },
   })
 
   const deleteMutation = trpc.conversation.delete.useMutation({
     onSuccess: () => {
       void utils.conversation.list.invalidate()
       if (isActive) router.push(ROUTES.CHAT)
+    },
+    onError: (err) => {
+      console.error('Failed to delete conversation', err)
     },
   })
 
@@ -69,23 +75,32 @@ export function ConversationItem({
   )
 
   const handleExport = useCallback(
-    async (e: React.MouseEvent) => {
+    (e: React.MouseEvent) => {
       e.stopPropagation()
-      setIsExporting(true)
-      try {
-        const result = await utils.conversation.exportMarkdown.fetch({ id })
-        const blob = new Blob([result.markdown], { type: 'text/markdown' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `${result.title}.md`
-        a.click()
-        URL.revokeObjectURL(url)
-      } finally {
-        setIsExporting(false)
-      }
+      void (async () => {
+        setIsExporting(true)
+        try {
+          const result = await utils.conversation.exportMarkdown.fetch({ id })
+          const blob = new Blob([result.markdown], { type: 'text/markdown' })
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `${result.title}.md`
+          a.click()
+          URL.revokeObjectURL(url)
+        } catch (err) {
+          console.error('Export failed', err)
+        } finally {
+          setIsExporting(false)
+        }
+      })()
     },
     [id, utils],
+  )
+
+  const handleEditChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => setEditValue(e.target.value),
+    [],
   )
 
   const handleRenameStart = useCallback((e: React.MouseEvent) => {
@@ -115,7 +130,7 @@ export function ConversationItem({
     [handleRenameCommit, title],
   )
 
-  const formattedDate = formatDate(new Date(updatedAt))
+  const formattedDate = useMemo(() => formatDate(new Date(updatedAt)), [updatedAt])
 
   return (
     <motion.div
@@ -136,7 +151,7 @@ export function ConversationItem({
           <input
             ref={inputRef}
             value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
+            onChange={handleEditChange}
             onBlur={handleRenameCommit}
             onKeyDown={handleRenameKeyDown}
             onClick={(e) => e.stopPropagation()}

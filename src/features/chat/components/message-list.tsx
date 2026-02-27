@@ -3,9 +3,8 @@
 import { motion, useReducedMotion } from 'framer-motion'
 import { ChevronDown } from 'lucide-react'
 import { fadeIn } from '@/lib/utils/motion'
-import { UserMessage } from './user-message'
+import { MessageBubble } from './message-bubble'
 import { AssistantMessage } from './assistant-message'
-import { HistoricalAssistantMessage } from './historical-assistant-message'
 import { EmptyState } from './empty-state'
 import { useAutoScroll } from '../hooks/use-auto-scroll'
 import { CHAT_STREAM_STATUS } from '@/config/constants'
@@ -39,13 +38,9 @@ export function MessageList({
         <EmptyState onSelect={onSuggestionSelect} />
       ) : (
         <div className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-6 lg:px-6">
-          {messages.map((msg) =>
-            msg.role === 'user' ? (
-              <UserMessage key={msg.id} content={msg.content} />
-            ) : msg.role === 'assistant' ? (
-              <HistoricalAssistantMessage key={msg.id} message={msg} />
-            ) : null,
-          )}
+          {messages.map((msg) => (
+            <MessageBubble key={msg.id} message={msg} />
+          ))}
 
           {isStreaming && streamState.phase !== CHAT_STREAM_STATUS.IDLE && (
             <AssistantMessage streamState={streamState} />

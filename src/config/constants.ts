@@ -12,6 +12,7 @@ export const LIMITS = {
   STREAM_TIMEOUT_MS: 60_000,
   SEARCH_MAX_RESULTS: 10,
   CODE_BLOCK_LINE_NUMBER_THRESHOLD: 5,
+  TOKENS_PER_K: 1_000,
 } as const
 
 export const RATE_LIMITS = {
@@ -123,7 +124,7 @@ export const STREAM_PROGRESS = {
     [STREAM_PHASES.READING_FILES]: 'Reading',
     [STREAM_PHASES.GENERATING_UI]: 'Rendering',
     [STREAM_PHASES.GENERATING_TITLE]: 'Title',
-    STREAMING: 'Streaming',
+    STREAMING: 'Responding',
   },
 } as const
 
@@ -144,6 +145,24 @@ export const PROVIDERS = {
   GROQ: 'groq',
   CEREBRAS: 'cerebras',
 } as const
+
+export const PROVIDER_DOT_CLASSES: Record<string, string> = {
+  [PROVIDERS.ANTHROPIC]: 'bg-[--provider-anthropic]',
+  [PROVIDERS.OPENAI]: 'bg-[--provider-openai]',
+  [PROVIDERS.GOOGLE]: 'bg-[--provider-google]',
+  [PROVIDERS.META]: 'bg-[--provider-meta]',
+  [PROVIDERS.GROQ]: 'bg-[--provider-groq]',
+  [PROVIDERS.CEREBRAS]: 'bg-[--provider-cerebras]',
+}
+
+export const PROVIDER_TEXT_CLASSES: Record<string, string> = {
+  [PROVIDERS.ANTHROPIC]: 'text-[--provider-anthropic]',
+  [PROVIDERS.OPENAI]: 'text-[--provider-openai]',
+  [PROVIDERS.GOOGLE]: 'text-[--provider-google]',
+  [PROVIDERS.META]: 'text-[--provider-meta]',
+  [PROVIDERS.GROQ]: 'text-[--provider-groq]',
+  [PROVIDERS.CEREBRAS]: 'text-[--provider-cerebras]',
+}
 
 export const ROUTER_MODEL = MODEL_IDS.LLAMA_31_8B
 export const DEFAULT_MODEL = MODEL_IDS.CLAUDE_SONNET_4
@@ -169,6 +188,9 @@ export const UX = {
   TEXTAREA_MAX_HEIGHT_PIXELS: 192,
   SIDEBAR_SKELETON_COUNT: 6,
   SCROLL_BUTTON_BOTTOM_OFFSET: 24,
+  LONG_PRESS_DELAY_MS: 500,
+  QUERY_STALE_TIME_FOREVER: Infinity,
+  SEND_BUTTON_HOVER_SCALE: 1.1,
 } as const
 
 export const MOTION = {
@@ -193,6 +215,7 @@ export const AI_PARAMS = {
   CHAT_MAX_TOKENS: 4096,
   ROUTER_TEMPERATURE: 0,
   TITLE_TEMPERATURE: 0.3,
+  THINKING_HISTORICAL_STARTAT_MS: 0,
 } as const
 
 export const MODEL_REGISTRY_CACHE_KEY = 'models' as const
@@ -223,11 +246,25 @@ export const APP_CONFIG = {
   CHAT_PLACEHOLDER: 'Message farasa...',
 } as const
 
+export const EMPTY_STATE_SUGGESTIONS = [
+  'Explain quantum computing in simple terms',
+  'Write a Python script to parse CSV files',
+  'Summarize the latest AI research trends',
+  'Help me debug this TypeScript error',
+] as const
+
 export const UI_TEXT = {
   SIDEBAR_SEARCH_PLACEHOLDER: 'Search conversations',
   NEW_CHAT_ARIA_LABEL: 'New chat',
   OFFLINE_BANNER:
     "You're offline — your conversations will be here when you're back",
+  NEW_MESSAGES_LABEL: 'New messages',
+  OPEN_SIDEBAR_ARIA: 'Open sidebar',
+  CHAT_KEYBOARD_HINT: '↵ send · ⇧↵ newline',
+  DELETE_CONFIRM_TITLE: 'Delete conversation?',
+  DELETE_CONFIRM_BODY:
+    'This will permanently delete the conversation and all its messages.',
+  DELETE_CONFIRM_ACTION: 'Delete',
 } as const
 
 export const SESSION_KEYS = {

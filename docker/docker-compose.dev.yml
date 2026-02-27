@@ -1,0 +1,34 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: farasa-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: farasa_user
+      POSTGRES_PASSWORD: farasa_password
+      POSTGRES_DB: farasa_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - farasa_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U farasa_user -d farasa_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  adminer:
+    image: adminer:4
+    container_name: farasa-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  farasa_postgres_data:
+    name: farasa_postgres_data

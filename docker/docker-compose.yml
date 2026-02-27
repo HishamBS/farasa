@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: farasa-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: farasa_user
+      POSTGRES_PASSWORD: farasa_password
+      POSTGRES_DB: farasa_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - farasa_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U farasa_user -d farasa_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: farasa-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - HOSTNAME=0.0.0.0
+      - PORT=3000
+      - DATABASE_URL=postgresql://farasa_user:farasa_password@postgres:5432/farasa_db
+    env_file:
+      - ../.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  farasa_postgres_data:
+    name: farasa_postgres_data

@@ -8,6 +8,7 @@ import { fadeInUp } from '@/lib/utils/motion'
 import { cn } from '@/lib/utils/cn'
 import { formatDate } from '@/lib/utils/format'
 import { ROUTES } from '@/config/routes'
+import { UX } from '@/config/constants'
 import { trpc } from '@/trpc/provider'
 
 type ConversationItemProps = {
@@ -67,7 +68,7 @@ export function ConversationItem({
   const handleTouchStart = useCallback(() => {
     longPressTimerRef.current = setTimeout(() => {
       setIsLongPressMenuOpen(true)
-    }, 500)
+    }, UX.LONG_PRESS_DELAY_MS)
   }, [])
 
   const handleTouchEnd = useCallback(() => {

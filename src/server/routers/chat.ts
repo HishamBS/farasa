@@ -2,7 +2,7 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, rateLimitedChatProcedure } from '../trpc'
 import { ChatInputSchema, MessageMetadataSchema } from '@/schemas/message'
-import type { SearchResult } from '@/schemas/search'
+import type { SearchImage, SearchResult } from '@/schemas/search'
 import { conversations, messages, attachments } from '@/lib/db/schema'
 import {
   STREAM_EVENTS,
@@ -13,6 +13,7 @@ import {
   AI_REASONING,
   AI_PARAMS,
   LIMITS,
+  DEFAULT_MODEL,
 } from '@/config/constants'
 import { PROMPTS } from '@/config/prompts'
 import type { StreamChunk } from '@/schemas/message'
@@ -99,6 +100,8 @@ export const chatRouter = router({
 
         let selectedModel = input.model
         let routerReasoning: string | undefined
+        const { getModelRegistry } = await import('@/lib/ai/registry')
+        const registry = await getModelRegistry()
 
         if (!selectedModel) {
           const chunk: StreamChunk = {
@@ -110,8 +113,13 @@ export const chatRouter = router({
 
           const { routeModel } = await import('@/lib/ai/router')
           const selection = await routeModel(input.content)
-          selectedModel = selection.selectedModel
-          routerReasoning = selection.reasoning
+          if (registry.some((m) => m.id === selection.selectedModel)) {
+            selectedModel = selection.selectedModel
+            routerReasoning = selection.reasoning
+          } else {
+            selectedModel = DEFAULT_MODEL
+            routerReasoning = AI_REASONING.ROUTING_FALLBACK
+          }
 
           const modelChunk: StreamChunk = {
             type: STREAM_EVENTS.MODEL_SELECTED,
@@ -121,8 +129,6 @@ export const chatRouter = router({
           yield modelChunk
         } else {
           // Validate the explicitly-provided model against the live registry
-          const { getModelRegistry } = await import('@/lib/ai/registry')
-          const registry = await getModelRegistry()
           if (!registry.some((m) => m.id === selectedModel)) {
             throw new TRPCError({
               code: 'BAD_REQUEST',
@@ -174,6 +180,7 @@ export const chatRouter = router({
 
         let searchContext = ''
         let searchResults: SearchResult[] = []
+        let searchImages: SearchImage[] = []
         if (input.mode === CHAT_MODES.SEARCH) {
           const toolStartChunk: StreamChunk = {
             type: STREAM_EVENTS.TOOL_START,
@@ -186,15 +193,20 @@ export const chatRouter = router({
           const response = await tavilySearch({
             query: input.content,
             maxResults: LIMITS.SEARCH_MAX_RESULTS,
-            includeImages: false,
+            includeImages: true,
             searchDepth: 'basic',
           })
           searchResults = response.results
+          searchImages = response.images
 
           const toolResultChunk: StreamChunk = {
             type: STREAM_EVENTS.TOOL_RESULT,
             toolName: TOOL_NAMES.WEB_SEARCH,
-            result: response.results,
+            result: {
+              query: response.query,
+              results: response.results,
+              images: response.images,
+            },
           }
           yield toolResultChunk
 
@@ -336,7 +348,9 @@ export const chatRouter = router({
           routerReasoning,
           thinkingContent: thinkingContent || undefined,
           thinkingDurationMs,
+          searchQuery: input.mode === CHAT_MODES.SEARCH ? input.content : undefined,
           searchResults: searchResults.length > 0 ? searchResults : undefined,
+          searchImages: searchImages.length > 0 ? searchImages : undefined,
           a2uiMessages: a2uiLines.length > 0 ? a2uiLines : undefined,
         })
 

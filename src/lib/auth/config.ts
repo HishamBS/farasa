@@ -19,12 +19,14 @@ const ENCRYPTED_FIELDS = ['access_token', 'refresh_token', 'id_token'] as const
 
 type TokenField = (typeof ENCRYPTED_FIELDS)[number]
 
-function encryptAccountTokens(account: AdapterAccount): AdapterAccount {
+async function encryptAccountTokens(
+  account: AdapterAccount,
+): Promise<AdapterAccount> {
   const result: AdapterAccount = { ...account }
   for (const field of ENCRYPTED_FIELDS) {
     const value = (result as Record<string, unknown>)[field]
     if (typeof value === 'string') {
-      ;(result as Record<string, unknown>)[field] = encryptToken(
+      ;(result as Record<string, unknown>)[field] = await encryptToken(
         value,
         env.AUTH_SECRET,
       )
@@ -33,24 +35,27 @@ function encryptAccountTokens(account: AdapterAccount): AdapterAccount {
   return result
 }
 
-function tryDecryptField(value: string, field: TokenField): string {
+async function tryDecryptField(
+  value: string,
+  field: TokenField,
+): Promise<string> {
   try {
-    return decryptToken(value, env.AUTH_SECRET)
+    return await decryptToken(value, env.AUTH_SECRET)
   } catch {
     console.error(`[auth] Failed to decrypt ${field}`)
     return value
   }
 }
 
-function decryptAccountTokens(
+async function decryptAccountTokens(
   account: AdapterAccount | null,
-): AdapterAccount | null {
+): Promise<AdapterAccount | null> {
   if (!account) return null
   const result: AdapterAccount = { ...account }
   for (const field of ENCRYPTED_FIELDS) {
     const value = (result as Record<string, unknown>)[field]
     if (typeof value === 'string') {
-      ;(result as Record<string, unknown>)[field] = tryDecryptField(
+      ;(result as Record<string, unknown>)[field] = await tryDecryptField(
         value,
         field,
       )
@@ -64,13 +69,13 @@ function withEncryptedTokens(adapter: Adapter): Adapter {
     ...adapter,
     linkAccount: adapter.linkAccount
       ? async (account) => {
-          await adapter.linkAccount!(encryptAccountTokens(account))
+          await adapter.linkAccount!(await encryptAccountTokens(account))
         }
       : undefined,
     getAccount: adapter.getAccount
       ? async (providerAccountId, provider) => {
           const account = await adapter.getAccount!(providerAccountId, provider)
-          return decryptAccountTokens(account)
+          return await decryptAccountTokens(account)
         }
       : undefined,
   }

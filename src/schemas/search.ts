@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { LIMITS, CHAT_MODES } from '@/config/constants'
 
 export const SearchQuerySchema = z.object({
-  query: z.string().min(1).max(LIMITS.MESSAGE_MAX_LENGTH),
+  query: z.string().min(1).max(LIMITS.SEARCH_QUERY_MAX_LENGTH),
   maxResults: z
     .number()
     .int()

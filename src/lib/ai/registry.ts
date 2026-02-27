@@ -4,9 +4,11 @@ import {
   MODEL_CATEGORIES,
   MODEL_REGISTRY_CACHE_KEY,
   EXTERNAL_URLS,
+  PROVIDERS,
 } from '@/config/constants'
 import { ModelConfigSchema } from '@/schemas/model'
 import { env } from '@/config/env'
+import { STATIC_MODEL_REGISTRY } from '@/config/models'
 
 type OpenRouterModel = {
   id: string
@@ -20,6 +22,26 @@ type OpenRouterModel = {
 type CacheEntry = { models: ModelConfig[]; fetchedAt: number }
 
 const cache = new Map<string, CacheEntry>()
+
+function normalizeProvider(rawProvider: string): ModelConfig['provider'] | null {
+  switch (rawProvider) {
+    case PROVIDERS.OPENAI:
+      return PROVIDERS.OPENAI
+    case PROVIDERS.ANTHROPIC:
+      return PROVIDERS.ANTHROPIC
+    case PROVIDERS.GOOGLE:
+      return PROVIDERS.GOOGLE
+    case PROVIDERS.GROQ:
+      return PROVIDERS.GROQ
+    case PROVIDERS.CEREBRAS:
+      return PROVIDERS.CEREBRAS
+    case PROVIDERS.META:
+    case 'meta-llama':
+      return PROVIDERS.META
+    default:
+      return null
+  }
+}
 
 async function fetchFromOpenRouter(): Promise<ModelConfig[]> {
   const response = await fetch(EXTERNAL_URLS.OPENROUTER_MODELS, {
@@ -35,7 +57,9 @@ async function fetchFromOpenRouter(): Promise<ModelConfig[]> {
 
   const models: ModelConfig[] = []
   for (const raw of json.data) {
-    const provider = raw.id.split('/')[0] ?? 'unknown'
+    const providerId = raw.id.split('/')[0] ?? ''
+    const provider = normalizeProvider(providerId)
+    if (!provider) continue
     const params = raw.supported_parameters ?? []
 
     const parsed = ModelConfigSchema.safeParse({
@@ -68,8 +92,8 @@ export async function getModelRegistry(): Promise<ModelConfig[]> {
     const models = await fetchFromOpenRouter()
     cache.set(MODEL_REGISTRY_CACHE_KEY, { models, fetchedAt: Date.now() })
     return models
-  } catch (err) {
+  } catch {
     if (cached) return cached.models
-    throw err
+    return [...STATIC_MODEL_REGISTRY]
   }
 }

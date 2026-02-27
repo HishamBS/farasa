@@ -52,12 +52,21 @@ function buildThinkingState(metadata: MessageMetadata): ThinkingState | null {
 }
 
 function buildToolExecutions(metadata: MessageMetadata): ToolExecutionState[] {
-  if (!metadata.searchResults || metadata.searchResults.length === 0) return []
+  if (
+    (!metadata.searchResults || metadata.searchResults.length === 0) &&
+    (!metadata.searchImages || metadata.searchImages.length === 0)
+  ) {
+    return []
+  }
   return [
     {
       name: TOOL_NAMES.WEB_SEARCH,
-      input: {},
-      result: metadata.searchResults,
+      input: { query: metadata.searchQuery ?? '' },
+      result: {
+        query: metadata.searchQuery ?? '',
+        results: metadata.searchResults ?? [],
+        images: metadata.searchImages ?? [],
+      },
       completedAt: 1,
     },
   ]

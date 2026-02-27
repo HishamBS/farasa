@@ -5,7 +5,11 @@ import {
   CHAT_MODES,
   LIMITS,
 } from '@/config/constants'
-import { SearchModeSchema, SearchResultSchema } from './search'
+import {
+  SearchImageSchema,
+  SearchModeSchema,
+  SearchResultSchema,
+} from './search'
 
 export const MessageRoleSchema = z.enum(['user', 'assistant', 'system'])
 
@@ -100,7 +104,9 @@ export const MessageMetadataSchema = z.object({
   thinkingDurationMs: z.number().int().nonnegative().optional(),
   toolCalls: z.array(ToolCallSchema).optional(),
   a2uiMessages: z.array(z.unknown()).optional(),
+  searchQuery: z.string().optional(),
   searchResults: z.array(SearchResultSchema).optional(),
+  searchImages: z.array(SearchImageSchema).optional(),
   usage: UsageSchema.optional(),
 })
 

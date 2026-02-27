@@ -73,7 +73,7 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
     const grouped = useMemo(
       () =>
         models.reduce<Record<string, ModelConfig[]>>((acc, m) => {
-          const provider = m.id.split('/')[0] ?? 'other'
+          const provider = m.provider
           const existing = acc[provider] ?? []
           existing.push(m)
           acc[provider] = existing
@@ -84,7 +84,7 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
 
     const { selected, dotClass } = useMemo(() => {
       const sel = models.find((m) => m.id === value)
-      const prov = sel?.id.split('/')[0] ?? ''
+      const prov = sel?.provider ?? ''
       return {
         selected: sel,
         dotClass: PROVIDER_DOT_CLASSES[prov] ?? 'bg-[--text-ghost]',
@@ -235,7 +235,7 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
                         PROVIDER_DOT_CLASSES[provider] ?? 'bg-[--text-ghost]',
                       )}
                     />
-                    <span className="text-[10px] font-medium uppercase tracking-wider text-[--text-ghost]">
+                    <span className="text-xs font-medium uppercase tracking-wider text-[--text-ghost]">
                       {provider}
                     </span>
                   </div>

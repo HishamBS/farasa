@@ -1,35 +1,85 @@
-import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'crypto'
-
-const ALGORITHM = 'aes-256-gcm'
-const IV_LENGTH = 16
-const TAG_LENGTH = 16
+const ALGORITHM = 'AES-GCM'
+const IV_LENGTH = 12
 const KEY_LENGTH = 32
 
-function deriveKey(secret: string): Buffer {
-  return createHash('sha256').update(secret).digest().subarray(0, KEY_LENGTH)
-}
+const textEncoder = new TextEncoder()
+const textDecoder = new TextDecoder()
 
-export function encryptToken(plaintext: string, secret: string): string {
-  const key = deriveKey(secret)
-  const iv = randomBytes(IV_LENGTH)
-  const cipher = createCipheriv(ALGORITHM, key, iv)
-  const encrypted = Buffer.concat([
-    cipher.update(plaintext, 'utf8'),
-    cipher.final(),
-  ])
-  const tag = cipher.getAuthTag()
-  return Buffer.concat([iv, tag, encrypted]).toString('base64')
-}
-
-export function decryptToken(ciphertext: string, secret: string): string {
-  const key = deriveKey(secret)
-  const data = Buffer.from(ciphertext, 'base64')
-  const iv = data.subarray(0, IV_LENGTH)
-  const tag = data.subarray(IV_LENGTH, IV_LENGTH + TAG_LENGTH)
-  const encrypted = data.subarray(IV_LENGTH + TAG_LENGTH)
-  const decipher = createDecipheriv(ALGORITHM, key, iv)
-  decipher.setAuthTag(tag)
-  return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString(
-    'utf8',
+async function deriveKey(secret: string): Promise<CryptoKey> {
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    textEncoder.encode(secret),
   )
+  const keyBytes = new Uint8Array(digest).subarray(0, KEY_LENGTH)
+  return crypto.subtle.importKey(
+    'raw',
+    keyBytes,
+    { name: ALGORITHM },
+    false,
+    ['encrypt', 'decrypt'],
+  )
+}
+
+function encodeBase64(bytes: Uint8Array): string {
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(bytes).toString('base64')
+  }
+  let binary = ''
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte)
+  }
+  return btoa(binary)
+}
+
+function decodeBase64(input: string): Uint8Array {
+  if (typeof Buffer !== 'undefined') {
+    return new Uint8Array(Buffer.from(input, 'base64'))
+  }
+  const binary = atob(input)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return bytes
+}
+
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return Uint8Array.from(bytes).buffer
+}
+
+export async function encryptToken(
+  plaintext: string,
+  secret: string,
+): Promise<string> {
+  const key = await deriveKey(secret)
+  const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH))
+  const ivBuffer = toArrayBuffer(iv)
+  const encrypted = await crypto.subtle.encrypt(
+    { name: ALGORITHM, iv: ivBuffer },
+    key,
+    textEncoder.encode(plaintext),
+  )
+  const cipherBytes = new Uint8Array(encrypted)
+  const combined = new Uint8Array(iv.length + cipherBytes.length)
+  combined.set(iv, 0)
+  combined.set(cipherBytes, iv.length)
+  return encodeBase64(combined)
+}
+
+export async function decryptToken(
+  ciphertext: string,
+  secret: string,
+): Promise<string> {
+  const data = decodeBase64(ciphertext)
+  const iv = data.subarray(0, IV_LENGTH)
+  const ivBuffer = toArrayBuffer(iv)
+  const encrypted = data.subarray(IV_LENGTH)
+  const key = await deriveKey(secret)
+  const encryptedBuffer = toArrayBuffer(encrypted)
+  const decrypted = await crypto.subtle.decrypt(
+    { name: ALGORITHM, iv: ivBuffer },
+    key,
+    encryptedBuffer,
+  )
+  return textDecoder.decode(decrypted)
 }

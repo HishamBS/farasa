@@ -25,7 +25,7 @@ export function ThinkingBlock({ thinking }: ThinkingBlockProps) {
   const toggle = useCallback(() => setIsExpanded((p) => !p), [])
 
   return (
-    <div className="rounded-xl border-l-2 border-[--thinking] bg-[--thinking-bg] shadow-[0_0_12px_var(--thinking-border)]">
+    <div className="rounded-xl border-l-2 border-[--thinking] bg-[--thinking-bg] shadow-lg shadow-[--thinking-border]">
       <button
         type="button"
         onClick={toggle}

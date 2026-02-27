@@ -35,6 +35,16 @@ const nextConfig: NextConfig = {
         hostname: '*.openrouter.ai',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'storage.googleapis.com',
+        pathname: '/**',
+      },
     ],
   },
   async headers() {

@@ -27,24 +27,30 @@ export function ToolExecution({ execution }: ToolExecutionProps) {
       ? String((execution.input as { query: string }).query)
       : ''
 
-  const resultCount =
-    isComplete && Array.isArray(execution.result) ? execution.result.length : null
+  const parsedSearchPayload = useMemo(() => {
+    if (!execution.result || typeof execution.result !== 'object') {
+      return { results: [], images: [] }
+    }
+    const record = execution.result as Record<string, unknown>
+    const rawResults = Array.isArray(record['results']) ? record['results'] : []
+    const rawImages = Array.isArray(record['images']) ? record['images'] : []
 
-  const searchResults = useMemo(() => {
-    if (!isSearch || !Array.isArray(execution.result)) return []
-    return execution.result.flatMap((r) => {
-      const parsed = SearchResultSchema.safeParse(r)
+    const results = rawResults.flatMap((item) => {
+      const parsed = SearchResultSchema.safeParse(item)
       return parsed.success ? [parsed.data] : []
     })
-  }, [isSearch, execution.result])
-
-  const searchImages = useMemo(() => {
-    if (!isSearch || !Array.isArray(execution.result)) return []
-    return execution.result.flatMap((r) => {
-      const parsed = SearchImageSchema.safeParse(r)
+    const images = rawImages.flatMap((item) => {
+      const parsed = SearchImageSchema.safeParse(item)
       return parsed.success ? [parsed.data] : []
     })
-  }, [isSearch, execution.result])
+
+    return { results, images }
+  }, [execution.result])
+
+  const resultCount = isComplete ? parsedSearchPayload.results.length : null
+
+  const searchResults = isSearch ? parsedSearchPayload.results : []
+  const searchImages = isSearch ? parsedSearchPayload.images : []
 
   return (
     <motion.div
@@ -52,7 +58,7 @@ export function ToolExecution({ execution }: ToolExecutionProps) {
         'rounded-xl border p-3 transition-colors',
         isComplete
           ? 'border-[--border-subtle] bg-[--bg-surface]'
-          : 'border-[--accent] bg-[--bg-surface] shadow-[0_0_8px_var(--accent-muted)]',
+          : 'border-[--accent] bg-[--bg-surface] shadow-md shadow-[--accent-muted]',
       )}
       {...(shouldReduce ? {} : fadeInUp)}
     >

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback } from 'react'
+import Image from 'next/image'
 import { signOut, useSession } from 'next-auth/react'
 import { LogOut, Sun, Moon } from 'lucide-react'
 import { useTheme } from '@/lib/utils/use-theme'
@@ -17,9 +18,11 @@ export function UserMenu() {
   return (
     <div className="flex items-center gap-2 border-t border-[--border-subtle] px-4 py-3">
       {session?.user?.image ? (
-        <img
+        <Image
           src={session.user.image}
           alt={session.user.name ?? 'User avatar'}
+          width={28}
+          height={28}
           className="size-7 rounded-full object-cover"
           referrerPolicy="no-referrer"
         />

@@ -9,7 +9,7 @@ const client = tavily({ apiKey: env.TAVILY_API_KEY })
 export async function tavilySearch(input: SearchQuery): Promise<SearchResponse> {
   const result = await client.search(input.query, {
     searchDepth: input.searchDepth ?? 'basic',
-    maxResults: LIMITS.SEARCH_MAX_RESULTS,
+    maxResults: input.maxResults ?? LIMITS.SEARCH_MAX_RESULTS,
     includeImages: input.includeImages ?? false,
   })
 

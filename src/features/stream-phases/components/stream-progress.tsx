@@ -5,32 +5,15 @@ import { cn } from '@/lib/utils/cn'
 import {
   STREAM_PHASES,
   CHAT_STREAM_STATUS,
-  PROVIDERS,
   STREAM_PROGRESS,
+  PROVIDER_DOT_CLASSES,
+  PROVIDER_TEXT_CLASSES,
 } from '@/config/constants'
 import { fadeInDown } from '@/lib/utils/motion'
 import type { StreamState } from '@/types/stream'
 
 type StreamProgressProps = {
   streamState: StreamState
-}
-
-const PROVIDER_DOT_CLASSES: Record<string, string> = {
-  [PROVIDERS.ANTHROPIC]: 'bg-[--provider-anthropic]',
-  [PROVIDERS.OPENAI]: 'bg-[--provider-openai]',
-  [PROVIDERS.GOOGLE]: 'bg-[--provider-google]',
-  [PROVIDERS.META]: 'bg-[--provider-meta]',
-  [PROVIDERS.GROQ]: 'bg-[--provider-groq]',
-  [PROVIDERS.CEREBRAS]: 'bg-[--provider-cerebras]',
-}
-
-const PROVIDER_TEXT_CLASSES: Record<string, string> = {
-  [PROVIDERS.ANTHROPIC]: 'text-[--provider-anthropic]',
-  [PROVIDERS.OPENAI]: 'text-[--provider-openai]',
-  [PROVIDERS.GOOGLE]: 'text-[--provider-google]',
-  [PROVIDERS.META]: 'text-[--provider-meta]',
-  [PROVIDERS.GROQ]: 'text-[--provider-groq]',
-  [PROVIDERS.CEREBRAS]: 'text-[--provider-cerebras]',
 }
 
 type PhaseStatus =

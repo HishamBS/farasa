@@ -4,20 +4,11 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { fadeIn } from '@/lib/utils/motion'
 import { cn } from '@/lib/utils/cn'
 import {
-  PROVIDERS,
   STATUS_MESSAGES,
   STREAM_PROGRESS,
+  PROVIDER_DOT_CLASSES,
 } from '@/config/constants'
 import type { ModelSelectionState } from '@/types/stream'
-
-const PROVIDER_DOT_CLASSES: Record<string, string> = {
-  [PROVIDERS.ANTHROPIC]: 'bg-[--provider-anthropic]',
-  [PROVIDERS.OPENAI]: 'bg-[--provider-openai]',
-  [PROVIDERS.GOOGLE]: 'bg-[--provider-google]',
-  [PROVIDERS.META]: 'bg-[--provider-meta]',
-  [PROVIDERS.GROQ]: 'bg-[--provider-groq]',
-  [PROVIDERS.CEREBRAS]: 'bg-[--provider-cerebras]',
-}
 
 type ModelBadgeProps = {
   isRouting: boolean

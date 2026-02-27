@@ -3,7 +3,7 @@
 import { useCallback, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, useReducedMotion } from 'framer-motion'
-import { Pin, PinOff, Trash2, Pencil } from 'lucide-react'
+import { Pin, PinOff, Trash2, Pencil, Download } from 'lucide-react'
 import { fadeInUp } from '@/lib/utils/motion'
 import { cn } from '@/lib/utils/cn'
 import { formatDate } from '@/lib/utils/format'
@@ -28,6 +28,7 @@ export function ConversationItem({
   const shouldReduce = useReducedMotion()
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const [editValue, setEditValue] = useState(title)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -45,6 +46,7 @@ export function ConversationItem({
       if (isActive) router.push(ROUTES.CHAT)
     },
   })
+
 
   const handleClick = useCallback(() => {
     if (!isEditing) router.push(ROUTES.CHAT_BY_ID(id))
@@ -64,6 +66,26 @@ export function ConversationItem({
       deleteMutation.mutate({ id })
     },
     [id, deleteMutation],
+  )
+
+  const handleExport = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation()
+      setIsExporting(true)
+      try {
+        const result = await utils.conversation.exportMarkdown.fetch({ id })
+        const blob = new Blob([result.markdown], { type: 'text/markdown' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${result.title}.md`
+        a.click()
+        URL.revokeObjectURL(url)
+      } finally {
+        setIsExporting(false)
+      }
+    },
+    [id, utils],
   )
 
   const handleRenameStart = useCallback((e: React.MouseEvent) => {
@@ -134,6 +156,15 @@ export function ConversationItem({
           aria-label="Rename"
         >
           <Pencil size={12} />
+        </button>
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={isExporting}
+          className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:text-[--text-primary] disabled:opacity-50"
+          aria-label="Export as Markdown"
+        >
+          <Download size={12} />
         </button>
         <button
           type="button"

@@ -2,19 +2,17 @@
 
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { cn } from '@/lib/utils/cn'
-import { STREAM_PHASES, CHAT_STREAM_STATUS, PROVIDERS } from '@/config/constants'
+import {
+  STREAM_PHASES,
+  CHAT_STREAM_STATUS,
+  PROVIDERS,
+  STREAM_PROGRESS,
+} from '@/config/constants'
 import { fadeInDown } from '@/lib/utils/motion'
 import type { StreamState } from '@/types/stream'
 
 type StreamProgressProps = {
   streamState: StreamState
-}
-
-const PHASE_LABELS: Record<string, string> = {
-  [STREAM_PHASES.ROUTING]: 'Routing',
-  [STREAM_PHASES.THINKING]: 'Thinking',
-  [STREAM_PHASES.READING_FILES]: 'Reading',
-  [STREAM_PHASES.GENERATING_UI]: 'Rendering',
 }
 
 const PROVIDER_DOT_CLASSES: Record<string, string> = {
@@ -35,7 +33,8 @@ const PROVIDER_TEXT_CLASSES: Record<string, string> = {
   [PROVIDERS.CEREBRAS]: 'text-[--provider-cerebras]',
 }
 
-type PhaseStatus = 'inactive' | 'active' | 'thinking' | 'done'
+type PhaseStatus =
+  (typeof STREAM_PROGRESS.STATUS)[keyof typeof STREAM_PROGRESS.STATUS]
 
 type DisplayPhase = {
   id: string
@@ -51,20 +50,22 @@ export function StreamProgress({ streamState }: StreamProgressProps) {
   const displayPhases: DisplayPhase[] = []
 
   for (const msg of statusMessages) {
-    const label = PHASE_LABELS[msg.phase] ?? msg.phase
+    const label = STREAM_PROGRESS.LABELS[msg.phase] ?? msg.phase
     const status: PhaseStatus = msg.completedAt
-      ? 'done'
+      ? STREAM_PROGRESS.STATUS.DONE
       : msg.phase === STREAM_PHASES.THINKING
-        ? 'thinking'
-        : 'active'
+        ? STREAM_PROGRESS.STATUS.THINKING
+        : STREAM_PROGRESS.STATUS.ACTIVE
     displayPhases.push({ id: msg.phase, label, status })
   }
 
   if (textContent) {
     displayPhases.push({
-      id: 'streaming',
-      label: 'Streaming',
-      status: isActive ? 'active' : 'done',
+      id: STREAM_PROGRESS.IDS.STREAMING,
+      label: STREAM_PROGRESS.LABELS.STREAMING,
+      status: isActive
+        ? STREAM_PROGRESS.STATUS.ACTIVE
+        : STREAM_PROGRESS.STATUS.DONE,
     })
   }
 
@@ -87,18 +88,24 @@ export function StreamProgress({ streamState }: StreamProgressProps) {
                   <span
                     className={cn(
                       'size-1.5 rounded-full',
-                      status === 'done' && 'bg-[--success]',
-                      status === 'active' && 'animate-pulse bg-[--accent]',
-                      status === 'thinking' && 'animate-pulse bg-[--thinking]',
+                      status === STREAM_PROGRESS.STATUS.DONE && 'bg-[--success]',
+                      status === STREAM_PROGRESS.STATUS.ACTIVE &&
+                        'animate-pulse bg-[--accent]',
+                      status === STREAM_PROGRESS.STATUS.THINKING &&
+                        'animate-pulse bg-[--thinking]',
                     )}
                   />
                   <span
                     className={cn(
                       'text-xs',
-                      status === 'done' && 'text-[--success]',
-                      status === 'active' && 'font-medium text-[--text-primary]',
-                      status === 'thinking' && 'text-[--thinking]',
-                      status === 'inactive' && 'text-[--text-ghost]',
+                      status === STREAM_PROGRESS.STATUS.DONE &&
+                        'text-[--success]',
+                      status === STREAM_PROGRESS.STATUS.ACTIVE &&
+                        'font-medium text-[--text-primary]',
+                      status === STREAM_PROGRESS.STATUS.THINKING &&
+                        'text-[--thinking]',
+                      status === STREAM_PROGRESS.STATUS.INACTIVE &&
+                        'text-[--text-ghost]',
                     )}
                   >
                     {label}

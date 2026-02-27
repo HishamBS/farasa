@@ -16,6 +16,7 @@ node_modules/
 out/
 dist/
 build/
+public/sw.js
 
 # Environment variables — never commit
 .env

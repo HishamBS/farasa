@@ -1,5 +1,6 @@
 import { auth } from '@/lib/auth/config'
 import { ROUTES } from '@/config/routes'
+import { AppError } from '@/lib/utils/errors'
 
 export default auth((req) => {
   const isLoggedIn = !!req.auth
@@ -7,7 +8,7 @@ export default auth((req) => {
 
   const isProtected = pathname.startsWith(ROUTES.CHAT)
   const isAuthPage = pathname.startsWith(ROUTES.LOGIN)
-  const isTrpcApi = pathname.startsWith('/api/trpc')
+  const isTrpcApi = pathname.startsWith(ROUTES.API.TRPC)
 
   if (isProtected && !isLoggedIn) {
     return Response.redirect(new URL(ROUTES.LOGIN, req.nextUrl))
@@ -15,7 +16,7 @@ export default auth((req) => {
 
   if (isTrpcApi && !isLoggedIn) {
     return new Response(
-      JSON.stringify({ error: { message: 'Unauthorized' } }),
+      JSON.stringify({ error: { message: AppError.UNAUTHORIZED } }),
       { status: 401, headers: { 'Content-Type': 'application/json' } },
     )
   }

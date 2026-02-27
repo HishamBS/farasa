@@ -6,9 +6,15 @@ import { ConversationItem } from './conversation-item'
 import { ROUTES } from '@/config/routes'
 import { UX } from '@/config/constants'
 
-export function ConversationList() {
+type ConversationListProps = {
+  search: string
+}
+
+export function ConversationList({ search }: ConversationListProps) {
   const pathname = usePathname()
-  const { data: conversations, isLoading } = trpc.conversation.list.useQuery({})
+  const { data: conversations, isLoading } = trpc.conversation.list.useQuery({
+    search: search.trim() || undefined,
+  })
 
   if (isLoading) {
     return (

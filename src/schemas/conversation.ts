@@ -13,6 +13,10 @@ export const UpdateConversationSchema = z.object({
   isPinned: z.boolean().optional(),
 })
 
+export const ConversationByIdSchema = z.object({
+  id: z.string().uuid(),
+})
+
 export const DeleteConversationSchema = z.object({
   id: z.string().uuid(),
 })
@@ -54,11 +58,12 @@ export const MessageListInputSchema = z.object({
     .min(1)
     .max(LIMITS.PAGINATION_MAX_LIMIT)
     .default(LIMITS.PAGINATION_DEFAULT_LIMIT),
-  cursor: z.string().uuid().optional(),
+  cursor: z.string().datetime().optional(),
 })
 
 export type CreateConversation = z.infer<typeof CreateConversationSchema>
 export type UpdateConversation = z.infer<typeof UpdateConversationSchema>
+export type ConversationById = z.infer<typeof ConversationByIdSchema>
 export type DeleteConversation = z.infer<typeof DeleteConversationSchema>
 export type ConversationFilter = z.infer<typeof ConversationFilterSchema>
 export type ConversationSummary = z.infer<typeof ConversationSummarySchema>

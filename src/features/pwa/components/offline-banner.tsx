@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { CloudOff } from 'lucide-react'
 import { fadeInDown } from '@/lib/utils/motion'
+import { UI_TEXT } from '@/config/constants'
 
 export function OfflineBanner() {
   const shouldReduce = useReducedMotion()
@@ -31,7 +32,7 @@ export function OfflineBanner() {
           {...(shouldReduce ? {} : fadeInDown)}
         >
           <CloudOff className="size-4" />
-          <span>You&apos;re offline — your conversations will be here when you&apos;re back</span>
+          <span>{UI_TEXT.OFFLINE_BANNER}</span>
         </motion.div>
       )}
     </AnimatePresence>

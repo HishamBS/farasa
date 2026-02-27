@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback } from 'react'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { SidebarContainer } from '@/features/sidebar/components/sidebar-container'
 import { SidebarHeader } from '@/features/sidebar/components/sidebar-header'
@@ -15,15 +16,19 @@ export default function ProtectedLayout({
   children: ReactNode
 }) {
   const { isOpen, open, close } = useSidebar()
+  const [searchValue, setSearchValue] = useState('')
 
   const handleMenuClick = useCallback(() => open(), [open])
 
   return (
     <div className="flex h-screen overflow-hidden bg-[--bg-root]">
       <SidebarContainer isOpen={isOpen} onClose={close}>
-        <SidebarHeader />
+        <SidebarHeader
+          searchValue={searchValue}
+          onSearchChange={setSearchValue}
+        />
         <div className="flex-1 overflow-y-auto py-2">
-          <ConversationList />
+          <ConversationList search={searchValue} />
         </div>
         <UserMenu />
       </SidebarContainer>

@@ -82,6 +82,7 @@ function withEncryptedTokens(adapter: Adapter): Adapter {
 }
 
 const authConfig: NextAuthConfig = {
+  trustHost: true,
   adapter: withEncryptedTokens(
     DrizzleAdapter(db, {
       usersTable: schema.users,

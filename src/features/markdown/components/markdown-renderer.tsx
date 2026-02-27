@@ -2,9 +2,12 @@
 
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import { CodeBlock } from './code-block'
 import type { Components } from 'react-markdown'
+import { MARKDOWN_SANITIZE } from '@/config/constants'
 
 type MarkdownRendererProps = {
   content: string
@@ -88,20 +91,28 @@ const components: Components = {
 export function MarkdownRenderer({ content }: MarkdownRendererProps) {
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
       rehypePlugins={[
+        rehypeKatex,
         [
           rehypeSanitize,
           {
             ...defaultSchema,
+            tagNames: [
+              ...(defaultSchema.tagNames ?? []),
+              ...MARKDOWN_SANITIZE.TAG_NAMES,
+            ],
             attributes: {
               ...defaultSchema.attributes,
-              code: [...(defaultSchema.attributes?.code ?? []), 'className'],
-              span: [...(defaultSchema.attributes?.span ?? []), 'className', 'style'],
+              code: [...(defaultSchema.attributes?.code ?? []), ...MARKDOWN_SANITIZE.ATTRIBUTES.CODE],
+              span: [...(defaultSchema.attributes?.span ?? []), ...MARKDOWN_SANITIZE.ATTRIBUTES.SPAN],
+              math: [...(defaultSchema.attributes?.math ?? []), ...MARKDOWN_SANITIZE.ATTRIBUTES.MATH],
+              annotation: [...(defaultSchema.attributes?.annotation ?? []), ...MARKDOWN_SANITIZE.ATTRIBUTES.ANNOTATION],
+              mspace: [...(defaultSchema.attributes?.mspace ?? []), ...MARKDOWN_SANITIZE.ATTRIBUTES.MSPACE],
             },
           },
         ],
       ]}
+      remarkPlugins={[remarkGfm, remarkMath]}
       components={components}
     >
       {content}

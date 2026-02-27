@@ -174,7 +174,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
               </div>
             )}
 
-            {/* max-h-48 = UX.TEXTAREA_MAX_HEIGHT_PIXELS (192px) */}
+            {/* max-h-48 matches UX.TEXTAREA_MAX_HEIGHT_PIXELS */}
             <textarea
               ref={textareaRef}
               value={content}

@@ -7,7 +7,7 @@ const CSP_DIRECTIVES = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://openrouter.ai https://*.openrouter.ai https://storage.googleapis.com",
   "font-src 'self'",
-  "connect-src 'self' https://openrouter.ai https://*.openrouter.ai https://api.tavily.com",
+  "connect-src 'self' https://openrouter.ai https://*.openrouter.ai https://api.tavily.com https://storage.googleapis.com",
   "worker-src blob: 'self'",
   "frame-ancestors 'none'",
 ].join('; ')
@@ -16,7 +16,7 @@ const SECURITY_HEADERS = [
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  { key: 'Permissions-Policy', value: 'camera=(), geolocation=()' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
   { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
   { key: 'Content-Security-Policy', value: CSP_DIRECTIVES },
 ]

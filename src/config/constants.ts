@@ -89,6 +89,10 @@ export const TOOL_NAMES = {
   WEB_SEARCH: 'web_search',
 } as const
 
+export const SEARCH_DEPTHS = {
+  BASIC: 'basic',
+} as const
+
 export const STATUS_MESSAGES = {
   ROUTING: 'Selecting the best model for your request...',
   THINKING: 'Thinking...',
@@ -98,6 +102,38 @@ export const STATUS_MESSAGES = {
   GENERATING_TITLE: 'Generating title...',
   THOUGHT_FOR_LABEL: 'Thought for',
   THOUGHT_DURATION_UNIT: 's',
+} as const
+
+export const STREAM_PROGRESS = {
+  STATUS: {
+    INACTIVE: 'inactive',
+    ACTIVE: 'active',
+    THINKING: 'thinking',
+    DONE: 'done',
+  },
+  IDS: {
+    ROUTING: 'routing',
+    SELECTED: 'selected',
+    STREAMING: 'streaming',
+  },
+  LABELS: {
+    [STREAM_PHASES.ROUTING]: 'Routing',
+    [STREAM_PHASES.THINKING]: 'Thinking',
+    [STREAM_PHASES.SEARCHING]: 'Searching',
+    [STREAM_PHASES.READING_FILES]: 'Reading',
+    [STREAM_PHASES.GENERATING_UI]: 'Rendering',
+    [STREAM_PHASES.GENERATING_TITLE]: 'Title',
+    STREAMING: 'Streaming',
+  },
+} as const
+
+export const OPENROUTER_FIELDS = {
+  THINKING: 'thinking',
+} as const
+
+export const AI_MARKUP = {
+  A2UI_FENCE_START: '```a2ui',
+  CODE_FENCE_END: '```',
 } as const
 
 export const PROVIDERS = {
@@ -185,4 +221,43 @@ export const APP_CONFIG = {
   DEFAULT_THEME: 'dark',
   LOCALE: 'en',
   CHAT_PLACEHOLDER: 'Message farasa...',
+} as const
+
+export const UI_TEXT = {
+  SIDEBAR_SEARCH_PLACEHOLDER: 'Search conversations',
+  NEW_CHAT_ARIA_LABEL: 'New chat',
+  OFFLINE_BANNER:
+    "You're offline — your conversations will be here when you're back",
+} as const
+
+export const SESSION_KEYS = {
+  PENDING_CHAT_INPUT_PREFIX: 'pending-chat-input:',
+} as const
+
+export const MARKDOWN_SANITIZE = {
+  TAG_NAMES: [
+    'math',
+    'semantics',
+    'mrow',
+    'mi',
+    'mn',
+    'mo',
+    'msup',
+    'msub',
+    'mfrac',
+    'msqrt',
+    'mstyle',
+    'mspace',
+    'mtable',
+    'mtr',
+    'mtd',
+    'annotation',
+  ] as const,
+  ATTRIBUTES: {
+    CODE: ['className'] as const,
+    SPAN: ['className', 'style'] as const,
+    MATH: ['xmlns', 'display'] as const,
+    ANNOTATION: ['encoding'] as const,
+    MSPACE: ['width'] as const,
+  },
 } as const

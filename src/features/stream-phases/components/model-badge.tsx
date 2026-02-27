@@ -3,7 +3,11 @@
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { fadeIn } from '@/lib/utils/motion'
 import { cn } from '@/lib/utils/cn'
-import { PROVIDERS, STATUS_MESSAGES } from '@/config/constants'
+import {
+  PROVIDERS,
+  STATUS_MESSAGES,
+  STREAM_PROGRESS,
+} from '@/config/constants'
 import type { ModelSelectionState } from '@/types/stream'
 
 const PROVIDER_DOT_CLASSES: Record<string, string> = {
@@ -30,7 +34,7 @@ export function ModelBadge({ isRouting, modelSelection }: ModelBadgeProps) {
     <AnimatePresence mode="wait">
       {isRouting && !modelSelection ? (
         <motion.div
-          key="routing"
+          key={STREAM_PROGRESS.IDS.ROUTING}
           className="flex items-center gap-1.5"
           {...(shouldReduce ? {} : fadeIn)}
         >
@@ -44,7 +48,7 @@ export function ModelBadge({ isRouting, modelSelection }: ModelBadgeProps) {
         </motion.div>
       ) : modelSelection ? (
         <motion.div
-          key="selected"
+          key={STREAM_PROGRESS.IDS.SELECTED}
           className="flex items-center gap-1.5"
           title={modelSelection.reasoning}
           {...(shouldReduce ? {} : fadeIn)}

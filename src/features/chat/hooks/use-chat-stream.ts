@@ -4,6 +4,7 @@ import { useCallback, useRef } from 'react'
 import { trpcClient } from '@/trpc/client'
 import { STREAM_EVENTS } from '@/config/constants'
 import { useStreamState } from '@/features/stream-phases/hooks/use-stream-state'
+import { AppError } from '@/lib/utils/errors'
 import type { ChatInput, StreamChunk } from '@/schemas/message'
 import type { v0_8 } from '@a2ui-sdk/types'
 
@@ -86,7 +87,7 @@ export function useChatStream() {
         onError(_err: Error) {
           dispatch({
             type: 'ERROR',
-            message: 'Connection error. Please try again.',
+            message: AppError.CONNECTION,
           })
         },
         onComplete() {

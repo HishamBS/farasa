@@ -5,25 +5,33 @@ import { useRouter } from 'next/navigation'
 import { EmptyState } from '@/features/chat/components/empty-state'
 import { ChatInput } from '@/features/chat/components/chat-input'
 import type { ChatInputHandle } from '@/features/chat/components/chat-input'
-import { useChatStream } from '@/features/chat/hooks/use-chat-stream'
-import { CHAT_STREAM_STATUS } from '@/config/constants'
+import { SESSION_KEYS } from '@/config/constants'
 import { ROUTES } from '@/config/routes'
 import type { ChatInput as ChatInputType } from '@/schemas/message'
+import { trpc } from '@/trpc/provider'
 
 export default function ChatPage() {
   const router = useRouter()
-  const { streamState, sendMessage, abort } = useChatStream()
-  const isStreaming = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
   const chatInputRef = useRef<ChatInputHandle>(null)
+  const createConversation = trpc.conversation.create.useMutation()
 
   const handleSend = useCallback(
     (input: ChatInputType) => {
-      sendMessage(input)
-      if (!input.conversationId) {
-        router.push(ROUTES.CHAT)
-      }
+      void createConversation
+        .mutateAsync({ model: input.model })
+        .then((conversation) => {
+          const payload: ChatInputType = {
+            ...input,
+            conversationId: conversation.id,
+          }
+          sessionStorage.setItem(
+            `${SESSION_KEYS.PENDING_CHAT_INPUT_PREFIX}${conversation.id}`,
+            JSON.stringify(payload),
+          )
+          router.push(ROUTES.CHAT_BY_ID(conversation.id))
+        })
     },
-    [sendMessage, router],
+    [createConversation, router],
   )
 
   const handleSuggestionSelect = useCallback((text: string) => {
@@ -38,8 +46,8 @@ export default function ChatPage() {
       <ChatInput
         ref={chatInputRef}
         onSend={handleSend}
-        onAbort={abort}
-        isStreaming={isStreaming}
+        onAbort={() => {}}
+        isStreaming={createConversation.isPending}
       />
     </div>
   )

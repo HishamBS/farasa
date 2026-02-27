@@ -42,8 +42,18 @@ export const ModelSelectionSchema = z.object({
   selectedModel: z.string(),
 })
 
+export const ModelByIdSchema = z.object({
+  id: z.string(),
+})
+
+export const RefreshModelsSchema = z.object({
+  force: z.boolean().default(true),
+})
+
 export type ModelCapability = z.infer<typeof ModelCapabilitySchema>
 export type Provider = z.infer<typeof ProviderSchema>
 export type ModelPricing = z.infer<typeof ModelPricingSchema>
 export type ModelConfig = z.infer<typeof ModelConfigSchema>
 export type ModelSelection = z.infer<typeof ModelSelectionSchema>
+export type ModelById = z.infer<typeof ModelByIdSchema>
+export type RefreshModels = z.infer<typeof RefreshModelsSchema>

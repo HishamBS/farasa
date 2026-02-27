@@ -6,7 +6,9 @@ import type { RootLayoutProps } from '@/types/layout'
 import { TRPCProvider } from '@/trpc/provider'
 import { AuthSessionProvider } from '@/components/session-provider'
 import { OfflineBanner } from '@/features/pwa/components/offline-banner'
+import { InstallPrompt } from '@/features/pwa/components/install-prompt'
 import './globals.css'
+import 'katex/dist/katex.min.css'
 
 export const metadata: Metadata = {
   title: APP_CONFIG.NAME,
@@ -34,6 +36,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         className={`${GeistSans.variable} ${GeistMono.variable} font-sans antialiased`}
       >
         <OfflineBanner />
+        <InstallPrompt />
         <AuthSessionProvider>
           <TRPCProvider>{children}</TRPCProvider>
         </AuthSessionProvider>

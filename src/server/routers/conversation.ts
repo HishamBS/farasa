@@ -1,14 +1,18 @@
 import { and, desc, eq, lt, like } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
-import { z } from 'zod'
 import { router, protectedProcedure } from '../trpc'
 import { conversations, messages } from '@/lib/db/schema'
 import {
+  ConversationByIdSchema,
   CreateConversationSchema,
-  UpdateConversationSchema,
   ConversationFilterSchema,
+  DeleteConversationSchema,
+  ExportConversationSchema,
+  GenerateTitleSchema,
+  MessageListInputSchema,
+  UpdateConversationSchema,
 } from '@/schemas/conversation'
-import { LIMITS, NEW_CHAT_TITLE } from '@/config/constants'
+import { NEW_CHAT_TITLE } from '@/config/constants'
 import type { MessageMetadata } from '@/schemas/message'
 
 export const conversationRouter = router({
@@ -35,7 +39,7 @@ export const conversationRouter = router({
     }),
 
   getById: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .input(ConversationByIdSchema)
     .query(async ({ ctx, input }) => {
       const [conversation] = await ctx.db
         .select()
@@ -98,7 +102,7 @@ export const conversationRouter = router({
     }),
 
   delete: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .input(DeleteConversationSchema)
     .mutation(async ({ ctx, input }) => {
       const [deleted] = await ctx.db
         .delete(conversations)
@@ -118,12 +122,7 @@ export const conversationRouter = router({
     }),
 
   generateTitle: protectedProcedure
-    .input(
-      z.object({
-        conversationId: z.string().uuid(),
-        firstMessage: z.string().max(LIMITS.MESSAGE_MAX_LENGTH),
-      }),
-    )
+    .input(GenerateTitleSchema)
     .mutation(async ({ ctx, input }) => {
       const [conversation] = await ctx.db
         .select({ id: conversations.id })
@@ -158,7 +157,7 @@ export const conversationRouter = router({
     }),
 
   exportMarkdown: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .input(ExportConversationSchema)
     .query(async ({ ctx, input }) => {
       const [conversation] = await ctx.db
         .select()
@@ -199,7 +198,7 @@ export const conversationRouter = router({
     }),
 
   messages: protectedProcedure
-    .input(z.object({ conversationId: z.string().uuid() }))
+    .input(MessageListInputSchema)
     .query(async ({ ctx, input }) => {
       const [conversation] = await ctx.db
         .select({ id: conversations.id })
@@ -216,10 +215,18 @@ export const conversationRouter = router({
         throw new TRPCError({ code: 'NOT_FOUND' })
       }
 
-      return ctx.db
+      const conditions = [eq(messages.conversationId, input.conversationId)]
+      if (input.cursor) {
+        conditions.push(lt(messages.createdAt, new Date(input.cursor)))
+      }
+
+      const rows = await ctx.db
         .select()
         .from(messages)
-        .where(eq(messages.conversationId, input.conversationId))
-        .orderBy(messages.createdAt)
+        .where(and(...conditions))
+        .orderBy(desc(messages.createdAt))
+        .limit(input.limit)
+
+      return rows.reverse()
     }),
 })

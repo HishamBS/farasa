@@ -8,7 +8,6 @@ import {
 } from '@/config/constants'
 import { ModelConfigSchema } from '@/schemas/model'
 import { env } from '@/config/env'
-import { STATIC_MODEL_REGISTRY } from '@/config/models'
 
 type OpenRouterModel = {
   id: string
@@ -78,22 +77,28 @@ async function fetchFromOpenRouter(): Promise<ModelConfig[]> {
     })
     if (parsed.success) models.push(parsed.data)
   }
+  if (models.length === 0) {
+    throw new Error('OpenRouter registry returned no valid models.')
+  }
   return models
 }
 
-export async function getModelRegistry(): Promise<ModelConfig[]> {
+export function clearModelRegistryCache(): void {
+  cache.delete(MODEL_REGISTRY_CACHE_KEY)
+}
+
+export async function getModelRegistry(force = false): Promise<ModelConfig[]> {
   const cached = cache.get(MODEL_REGISTRY_CACHE_KEY)
 
-  if (cached && Date.now() - cached.fetchedAt < LIMITS.MODEL_REGISTRY_CACHE_TTL_MS) {
+  if (
+    !force &&
+    cached &&
+    Date.now() - cached.fetchedAt < LIMITS.MODEL_REGISTRY_CACHE_TTL_MS
+  ) {
     return cached.models
   }
 
-  try {
-    const models = await fetchFromOpenRouter()
-    cache.set(MODEL_REGISTRY_CACHE_KEY, { models, fetchedAt: Date.now() })
-    return models
-  } catch {
-    if (cached) return cached.models
-    return [...STATIC_MODEL_REGISTRY]
-  }
+  const models = await fetchFromOpenRouter()
+  cache.set(MODEL_REGISTRY_CACHE_KEY, { models, fetchedAt: Date.now() })
+  return models
 }

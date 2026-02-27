@@ -1,6 +1,9 @@
 import { router, protectedProcedure } from '../trpc'
-import { ModelConfigSchema } from '@/schemas/model'
-import { z } from 'zod'
+import {
+  ModelByIdSchema,
+  ModelConfigSchema,
+  RefreshModelsSchema,
+} from '@/schemas/model'
 
 export const modelRouter = router({
   list: protectedProcedure.query(async () => {
@@ -10,7 +13,7 @@ export const modelRouter = router({
   }),
 
   getById: protectedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(ModelByIdSchema)
     .query(async ({ input }) => {
       const { getModelRegistry } = await import('@/lib/ai/registry')
       const models = await getModelRegistry()
@@ -19,5 +22,18 @@ export const modelRouter = router({
         return null
       }
       return ModelConfigSchema.parse(model)
+    }),
+
+  refresh: protectedProcedure
+    .input(RefreshModelsSchema)
+    .mutation(async ({ input }) => {
+      const { getModelRegistry, clearModelRegistryCache } = await import(
+        '@/lib/ai/registry'
+      )
+      if (input.force) {
+        clearModelRegistryCache()
+      }
+      const models = await getModelRegistry(true)
+      return { count: models.length }
     }),
 })

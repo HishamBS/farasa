@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState, useRef } from 'react'
+import { useCallback, useMemo, useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Pin, PinOff, Trash2, Pencil, Download } from 'lucide-react'
@@ -29,8 +29,10 @@ export function ConversationItem({
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [isLongPressMenuOpen, setIsLongPressMenuOpen] = useState(false)
   const [editValue, setEditValue] = useState(title)
   const inputRef = useRef<HTMLInputElement>(null)
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const utils = trpc.useUtils()
 
@@ -55,8 +57,25 @@ export function ConversationItem({
 
 
   const handleClick = useCallback(() => {
+    if (isLongPressMenuOpen) {
+      setIsLongPressMenuOpen(false)
+      return
+    }
     if (!isEditing) router.push(ROUTES.CHAT_BY_ID(id))
-  }, [id, isEditing, router])
+  }, [id, isEditing, isLongPressMenuOpen, router])
+
+  const handleTouchStart = useCallback(() => {
+    longPressTimerRef.current = setTimeout(() => {
+      setIsLongPressMenuOpen(true)
+    }, 500)
+  }, [])
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+  }, [])
 
   const handlePin = useCallback(
     (e: React.MouseEvent) => {
@@ -132,6 +151,14 @@ export function ConversationItem({
 
   const formattedDate = useMemo(() => formatDate(new Date(updatedAt)), [updatedAt])
 
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current)
+      }
+    }
+  }, [])
+
   return (
     <motion.div
       className={cn(
@@ -140,6 +167,10 @@ export function ConversationItem({
         isActive && 'bg-[--bg-surface-hover] border-l-2 border-[--accent] pl-2.5',
       )}
       onClick={handleClick}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
+      onTouchMove={handleTouchEnd}
       {...(shouldReduce ? {} : fadeInUp)}
     >
       {isPinned && (
@@ -163,7 +194,12 @@ export function ConversationItem({
         <p className="text-xs text-[--text-ghost]">{formattedDate}</p>
       </div>
 
-      <div className="hidden shrink-0 items-center gap-1 group-hover:flex">
+      <div
+        className={cn(
+          'shrink-0 items-center gap-1',
+          isLongPressMenuOpen ? 'flex' : 'hidden group-hover:flex',
+        )}
+      >
         <button
           type="button"
           onClick={handleRenameStart}

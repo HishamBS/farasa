@@ -220,12 +220,14 @@ export const conversationRouter = router({
         conditions.push(lt(messages.createdAt, new Date(input.cursor)))
       }
 
-      const rows = await ctx.db
-        .select()
-        .from(messages)
-        .where(and(...conditions))
-        .orderBy(desc(messages.createdAt))
-        .limit(input.limit)
+      const rows = await ctx.db.query.messages.findMany({
+        where: and(...conditions),
+        orderBy: (_fields, operators) => [operators.desc(messages.createdAt)],
+        limit: input.limit,
+        with: {
+          attachments: true,
+        },
+      })
 
       return rows.reverse()
     }),

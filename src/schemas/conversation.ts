@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { LIMITS } from '@/config/constants'
+import { AttachmentSchema, MessageSchema } from './message'
 
 export const CreateConversationSchema = z.object({
   title: z.string().max(LIMITS.CONVERSATION_TITLE_MAX_LENGTH).optional(),
@@ -60,6 +61,12 @@ export const MessageListInputSchema = z.object({
     .default(LIMITS.PAGINATION_DEFAULT_LIMIT),
   cursor: z.string().datetime().optional(),
 })
+
+export const MessageWithAttachmentsSchema = MessageSchema.extend({
+  attachments: z.array(AttachmentSchema).default([]),
+})
+
+export type MessageWithAttachments = z.infer<typeof MessageWithAttachmentsSchema>
 
 export type CreateConversation = z.infer<typeof CreateConversationSchema>
 export type UpdateConversation = z.infer<typeof UpdateConversationSchema>

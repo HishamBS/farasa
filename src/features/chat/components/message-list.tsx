@@ -9,10 +9,10 @@ import { EmptyState } from './empty-state'
 import { useAutoScroll } from '../hooks/use-auto-scroll'
 import { CHAT_STREAM_STATUS, UI_TEXT } from '@/config/constants'
 import type { StreamState } from '@/types/stream'
-import type { Message } from '@/schemas/message'
+import type { MessageWithAttachments } from '@/schemas/conversation'
 
 type MessageListProps = {
-  messages: Message[]
+  messages: MessageWithAttachments[]
   streamState: StreamState
   isStreaming: boolean
   onSuggestionSelect?: (text: string) => void

@@ -17,7 +17,7 @@ export function ThinkingBlock({ thinking }: ThinkingBlockProps) {
 
   const isComplete = !!thinking.completedAt
   const completedAt = thinking.completedAt
-  const durationSeconds =
+  const durationDisplay =
     isComplete && completedAt !== undefined
       ? Math.round((completedAt - thinking.startedAt) / 1000)
       : null
@@ -25,7 +25,7 @@ export function ThinkingBlock({ thinking }: ThinkingBlockProps) {
   const toggle = useCallback(() => setIsExpanded((p) => !p), [])
 
   return (
-    <div className="rounded-xl border-l-2 border-[--thinking] bg-[--thinking-bg] shadow-lg shadow-[--thinking-border]">
+    <div className="rounded-xl border border-[--thinking-border] bg-[--thinking-bg]">
       <button
         type="button"
         onClick={toggle}
@@ -57,9 +57,17 @@ export function ThinkingBlock({ thinking }: ThinkingBlockProps) {
             <span className="text-xs text-[--thinking]">{STATUS_MESSAGES.THINKING}</span>
           </div>
         ) : (
-          <span className="text-xs text-[--thinking]">
-            {STATUS_MESSAGES.THOUGHT_FOR_LABEL} {durationSeconds}{STATUS_MESSAGES.THOUGHT_DURATION_UNIT}
-          </span>
+          <>
+            <span className="text-xs text-[--thinking]">
+              {STATUS_MESSAGES.THOUGHT_FOR_LABEL}
+              {durationDisplay !== null && durationDisplay > 0
+                ? ` ${durationDisplay}${STATUS_MESSAGES.THOUGHT_DURATION_UNIT}`
+                : ''}
+            </span>
+            {isComplete && !isExpanded && (
+              <span className="ml-1 text-xs text-[--text-ghost]">· tap to expand</span>
+            )}
+          </>
         )}
       </button>
 

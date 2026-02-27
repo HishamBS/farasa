@@ -217,7 +217,7 @@ export const chatRouter = router({
         }
         yield thinkingChunk
 
-        const systemContent = PROMPTS.CHAT_SYSTEM_PROMPT + searchContext
+        const systemContent = PROMPTS.CHAT_SYSTEM_PROMPT + '\n\n' + PROMPTS.A2UI_SYSTEM_PROMPT + searchContext
         const oaiMessages: OAIMessage[] = [
           { role: 'system', content: systemContent },
           { role: 'user', content: userContent },

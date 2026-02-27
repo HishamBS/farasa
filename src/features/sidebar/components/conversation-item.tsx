@@ -8,8 +8,18 @@ import { fadeInUp } from '@/lib/utils/motion'
 import { cn } from '@/lib/utils/cn'
 import { formatDate } from '@/lib/utils/format'
 import { ROUTES } from '@/config/routes'
-import { UX } from '@/config/constants'
+import { UX, UI_TEXT } from '@/config/constants'
 import { trpc } from '@/trpc/provider'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 type ConversationItemProps = {
   id: string
@@ -31,6 +41,7 @@ export function ConversationItem({
   const [isEditing, setIsEditing] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [isLongPressMenuOpen, setIsLongPressMenuOpen] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [editValue, setEditValue] = useState(title)
   const inputRef = useRef<HTMLInputElement>(null)
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -89,10 +100,14 @@ export function ConversationItem({
   const handleDeleteClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation()
-      deleteMutation.mutate({ id })
+      setShowDeleteConfirm(true)
     },
-    [id, deleteMutation],
+    [],
   )
+
+  const handleDeleteConfirmed = useCallback(() => {
+    deleteMutation.mutate({ id })
+  }, [id, deleteMutation])
 
   const handleExport = useCallback(
     (e: React.MouseEvent) => {
@@ -161,6 +176,7 @@ export function ConversationItem({
   }, [])
 
   return (
+    <>
     <motion.div
       className={cn(
         'group relative flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer min-h-11',
@@ -236,5 +252,24 @@ export function ConversationItem({
         </button>
       </div>
     </motion.div>
+
+    <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{UI_TEXT.DELETE_CONFIRM_TITLE}</AlertDialogTitle>
+          <AlertDialogDescription>{UI_TEXT.DELETE_CONFIRM_BODY}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleDeleteConfirmed}
+            className="bg-[--error] text-white hover:opacity-90"
+          >
+            {UI_TEXT.DELETE_CONFIRM_ACTION}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   )
 }

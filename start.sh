@@ -214,7 +214,7 @@ quality_menu() {
 
         echo -e "  ${BRIGHT_YELLOW}1)${RESET} Type Check           ${DIM}bun type-check${RESET}"
         echo -e "  ${BRIGHT_YELLOW}2)${RESET} Lint                 ${DIM}bun lint${RESET}"
-        echo -e "  ${BRIGHT_YELLOW}3)${RESET} Production Build     ${DIM}bun build${RESET}"
+        echo -e "  ${BRIGHT_YELLOW}3)${RESET} Production Build     ${DIM}bun run build${RESET}"
         echo -e "  ${BRIGHT_YELLOW}4)${RESET} All Checks           ${DIM}type-check + lint${RESET}"
         echo -e "  ${BRIGHT_YELLOW}0)${RESET} Back"
         echo ""

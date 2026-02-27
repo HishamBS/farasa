@@ -306,7 +306,7 @@ run_lint() {
 
 run_build() {
     print_section "Production Build"
-    print_step "Running: bun build"
+    print_step "Running: bun run build"
     echo ""
     local exit_code=0
     bun run build 2>&1 | follow_log_as_build || exit_code=$?

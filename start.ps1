@@ -546,7 +546,7 @@ function Invoke-Lint {
 
 function Invoke-Build {
     Write-FSection "Production Build"
-    Write-FStep "Running: bun build"
+    Write-FStep "Running: bun run build"
     Write-Host ""
     bun run build 2>&1 | ForEach-Object { Write-FLogBuild $_ }
     if ($LASTEXITCODE -eq 0) { Write-FSuccess "Build complete" }
@@ -899,7 +899,7 @@ function Show-QualityMenu {
 
         Write-Host "  " -NoNewline; Write-Host "1)" -ForegroundColor Yellow -NoNewline; Write-Host " Type Check       " -NoNewline; Write-Host "bun type-check" -ForegroundColor DarkGray
         Write-Host "  " -NoNewline; Write-Host "2)" -ForegroundColor Yellow -NoNewline; Write-Host " Lint             " -NoNewline; Write-Host "bun lint" -ForegroundColor DarkGray
-        Write-Host "  " -NoNewline; Write-Host "3)" -ForegroundColor Yellow -NoNewline; Write-Host " Production Build " -NoNewline; Write-Host "bun build" -ForegroundColor DarkGray
+        Write-Host "  " -NoNewline; Write-Host "3)" -ForegroundColor Yellow -NoNewline; Write-Host " Production Build " -NoNewline; Write-Host "bun run build" -ForegroundColor DarkGray
         Write-Host "  " -NoNewline; Write-Host "4)" -ForegroundColor Yellow -NoNewline; Write-Host " All Checks       " -NoNewline; Write-Host "type-check + lint" -ForegroundColor DarkGray
         Write-Host "  " -NoNewline; Write-Host "0)" -ForegroundColor Yellow -NoNewline; Write-Host " Back"
         Write-Host ""

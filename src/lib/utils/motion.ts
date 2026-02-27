@@ -82,6 +82,11 @@ export const hoverPress = {
   whileTap: { scale: 0.99 },
 }
 
+export const chevronSpin: Transition = {
+  duration: MOTION.DURATION_FAST,
+  ease,
+}
+
 export const springBounce: Spring = {
   type: 'spring',
   stiffness: MOTION.SPRING_STIFFNESS,

@@ -13,10 +13,11 @@ export function useChatInput(initialModel?: string | null) {
   )
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // Sync selectedModel when navigating to a different conversation
+  // Sync selectedModel when navigating to a different conversation.
+  // undefined = still loading; null = loaded with no model set; string = specific model
   useEffect(() => {
-    if (initialModel != null) {
-      setSelectedModel(initialModel)
+    if (initialModel !== undefined) {
+      setSelectedModel(initialModel ?? undefined)
     }
   }, [initialModel])
 

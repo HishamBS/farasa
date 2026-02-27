@@ -12,8 +12,8 @@ import {
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { ChevronDown, Sparkles } from 'lucide-react'
 import { trpc } from '@/trpc/provider'
-import { fadeInDown } from '@/lib/utils/motion'
-import { LIMITS, MOTION, PROVIDERS } from '@/config/constants'
+import { fadeInDown, chevronSpin } from '@/lib/utils/motion'
+import { LIMITS, PROVIDERS } from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
 import type { ModelConfig } from '@/schemas/model'
 
@@ -101,7 +101,12 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
     )
 
     const handleSelectAuto = useCallback(() => handleSelect(undefined), [handleSelect])
-    const handleToggle = useCallback(() => setOpen((p) => !p), [])
+    const handleToggle = useCallback(() => {
+      setOpen((p) => {
+        if (p) setFocusedIndex(-1)
+        return !p
+      })
+    }, [])
 
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent) => {
@@ -183,8 +188,8 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
           )}
           <motion.span
             className="inline-flex"
-            animate={{ rotate: open ? 180 : 0 }}
-            transition={{ duration: MOTION.DURATION_FAST }}
+            animate={shouldReduce ? {} : { rotate: open ? 180 : 0 }}
+            transition={chevronSpin}
           >
             <ChevronDown className="size-3" />
           </motion.span>
@@ -209,7 +214,7 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
                   tabIndex={focusedIndex === 0 ? 0 : -1}
                   onClick={handleSelectAuto}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[--bg-surface-hover]',
+                    'flex w-full min-h-11 items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[--bg-surface-hover]',
                     !value && 'bg-[--accent-muted] text-[--accent]',
                   )}
                 >
@@ -235,7 +240,8 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
                     </span>
                   </div>
                   {providerModels.map((m) => {
-                    const idx = modelIndexMap.get(m.id) ?? 0
+                    const idx = modelIndexMap.get(m.id)
+                    if (idx === undefined) return null
                     return (
                       <button
                         key={m.id}
@@ -248,7 +254,7 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
                         tabIndex={focusedIndex === idx ? 0 : -1}
                         onClick={() => handleSelect(m.id)}
                         className={cn(
-                          'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[--bg-surface-hover]',
+                          'flex w-full min-h-11 items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[--bg-surface-hover]',
                           value === m.id && 'bg-[--accent-muted] text-[--accent]',
                         )}
                       >

@@ -19,6 +19,7 @@ import { useFileUpload } from '../hooks/use-file-upload'
 import { ModelSelector } from './model-selector'
 import { ModeToggle } from './mode-toggle'
 import { AttachmentPreview } from './attachment-preview'
+import { MicButton } from '@/features/voice/components/mic-button'
 import type { ModelSelectorHandle } from './model-selector'
 import type { ChatInput as ChatInputType } from '@/schemas/message'
 
@@ -136,6 +137,11 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
       fileInputRef.current?.click()
     }, [])
 
+    const handleTranscript = useCallback(
+      (text: string) => { setExternalContent(text) },
+      [setExternalContent],
+    )
+
     return (
       // env(safe-area-inset-bottom) prevents the input from being obscured on notched devices
       <div className="border-t border-[--border-subtle] bg-[--bg-root] [padding-bottom:env(safe-area-inset-bottom)]">
@@ -206,6 +212,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
                 >
                   <Paperclip className="size-4" />
                 </button>
+                <MicButton onTranscript={handleTranscript} />
 
                 {isStreaming ? (
                   <motion.button

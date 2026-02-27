@@ -8,6 +8,7 @@ import { ThinkingBlock } from '@/features/stream-phases/components/thinking-bloc
 import { ToolExecution } from '@/features/stream-phases/components/tool-execution'
 import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
 import { A2UIMessage } from '@/features/a2ui/components/a2ui-message'
+import { TTSControls } from '@/features/voice/components/tts-controls'
 import { MessageMetadataSchema } from '@/schemas/message'
 import { TOOL_NAMES } from '@/config/constants'
 import type { Message, MessageMetadata } from '@/schemas/message'
@@ -112,6 +113,12 @@ export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessa
       {message.content && <MarkdownRenderer content={message.content} />}
 
       {a2uiMessages.length > 0 && <A2UIMessage messages={a2uiMessages} />}
+
+      {message.content && (
+        <div className="flex items-center">
+          <TTSControls content={message.content} />
+        </div>
+      )}
     </motion.div>
   )
 }

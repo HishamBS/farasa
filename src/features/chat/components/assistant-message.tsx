@@ -7,6 +7,7 @@ import { ThinkingBlock } from '@/features/stream-phases/components/thinking-bloc
 import { ToolExecution } from '@/features/stream-phases/components/tool-execution'
 import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
 import { A2UIMessage } from '@/features/a2ui/components/a2ui-message'
+import { TTSControls } from '@/features/voice/components/tts-controls'
 import { CHAT_STREAM_STATUS, STREAM_PHASES } from '@/config/constants'
 import type { StreamState } from '@/types/stream'
 
@@ -54,6 +55,12 @@ export function AssistantMessage({ streamState }: AssistantMessageProps) {
 
       {streamState.a2uiMessages.length > 0 && (
         <A2UIMessage messages={streamState.a2uiMessages} />
+      )}
+
+      {streamState.textContent && (
+        <div className="flex items-center">
+          <TTSControls content={streamState.textContent} />
+        </div>
       )}
     </motion.div>
   )

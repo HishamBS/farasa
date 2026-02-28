@@ -21,13 +21,13 @@ import { PROMPTS, USER_REQUEST_DELIMITERS } from '@/config/prompts'
 import { AppError } from '@/lib/utils/errors'
 import type { StreamChunk } from '@/schemas/message'
 import type { ToolCall, Usage } from '@/schemas/message'
-import type { Message, ToolResponseMessage } from '@openrouter/sdk/models'
-
-type ContentBlock =
-  | { type: 'text'; text: string }
-  | { type: 'image_url'; imageUrl: { url: string } }
-
-type UserMessageContent = string | ContentBlock[]
+import type { Message, ToolResponseMessage, ChatMessageContentItem } from '@openrouter/sdk/models'
+import {
+  ToolChoiceOptionAuto,
+  ChatMessageToolCallType,
+  ChatMessageContentItemImageType,
+  ChatMessageContentItemTextType,
+} from '@openrouter/sdk/models'
 
 export const chatRouter = router({
   stream: rateLimitedChatProcedure.input(ChatInputSchema).subscription(async function* ({
@@ -144,7 +144,7 @@ export const chatRouter = router({
       }
 
       const wrappedContent = `${USER_REQUEST_DELIMITERS.OPEN}\n${input.content}\n${USER_REQUEST_DELIMITERS.CLOSE}`
-      let userContent: UserMessageContent = wrappedContent
+      let userContent: string | ChatMessageContentItem[] = wrappedContent
       if (input.attachmentIds.length > 0) {
         const statusChunk: StreamChunk = {
           type: STREAM_EVENTS.STATUS,
@@ -153,7 +153,9 @@ export const chatRouter = router({
         }
         yield statusChunk
 
-        const blocks: ContentBlock[] = [{ type: 'text', text: wrappedContent }]
+        const blocks: ChatMessageContentItem[] = [
+          { type: ChatMessageContentItemTextType.Text, text: wrappedContent },
+        ]
         const attachmentRows = await ctx.db
           .select()
           .from(attachments)
@@ -167,12 +169,12 @@ export const chatRouter = router({
         for (const att of attachmentRows) {
           if (att.fileType.startsWith('image/')) {
             blocks.push({
-              type: 'image_url',
+              type: ChatMessageContentItemImageType.ImageUrl,
               imageUrl: { url: att.storageUrl },
             })
           } else {
             blocks.push({
-              type: 'text',
+              type: ChatMessageContentItemTextType.Text,
               text: `[Attachment: ${att.fileName} — ${att.fileType}]`,
             })
           }
@@ -255,7 +257,7 @@ export const chatRouter = router({
         PROMPTS.CHAT_SYSTEM_PROMPT + '\n\n' + PROMPTS.A2UI_SYSTEM_PROMPT + searchContext
       const sdkMessages: Message[] = [
         { role: 'system', content: systemContent },
-        { role: 'user', content: userContent as string },
+        { role: 'user', content: userContent },
       ]
 
       const { openrouter } = await import('@/lib/ai/client')
@@ -268,7 +270,7 @@ export const chatRouter = router({
             stream: true,
             maxTokens: AI_PARAMS.CHAT_MAX_TOKENS,
             ...(input.mode === CHAT_MODES.CHAT
-              ? { tools: ALL_TOOLS, toolChoice: 'auto' as const }
+              ? { tools: ALL_TOOLS, toolChoice: ToolChoiceOptionAuto.Auto }
               : {}),
           },
         },
@@ -400,7 +402,7 @@ export const chatRouter = router({
           content: fullText || '',
           toolCalls: [...toolCallArgBuffers.entries()].map(([, tc]) => ({
             id: tc.id,
-            type: 'function' as const,
+            type: ChatMessageToolCallType.Function,
             function: { name: tc.name, arguments: tc.args },
           })),
         }

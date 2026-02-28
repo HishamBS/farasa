@@ -18,10 +18,6 @@ export async function generateTitle(firstMessage: string): Promise<string> {
     },
   })
 
-  if (!('choices' in response)) {
-    throw new Error('Title generation returned unexpected response type.')
-  }
-
   const raw = response.choices[0]?.message.content
   const content = typeof raw === 'string' ? raw.trim() : ''
   if (!content) {

@@ -21,15 +21,7 @@ export async function routeModel(prompt: string): Promise<ModelSelection> {
     },
   })
 
-  if (!('choices' in response)) {
-    return {
-      selectedModel: DEFAULT_MODEL,
-      category: MODEL_CATEGORIES.GENERAL,
-      reasoning: 'Auto-router fallback — unexpected response type',
-    }
-  }
-
-  const raw = response.choices[0]?.message.content ?? '{}'
+  const raw = response.choices[0]?.message.content
   const content = typeof raw === 'string' ? raw : '{}'
   try {
     return ModelSelectionSchema.parse(JSON.parse(content))

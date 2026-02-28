@@ -1,11 +1,14 @@
 'use client'
 
-import { useMemo, useCallback, useState } from 'react'
+import { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Menu, MoreHorizontal, Pin, PinOff, Trash2 } from 'lucide-react'
+import { Check, Menu, MoreHorizontal, Pin, PinOff, Trash2 } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { trpc } from '@/trpc/provider'
 import { ROUTES, PATTERNS } from '@/config/routes'
-import { UX, UI_TEXT } from '@/config/constants'
+import { MOTION, UX, UI_TEXT } from '@/config/constants'
+import { cn } from '@/lib/utils/cn'
+import type { TitlebarPhase } from '@/types/stream'
 import { ModeToggle } from './mode-toggle'
 import { useChatMode } from '../context/chat-mode-context'
 import {
@@ -28,9 +31,10 @@ import {
 
 type TitlebarProps = {
   onMenuClick: () => void
+  streamPhase?: TitlebarPhase
 }
 
-export function Titlebar({ onMenuClick }: TitlebarProps) {
+export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { mode, setMode } = useChatMode()
@@ -70,6 +74,23 @@ export function Titlebar({ onMenuClick }: TitlebarProps) {
 
   const title = conversation?.title ?? null
 
+  const [showDone, setShowDone] = useState(false)
+  const prevPhaseRef = useRef<TitlebarPhase>('idle')
+
+  useEffect(() => {
+    if (prevPhaseRef.current !== 'done' && streamPhase === 'done') {
+      setShowDone(true)
+      const timer = setTimeout(() => setShowDone(false), UX.COPY_FEEDBACK_DURATION_MS)
+      prevPhaseRef.current = streamPhase
+      return () => clearTimeout(timer)
+    }
+    if (streamPhase !== 'done') {
+      prevPhaseRef.current = streamPhase
+    }
+  }, [streamPhase])
+
+  const pillPhase: TitlebarPhase = showDone ? 'done' : streamPhase === 'done' ? 'idle' : streamPhase
+
   return (
     <>
       <header className="flex h-12 flex-shrink-0 items-center gap-2.5 border-b border-[--border-subtle] px-4">
@@ -85,6 +106,41 @@ export function Titlebar({ onMenuClick }: TitlebarProps) {
         <div className="flex-1 truncate">
           {title && <span className="text-sm font-medium text-[--text-secondary]">{title}</span>}
         </div>
+
+        <AnimatePresence mode="wait">
+          {pillPhase !== 'idle' && (
+            <motion.div
+              key={pillPhase}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: MOTION.DURATION_NORMAL }}
+              className={cn(
+                'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium',
+                pillPhase === 'thinking' &&
+                  'border-[--thinking-border] bg-[--thinking-bg] text-[--thinking]',
+                pillPhase === 'streaming' &&
+                  'border-[--accent-glow] bg-[--accent-muted] text-[--accent]',
+                pillPhase === 'done' && 'border-emerald-400/20 bg-emerald-400/10 text-[--success]',
+              )}
+            >
+              {pillPhase === 'done' ? (
+                <Check size={10} />
+              ) : (
+                <motion.span
+                  className="size-1.5 rounded-full bg-current"
+                  animate={{ opacity: [1, 0.4, 1] }}
+                  transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+                />
+              )}
+              <span>
+                {pillPhase === 'thinking' && 'Thinking'}
+                {pillPhase === 'streaming' && 'Generating'}
+                {pillPhase === 'done' && 'Done'}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <ModeToggle value={mode} onChange={setMode} />
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { trpc } from '@/trpc/provider'
 import { useChatStream } from '../hooks/use-chat-stream'
 import { MessageList } from './message-list'
@@ -9,15 +9,35 @@ import { StreamProgress } from '@/features/stream-phases/components/stream-progr
 import type { ChatInputHandle } from './chat-input'
 import { CHAT_STREAM_STATUS, SESSION_KEYS, UX } from '@/config/constants'
 import { ChatInputSchema } from '@/schemas/message'
+import type { TitlebarPhase } from '@/types/stream'
 
 type ChatContainerProps = {
   conversationId: string
+  onPhaseChange?: (phase: TitlebarPhase) => void
 }
 
-export function ChatContainer({ conversationId }: ChatContainerProps) {
+export function ChatContainer({ conversationId, onPhaseChange }: ChatContainerProps) {
   const { streamState, sendMessage, abort, retry } = useChatStream()
   const isStreaming = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
   const chatInputRef = useRef<ChatInputHandle>(null)
+
+  const titlebarPhase = useMemo((): TitlebarPhase => {
+    if (streamState.phase === CHAT_STREAM_STATUS.COMPLETE) return 'done'
+    if (streamState.phase === CHAT_STREAM_STATUS.ACTIVE) {
+      if (
+        streamState.thinking !== null &&
+        streamState.thinking !== undefined &&
+        !streamState.thinking.completedAt
+      )
+        return 'thinking'
+      return 'streaming'
+    }
+    return 'idle'
+  }, [streamState.phase, streamState.thinking])
+
+  useEffect(() => {
+    onPhaseChange?.(titlebarPhase)
+  }, [titlebarPhase, onPhaseChange])
 
   const { data: conversation } = trpc.conversation.getById.useQuery(
     { id: conversationId },

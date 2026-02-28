@@ -52,3 +52,5 @@ export type StreamAction =
   | { type: 'DONE' }
   | { type: 'RESET' }
   | { type: 'SAVE_INPUT'; input: ChatInput }
+
+export type TitlebarPhase = 'idle' | 'thinking' | 'streaming' | 'done'

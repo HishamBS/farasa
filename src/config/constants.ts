@@ -79,6 +79,34 @@ export const TITLEBAR_PHASE = {
   DONE: 'done',
 } as const
 
+export const STREAM_ACTIONS = {
+  STATUS: 'STATUS',
+  MODEL_SELECTED: 'MODEL_SELECTED',
+  THINKING_CHUNK: 'THINKING_CHUNK',
+  TOOL_START: 'TOOL_START',
+  TOOL_RESULT: 'TOOL_RESULT',
+  TEXT_CHUNK: 'TEXT_CHUNK',
+  A2UI_MESSAGE: 'A2UI_MESSAGE',
+  ERROR: 'ERROR',
+  DONE: 'DONE',
+  RESET: 'RESET',
+  SAVE_INPUT: 'SAVE_INPUT',
+} as const
+
+export const MESSAGE_ROLES = {
+  USER: 'user',
+  ASSISTANT: 'assistant',
+  SYSTEM: 'system',
+} as const
+
+export const TRPC_CODES = {
+  BAD_REQUEST: 'BAD_REQUEST',
+  UNAUTHORIZED: 'UNAUTHORIZED',
+  FORBIDDEN: 'FORBIDDEN',
+  NOT_FOUND: 'NOT_FOUND',
+  INTERNAL_SERVER_ERROR: 'INTERNAL_SERVER_ERROR',
+} as const
+
 export const CHAT_MODES = {
   CHAT: 'chat',
   SEARCH: 'search',
@@ -177,6 +205,7 @@ export const UX = {
   SCROLL_BUTTON_BOTTOM_OFFSET: 24,
   LONG_PRESS_DELAY_MS: 500,
   QUERY_STALE_TIME_FOREVER: Infinity,
+  QUERY_GC_TIME_MS: 30 * 60_000,
   SEND_BUTTON_HOVER_SCALE: 1.08,
 } as const
 

@@ -1,5 +1,5 @@
 import { useReducer, useCallback } from 'react'
-import { CHAT_STREAM_STATUS } from '@/config/constants'
+import { CHAT_STREAM_STATUS, STREAM_ACTIONS } from '@/config/constants'
 import type { StreamState, StreamAction } from '@/types/stream'
 
 const initialState: StreamState = {
@@ -16,7 +16,7 @@ const initialState: StreamState = {
 
 function streamStateReducer(state: StreamState, action: StreamAction): StreamState {
   switch (action.type) {
-    case 'STATUS': {
+    case STREAM_ACTIONS.STATUS: {
       const now = Date.now()
       const existing = state.statusMessages.findIndex((s) => s.phase === action.phase)
       if (existing >= 0) {
@@ -34,7 +34,7 @@ function streamStateReducer(state: StreamState, action: StreamAction): StreamSta
       }
     }
 
-    case 'MODEL_SELECTED': {
+    case STREAM_ACTIONS.MODEL_SELECTED: {
       const now = Date.now()
       const updatedStatus = state.statusMessages.map((s) =>
         s.completedAt ? s : { ...s, completedAt: now },
@@ -46,7 +46,7 @@ function streamStateReducer(state: StreamState, action: StreamAction): StreamSta
       }
     }
 
-    case 'THINKING_CHUNK': {
+    case STREAM_ACTIONS.THINKING_CHUNK: {
       if (action.isComplete) {
         return {
           ...state,
@@ -62,14 +62,14 @@ function streamStateReducer(state: StreamState, action: StreamAction): StreamSta
       }
     }
 
-    case 'TOOL_START': {
+    case STREAM_ACTIONS.TOOL_START: {
       return {
         ...state,
         toolExecutions: [...state.toolExecutions, { name: action.name, input: action.input }],
       }
     }
 
-    case 'TOOL_RESULT': {
+    case STREAM_ACTIONS.TOOL_RESULT: {
       const idx = [...state.toolExecutions]
         .reverse()
         .findIndex((t) => t.name === action.name && !t.completedAt)
@@ -83,18 +83,18 @@ function streamStateReducer(state: StreamState, action: StreamAction): StreamSta
       return { ...state, toolExecutions: updated }
     }
 
-    case 'TEXT_CHUNK': {
+    case STREAM_ACTIONS.TEXT_CHUNK: {
       return { ...state, textContent: state.textContent + action.content }
     }
 
-    case 'A2UI_MESSAGE': {
+    case STREAM_ACTIONS.A2UI_MESSAGE: {
       return {
         ...state,
         a2uiMessages: [...state.a2uiMessages, action.message],
       }
     }
 
-    case 'ERROR': {
+    case STREAM_ACTIONS.ERROR: {
       return {
         ...state,
         phase: CHAT_STREAM_STATUS.ERROR,
@@ -102,15 +102,15 @@ function streamStateReducer(state: StreamState, action: StreamAction): StreamSta
       }
     }
 
-    case 'DONE': {
+    case STREAM_ACTIONS.DONE: {
       return { ...state, phase: CHAT_STREAM_STATUS.COMPLETE }
     }
 
-    case 'SAVE_INPUT': {
+    case STREAM_ACTIONS.SAVE_INPUT: {
       return { ...state, lastInput: action.input }
     }
 
-    case 'RESET': {
+    case STREAM_ACTIONS.RESET: {
       return { ...initialState, lastInput: state.lastInput }
     }
   }
@@ -118,6 +118,6 @@ function streamStateReducer(state: StreamState, action: StreamAction): StreamSta
 
 export function useStreamState() {
   const [state, dispatch] = useReducer(streamStateReducer, initialState)
-  const reset = useCallback(() => dispatch({ type: 'RESET' }), [])
+  const reset = useCallback(() => dispatch({ type: STREAM_ACTIONS.RESET }), [])
   return { state, dispatch, reset }
 }

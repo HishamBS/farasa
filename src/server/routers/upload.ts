@@ -3,7 +3,7 @@ import { TRPCError } from '@trpc/server'
 import { router, rateLimitedUploadProcedure } from '../trpc'
 import { UploadRequestSchema, ConfirmUploadSchema } from '@/schemas/upload'
 import { attachments } from '@/lib/db/schema'
-import { LIMITS } from '@/config/constants'
+import { LIMITS, TRPC_CODES } from '@/config/constants'
 
 export const uploadRouter = router({
   presignedUrl: rateLimitedUploadProcedure
@@ -27,7 +27,7 @@ export const uploadRouter = router({
         .returning()
 
       if (!attachment) {
-        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' })
+        throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
       }
 
       return {
@@ -47,7 +47,7 @@ export const uploadRouter = router({
         .returning({ id: attachments.id })
 
       if (!confirmed) {
-        throw new TRPCError({ code: 'NOT_FOUND' })
+        throw new TRPCError({ code: TRPC_CODES.NOT_FOUND })
       }
 
       return { id: confirmed.id }

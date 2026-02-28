@@ -2,7 +2,7 @@ import { initTRPC, TRPCError } from '@trpc/server'
 import superjson from 'superjson'
 import type { Context } from './context'
 import { checkRateLimit } from '@/lib/security/rate-limit'
-import { RATE_LIMITS } from '@/config/constants'
+import { RATE_LIMITS, TRPC_CODES } from '@/config/constants'
 
 const t = initTRPC.context<Context>().create({
   transformer: superjson,
@@ -14,7 +14,7 @@ export const createCallerFactory = t.createCallerFactory
 
 export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
   if (!ctx.session?.user?.id) {
-    throw new TRPCError({ code: 'UNAUTHORIZED' })
+    throw new TRPCError({ code: TRPC_CODES.UNAUTHORIZED })
   }
   return next({
     ctx: {

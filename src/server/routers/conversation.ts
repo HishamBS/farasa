@@ -12,7 +12,7 @@ import {
   MessageListInputSchema,
   UpdateConversationSchema,
 } from '@/schemas/conversation'
-import { NEW_CHAT_TITLE } from '@/config/constants'
+import { NEW_CHAT_TITLE, TRPC_CODES, MESSAGE_ROLES } from '@/config/constants'
 import type { MessageMetadata } from '@/schemas/message'
 
 export const conversationRouter = router({
@@ -52,7 +52,7 @@ export const conversationRouter = router({
       .limit(1)
 
     if (!conversation) {
-      throw new TRPCError({ code: 'NOT_FOUND' })
+      throw new TRPCError({ code: TRPC_CODES.NOT_FOUND })
     }
 
     return conversation
@@ -69,7 +69,7 @@ export const conversationRouter = router({
       .returning()
 
     if (!created) {
-      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' })
+      throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
     }
 
     return created
@@ -85,7 +85,7 @@ export const conversationRouter = router({
       .returning()
 
     if (!updated) {
-      throw new TRPCError({ code: 'NOT_FOUND' })
+      throw new TRPCError({ code: TRPC_CODES.NOT_FOUND })
     }
 
     return updated
@@ -98,7 +98,7 @@ export const conversationRouter = router({
       .returning({ id: conversations.id })
 
     if (!deleted) {
-      throw new TRPCError({ code: 'NOT_FOUND' })
+      throw new TRPCError({ code: TRPC_CODES.NOT_FOUND })
     }
 
     return { id: deleted.id }
@@ -112,7 +112,7 @@ export const conversationRouter = router({
       .limit(1)
 
     if (!conversation) {
-      throw new TRPCError({ code: 'NOT_FOUND' })
+      throw new TRPCError({ code: TRPC_CODES.NOT_FOUND })
     }
 
     const { generateTitle } = await import('@/lib/ai/title')
@@ -137,7 +137,7 @@ export const conversationRouter = router({
         .limit(1)
 
       if (!conversation) {
-        throw new TRPCError({ code: 'NOT_FOUND' })
+        throw new TRPCError({ code: TRPC_CODES.NOT_FOUND })
       }
 
       const msgs = await ctx.db
@@ -149,9 +149,9 @@ export const conversationRouter = router({
       const lines: string[] = [`# ${conversation.title}`, '']
 
       for (const msg of msgs) {
-        if (msg.role === 'user') {
+        if (msg.role === MESSAGE_ROLES.USER) {
           lines.push(`**You:** ${msg.content}`, '')
-        } else if (msg.role === 'assistant') {
+        } else if (msg.role === MESSAGE_ROLES.ASSISTANT) {
           const modelLine = (msg.metadata as MessageMetadata | null)?.modelUsed
           const prefix = modelLine ? `**Assistant** (${modelLine}):` : '**Assistant:**'
           lines.push(`${prefix} ${msg.content}`, '')
@@ -169,7 +169,7 @@ export const conversationRouter = router({
       .limit(1)
 
     if (!conversation) {
-      throw new TRPCError({ code: 'NOT_FOUND' })
+      throw new TRPCError({ code: TRPC_CODES.NOT_FOUND })
     }
 
     const conditions = [eq(messages.conversationId, input.conversationId)]

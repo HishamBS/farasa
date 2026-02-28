@@ -16,6 +16,8 @@ import {
   LIMITS,
   AI_MARKUP,
   SEARCH_DEPTHS,
+  MESSAGE_ROLES,
+  TRPC_CODES,
 } from '@/config/constants'
 import { PROMPTS, USER_REQUEST_DELIMITERS } from '@/config/prompts'
 import { AppError } from '@/lib/utils/errors'
@@ -38,7 +40,7 @@ export const chatRouter = router({
     let conversationId = input.conversationId
     let isNewConversation = false
     type MessageRow = typeof messages.$inferSelect
-    let userMessage: MessageRow
+    let userMessage: MessageRow | null = null
 
     try {
       if (!conversationId) {
@@ -48,12 +50,16 @@ export const chatRouter = router({
             .insert(conversations)
             .values({ userId: ctx.userId, model: input.model })
             .returning()
-          if (!created) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' })
+          if (!created) throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
           const [msg] = await tx
             .insert(messages)
-            .values({ conversationId: created.id, role: 'user', content: input.content })
+            .values({
+              conversationId: created.id,
+              role: MESSAGE_ROLES.USER,
+              content: input.content,
+            })
             .returning()
-          if (!msg) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' })
+          if (!msg) throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
           return { id: created.id, userMessage: msg }
         })
         conversationId = txResult.id
@@ -64,16 +70,19 @@ export const chatRouter = router({
           .from(conversations)
           .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
           .limit(1)
-        if (!conv) throw new TRPCError({ code: 'NOT_FOUND' })
-        const [msg] = await ctx.db
-          .insert(messages)
-          .values({ conversationId, role: 'user', content: input.content })
-          .returning()
-        if (!msg) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' })
-        userMessage = msg
+        if (!conv) throw new TRPCError({ code: TRPC_CODES.NOT_FOUND })
+        if (!input.skipUserInsert) {
+          const [msg] = await ctx.db
+            .insert(messages)
+            .values({ conversationId, role: MESSAGE_ROLES.USER, content: input.content })
+            .returning()
+          if (!msg) throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
+          userMessage = msg
+        }
       }
 
       if (input.attachmentIds.length > 0) {
+        if (!userMessage) throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
         const updated = await ctx.db
           .update(attachments)
           .set({ messageId: userMessage.id })
@@ -86,7 +95,10 @@ export const chatRouter = router({
           )
           .returning({ id: attachments.id })
         if (updated.length !== input.attachmentIds.length) {
-          throw new TRPCError({ code: 'FORBIDDEN', message: AppError.ATTACHMENT_ACCESS_DENIED })
+          throw new TRPCError({
+            code: TRPC_CODES.FORBIDDEN,
+            message: AppError.ATTACHMENT_ACCESS_DENIED,
+          })
         }
       }
 
@@ -107,7 +119,7 @@ export const chatRouter = router({
         const selection = await routeModel(input.content, registry)
         if (!registry.some((m) => m.id === selection.selectedModel)) {
           throw new TRPCError({
-            code: 'BAD_REQUEST',
+            code: TRPC_CODES.BAD_REQUEST,
             message: AppError.INVALID_MODEL,
           })
         }
@@ -124,7 +136,7 @@ export const chatRouter = router({
         // Validate the explicitly-provided model against the live registry
         if (!registry.some((m) => m.id === selectedModel)) {
           throw new TRPCError({
-            code: 'BAD_REQUEST',
+            code: TRPC_CODES.BAD_REQUEST,
             message: AppError.INVALID_MODEL,
           })
         }
@@ -249,8 +261,8 @@ export const chatRouter = router({
       const systemContent =
         PROMPTS.CHAT_SYSTEM_PROMPT + '\n\n' + PROMPTS.A2UI_SYSTEM_PROMPT + searchContext
       const sdkMessages: Message[] = [
-        { role: 'system', content: systemContent },
-        { role: 'user', content: userContent },
+        { role: MESSAGE_ROLES.SYSTEM, content: systemContent },
+        { role: MESSAGE_ROLES.USER, content: userContent },
       ]
 
       const { openrouter } = await import('@/lib/ai/client')
@@ -391,7 +403,7 @@ export const chatRouter = router({
       // Handle model-initiated tool calls (chat mode autonomous search)
       if (toolCallArgBuffers.size > 0 && input.mode === CHAT_MODES.CHAT) {
         const assistantToolCallMessage: Message = {
-          role: 'assistant',
+          role: MESSAGE_ROLES.ASSISTANT,
           content: fullText || '',
           toolCalls: [...toolCallArgBuffers.entries()].map(([, tc]) => ({
             id: tc.id,
@@ -504,7 +516,7 @@ export const chatRouter = router({
 
       await ctx.db.insert(messages).values({
         conversationId,
-        role: 'assistant',
+        role: MESSAGE_ROLES.ASSISTANT,
         content: fullText,
         metadata,
       })
@@ -518,7 +530,7 @@ export const chatRouter = router({
         const titleConversationId = conversationId
         if (!titleConversationId) {
           throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
+            code: TRPC_CODES.INTERNAL_SERVER_ERROR,
             message: AppError.MISSING_CONVERSATION_ID,
           })
         }
@@ -546,9 +558,12 @@ export const chatRouter = router({
     } catch (err) {
       if (err instanceof TRPCError) {
         // Re-throw user-facing errors (4xx) unchanged; sanitize any internal errors
-        if (err.code !== 'INTERNAL_SERVER_ERROR') throw err
+        if (err.code !== TRPC_CODES.INTERNAL_SERVER_ERROR) throw err
         console.error('[chat.stream] Internal error:', err.message)
-        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: AppError.CHAT_PROCESSING })
+        throw new TRPCError({
+          code: TRPC_CODES.INTERNAL_SERVER_ERROR,
+          message: AppError.CHAT_PROCESSING,
+        })
       }
 
       if (err instanceof Error) {

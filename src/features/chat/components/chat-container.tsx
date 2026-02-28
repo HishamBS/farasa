@@ -14,10 +14,9 @@ import { useStreamPhase } from '../context/stream-phase-context'
 
 type ChatContainerProps = {
   conversationId: string
-  onPhaseChange?: (phase: TitlebarPhase) => void
 }
 
-export function ChatContainer({ conversationId, onPhaseChange }: ChatContainerProps) {
+export function ChatContainer({ conversationId }: ChatContainerProps) {
   const { streamState, sendMessage, abort, retry } = useChatStream()
   const isStreaming = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
   const chatInputRef = useRef<ChatInputHandle>(null)
@@ -39,8 +38,7 @@ export function ChatContainer({ conversationId, onPhaseChange }: ChatContainerPr
 
   useEffect(() => {
     setPhase(titlebarPhase)
-    onPhaseChange?.(titlebarPhase)
-  }, [titlebarPhase, setPhase, onPhaseChange])
+  }, [titlebarPhase, setPhase])
 
   const { data: conversation } = trpc.conversation.getById.useQuery(
     { id: conversationId },

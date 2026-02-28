@@ -1,4 +1,7 @@
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
+
+export const dynamic = 'force-dynamic'
+
 import { appRouter } from '@/server/routers/_app'
 import { createContext } from '@/server/context'
 import { ROUTES } from '@/config/routes'

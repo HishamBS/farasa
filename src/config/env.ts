@@ -14,15 +14,23 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 })
 
-const parsed = envSchema.safeParse(process.env)
+function loadEnv(): z.infer<typeof envSchema> {
+  const parsed = envSchema.safeParse(process.env)
 
-if (!parsed.success) {
-  console.error('Invalid environment variables:')
-  for (const error of parsed.error.errors) {
-    console.error(`  ${error.path.join('.')}: ${error.message}`)
+  if (!parsed.success) {
+    if (process.env.SKIP_ENV_VALIDATION === '1') {
+      console.warn('[env] Skipping validation during build phase')
+      return process.env as unknown as z.infer<typeof envSchema>
+    }
+    console.error('Invalid environment variables:')
+    for (const error of parsed.error.errors) {
+      console.error(`  ${error.path.join('.')}: ${error.message}`)
+    }
+    throw new Error('Invalid environment configuration. Check .env.example for required variables.')
   }
-  throw new Error('Invalid environment configuration. Check .env.example for required variables.')
+
+  return parsed.data
 }
 
-export const env = parsed.data
+export const env = loadEnv()
 export type Env = z.infer<typeof envSchema>

@@ -37,16 +37,27 @@ export const chatRouter = router({
   }) {
     let conversationId = input.conversationId
     let isNewConversation = false
+    type MessageRow = typeof messages.$inferSelect
+    let userMessage: MessageRow
 
     try {
       if (!conversationId) {
         isNewConversation = true
-        const [created] = await ctx.db
-          .insert(conversations)
-          .values({ userId: ctx.userId, model: input.model })
-          .returning()
-        if (!created) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' })
-        conversationId = created.id
+        const txResult = await ctx.db.transaction(async (tx) => {
+          const [created] = await tx
+            .insert(conversations)
+            .values({ userId: ctx.userId, model: input.model })
+            .returning()
+          if (!created) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' })
+          const [msg] = await tx
+            .insert(messages)
+            .values({ conversationId: created.id, role: 'user', content: input.content })
+            .returning()
+          if (!msg) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' })
+          return { id: created.id, userMessage: msg }
+        })
+        conversationId = txResult.id
+        userMessage = txResult.userMessage
       } else {
         const [conv] = await ctx.db
           .select({ id: conversations.id })
@@ -54,38 +65,16 @@ export const chatRouter = router({
           .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
           .limit(1)
         if (!conv) throw new TRPCError({ code: 'NOT_FOUND' })
+        const [msg] = await ctx.db
+          .insert(messages)
+          .values({ conversationId, role: 'user', content: input.content })
+          .returning()
+        if (!msg) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' })
+        userMessage = msg
       }
 
-      const [userMessage] = await ctx.db
-        .insert(messages)
-        .values({
-          conversationId,
-          role: 'user',
-          content: input.content,
-        })
-        .returning()
-      if (!userMessage) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' })
-
       if (input.attachmentIds.length > 0) {
-        const owned = await ctx.db
-          .select({ id: attachments.id })
-          .from(attachments)
-          .where(
-            and(
-              inArray(attachments.id, input.attachmentIds),
-              eq(attachments.userId, ctx.userId),
-              isNotNull(attachments.confirmedAt),
-            ),
-          )
-        const ownedIds = new Set(owned.map((a) => a.id))
-        const unauthorized = input.attachmentIds.filter((id) => !ownedIds.has(id))
-        if (unauthorized.length > 0) {
-          throw new TRPCError({
-            code: 'FORBIDDEN',
-            message: AppError.ATTACHMENT_ACCESS_DENIED,
-          })
-        }
-        await ctx.db
+        const updated = await ctx.db
           .update(attachments)
           .set({ messageId: userMessage.id })
           .where(
@@ -95,6 +84,10 @@ export const chatRouter = router({
               isNotNull(attachments.confirmedAt),
             ),
           )
+          .returning({ id: attachments.id })
+        if (updated.length !== input.attachmentIds.length) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: AppError.ATTACHMENT_ACCESS_DENIED })
+        }
       }
 
       let selectedModel = input.model
@@ -111,7 +104,7 @@ export const chatRouter = router({
         yield chunk
 
         const { routeModel } = await import('@/lib/ai/router')
-        const selection = await routeModel(input.content)
+        const selection = await routeModel(input.content, registry)
         if (!registry.some((m) => m.id === selection.selectedModel)) {
           throw new TRPCError({
             code: 'BAD_REQUEST',

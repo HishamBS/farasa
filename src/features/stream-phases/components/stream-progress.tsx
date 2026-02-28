@@ -107,7 +107,7 @@ export function StreamProgress({ streamState, onRetry }: StreamProgressProps) {
             </div>
 
             {modelSelection && (
-              <div className="ml-auto flex items-center gap-1.5 rounded-full border border-orange-400/20 bg-orange-400/10 px-2.5 py-1 text-xs text-[--provider-anthropic]">
+              <div className="ml-auto flex items-center gap-1.5 rounded-full border border-[--provider-anthropic-border] bg-[--provider-anthropic-muted] px-2.5 py-1 text-xs text-[--provider-anthropic]">
                 <span className="size-1.5 rounded-full bg-[--provider-anthropic]" />
                 <span className="font-mono">{modelName}</span>
               </div>

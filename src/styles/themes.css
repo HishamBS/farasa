@@ -1,32 +1,38 @@
 :root {
-  --bg-root: #09090b;
-  --bg-surface: #18181b;
-  --bg-surface-hover: #27272a;
-  --bg-surface-active: #3f3f46;
-  --bg-glass: rgba(24, 24, 27, 0.7);
-  --bg-input: rgba(39, 39, 42, 0.5);
-  --bg-user-message: rgba(34, 211, 238, 0.08);
+  --bg-root: #1c1c1e;
+  --bg-surface: #2c2c2e;
+  --bg-surface-hover: #323234;
+  --bg-surface-active: #3a3a3c;
+  --bg-glass: rgba(44, 44, 46, 0.72);
+  --bg-input: rgba(44, 44, 46, 0.5);
+  --bg-user-message: rgba(34, 211, 238, 0.11);
 
-  --text-primary: #fafafa;
-  --text-secondary: #d4d4d8;
-  --text-muted: #71717a;
-  --text-ghost: #52525b;
+  --text-primary: rgba(255, 255, 255, 0.92);
+  --text-secondary: rgba(255, 255, 255, 0.55);
+  --text-muted: rgba(255, 255, 255, 0.28);
+  --text-ghost: rgba(255, 255, 255, 0.14);
 
-  --border-subtle: #27272a;
-  --border-default: #3f3f46;
+  --border-subtle: rgba(255, 255, 255, 0.09);
+  --border-default: rgba(255, 255, 255, 0.16);
+  --border-user-message: rgba(34, 211, 238, 0.18);
 
   --accent: #22d3ee;
   --accent-hover: #67e8f9;
-  --accent-muted: rgba(34, 211, 238, 0.1);
-  --accent-glow: rgba(34, 211, 238, 0.2);
+  --accent-muted: rgba(34, 211, 238, 0.12);
+  --accent-glow: rgba(34, 211, 238, 0.22);
 
   --success: #34d399;
+  --success-muted: rgba(52, 211, 153, 0.1);
+  --success-border: rgba(52, 211, 153, 0.2);
   --warning: #fbbf24;
   --error: #f87171;
 
   --thinking: #a78bfa;
-  --thinking-bg: rgba(167, 139, 250, 0.05);
-  --thinking-border: rgba(167, 139, 250, 0.2);
+  --thinking-bg: rgba(167, 139, 250, 0.1);
+  --thinking-border: rgba(167, 139, 250, 0.16);
+
+  --provider-anthropic-muted: rgba(251, 146, 60, 0.09);
+  --provider-anthropic-border: rgba(251, 146, 60, 0.18);
 
   --overlay: rgba(0, 0, 0, 0.4);
 
@@ -79,7 +85,7 @@
   --bg-surface-active: #e4e4e7;
   --bg-glass: rgba(255, 255, 255, 0.7);
   --bg-input: rgba(244, 244, 245, 0.8);
-  --bg-user-message: rgba(34, 211, 238, 0.11);
+  --bg-user-message: rgba(8, 145, 178, 0.08);
 
   --text-primary: #09090b;
   --text-secondary: #3f3f46;
@@ -88,6 +94,7 @@
 
   --border-subtle: #e4e4e7;
   --border-default: #d4d4d8;
+  --border-user-message: rgba(8, 145, 178, 0.18);
 
   --accent: #0891b2;
   --accent-hover: #0e7490;
@@ -101,6 +108,8 @@
   --thinking-border: rgba(124, 58, 237, 0.15);
 
   --success: #059669;
+  --success-muted: rgba(5, 150, 105, 0.1);
+  --success-border: rgba(5, 150, 105, 0.2);
   --warning: #d97706;
   --error: #dc2626;
 
@@ -110,4 +119,7 @@
   --provider-meta: #4f46e5;
   --provider-groq: #e11d48;
   --provider-cerebras: #d97706;
+
+  --provider-anthropic-muted: rgba(234, 88, 12, 0.09);
+  --provider-anthropic-border: rgba(234, 88, 12, 0.18);
 }

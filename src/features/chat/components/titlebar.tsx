@@ -121,7 +121,8 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
                   'border-[--thinking-border] bg-[--thinking-bg] text-[--thinking]',
                 pillPhase === 'streaming' &&
                   'border-[--accent-glow] bg-[--accent-muted] text-[--accent]',
-                pillPhase === 'done' && 'border-emerald-400/20 bg-emerald-400/10 text-[--success]',
+                pillPhase === 'done' &&
+                  'border-[--success-border] bg-[--success-muted] text-[--success]',
               )}
             >
               {pillPhase === 'done' ? (

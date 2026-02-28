@@ -52,6 +52,7 @@
     "next": "^15.0.0",
     "next-auth": "5.0.0-beta.22",
     "openai": "^4.52.7",
+    "postgres": "^3.4.8",
     "radix-ui": "^1.4.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

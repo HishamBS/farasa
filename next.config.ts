@@ -6,7 +6,7 @@ const CSP_DIRECTIVES = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://openrouter.ai https://*.openrouter.ai https://storage.googleapis.com",
+  "img-src 'self' data: blob: https://openrouter.ai https://*.openrouter.ai https://storage.googleapis.com https://lh3.googleusercontent.com",
   "font-src 'self'",
   "connect-src 'self' https://openrouter.ai https://*.openrouter.ai https://api.tavily.com https://storage.googleapis.com",
   "worker-src blob: 'self'",

@@ -33,9 +33,7 @@ export function UserMenu() {
       )}
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-medium text-[--text-primary]">
-          {session?.user?.name ?? 'User'}
-        </p>
+        <p className="truncate text-xs text-[--text-secondary]">{session?.user?.name ?? 'User'}</p>
       </div>
 
       <button

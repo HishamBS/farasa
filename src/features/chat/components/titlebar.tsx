@@ -100,7 +100,7 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
           className="flex size-7 items-center justify-center rounded-lg text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-primary] lg:hidden"
           aria-label={UI_TEXT.OPEN_SIDEBAR_ARIA}
         >
-          <Menu size={18} />
+          <Menu size={16} />
         </button>
 
         <div className="flex-1 truncate">

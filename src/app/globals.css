@@ -26,12 +26,12 @@ body {
 /* Scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--border-default) transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 *::-webkit-scrollbar {
-  width: 0.375rem;
-  height: 0.375rem;
+  width: 0.25rem;
+  height: 0.25rem;
 }
 
 *::-webkit-scrollbar-track {
@@ -39,8 +39,8 @@ body {
 }
 
 *::-webkit-scrollbar-thumb {
-  background-color: var(--border-default);
-  border-radius: 0.1875rem;
+  background-color: var(--scrollbar-thumb);
+  border-radius: 0.125rem;
 }
 
 /* Selection */

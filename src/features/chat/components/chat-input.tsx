@@ -153,10 +153,10 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           className={cn(
-            'flex flex-col gap-2 rounded-2xl border bg-[--bg-glass] px-4 pb-2 pt-3 backdrop-blur-xl transition-colors',
+            'flex flex-col gap-2 rounded-2xl border bg-[--bg-glass] py-[10px] pr-[10px] pl-[14px] backdrop-blur-xl transition-all shadow-[0_2px_20px_rgba(0,0,0,0.2)]',
             isDragging
               ? 'border-[--accent] ring-4 ring-[--accent-muted]'
-              : 'border-[--border-default]',
+              : 'border-[--border-default] focus-within:border-[--accent-focus]',
           )}
         >
           {uploadStates.size > 0 && (
@@ -212,7 +212,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
               <button
                 type="button"
                 onClick={handleAttachClick}
-                className="flex size-8 items-center justify-center rounded-xl text-[--text-ghost] transition-colors hover:text-[--text-secondary]"
+                className="flex size-8 items-center justify-center rounded-[9px] text-[--text-ghost] transition-colors hover:text-[--text-secondary]"
                 aria-label="Attach file"
               >
                 <Paperclip className="size-4" />
@@ -237,7 +237,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
                     onClick={handleSubmit}
                     disabled={!canSend}
                     className={cn(
-                      'flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-all hover:scale-110',
+                      'flex min-h-11 min-w-11 items-center justify-center rounded-[9px] transition-all hover:scale-[1.08]',
                       canSend
                         ? 'bg-[--accent] text-[--bg-root] hover:bg-[--accent-hover]'
                         : 'bg-[--bg-surface-hover] text-[--text-ghost]',

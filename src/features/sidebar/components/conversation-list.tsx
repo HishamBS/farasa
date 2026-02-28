@@ -67,6 +67,11 @@ export function ConversationList({ search }: ConversationListProps) {
 
   return (
     <div className="flex flex-col gap-0.5 px-1.5 pb-3">
+      {!search.trim() && (
+        <p className="px-3.5 pt-2 pb-1 text-xs font-medium uppercase tracking-[0.04em] text-[--text-muted]">
+          Recent
+        </p>
+      )}
       {conversations.map((conv) => (
         <ConversationItem
           key={conv.id}

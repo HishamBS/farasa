@@ -58,13 +58,13 @@ const components: Components = {
     <h3 className="mb-2 mt-4 text-base font-medium text-[--text-primary]">{children}</h3>
   ),
   p: ({ children }) => (
-    <p className="mb-3 text-sm leading-relaxed text-[--text-secondary]">{children}</p>
+    <p className="mb-3 text-sm leading-relaxed text-[--text-primary]">{children}</p>
   ),
   ul: ({ children }) => (
-    <ul className="mb-3 list-disc space-y-1 pl-5 text-sm text-[--text-secondary]">{children}</ul>
+    <ul className="mb-3 list-disc space-y-1 pl-5 text-sm text-[--text-primary]">{children}</ul>
   ),
   ol: ({ children }) => (
-    <ol className="mb-3 list-decimal space-y-1 pl-5 text-sm text-[--text-secondary]">{children}</ol>
+    <ol className="mb-3 list-decimal space-y-1 pl-5 text-sm text-[--text-primary]">{children}</ol>
   ),
   li: ({ children }) => <li className="leading-relaxed">{children}</li>,
   strong: ({ children }) => (

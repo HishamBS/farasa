@@ -4,7 +4,7 @@ import { useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, X } from 'lucide-react'
 import { ROUTES } from '@/config/routes'
-import { APP_CONFIG, UI_TEXT } from '@/config/constants'
+import { UI_TEXT } from '@/config/constants'
 
 type SidebarHeaderProps = {
   searchValue: string
@@ -23,7 +23,7 @@ export function SidebarHeader({ searchValue, onSearchChange, onClose }: SidebarH
     <div className="flex-shrink-0">
       <div className="flex items-center gap-2 border-b border-[--border-subtle] pt-4 px-3.5 pb-2.5">
         <span className="flex-1 text-sm font-semibold tracking-tight text-[--text-primary]">
-          {APP_CONFIG.NAME}
+          far<span className="text-[--accent]">asa</span>
         </span>
         <button
           type="button"

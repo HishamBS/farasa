@@ -53,7 +53,7 @@ export function SidebarContainer({ children, isOpen, onClose, onOpen }: SidebarP
         animate={shouldReduce ? {} : { x: isOpen ? 0 : '-100%' }}
         transition={shouldReduce ? {} : { duration: MOTION.DURATION_SLOW, ease: MOTION.EASING }}
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-72 flex-col',
+          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col',
           'bg-[--bg-glass] backdrop-blur-xl saturate-150 border-r border-[--border-subtle]',
           'shadow-2xl shadow-black/30 lg:shadow-none',
           'lg:relative',

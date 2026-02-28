@@ -34,6 +34,10 @@
   --provider-anthropic-muted: rgba(251, 146, 60, 0.09);
   --provider-anthropic-border: rgba(251, 146, 60, 0.18);
 
+  --accent-focus: rgba(34, 211, 238, 0.28);
+
+  --scrollbar-thumb: rgba(255, 255, 255, 0.07);
+
   --overlay: rgba(0, 0, 0, 0.4);
 
   --provider-openai: #34d399;
@@ -100,6 +104,10 @@
   --accent-hover: #0e7490;
   --accent-muted: rgba(8, 145, 178, 0.1);
   --accent-glow: rgba(8, 145, 178, 0.15);
+
+  --accent-focus: rgba(8, 145, 178, 0.35);
+
+  --scrollbar-thumb: rgba(0, 0, 0, 0.12);
 
   --overlay: rgba(0, 0, 0, 0.5);
 

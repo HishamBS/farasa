@@ -11,6 +11,5 @@ export const ROUTES = {
 } as const
 
 export const PATTERNS = {
-  CHAT_ID:
-    /^\/chat\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/,
+  CHAT_ID: /^\/chat\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/,
 } as const

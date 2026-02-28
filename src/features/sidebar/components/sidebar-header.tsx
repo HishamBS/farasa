@@ -21,9 +21,7 @@ export function SidebarHeader({ searchValue, onSearchChange }: SidebarHeaderProp
   return (
     <div className="border-b border-[--border-subtle] px-4 py-3">
       <div className="flex items-center justify-between">
-        <span className="text-base font-semibold text-[--text-primary]">
-          {APP_CONFIG.NAME}
-        </span>
+        <span className="text-base font-semibold text-[--text-primary]">{APP_CONFIG.NAME}</span>
         <button
           type="button"
           onClick={handleNewChat}

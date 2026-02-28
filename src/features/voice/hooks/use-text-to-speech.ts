@@ -3,8 +3,7 @@
 import { useState, useCallback, useEffect } from 'react'
 
 // Strip markdown before speaking so the TTS output is clean prose
-const MARKDOWN_RE =
-  /(\*\*|__|\*|_|~~|`{1,3}|#{1,6}\s|!\[.*?\]\(.*?\)|\[([^\]]+)\]\(.*?\))/g
+const MARKDOWN_RE = /(\*\*|__|\*|_|~~|`{1,3}|#{1,6}\s|!\[.*?\]\(.*?\)|\[([^\]]+)\]\(.*?\))/g
 
 function stripMarkdown(text: string): string {
   return text.replace(MARKDOWN_RE, '$2').trim()

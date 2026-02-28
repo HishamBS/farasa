@@ -14,10 +14,7 @@ const db = drizzle(sql)
 
 const devUserId = 'dev-user-00000000-0000-0000-0000-000000000001'
 
-const [existingUser] = await db
-  .select({ id: users.id })
-  .from(users)
-  .where(eq(users.id, devUserId))
+const [existingUser] = await db.select({ id: users.id }).from(users).where(eq(users.id, devUserId))
 
 if (existingUser) {
   console.log('Seed data already present. Skipping.')

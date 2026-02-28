@@ -43,12 +43,7 @@ export const uploadRouter = router({
       const [confirmed] = await ctx.db
         .update(attachments)
         .set({ confirmedAt: new Date() })
-        .where(
-          and(
-            eq(attachments.id, input.attachmentId),
-            eq(attachments.userId, ctx.userId),
-          ),
-        )
+        .where(and(eq(attachments.id, input.attachmentId), eq(attachments.userId, ctx.userId)))
         .returning({ id: attachments.id })
 
       if (!confirmed) {

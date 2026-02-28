@@ -3,11 +3,7 @@
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { AlertCircle, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
-import {
-  STREAM_PHASES,
-  CHAT_STREAM_STATUS,
-  STREAM_PROGRESS,
-} from '@/config/constants'
+import { STREAM_PHASES, CHAT_STREAM_STATUS, STREAM_PROGRESS } from '@/config/constants'
 import { fadeInDown, fadeInUp } from '@/lib/utils/motion'
 import type { StreamState } from '@/types/stream'
 
@@ -16,8 +12,7 @@ type StreamProgressProps = {
   onRetry?: () => void
 }
 
-type PhaseStatus =
-  (typeof STREAM_PROGRESS.STATUS)[keyof typeof STREAM_PROGRESS.STATUS]
+type PhaseStatus = (typeof STREAM_PROGRESS.STATUS)[keyof typeof STREAM_PROGRESS.STATUS]
 
 type DisplayPhase = {
   id: string
@@ -46,9 +41,7 @@ export function StreamProgress({ streamState, onRetry }: StreamProgressProps) {
     displayPhases.push({
       id: STREAM_PROGRESS.IDS.STREAMING,
       label: STREAM_PROGRESS.LABELS.STREAMING,
-      status: isActive
-        ? STREAM_PROGRESS.STATUS.ACTIVE
-        : STREAM_PROGRESS.STATUS.DONE,
+      status: isActive ? STREAM_PROGRESS.STATUS.ACTIVE : STREAM_PROGRESS.STATUS.DONE,
     })
   }
 
@@ -84,10 +77,7 @@ export function StreamProgress({ streamState, onRetry }: StreamProgressProps) {
   return (
     <AnimatePresence>
       {isActive && displayPhases.length > 0 && (
-        <motion.div
-          className="overflow-hidden"
-          {...(shouldReduce ? {} : fadeInDown)}
-        >
+        <motion.div className="overflow-hidden" {...(shouldReduce ? {} : fadeInDown)}>
           <div className="flex items-center gap-3 border-b border-[--border-subtle] bg-gradient-to-r from-[--accent-muted] to-transparent px-5 py-2.5">
             <div className="flex items-center gap-3">
               {displayPhases.map(({ id, label, status }) => (
@@ -96,23 +86,18 @@ export function StreamProgress({ streamState, onRetry }: StreamProgressProps) {
                     className={cn(
                       'size-1.5 rounded-full',
                       status === STREAM_PROGRESS.STATUS.DONE && 'bg-[--success]',
-                      status === STREAM_PROGRESS.STATUS.ACTIVE &&
-                        'animate-pulse bg-[--accent]',
-                      status === STREAM_PROGRESS.STATUS.THINKING &&
-                        'animate-pulse bg-[--thinking]',
+                      status === STREAM_PROGRESS.STATUS.ACTIVE && 'animate-pulse bg-[--accent]',
+                      status === STREAM_PROGRESS.STATUS.THINKING && 'animate-pulse bg-[--thinking]',
                     )}
                   />
                   <span
                     className={cn(
                       'text-xs',
-                      status === STREAM_PROGRESS.STATUS.DONE &&
-                        'text-[--success]',
+                      status === STREAM_PROGRESS.STATUS.DONE && 'text-[--success]',
                       status === STREAM_PROGRESS.STATUS.ACTIVE &&
                         'font-medium text-[--text-primary]',
-                      status === STREAM_PROGRESS.STATUS.THINKING &&
-                        'text-[--thinking]',
-                      status === STREAM_PROGRESS.STATUS.INACTIVE &&
-                        'text-[--text-ghost]',
+                      status === STREAM_PROGRESS.STATUS.THINKING && 'text-[--thinking]',
+                      status === STREAM_PROGRESS.STATUS.INACTIVE && 'text-[--text-ghost]',
                     )}
                   >
                     {label}

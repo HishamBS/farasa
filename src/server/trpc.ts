@@ -25,24 +25,12 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
   })
 })
 
-export const rateLimitedChatProcedure = protectedProcedure.use(
-  ({ ctx, next }) => {
-    checkRateLimit(
-      `chat:${ctx.userId}`,
-      RATE_LIMITS.CHAT_PER_MINUTE,
-      RATE_LIMITS.WINDOW_MS,
-    )
-    return next({ ctx })
-  },
-)
+export const rateLimitedChatProcedure = protectedProcedure.use(({ ctx, next }) => {
+  checkRateLimit(`chat:${ctx.userId}`, RATE_LIMITS.CHAT_PER_MINUTE, RATE_LIMITS.WINDOW_MS)
+  return next({ ctx })
+})
 
-export const rateLimitedUploadProcedure = protectedProcedure.use(
-  ({ ctx, next }) => {
-    checkRateLimit(
-      `upload:${ctx.userId}`,
-      RATE_LIMITS.UPLOAD_PER_MINUTE,
-      RATE_LIMITS.WINDOW_MS,
-    )
-    return next({ ctx })
-  },
-)
+export const rateLimitedUploadProcedure = protectedProcedure.use(({ ctx, next }) => {
+  checkRateLimit(`upload:${ctx.userId}`, RATE_LIMITS.UPLOAD_PER_MINUTE, RATE_LIMITS.WINDOW_MS)
+  return next({ ctx })
+})

@@ -25,7 +25,7 @@ readonly FARASA_PIDS_FILE="${FARASA_STATE_DIR}/farasa.pids"
 readonly FARASA_PGIDS_FILE="${FARASA_STATE_DIR}/farasa.pgids"
 
 # Service port constants (SSOT)
-readonly DEV_PORT=3000
+readonly DEV_PORT=3010
 readonly DRIZZLE_STUDIO_PORT=4983
 readonly POSTGRES_PORT=5432
 readonly ADMINER_PORT=8080

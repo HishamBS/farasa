@@ -27,7 +27,9 @@ export function RowAdapter({
   alignment,
   surfaceId,
 }: BaseComponentProps & RowComponentProps) {
-  const distClass = distribution ? (DISTRIBUTION_MAP[distribution] ?? 'justify-start') : 'justify-start'
+  const distClass = distribution
+    ? (DISTRIBUTION_MAP[distribution] ?? 'justify-start')
+    : 'justify-start'
   const alignClass = alignment ? (ALIGNMENT_MAP[alignment] ?? 'items-center') : 'items-center'
   const childIds = children?.explicitList ?? []
 

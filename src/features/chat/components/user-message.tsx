@@ -14,10 +14,7 @@ export function UserMessage({ content, attachments }: UserMessageProps) {
   const shouldReduce = useReducedMotion()
 
   return (
-    <motion.div
-      className="flex justify-end"
-      {...(shouldReduce ? {} : fadeInUp)}
-    >
+    <motion.div className="flex justify-end" {...(shouldReduce ? {} : fadeInUp)}>
       <div className="max-w-[80%] overflow-hidden rounded-2xl rounded-br-sm bg-[--bg-glass] backdrop-blur-md border border-[--border-default] shadow-sm shadow-black/20 lg:max-w-[72%]">
         {attachments && attachments.length > 0 && (
           <div className="flex flex-wrap gap-2 px-4 pt-3">

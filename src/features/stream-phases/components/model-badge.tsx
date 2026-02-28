@@ -3,16 +3,8 @@
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { fadeIn } from '@/lib/utils/motion'
 import { cn } from '@/lib/utils/cn'
-import {
-  STATUS_MESSAGES,
-  STREAM_PROGRESS,
-  PROVIDER_DOT_CLASSES,
-} from '@/config/constants'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { STATUS_MESSAGES, STREAM_PROGRESS, PROVIDER_DOT_CLASSES } from '@/config/constants'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { ModelSelectionState } from '@/types/stream'
 
 type ModelBadgeProps = {
@@ -53,10 +45,7 @@ export function ModelBadge({ isRouting, modelSelection }: ModelBadgeProps) {
           {...(shouldReduce ? {} : fadeIn)}
         >
           <span
-            className={cn(
-              'size-1.5 rounded-full bg-[--accent]',
-              !shouldReduce && 'animate-pulse',
-            )}
+            className={cn('size-1.5 rounded-full bg-[--accent]', !shouldReduce && 'animate-pulse')}
           />
           <span className="text-xs text-[--text-muted]">{STATUS_MESSAGES.ROUTING}</span>
         </motion.div>

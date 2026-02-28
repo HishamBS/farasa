@@ -40,10 +40,7 @@ export function SidebarContainer({ children, isOpen, onClose }: SidebarProps) {
         )}
         aria-label="Sidebar"
       >
-        <motion.div
-          className="flex h-full flex-col"
-          {...(shouldReduce ? {} : slideInLeft)}
-        >
+        <motion.div className="flex h-full flex-col" {...(shouldReduce ? {} : slideInLeft)}>
           {children}
         </motion.div>
       </motion.aside>

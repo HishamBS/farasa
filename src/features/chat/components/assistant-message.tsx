@@ -25,37 +25,22 @@ export function AssistantMessage({ streamState }: AssistantMessageProps) {
   const isActive = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
 
   return (
-    <motion.div
-      className="flex flex-col gap-3"
-      {...(shouldReduce ? {} : fadeInUp)}
-    >
-      <ModelBadge
-        isRouting={isRouting || isActive}
-        modelSelection={streamState.modelSelection}
-      />
+    <motion.div className="flex flex-col gap-3" {...(shouldReduce ? {} : fadeInUp)}>
+      <ModelBadge isRouting={isRouting || isActive} modelSelection={streamState.modelSelection} />
 
-      {streamState.thinking && (
-        <ThinkingBlock thinking={streamState.thinking} />
-      )}
+      {streamState.thinking && <ThinkingBlock thinking={streamState.thinking} />}
 
       {streamState.toolExecutions.length > 0 && (
-        <motion.div
-          className="flex flex-col gap-2"
-          {...(shouldReduce ? {} : staggerContainer)}
-        >
+        <motion.div className="flex flex-col gap-2" {...(shouldReduce ? {} : staggerContainer)}>
           {streamState.toolExecutions.map((execution, i) => (
             <ToolExecution key={i} execution={execution} />
           ))}
         </motion.div>
       )}
 
-      {streamState.textContent && (
-        <MarkdownRenderer content={streamState.textContent} />
-      )}
+      {streamState.textContent && <MarkdownRenderer content={streamState.textContent} />}
 
-      {streamState.a2uiMessages.length > 0 && (
-        <A2UIMessage messages={streamState.a2uiMessages} />
-      )}
+      {streamState.a2uiMessages.length > 0 && <A2UIMessage messages={streamState.a2uiMessages} />}
 
       {streamState.textContent && (
         <div className="flex items-center">

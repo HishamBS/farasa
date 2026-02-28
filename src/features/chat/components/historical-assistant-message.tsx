@@ -87,26 +87,14 @@ export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessa
     [metadata],
   )
 
-  const thinking = useMemo(
-    () => (metadata ? buildThinkingState(metadata) : null),
-    [metadata],
-  )
+  const thinking = useMemo(() => (metadata ? buildThinkingState(metadata) : null), [metadata])
 
-  const toolExecutions = useMemo(
-    () => (metadata ? buildToolExecutions(metadata) : []),
-    [metadata],
-  )
+  const toolExecutions = useMemo(() => (metadata ? buildToolExecutions(metadata) : []), [metadata])
 
-  const a2uiMessages = useMemo(
-    () => parseA2UIMessages(metadata?.a2uiMessages),
-    [metadata],
-  )
+  const a2uiMessages = useMemo(() => parseA2UIMessages(metadata?.a2uiMessages), [metadata])
 
   return (
-    <motion.div
-      className="flex flex-col gap-3"
-      {...(shouldReduce ? {} : fadeInUp)}
-    >
+    <motion.div className="flex flex-col gap-3" {...(shouldReduce ? {} : fadeInUp)}>
       <ModelBadge isRouting={false} modelSelection={modelSelection} />
 
       {thinking && <ThinkingBlock thinking={thinking} />}

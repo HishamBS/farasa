@@ -21,12 +21,10 @@ export function useA2UIActions() {
       const name = action.name.toLowerCase()
       switch (name) {
         case 'newchat': {
-          void createConversation
-            .mutateAsync({})
-            .then((conv) => {
-              void utils.conversation.list.invalidate()
-              router.push(ROUTES.CHAT_BY_ID(conv.id))
-            })
+          void createConversation.mutateAsync({}).then((conv) => {
+            void utils.conversation.list.invalidate()
+            router.push(ROUTES.CHAT_BY_ID(conv.id))
+          })
           return
         }
         case 'rename': {
@@ -50,18 +48,14 @@ export function useA2UIActions() {
         case 'delete': {
           const id = String(action.context['id'] ?? '')
           if (!id) return
-          void deleteConversation
-            .mutateAsync({ id })
-            .then(() => {
-              void utils.conversation.list.invalidate()
-              router.push(ROUTES.CHAT)
-            })
+          void deleteConversation.mutateAsync({ id }).then(() => {
+            void utils.conversation.list.invalidate()
+            router.push(ROUTES.CHAT)
+          })
           return
         }
         case 'refreshmodels': {
-          void refreshModels
-            .mutateAsync({ force: true })
-            .then(() => utils.model.list.invalidate())
+          void refreshModels.mutateAsync({ force: true }).then(() => utils.model.list.invalidate())
           return
         }
         case 'search': {

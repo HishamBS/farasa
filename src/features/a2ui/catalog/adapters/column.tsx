@@ -27,7 +27,9 @@ export function ColumnAdapter({
   alignment,
   surfaceId,
 }: BaseComponentProps & ColumnComponentProps) {
-  const distClass = distribution ? (DISTRIBUTION_MAP[distribution] ?? 'justify-start') : 'justify-start'
+  const distClass = distribution
+    ? (DISTRIBUTION_MAP[distribution] ?? 'justify-start')
+    : 'justify-start'
   const alignClass = alignment ? (ALIGNMENT_MAP[alignment] ?? 'items-start') : 'items-start'
   const childIds = children?.explicitList ?? []
 

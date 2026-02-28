@@ -19,26 +19,18 @@ const ENCRYPTED_FIELDS = ['access_token', 'refresh_token', 'id_token'] as const
 
 type TokenField = (typeof ENCRYPTED_FIELDS)[number]
 
-async function encryptAccountTokens(
-  account: AdapterAccount,
-): Promise<AdapterAccount> {
+async function encryptAccountTokens(account: AdapterAccount): Promise<AdapterAccount> {
   const result: AdapterAccount = { ...account }
   for (const field of ENCRYPTED_FIELDS) {
     const value = (result as Record<string, unknown>)[field]
     if (typeof value === 'string') {
-      ;(result as Record<string, unknown>)[field] = await encryptToken(
-        value,
-        env.AUTH_SECRET,
-      )
+      ;(result as Record<string, unknown>)[field] = await encryptToken(value, env.AUTH_SECRET)
     }
   }
   return result
 }
 
-async function tryDecryptField(
-  value: string,
-  field: TokenField,
-): Promise<string> {
+async function tryDecryptField(value: string, field: TokenField): Promise<string> {
   try {
     return await decryptToken(value, env.AUTH_SECRET)
   } catch {
@@ -55,10 +47,7 @@ async function decryptAccountTokens(
   for (const field of ENCRYPTED_FIELDS) {
     const value = (result as Record<string, unknown>)[field]
     if (typeof value === 'string') {
-      ;(result as Record<string, unknown>)[field] = await tryDecryptField(
-        value,
-        field,
-      )
+      ;(result as Record<string, unknown>)[field] = await tryDecryptField(value, field)
     }
   }
   return result

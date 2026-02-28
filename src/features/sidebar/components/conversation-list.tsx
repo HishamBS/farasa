@@ -15,22 +15,17 @@ export function ConversationList({ search }: ConversationListProps) {
   const pathname = usePathname()
   const sentinelRef = useRef<HTMLDivElement>(null)
 
-  const {
-    data,
-    isLoading,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = trpc.conversation.list.useInfiniteQuery(
-    {
-      search: search.trim() || undefined,
-      limit: LIMITS.PAGINATION_DEFAULT_LIMIT,
-    },
-    {
-      getNextPageParam: (lastPage) => lastPage.nextCursor,
-      staleTime: UX.QUERY_STALE_TIME_FOREVER,
-    },
-  )
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    trpc.conversation.list.useInfiniteQuery(
+      {
+        search: search.trim() || undefined,
+        limit: LIMITS.PAGINATION_DEFAULT_LIMIT,
+      },
+      {
+        getNextPageParam: (lastPage) => lastPage.nextCursor,
+        staleTime: UX.QUERY_STALE_TIME_FOREVER,
+      },
+    )
 
   const conversations = data?.pages.flatMap((p) => p.items) ?? []
 

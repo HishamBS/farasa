@@ -14,12 +14,9 @@ type MarkdownRendererProps = {
 }
 
 const components: Components = {
-  code: ({ className, children }) => (
-    <CodeBlock className={className}>{children}</CodeBlock>
-  ),
+  code: ({ className, children }) => <CodeBlock className={className}>{children}</CodeBlock>,
   a: ({ href, children }) => {
-    const safeHref =
-      href && /^(https?:|mailto:|\/)/i.test(href) ? href : undefined
+    const safeHref = href && /^(https?:|mailto:|\/)/i.test(href) ? href : undefined
     return (
       <a
         href={safeHref}
@@ -52,34 +49,22 @@ const components: Components = {
     </td>
   ),
   h1: ({ children }) => (
-    <h1 className="mb-3 mt-6 text-xl font-semibold text-[--text-primary]">
-      {children}
-    </h1>
+    <h1 className="mb-3 mt-6 text-xl font-semibold text-[--text-primary]">{children}</h1>
   ),
   h2: ({ children }) => (
-    <h2 className="mb-2 mt-5 text-lg font-semibold text-[--text-primary]">
-      {children}
-    </h2>
+    <h2 className="mb-2 mt-5 text-lg font-semibold text-[--text-primary]">{children}</h2>
   ),
   h3: ({ children }) => (
-    <h3 className="mb-2 mt-4 text-base font-medium text-[--text-primary]">
-      {children}
-    </h3>
+    <h3 className="mb-2 mt-4 text-base font-medium text-[--text-primary]">{children}</h3>
   ),
   p: ({ children }) => (
-    <p className="mb-3 text-sm leading-relaxed text-[--text-secondary]">
-      {children}
-    </p>
+    <p className="mb-3 text-sm leading-relaxed text-[--text-secondary]">{children}</p>
   ),
   ul: ({ children }) => (
-    <ul className="mb-3 list-disc space-y-1 pl-5 text-sm text-[--text-secondary]">
-      {children}
-    </ul>
+    <ul className="mb-3 list-disc space-y-1 pl-5 text-sm text-[--text-secondary]">{children}</ul>
   ),
   ol: ({ children }) => (
-    <ol className="mb-3 list-decimal space-y-1 pl-5 text-sm text-[--text-secondary]">
-      {children}
-    </ol>
+    <ol className="mb-3 list-decimal space-y-1 pl-5 text-sm text-[--text-secondary]">{children}</ol>
   ),
   li: ({ children }) => <li className="leading-relaxed">{children}</li>,
   strong: ({ children }) => (
@@ -97,17 +82,29 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
           rehypeSanitize,
           {
             ...defaultSchema,
-            tagNames: [
-              ...(defaultSchema.tagNames ?? []),
-              ...MARKDOWN_SANITIZE.TAG_NAMES,
-            ],
+            tagNames: [...(defaultSchema.tagNames ?? []), ...MARKDOWN_SANITIZE.TAG_NAMES],
             attributes: {
               ...defaultSchema.attributes,
-              code: [...(defaultSchema.attributes?.code ?? []), ...MARKDOWN_SANITIZE.ATTRIBUTES.CODE],
-              span: [...(defaultSchema.attributes?.span ?? []), ...MARKDOWN_SANITIZE.ATTRIBUTES.SPAN],
-              math: [...(defaultSchema.attributes?.math ?? []), ...MARKDOWN_SANITIZE.ATTRIBUTES.MATH],
-              annotation: [...(defaultSchema.attributes?.annotation ?? []), ...MARKDOWN_SANITIZE.ATTRIBUTES.ANNOTATION],
-              mspace: [...(defaultSchema.attributes?.mspace ?? []), ...MARKDOWN_SANITIZE.ATTRIBUTES.MSPACE],
+              code: [
+                ...(defaultSchema.attributes?.code ?? []),
+                ...MARKDOWN_SANITIZE.ATTRIBUTES.CODE,
+              ],
+              span: [
+                ...(defaultSchema.attributes?.span ?? []),
+                ...MARKDOWN_SANITIZE.ATTRIBUTES.SPAN,
+              ],
+              math: [
+                ...(defaultSchema.attributes?.math ?? []),
+                ...MARKDOWN_SANITIZE.ATTRIBUTES.MATH,
+              ],
+              annotation: [
+                ...(defaultSchema.attributes?.annotation ?? []),
+                ...MARKDOWN_SANITIZE.ATTRIBUTES.ANNOTATION,
+              ],
+              mspace: [
+                ...(defaultSchema.attributes?.mspace ?? []),
+                ...MARKDOWN_SANITIZE.ATTRIBUTES.MSPACE,
+              ],
             },
           },
         ],

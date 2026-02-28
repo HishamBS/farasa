@@ -22,10 +22,7 @@ const MODES: ReadonlyArray<{ value: SearchMode; icon: ElementType; label: string
 export function ModeToggle({ value, onChange }: ModeToggleProps) {
   const shouldReduce = useReducedMotion()
 
-  const handleChange = useCallback(
-    (mode: SearchMode) => () => onChange(mode),
-    [onChange],
-  )
+  const handleChange = useCallback((mode: SearchMode) => () => onChange(mode), [onChange])
 
   return (
     <div className="flex items-center gap-0.5 rounded-xl border border-[--border-subtle] bg-[--bg-surface] p-1">

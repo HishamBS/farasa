@@ -6,9 +6,7 @@ import { UX } from '@/config/constants'
 export function useChatInput(initialModel?: string | null) {
   const [content, setContent] = useState('')
   const [attachmentIds, setAttachmentIds] = useState<string[]>([])
-  const [selectedModel, setSelectedModel] = useState<string | undefined>(
-    initialModel ?? undefined,
-  )
+  const [selectedModel, setSelectedModel] = useState<string | undefined>(initialModel ?? undefined)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Sync selectedModel when navigating to a different conversation.
@@ -19,21 +17,15 @@ export function useChatInput(initialModel?: string | null) {
     }
   }, [initialModel])
 
-  const handleContentChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setContent(e.target.value)
-      const el = e.target
-      el.style.height = 'auto'
-      el.style.height = `${Math.min(el.scrollHeight, UX.TEXTAREA_MAX_HEIGHT_PIXELS)}px`
-    },
-    [],
-  )
+  const handleContentChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setContent(e.target.value)
+    const el = e.target
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, UX.TEXTAREA_MAX_HEIGHT_PIXELS)}px`
+  }, [])
 
   const handleKeyDown = useCallback(
-    (
-      e: React.KeyboardEvent<HTMLTextAreaElement>,
-      onSubmit: () => void,
-    ) => {
+    (e: React.KeyboardEvent<HTMLTextAreaElement>, onSubmit: () => void) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
         onSubmit()

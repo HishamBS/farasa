@@ -24,12 +24,8 @@ export const users = pgTable('users', {
     mode: 'date',
   }),
   image: text('image'),
-  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
-    .notNull()
-    .defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 })
 
 export const accounts = pgTable(
@@ -89,18 +85,11 @@ export const conversations = pgTable(
     title: text('title').notNull().default(NEW_CHAT_TITLE),
     model: text('model'),
     isPinned: boolean('is_pinned').notNull().default(false),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   },
   (table) => ({
-    convUserUpdatedIdx: index('conv_user_updated_idx').on(
-      table.userId,
-      table.updatedAt,
-    ),
+    convUserUpdatedIdx: index('conv_user_updated_idx').on(table.userId, table.updatedAt),
   }),
 )
 
@@ -115,15 +104,10 @@ export const messages = pgTable(
     content: text('content').notNull(),
     metadata: jsonb('metadata').$type<MessageMetadata>(),
     tokenCount: integer('token_count'),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   },
   (table) => ({
-    msgConvCreatedIdx: index('msg_conv_created_idx').on(
-      table.conversationId,
-      table.createdAt,
-    ),
+    msgConvCreatedIdx: index('msg_conv_created_idx').on(table.conversationId, table.createdAt),
   }),
 )
 
@@ -145,9 +129,7 @@ export const attachments = pgTable(
       withTimezone: true,
       mode: 'date',
     }),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   },
   (table) => ({
     attUserIdx: index('att_user_idx').on(table.userId),

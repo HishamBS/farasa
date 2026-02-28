@@ -71,9 +71,7 @@ for (const filePath of files) {
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i]
     if (!line) continue
-    const matchedLiteral = BANNED_LITERALS.find((literal) =>
-      lineHasLiteral(line, literal),
-    )
+    const matchedLiteral = BANNED_LITERALS.find((literal) => lineHasLiteral(line, literal))
     if (!matchedLiteral) continue
     violations.push({
       file: path.relative(PROJECT_ROOT, filePath),
@@ -87,9 +85,7 @@ for (const filePath of files) {
 if (violations.length > 0) {
   console.error('SSOT literal violations found. Use constants from src/config/*.ts')
   for (const violation of violations) {
-    console.error(
-      `${violation.file}:${violation.line} -> ${violation.literal} | ${violation.code}`,
-    )
+    console.error(`${violation.file}:${violation.line} -> ${violation.literal} | ${violation.code}`)
   }
   process.exit(1)
 }

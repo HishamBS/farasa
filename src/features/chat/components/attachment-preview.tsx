@@ -52,9 +52,7 @@ export function AttachmentPreview({ fileName, uploadState, onRemove }: Attachmen
             />
           </div>
         )}
-        {uploadState.error && (
-          <p className="text-xs text-[--error]">{uploadState.error}</p>
-        )}
+        {uploadState.error && <p className="text-xs text-[--error]">{uploadState.error}</p>}
         {!uploadState.isUploading && !uploadState.error && uploadState.attachmentId && (
           <div className="flex items-center gap-1">
             <CheckCircle2 className="size-3 text-[--success]" />

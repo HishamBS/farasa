@@ -1,4 +1,5 @@
 import withSerwist from '@serwist/next'
+import withBundleAnalyzer from '@next/bundle-analyzer'
 import type { NextConfig } from 'next'
 
 const CSP_DIRECTIVES = [
@@ -63,4 +64,8 @@ const withPWA = withSerwist({
   disable: process.env.NODE_ENV === 'development',
 })
 
-export default withPWA(nextConfig)
+const withAnalyzer = withBundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+})
+
+export default withAnalyzer(withPWA(nextConfig))

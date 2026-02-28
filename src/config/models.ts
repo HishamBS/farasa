@@ -1,8 +1,4 @@
-import {
-  MODEL_CATEGORIES,
-  MODEL_IDS,
-  PROVIDERS,
-} from './constants'
+import { MODEL_CATEGORIES, MODEL_IDS, PROVIDERS } from './constants'
 import type { ModelConfig } from '@/schemas/model'
 
 const ONE_MILLION = 1_000_000 as const
@@ -114,4 +110,3 @@ export const STATIC_MODEL_REGISTRY: ReadonlyArray<ModelConfig> = [
     pricing: { promptPerMillion: 0.08, completionPerMillion: 0.08 },
   },
 ]
-

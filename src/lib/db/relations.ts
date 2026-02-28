@@ -1,12 +1,5 @@
 import { relations } from 'drizzle-orm'
-import {
-  accounts,
-  attachments,
-  conversations,
-  messages,
-  sessions,
-  users,
-} from './schema'
+import { accounts, attachments, conversations, messages, sessions, users } from './schema'
 
 export const usersRelations = relations(users, ({ many }) => ({
   accounts: many(accounts),
@@ -22,16 +15,13 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
   user: one(users, { fields: [sessions.userId], references: [users.id] }),
 }))
 
-export const conversationsRelations = relations(
-  conversations,
-  ({ one, many }) => ({
-    user: one(users, {
-      fields: [conversations.userId],
-      references: [users.id],
-    }),
-    messages: many(messages),
+export const conversationsRelations = relations(conversations, ({ one, many }) => ({
+  user: one(users, {
+    fields: [conversations.userId],
+    references: [users.id],
   }),
-)
+  messages: many(messages),
+}))
 
 export const messagesRelations = relations(messages, ({ one, many }) => ({
   conversation: one(conversations, {

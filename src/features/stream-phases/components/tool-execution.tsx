@@ -21,9 +21,7 @@ export function ToolExecution({ execution }: ToolExecutionProps) {
   const isSearch = execution.name === TOOL_NAMES.WEB_SEARCH
 
   const query =
-    typeof execution.input === 'object' &&
-    execution.input !== null &&
-    'query' in execution.input
+    typeof execution.input === 'object' && execution.input !== null && 'query' in execution.input
       ? String((execution.input as { query: string }).query)
       : ''
 
@@ -64,24 +62,16 @@ export function ToolExecution({ execution }: ToolExecutionProps) {
     >
       <div className="flex items-center gap-2">
         {isSearch && (
-          <Search
-            size={13}
-            className={isComplete ? 'text-[--success]' : 'text-[--accent]'}
-          />
+          <Search size={13} className={isComplete ? 'text-[--success]' : 'text-[--accent]'} />
         )}
         {!isComplete ? (
-          <Loader2
-            size={12}
-            className={cn('text-[--accent]', !shouldReduce && 'animate-spin')}
-          />
+          <Loader2 size={12} className={cn('text-[--accent]', !shouldReduce && 'animate-spin')} />
         ) : (
           <CheckCircle size={12} className="text-[--success]" />
         )}
 
         <div className="min-w-0 flex-1">
-          {query && (
-            <span className="text-xs text-[--text-secondary]">&ldquo;{query}&rdquo;</span>
-          )}
+          {query && <span className="text-xs text-[--text-secondary]">&ldquo;{query}&rdquo;</span>}
           {resultCount !== null && (
             <span className="ml-2 text-xs text-[--text-muted]">
               Found {resultCount} result{resultCount !== 1 ? 's' : ''}

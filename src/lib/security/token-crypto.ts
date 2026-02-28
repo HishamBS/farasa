@@ -6,18 +6,12 @@ const textEncoder = new TextEncoder()
 const textDecoder = new TextDecoder()
 
 async function deriveKey(secret: string): Promise<CryptoKey> {
-  const digest = await crypto.subtle.digest(
-    'SHA-256',
-    textEncoder.encode(secret),
-  )
+  const digest = await crypto.subtle.digest('SHA-256', textEncoder.encode(secret))
   const keyBytes = new Uint8Array(digest).subarray(0, KEY_LENGTH)
-  return crypto.subtle.importKey(
-    'raw',
-    keyBytes,
-    { name: ALGORITHM },
-    false,
-    ['encrypt', 'decrypt'],
-  )
+  return crypto.subtle.importKey('raw', keyBytes, { name: ALGORITHM }, false, [
+    'encrypt',
+    'decrypt',
+  ])
 }
 
 function encodeBase64(bytes: Uint8Array): string {
@@ -47,10 +41,7 @@ function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return Uint8Array.from(bytes).buffer
 }
 
-export async function encryptToken(
-  plaintext: string,
-  secret: string,
-): Promise<string> {
+export async function encryptToken(plaintext: string, secret: string): Promise<string> {
   const key = await deriveKey(secret)
   const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH))
   const ivBuffer = toArrayBuffer(iv)
@@ -66,10 +57,7 @@ export async function encryptToken(
   return encodeBase64(combined)
 }
 
-export async function decryptToken(
-  ciphertext: string,
-  secret: string,
-): Promise<string> {
+export async function decryptToken(ciphertext: string, secret: string): Promise<string> {
   const data = decodeBase64(ciphertext)
   const iv = data.subarray(0, IV_LENGTH)
   const ivBuffer = toArrayBuffer(iv)

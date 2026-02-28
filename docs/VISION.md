@@ -8,52 +8,52 @@ This is the definitive, locked specification for the AI Chat System project. Eve
 
 ## 1. Project Identity
 
-| Field | Value |
-|---|---|
-| Project Name | `ai-chat-system` |
-| Runtime | Bun 1.5+ |
-| Framework | Next.js 15 (App Router) + React 19 |
-| Language | TypeScript 5.x, strict mode, zero `any` |
-| Package Manager | Bun |
-| Module Target | ESNext |
+| Field             | Value                                                |
+| ----------------- | ---------------------------------------------------- |
+| Project Name      | `ai-chat-system`                                     |
+| Runtime           | Bun 1.5+                                             |
+| Framework         | Next.js 15 (App Router) + React 19                   |
+| Language          | TypeScript 5.x, strict mode, zero `any`              |
+| Package Manager   | Bun                                                  |
+| Module Target     | ESNext                                               |
 | Deployment Target | GCP Cloud Run (`me-central1` — Dammam, Saudi Arabia) |
-| Database Host | Neon Postgres (serverless) |
-| AI Gateway | OpenRouter (unified access to all models) |
-| Protocol Version | A2UI v0.8 (stable) for agent-generated UIs |
+| Database Host     | Neon Postgres (serverless)                           |
+| AI Gateway        | OpenRouter (unified access to all models)            |
+| Protocol Version  | A2UI v0.8 (stable) for agent-generated UIs           |
 
 ---
 
 ## 2. Complete Technology Stack
 
-| Layer | Technology | Version | Justification |
-|---|---|---|---|
-| Runtime | Bun | 1.5+ | Fast startup, native TypeScript, Next.js 15 compatible |
-| Framework | Next.js | 15 (App Router) | Spec requirement, RSC, middleware, React 19 |
-| API Layer | tRPC | v11 | End-to-end type safety for all operations including streaming |
-| Client State | TanStack Query | v5 (via tRPC React) | Caching, optimistic updates, automatic invalidation |
-| AI Gateway | OpenRouter | latest | Unified OpenAI-compatible API for all model providers |
-| AI SDK | `openai` (npm) | latest | OpenAI-compatible SDK, used with OpenRouter `baseURL` |
-| Agent UI | `@a2ui-sdk/react` | v0.8 | Official React renderer for Google A2UI protocol |
-| A2UI Types | `@a2ui-sdk/types` | v0.8 | TypeScript types for A2UI protocol messages |
-| A2UI Utils | `@a2ui-sdk/utils` | v0.8 | Utility functions for A2UI value resolution |
-| Validation | Zod | latest | SSOT — schemas define runtime validation and TypeScript types |
-| Auth | Auth.js (NextAuth) | v5 | Google OAuth, middleware-level route protection |
-| ORM | Drizzle ORM | latest | Type-safe, no codegen, SQL-transparent, schema-as-code |
-| Database | PostgreSQL via Neon | serverless | Scales to zero, HTTP/WebSocket driver, free tier |
-| DB Driver | `@neondatabase/serverless` | latest | Works in serverless/container environments |
-| File Storage | Google Cloud Storage | latest | Presigned URLs, direct client upload, GCP credits available |
-| Styling | Tailwind CSS | v4 | Utility-first, responsive, mobile-first |
-| UI Components | shadcn/ui | latest | Owned components, accessible, customizable |
-| Motion | Framer Motion | latest | Orchestrated layout animations, spring physics, gesture support |
-| Code Highlighting | Shiki | latest | VS Code engine, SSR-safe, all languages supported |
-| Markdown Rendering | react-markdown | latest | Parse AI markdown responses |
-| Markdown Plugins | remark-gfm, rehype-sanitize, rehype-katex | latest | GFM tables, sanitized HTML (XSS-safe), math rendering |
-| Search API | Tavily | latest | Purpose-built for AI apps, returns structured results + images |
-| PWA | @serwist/next | latest | Service worker, offline shell, installable |
-| Fonts | next/font | built-in | Geist Sans + Geist Mono |
-| Containerization | Docker | multi-stage | Bun base image, standalone Next.js output |
-| Deployment | GCP Cloud Run | latest | Scales to zero, container-based, `me-central1` region |
-| SSL/Domain | Cloud Run domain mapping or Cloudflare DNS | — | Managed SSL certificates |
+| Layer              | Technology                                 | Version             | Justification                                                   |
+| ------------------ | ------------------------------------------ | ------------------- | --------------------------------------------------------------- |
+| Runtime            | Bun                                        | 1.5+                | Fast startup, native TypeScript, Next.js 15 compatible          |
+| Framework          | Next.js                                    | 15 (App Router)     | Spec requirement, RSC, middleware, React 19                     |
+| API Layer          | tRPC                                       | v11                 | End-to-end type safety for all operations including streaming   |
+| Client State       | TanStack Query                             | v5 (via tRPC React) | Caching, optimistic updates, automatic invalidation             |
+| AI Gateway         | OpenRouter                                 | latest              | Unified OpenAI-compatible API for all model providers           |
+| AI SDK             | `openai` (npm)                             | latest              | OpenAI-compatible SDK, used with OpenRouter `baseURL`           |
+| Agent UI           | `@a2ui-sdk/react`                          | v0.8                | Official React renderer for Google A2UI protocol                |
+| A2UI Types         | `@a2ui-sdk/types`                          | v0.8                | TypeScript types for A2UI protocol messages                     |
+| A2UI Utils         | `@a2ui-sdk/utils`                          | v0.8                | Utility functions for A2UI value resolution                     |
+| Validation         | Zod                                        | latest              | SSOT — schemas define runtime validation and TypeScript types   |
+| Auth               | Auth.js (NextAuth)                         | v5                  | Google OAuth, middleware-level route protection                 |
+| ORM                | Drizzle ORM                                | latest              | Type-safe, no codegen, SQL-transparent, schema-as-code          |
+| Database           | PostgreSQL via Neon                        | serverless          | Scales to zero, HTTP/WebSocket driver, free tier                |
+| DB Driver          | `@neondatabase/serverless`                 | latest              | Works in serverless/container environments                      |
+| File Storage       | Google Cloud Storage                       | latest              | Presigned URLs, direct client upload, GCP credits available     |
+| Styling            | Tailwind CSS                               | v4                  | Utility-first, responsive, mobile-first                         |
+| UI Components      | shadcn/ui                                  | latest              | Owned components, accessible, customizable                      |
+| Motion             | Framer Motion                              | latest              | Orchestrated layout animations, spring physics, gesture support |
+| Code Highlighting  | Shiki                                      | latest              | VS Code engine, SSR-safe, all languages supported               |
+| Markdown Rendering | react-markdown                             | latest              | Parse AI markdown responses                                     |
+| Markdown Plugins   | remark-gfm, rehype-sanitize, rehype-katex  | latest              | GFM tables, sanitized HTML (XSS-safe), math rendering           |
+| Search API         | Tavily                                     | latest              | Purpose-built for AI apps, returns structured results + images  |
+| PWA                | @serwist/next                              | latest              | Service worker, offline shell, installable                      |
+| Fonts              | next/font                                  | built-in            | Geist Sans + Geist Mono                                         |
+| Containerization   | Docker                                     | multi-stage         | Bun base image, standalone Next.js output                       |
+| Deployment         | GCP Cloud Run                              | latest              | Scales to zero, container-based, `me-central1` region           |
+| SSL/Domain         | Cloud Run domain mapping or Cloudflare DNS | —                   | Managed SSL certificates                                        |
 
 ---
 
@@ -171,41 +171,41 @@ Colors are defined as CSS custom properties in `src/styles/themes.css` and refer
 
 **Dark Mode (Default)**:
 
-| Token | Value | Usage |
-|---|---|---|
-| `--bg-root` | zinc-950 (#09090b) | Page background, deepest layer |
-| `--bg-surface` | zinc-900 (#18181b) | Cards, sidebar, elevated panels |
-| `--bg-surface-hover` | zinc-800 (#27272a) | Hovered cards, active list items |
-| `--bg-surface-active` | zinc-700 (#3f3f46) | Pressed states, selected items |
-| `--bg-glass` | zinc-900/70 | Glassmorphic surfaces (sidebar, input, dropdowns) |
-| `--bg-input` | zinc-800/50 | Input fields, text areas |
-| `--text-primary` | zinc-50 (#fafafa) | Headings, primary content |
-| `--text-secondary` | zinc-300 (#d4d4d8) | Body text, descriptions |
-| `--text-muted` | zinc-500 (#71717a) | Timestamps, metadata, placeholders |
-| `--text-ghost` | zinc-600 (#52525b) | Disabled text, very subtle labels |
-| `--border-subtle` | zinc-800 (#27272a) | Subtle separation lines |
-| `--border-default` | zinc-700 (#3f3f46) | Default borders on inputs, cards |
-| `--accent` | cyan-400 (#22d3ee) | Primary interactive elements, links, focus rings |
-| `--accent-hover` | cyan-300 (#67e8f9) | Hovered interactive elements |
-| `--accent-muted` | cyan-400/10 | Accent backgrounds (badges, highlights) |
-| `--accent-glow` | cyan-400/20 | Glow effects around focused/active elements |
-| `--success` | emerald-400 (#34d399) | Completed states, confirmations |
-| `--warning` | amber-400 (#fbbf24) | Warnings, caution states |
-| `--error` | red-400 (#f87171) | Error states, destructive actions |
-| `--thinking` | violet-400 (#a78bfa) | Thinking/reasoning phase accent |
-| `--thinking-bg` | violet-400/5 | Thinking block background |
-| `--thinking-border` | violet-400/20 | Thinking block border |
+| Token                 | Value                 | Usage                                             |
+| --------------------- | --------------------- | ------------------------------------------------- |
+| `--bg-root`           | zinc-950 (#09090b)    | Page background, deepest layer                    |
+| `--bg-surface`        | zinc-900 (#18181b)    | Cards, sidebar, elevated panels                   |
+| `--bg-surface-hover`  | zinc-800 (#27272a)    | Hovered cards, active list items                  |
+| `--bg-surface-active` | zinc-700 (#3f3f46)    | Pressed states, selected items                    |
+| `--bg-glass`          | zinc-900/70           | Glassmorphic surfaces (sidebar, input, dropdowns) |
+| `--bg-input`          | zinc-800/50           | Input fields, text areas                          |
+| `--text-primary`      | zinc-50 (#fafafa)     | Headings, primary content                         |
+| `--text-secondary`    | zinc-300 (#d4d4d8)    | Body text, descriptions                           |
+| `--text-muted`        | zinc-500 (#71717a)    | Timestamps, metadata, placeholders                |
+| `--text-ghost`        | zinc-600 (#52525b)    | Disabled text, very subtle labels                 |
+| `--border-subtle`     | zinc-800 (#27272a)    | Subtle separation lines                           |
+| `--border-default`    | zinc-700 (#3f3f46)    | Default borders on inputs, cards                  |
+| `--accent`            | cyan-400 (#22d3ee)    | Primary interactive elements, links, focus rings  |
+| `--accent-hover`      | cyan-300 (#67e8f9)    | Hovered interactive elements                      |
+| `--accent-muted`      | cyan-400/10           | Accent backgrounds (badges, highlights)           |
+| `--accent-glow`       | cyan-400/20           | Glow effects around focused/active elements       |
+| `--success`           | emerald-400 (#34d399) | Completed states, confirmations                   |
+| `--warning`           | amber-400 (#fbbf24)   | Warnings, caution states                          |
+| `--error`             | red-400 (#f87171)     | Error states, destructive actions                 |
+| `--thinking`          | violet-400 (#a78bfa)  | Thinking/reasoning phase accent                   |
+| `--thinking-bg`       | violet-400/5          | Thinking block background                         |
+| `--thinking-border`   | violet-400/20         | Thinking block border                             |
 
 **Provider Colors** (model badges and selector):
 
-| Provider | Color | Token |
-|---|---|---|
-| OpenAI | emerald-400 | `--provider-openai` |
-| Anthropic | orange-400 | `--provider-anthropic` |
-| Google | blue-400 | `--provider-google` |
-| Meta | indigo-400 | `--provider-meta` |
-| Groq | rose-400 | `--provider-groq` |
-| Cerebras | amber-400 | `--provider-cerebras` |
+| Provider  | Color       | Token                  |
+| --------- | ----------- | ---------------------- |
+| OpenAI    | emerald-400 | `--provider-openai`    |
+| Anthropic | orange-400  | `--provider-anthropic` |
+| Google    | blue-400    | `--provider-google`    |
+| Meta      | indigo-400  | `--provider-meta`      |
+| Groq      | rose-400    | `--provider-groq`      |
+| Cerebras  | amber-400   | `--provider-cerebras`  |
 
 **Light Mode**: Complete inversion with warm white backgrounds (zinc-50, white), dark text (zinc-900, zinc-700), same accent/provider colors at adjusted saturation. Glassmorphism uses white/70 with backdrop-blur.
 
@@ -213,61 +213,61 @@ Colors are defined as CSS custom properties in `src/styles/themes.css` and refer
 
 Fonts loaded via `next/font` for zero layout shift.
 
-| Role | Font | Weight | Usage |
-|---|---|---|---|
-| UI Text | Geist Sans | 400, 500, 600 | All interface text, labels, buttons |
-| Code | Geist Mono | 400, 500 | Code blocks, inline code, model names, technical metadata |
-| Headings | Geist Sans | 600 | Section headings, conversation titles |
+| Role     | Font       | Weight        | Usage                                                     |
+| -------- | ---------- | ------------- | --------------------------------------------------------- |
+| UI Text  | Geist Sans | 400, 500, 600 | All interface text, labels, buttons                       |
+| Code     | Geist Mono | 400, 500      | Code blocks, inline code, model names, technical metadata |
+| Headings | Geist Sans | 600           | Section headings, conversation titles                     |
 
 **Typographic Scale** (Tailwind only, never custom):
 
-| Element | Class | Usage |
-|---|---|---|
-| Page title | `text-2xl font-semibold` | Login page title |
-| Section heading | `text-lg font-semibold` | Sidebar sections, panel headers |
-| Conversation title | `text-sm font-medium` | Sidebar items |
-| Body text | `text-sm` / `text-base` | Message content (sm mobile, base desktop) |
-| Caption | `text-xs` | Timestamps, token counts, metadata |
-| Code | `text-sm font-mono` | Code blocks and inline code |
-| Status text | `text-xs font-medium` | Phase indicators, progress text |
+| Element            | Class                    | Usage                                     |
+| ------------------ | ------------------------ | ----------------------------------------- |
+| Page title         | `text-2xl font-semibold` | Login page title                          |
+| Section heading    | `text-lg font-semibold`  | Sidebar sections, panel headers           |
+| Conversation title | `text-sm font-medium`    | Sidebar items                             |
+| Body text          | `text-sm` / `text-base`  | Message content (sm mobile, base desktop) |
+| Caption            | `text-xs`                | Timestamps, token counts, metadata        |
+| Code               | `text-sm font-mono`      | Code blocks and inline code               |
+| Status text        | `text-xs font-medium`    | Phase indicators, progress text           |
 
 ### 4.4 Spacing & Layout Rhythm
 
 All spacing follows Tailwind's 4-unit base (1 unit = 0.25rem). Consistent everywhere.
 
-| Concept | Values | Example |
-|---|---|---|
-| Component padding | `p-3`, `p-4` | Cards, inputs |
-| Section gaps | `gap-4`, `gap-6` | Between messages, sidebar items |
-| Page margins | `px-4` mobile, `px-6` desktop | Chat area |
-| Element spacing | `gap-2`, `gap-3` | Icon + label, badge + text |
-| Tight spacing | `gap-1`, `gap-1.5` | Metadata items, small badges |
+| Concept           | Values                        | Example                         |
+| ----------------- | ----------------------------- | ------------------------------- |
+| Component padding | `p-3`, `p-4`                  | Cards, inputs                   |
+| Section gaps      | `gap-4`, `gap-6`              | Between messages, sidebar items |
+| Page margins      | `px-4` mobile, `px-6` desktop | Chat area                       |
+| Element spacing   | `gap-2`, `gap-3`              | Icon + label, badge + text      |
+| Tight spacing     | `gap-1`, `gap-1.5`            | Metadata items, small badges    |
 
 **Layout Grid**: Sidebar `w-72` desktop. Chat area `max-w-3xl` centered. A2UI panel `w-1/2` max desktop, inline mobile. Input area `max-w-3xl` centered aligned with messages.
 
 ### 4.5 Borders & Radii
 
-| Element | Radius | Border |
-|---|---|---|
-| Cards, panels | `rounded-xl` | `border border-[--border-subtle]` or none |
-| Buttons | `rounded-lg` | None (filled) or `border border-[--border-default]` |
-| Inputs | `rounded-lg` | `border border-[--border-default]` focus: `ring-2 ring-[--accent]/50` |
-| Message bubbles | `rounded-2xl` | None |
-| Badges, chips | `rounded-full` | None |
-| Dropdowns | `rounded-xl` | `border border-[--border-subtle]` |
-| Thinking block | `rounded-xl` | `border border-[--thinking-border]` |
-| Code blocks | `rounded-lg` | None |
-| Avatars | `rounded-full` | None |
+| Element         | Radius         | Border                                                                |
+| --------------- | -------------- | --------------------------------------------------------------------- |
+| Cards, panels   | `rounded-xl`   | `border border-[--border-subtle]` or none                             |
+| Buttons         | `rounded-lg`   | None (filled) or `border border-[--border-default]`                   |
+| Inputs          | `rounded-lg`   | `border border-[--border-default]` focus: `ring-2 ring-[--accent]/50` |
+| Message bubbles | `rounded-2xl`  | None                                                                  |
+| Badges, chips   | `rounded-full` | None                                                                  |
+| Dropdowns       | `rounded-xl`   | `border border-[--border-subtle]`                                     |
+| Thinking block  | `rounded-xl`   | `border border-[--thinking-border]`                                   |
+| Code blocks     | `rounded-lg`   | None                                                                  |
+| Avatars         | `rounded-full` | None                                                                  |
 
 ### 4.6 Shadows & Depth
 
-| Element | Shadow |
-|---|---|
-| Dropdowns, popovers | `shadow-xl shadow-black/20` |
-| Sidebar (mobile overlay) | `shadow-2xl shadow-black/30` |
-| Input area | `shadow-lg shadow-black/10` |
-| Cards (hover) | `shadow-lg` transition from `shadow-none` |
-| Modal backdrop | `bg-black/60 backdrop-blur-sm` |
+| Element                  | Shadow                                    |
+| ------------------------ | ----------------------------------------- |
+| Dropdowns, popovers      | `shadow-xl shadow-black/20`               |
+| Sidebar (mobile overlay) | `shadow-2xl shadow-black/30`              |
+| Input area               | `shadow-lg shadow-black/10`               |
+| Cards (hover)            | `shadow-lg` transition from `shadow-none` |
+| Modal backdrop           | `bg-black/60 backdrop-blur-sm`            |
 
 ### 4.7 Glassmorphism
 
@@ -283,21 +283,22 @@ All animations use Framer Motion with consistent, physically-grounded motion. Ev
 
 **Motion Presets** (defined once in `src/lib/utils/motion.ts`):
 
-| Preset | Config | Usage |
-|---|---|---|
-| `fadeIn` | `opacity: 0->1, duration: 0.2` | Default entrance |
-| `fadeInUp` | `opacity: 0->1, y: 8->0, duration: 0.25` | Messages, cards entering |
-| `fadeInDown` | `opacity: 0->1, y: -8->0, duration: 0.2` | Dropdown menus |
-| `slideInRight` | `x: 100%->0, duration: 0.3, ease: [0.4,0,0.2,1]` | A2UI panel |
-| `slideInLeft` | `x: -100%->0, duration: 0.3` | Sidebar opening |
-| `scaleIn` | `scale: 0.95->1, opacity: 0->1, duration: 0.15` | Button press, badges |
-| `expand` | `height: 0->auto, opacity: 0->1, duration: 0.25` | Thinking block expanding |
-| `collapse` | `height: auto->0, opacity: 1->0, duration: 0.2` | Thinking block collapsing |
-| `pulse` | `opacity: [1,0.5,1], duration: 1.5, repeat: Infinity` | Active status indicators |
-| `shimmer` | `backgroundPosition: [-200%,200%], duration: 1.5, repeat: Infinity` | Loading skeletons |
-| `springBounce` | `type: spring, stiffness: 400, damping: 25` | Toggle switches |
+| Preset         | Config                                                              | Usage                     |
+| -------------- | ------------------------------------------------------------------- | ------------------------- |
+| `fadeIn`       | `opacity: 0->1, duration: 0.2`                                      | Default entrance          |
+| `fadeInUp`     | `opacity: 0->1, y: 8->0, duration: 0.25`                            | Messages, cards entering  |
+| `fadeInDown`   | `opacity: 0->1, y: -8->0, duration: 0.2`                            | Dropdown menus            |
+| `slideInRight` | `x: 100%->0, duration: 0.3, ease: [0.4,0,0.2,1]`                    | A2UI panel                |
+| `slideInLeft`  | `x: -100%->0, duration: 0.3`                                        | Sidebar opening           |
+| `scaleIn`      | `scale: 0.95->1, opacity: 0->1, duration: 0.15`                     | Button press, badges      |
+| `expand`       | `height: 0->auto, opacity: 0->1, duration: 0.25`                    | Thinking block expanding  |
+| `collapse`     | `height: auto->0, opacity: 1->0, duration: 0.2`                     | Thinking block collapsing |
+| `pulse`        | `opacity: [1,0.5,1], duration: 1.5, repeat: Infinity`               | Active status indicators  |
+| `shimmer`      | `backgroundPosition: [-200%,200%], duration: 1.5, repeat: Infinity` | Loading skeletons         |
+| `springBounce` | `type: spring, stiffness: 400, damping: 25`                         | Toggle switches           |
 
 **Motion Rules**:
+
 - Every entering element uses `fadeIn` or `fadeInUp` minimum
 - Lists use staggered animations (`staggerChildren: 0.05`)
 - Layout changes use Framer Motion's `layout` prop for FLIP animations
@@ -315,14 +316,14 @@ All animations use Framer Motion with consistent, physically-grounded motion. Ev
 
 ### 4.10 Empty States
 
-| Screen | Empty State |
-|---|---|
-| New chat | Centered: app logo, welcome text, 3-4 suggested prompt chips in grid (clickable, pre-fill input), each with icon and short label |
-| Sidebar (no conversations) | Subtle icon, "No conversations yet", "Start a new chat" |
-| Search (no results) | Search icon, "No results found", "Try rephrasing your query" |
-| Attachments | Dashed border zone, upload icon, "Drop files or click to browse" |
-| Error | Warning icon, error message, "Try again" button |
-| Offline (PWA) | Cloud-off icon, "You're offline", "Your conversations will be here when you're back" |
+| Screen                     | Empty State                                                                                                                      |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| New chat                   | Centered: app logo, welcome text, 3-4 suggested prompt chips in grid (clickable, pre-fill input), each with icon and short label |
+| Sidebar (no conversations) | Subtle icon, "No conversations yet", "Start a new chat"                                                                          |
+| Search (no results)        | Search icon, "No results found", "Try rephrasing your query"                                                                     |
+| Attachments                | Dashed border zone, upload icon, "Drop files or click to browse"                                                                 |
+| Error                      | Warning icon, error message, "Try again" button                                                                                  |
+| Offline (PWA)              | Cloud-off icon, "You're offline", "Your conversations will be here when you're back"                                             |
 
 ### 4.11 Scrollbar Styling
 
@@ -361,15 +362,15 @@ macOS-native feeling — warm dark surfaces, glassmorphic sidebar that slides ov
 
 #### Responsive Breakpoints (Tailwind only — zero pixel values)
 
-| Zone | Mobile (default) | `lg:` (1024px+) |
-|---|---|---|
-| Sidebar | `fixed inset-y-0 left-0 z-50 w-72 -translate-x-full` | `static translate-x-0` |
-| Sidebar open | `translate-x-0` (JS toggled) | always visible |
-| Overlay | `fixed inset-0 z-40 bg-black/50 backdrop-blur-sm` (shown when sidebar open) | hidden |
-| Main | `flex-1 flex flex-col overflow-hidden` | same |
-| Messages inner | `max-w-2xl mx-auto px-4` | `max-w-2xl mx-auto px-6` |
-| Input inner | `max-w-2xl mx-auto px-4` | `max-w-2xl mx-auto px-6` |
-| User bubble | `max-w-[80%]` | `max-w-[72%]` |
+| Zone           | Mobile (default)                                                            | `lg:` (1024px+)          |
+| -------------- | --------------------------------------------------------------------------- | ------------------------ |
+| Sidebar        | `fixed inset-y-0 left-0 z-50 w-72 -translate-x-full`                        | `static translate-x-0`   |
+| Sidebar open   | `translate-x-0` (JS toggled)                                                | always visible           |
+| Overlay        | `fixed inset-0 z-40 bg-black/50 backdrop-blur-sm` (shown when sidebar open) | hidden                   |
+| Main           | `flex-1 flex flex-col overflow-hidden`                                      | same                     |
+| Messages inner | `max-w-2xl mx-auto px-4`                                                    | `max-w-2xl mx-auto px-6` |
+| Input inner    | `max-w-2xl mx-auto px-4`                                                    | `max-w-2xl mx-auto px-6` |
+| User bubble    | `max-w-[80%]`                                                               | `max-w-[72%]`            |
 
 #### Component Exact Specifications
 
@@ -604,17 +605,17 @@ Suggestion chips (grid grid-cols-2 gap-2 max-w-sm w-full):
 
 #### What is Forbidden in This Layout
 
-| Forbidden | Reason |
-|---|---|
-| `w-[288px]` for sidebar | Use `w-72` (Tailwind scale) |
-| `style={{ backdropFilter: '...' }}` | Use `backdrop-blur-xl` Tailwind class |
-| `style={{ background: '#1c1c1e' }}` | Use `bg-[--bg-root]` CSS token |
-| `className="bg-zinc-950"` in components | Use `bg-[--bg-root]` |
-| `rounded-[12px]` anywhere | Use `rounded-xl` |
-| `p-[16px]` or `gap-[12px]` | Use `p-4` or `gap-3` |
-| Fixed height sidebar items | Use `py-2` + content-driven height |
-| Hardcoded max-width string | Use `max-w-2xl` (Tailwind) |
-| `translate-x-[-100%]` | Use `-translate-x-full` |
+| Forbidden                               | Reason                                |
+| --------------------------------------- | ------------------------------------- |
+| `w-[288px]` for sidebar                 | Use `w-72` (Tailwind scale)           |
+| `style={{ backdropFilter: '...' }}`     | Use `backdrop-blur-xl` Tailwind class |
+| `style={{ background: '#1c1c1e' }}`     | Use `bg-[--bg-root]` CSS token        |
+| `className="bg-zinc-950"` in components | Use `bg-[--bg-root]`                  |
+| `rounded-[12px]` anywhere               | Use `rounded-xl`                      |
+| `p-[16px]` or `gap-[12px]`              | Use `p-4` or `gap-3`                  |
+| Fixed height sidebar items              | Use `py-2` + content-driven height    |
+| Hardcoded max-width string              | Use `max-w-2xl` (Tailwind)            |
+| `translate-x-[-100%]`                   | Use `-translate-x-full`               |
 
 ---
 
@@ -664,6 +665,7 @@ The assistant message bubble builds progressively. Each phase adds to the bubble
 **Phase 1 — Routing** (immediate, ~200-500ms visible): Compact animated indicator at top of forming message. Accent-colored pulsing dot with "Selecting the best model..." text. Uses `pulse` motion preset. On complete: smoothly transitions into a small model badge with provider color dot and model name. Reasoning available on hover/click.
 
 **Phase 2 — Thinking** (as soon as AI starts reasoning): Below the model badge, a thinking block appears with `expand` motion. Distinct visual treatment:
+
 - Left border in `--thinking` color (violet) with subtle glow
 - Background: `--thinking-bg` (subtle violet tint)
 - Header: clickable toggle, collapsed by default. While active: "Thinking..." with animated shimmer. When complete: "Thought for Xs" with duration.
@@ -672,6 +674,7 @@ The assistant message bubble builds progressively. Each phase adds to the bubble
 - On complete: shimmer stops, duration shown, block remains expandable forever (persisted in metadata for conversation history)
 
 **Phase 3 — Tool Execution** (if search or tool use): Below thinking block, inline execution cards appear:
+
 - Web search: animated card with search icon + actual query in quotes. While active: `pulse` on icon. Complete: checkmark in `--success`, "Found N results", result cards render below with `fadeInUp` + stagger.
 - File reading: file icon + filename. Complete: "Processed" with details.
 - Cards use `fadeInUp` entrance, compact inline design.
@@ -700,6 +703,7 @@ StreamState = {
 Multiple phases visible simultaneously — thinking block stays visible while text streams below it.
 
 **Other Chat UI Details**:
+
 - User messages: right-aligned, accent-muted background, monochrome avatar
 - Assistant messages: left-aligned, surface background, model icon
 - Message bubbles: `rounded-2xl`, `fadeInUp` entrance, stagger 0.05s
@@ -808,24 +812,31 @@ ROUTER_SYSTEM_PROMPT, A2UI_SYSTEM_PROMPT, TITLE_GENERATION_PROMPT, CHAT_SYSTEM_P
 ## 7. Schemas (`src/schemas/`)
 
 ### message.ts
+
 MessageRoleSchema, AttachmentSchema, UsageSchema, StreamPhaseSchema, StreamChunkSchema (full discriminated union with status/thinking/model_selected/tool_start/tool_result/text/a2ui/error/done), ChatInputSchema (with mode: chat|search), MessageMetadataSchema (with thinkingContent, thinkingDurationMs, toolCalls, routerReasoning, etc.). All types derived via z.infer.
 
 ### conversation.ts
+
 CreateConversationSchema, UpdateConversationSchema, ConversationFilterSchema. Derived types.
 
 ### model.ts
+
 ModelCapabilitySchema, ModelConfigSchema, ModelSelectionSchema. Derived types.
 
 ### search.ts
+
 SearchQuerySchema, SearchImageSchema, SearchResultSchema. Derived types.
 
 ### upload.ts
+
 UploadRequestSchema, UploadResponseSchema. Derived types.
 
 ### auth.ts
+
 SessionUserSchema. Derived type.
 
 ### index.ts
+
 Barrel export of all schemas.
 
 ---
@@ -893,25 +904,25 @@ Live demo URL. Architecture diagrams (Mermaid). Key design decisions with justif
 
 ## 11. Differentiators Summary
 
-| Spec Asks | We Deliver |
-|---|---|
-| Chat with AI | Multi-model + LLM auto-router across 5+ providers via OpenRouter |
-| Streaming | Typed SSE via tRPC with full phase visibility: routing -> thinking -> tools -> text -> A2UI |
-| Google OAuth | Middleware auth, session injection, complete user isolation |
-| Search with images | Tavily with structured cards, image gallery, visible search progress |
-| Clean TypeScript | Zod SSOT, zero inline types, zero magic numbers, zero literal strings, strict mode |
-| Responsive | Mobile-first PWA, futuristic glassmorphic design, Framer Motion throughout |
-| Deployed | Dockerized Bun on GCP Cloud Run me-central1 |
-| "Bonus" history | Drizzle + Neon, full CRUD, sidebar, metadata persistence with phase reconstruction |
-| *(not asked)* | A2UI protocol — agent-generated rich UIs via official React SDK + custom shadcn catalog |
-| *(not asked)* | File attachments with multi-modal AI via GCS presigned URLs |
-| *(not asked)* | Dynamic model registry from OpenRouter API |
-| *(not asked)* | LLM-powered router with visible reasoning |
-| *(not asked)* | Expandable thinking blocks with streamed reasoning (Claude.ai style) |
-| *(not asked)* | Full streaming phase visibility — zero dead air UX principle |
-| *(not asked)* | Complete design system: motion presets, glassmorphism, color tokens, dark/light |
-| *(not asked)* | Comprehensive README with architecture diagrams and production roadmap |
-| *(not asked)* | tRPC for entire API surface including streaming — single typed protocol |
+| Spec Asks          | We Deliver                                                                                  |
+| ------------------ | ------------------------------------------------------------------------------------------- |
+| Chat with AI       | Multi-model + LLM auto-router across 5+ providers via OpenRouter                            |
+| Streaming          | Typed SSE via tRPC with full phase visibility: routing -> thinking -> tools -> text -> A2UI |
+| Google OAuth       | Middleware auth, session injection, complete user isolation                                 |
+| Search with images | Tavily with structured cards, image gallery, visible search progress                        |
+| Clean TypeScript   | Zod SSOT, zero inline types, zero magic numbers, zero literal strings, strict mode          |
+| Responsive         | Mobile-first PWA, futuristic glassmorphic design, Framer Motion throughout                  |
+| Deployed           | Dockerized Bun on GCP Cloud Run me-central1                                                 |
+| "Bonus" history    | Drizzle + Neon, full CRUD, sidebar, metadata persistence with phase reconstruction          |
+| _(not asked)_      | A2UI protocol — agent-generated rich UIs via official React SDK + custom shadcn catalog     |
+| _(not asked)_      | File attachments with multi-modal AI via GCS presigned URLs                                 |
+| _(not asked)_      | Dynamic model registry from OpenRouter API                                                  |
+| _(not asked)_      | LLM-powered router with visible reasoning                                                   |
+| _(not asked)_      | Expandable thinking blocks with streamed reasoning (Claude.ai style)                        |
+| _(not asked)_      | Full streaming phase visibility — zero dead air UX principle                                |
+| _(not asked)_      | Complete design system: motion presets, glassmorphism, color tokens, dark/light             |
+| _(not asked)_      | Comprehensive README with architecture diagrams and production roadmap                      |
+| _(not asked)_      | tRPC for entire API surface including streaming — single typed protocol                     |
 
 ---
 
@@ -920,6 +931,7 @@ Live demo URL. Architecture diagrams (Mermaid). Key design decisions with justif
 ### S-01 — Rate Limiting (Core Requirement)
 
 Per-user in-memory sliding window rate limiting is applied to all stateful endpoints. Constants in `RATE_LIMITS`:
+
 - `CHAT_PER_MINUTE`: 20 requests/min per user on `chat.stream`
 - `UPLOAD_PER_MINUTE`: 30 requests/min per user on `upload.presignedUrl`
 - `WINDOW_MS`: 60,000 ms window
@@ -929,6 +941,7 @@ Implemented as tRPC middleware in `src/server/trpc.ts` (`rateLimitedChatProcedur
 ### S-02 — Security Headers (Core Requirement)
 
 All responses include the following HTTP security headers via `next.config.ts`:
+
 - `Content-Security-Policy`: restricts script/style/image/connect origins
 - `X-Frame-Options: DENY`: blocks clickjacking
 - `X-Content-Type-Options: nosniff`: prevents MIME sniffing
@@ -939,6 +952,7 @@ All responses include the following HTTP security headers via `next.config.ts`:
 ### S-03 — Prompt Injection Protection (Core Requirement)
 
 All user-controlled input passed to AI models is wrapped with XML delimiters to establish a clear data boundary:
+
 - Router: `<user_request>…</user_request>` via `PROMPTS.ROUTER_SYSTEM_PROMPT`
 - Title generator: `<message>…</message>` appended to `PROMPTS.TITLE_GENERATION_PROMPT`
 - Web search results: `<search_results><result>…</result></search_results>` injected into system prompt
@@ -950,6 +964,7 @@ System prompts for all three AI calls explicitly instruct the model to treat wra
 A2UI messages streamed from the server must pass runtime structural validation before dispatch. The client (`use-chat-stream.ts`) validates that any JSON parsed from an A2UI chunk has a `type: string` field before dispatching to the renderer. Unknown `type` values are silently ignored by the renderer.
 
 Content policy enforced in `PROMPTS.A2UI_SYSTEM_PROMPT`:
+
 - `Image.src`: must be a relative path, data URI, or HTTPS URL from a trusted source
 - `Button.action`: must be a single alphanumeric action identifier
 - Unknown component types are documented as ignored by the renderer
@@ -959,6 +974,7 @@ A2UI stream detection uses a line-buffer to avoid false positives from token-bou
 ### S-05 — Error Sanitization Policy (Core Requirement)
 
 Internal error details must never reach clients in production:
+
 - `chat.stream` catch block: logs full error server-side in development; sends generic message `"An error occurred while processing your request."` to client in all environments
 - tRPC subscription transport errors (`onError` in `use-chat-stream.ts`): always sends generic `"Connection error. Please try again."` regardless of actual error
 - tRPC procedure errors (`TRPCError`): handled by tRPC's built-in stripping in production (existing behavior, preserved)
@@ -971,15 +987,15 @@ Anchor tags additionally validate that `href` values use only `https:`, `http:`,
 
 ### Security Architecture Invariants
 
-| Invariant | Implementation |
-|---|---|
-| All DB queries scoped to `ctx.userId` | `protectedProcedure` + explicit `WHERE userId = ctx.userId` |
-| OAuth tokens encrypted at rest | AES-256-GCM via `src/lib/security/token-crypto.ts`, key derived from `AUTH_SECRET` |
-| User input XML-delimited before AI submission | `<user_request>` / `<message>` wrappers in all AI callers |
-| Search results XML-delimited before AI submission | `<search_results>` wrapper in `chat.ts` |
-| Model IDs validated against live registry | `getModelRegistry()` called on explicit model selection |
-| Attachment ownership enforced with error on unauthorized | Batch query + `FORBIDDEN` throw in `chat.ts` |
-| Uploaded file names sanitized | `sanitizeFileName()` in `gcs.ts` before object path construction |
-| Upload orphan prevention | `confirmUpload` procedure sets `confirmedAt`; unconfirmed records are orphan candidates |
-| Middleware covers `/api/trpc` routes | Matcher excludes only `api/auth`, `_next/*`, `favicon.ico` |
-| Registry fetch has timeout | `AbortSignal.timeout(LIMITS.REGISTRY_FETCH_TIMEOUT_MS)` on all registry fetches |
+| Invariant                                                | Implementation                                                                          |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| All DB queries scoped to `ctx.userId`                    | `protectedProcedure` + explicit `WHERE userId = ctx.userId`                             |
+| OAuth tokens encrypted at rest                           | AES-256-GCM via `src/lib/security/token-crypto.ts`, key derived from `AUTH_SECRET`      |
+| User input XML-delimited before AI submission            | `<user_request>` / `<message>` wrappers in all AI callers                               |
+| Search results XML-delimited before AI submission        | `<search_results>` wrapper in `chat.ts`                                                 |
+| Model IDs validated against live registry                | `getModelRegistry()` called on explicit model selection                                 |
+| Attachment ownership enforced with error on unauthorized | Batch query + `FORBIDDEN` throw in `chat.ts`                                            |
+| Uploaded file names sanitized                            | `sanitizeFileName()` in `gcs.ts` before object path construction                        |
+| Upload orphan prevention                                 | `confirmUpload` procedure sets `confirmedAt`; unconfirmed records are orphan candidates |
+| Middleware covers `/api/trpc` routes                     | Matcher excludes only `api/auth`, `_next/*`, `favicon.ico`                              |
+| Registry fetch has timeout                               | `AbortSignal.timeout(LIMITS.REGISTRY_FETCH_TIMEOUT_MS)` on all registry fetches         |

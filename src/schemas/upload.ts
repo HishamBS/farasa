@@ -8,7 +8,10 @@ export const UploadRequestSchema = z.object({
     .number()
     .int()
     .positive()
-    .max(LIMITS.FILE_MAX_SIZE_BYTES, `File must be ≤ ${LIMITS.FILE_MAX_SIZE_BYTES / 1024 / 1024}MB`),
+    .max(
+      LIMITS.FILE_MAX_SIZE_BYTES,
+      `File must be ≤ ${LIMITS.FILE_MAX_SIZE_BYTES / 1024 / 1024}MB`,
+    ),
   conversationId: z.string().uuid().optional(),
 })
 

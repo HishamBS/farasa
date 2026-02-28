@@ -1,7 +1,7 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
-@import "../styles/themes.css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import '../styles/themes.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -50,18 +50,18 @@ body {
 }
 
 /* Code block line numbers (Shiki output) */
-[data-line-numbers="true"] pre code {
+[data-line-numbers='true'] pre code {
   counter-reset: line-number;
 }
 
-[data-line-numbers="true"] pre code .line {
+[data-line-numbers='true'] pre code .line {
   counter-increment: line-number;
   display: block;
   padding-left: 3.5rem;
   position: relative;
 }
 
-[data-line-numbers="true"] pre code .line::before {
+[data-line-numbers='true'] pre code .line::before {
   content: counter(line-number);
   position: absolute;
   left: 0;

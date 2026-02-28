@@ -8,15 +8,8 @@ type CodeBlockCustomProps = {
   language?: string
 }
 
-export function CodeBlockAdapter({
-  code,
-  language,
-}: BaseComponentProps & CodeBlockCustomProps) {
+export function CodeBlockAdapter({ code, language }: BaseComponentProps & CodeBlockCustomProps) {
   if (!code) return null
 
-  return (
-    <CodeBlock className={language ? `language-${language}` : undefined}>
-      {code}
-    </CodeBlock>
-  )
+  return <CodeBlock className={language ? `language-${language}` : undefined}>{code}</CodeBlock>
 }

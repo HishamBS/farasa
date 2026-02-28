@@ -5,8 +5,7 @@ import type { BaseComponentProps } from '../types'
 import type { TextComponentProps } from '@a2ui-sdk/types/0.8/standard-catalog'
 
 export function TextAdapter({ text, usageHint }: BaseComponentProps & TextComponentProps) {
-  const resolved =
-    text && 'literalString' in text ? text.literalString : undefined
+  const resolved = text && 'literalString' in text ? text.literalString : undefined
 
   if (!resolved) return null
 

@@ -1,0 +1,2 @@
+bun test
+SKIP_ENV_VALIDATION=1 bun run build

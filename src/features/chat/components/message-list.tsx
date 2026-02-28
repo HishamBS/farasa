@@ -34,11 +34,9 @@ export function MessageList({
   const shouldReduce = useReducedMotion()
   const parentRef = useRef<HTMLDivElement>(null)
 
-  const isEmpty =
-    messages.length === 0 && streamState.phase === CHAT_STREAM_STATUS.IDLE
+  const isEmpty = messages.length === 0 && streamState.phase === CHAT_STREAM_STATUS.IDLE
 
-  const showStreaming =
-    isStreaming && streamState.phase !== CHAT_STREAM_STATUS.IDLE
+  const showStreaming = isStreaming && streamState.phase !== CHAT_STREAM_STATUS.IDLE
 
   // Total virtual items = historical messages + 1 streaming slot (when active)
   const itemCount = messages.length + (showStreaming ? 1 : 0)
@@ -62,11 +60,7 @@ export function MessageList({
     })
   }, [shouldReduce])
 
-  const { isPaused, resume } = useAutoScroll(
-    isStreaming,
-    parentRef,
-    scrollToBottom,
-  )
+  const { isPaused, resume } = useAutoScroll(isStreaming, parentRef, scrollToBottom)
 
   return (
     <div ref={parentRef} className="flex-1 overflow-y-auto">

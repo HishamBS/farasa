@@ -11,11 +11,7 @@ import { useSidebar } from '@/features/sidebar/hooks/use-sidebar'
 import { Titlebar } from '@/features/chat/components/titlebar'
 import { ChatModeProvider } from '@/features/chat/context/chat-mode-context'
 
-export default function ProtectedLayout({
-  children,
-}: {
-  children: ReactNode
-}) {
+export default function ProtectedLayout({ children }: { children: ReactNode }) {
   const { isOpen, open, close } = useSidebar()
   const [searchValue, setSearchValue] = useState('')
 
@@ -25,10 +21,7 @@ export default function ProtectedLayout({
     <ChatModeProvider>
       <div className="flex h-screen overflow-hidden bg-[--bg-root]">
         <SidebarContainer isOpen={isOpen} onClose={close}>
-          <SidebarHeader
-            searchValue={searchValue}
-            onSearchChange={setSearchValue}
-          />
+          <SidebarHeader searchValue={searchValue} onSearchChange={setSearchValue} />
           <div className="flex-1 overflow-y-auto py-2">
             <ConversationList search={searchValue} />
           </div>

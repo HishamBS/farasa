@@ -13,11 +13,6 @@ export function ImageAdapter({ surfaceId, url, fit }: BaseComponentProps & Image
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={resolvedUrl}
-      alt=""
-      className="max-w-full rounded-xl"
-      style={{ objectFit }}
-    />
+    <img src={resolvedUrl} alt="" className="max-w-full rounded-xl" style={{ objectFit }} />
   )
 }

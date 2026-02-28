@@ -2,8 +2,7 @@ import type { v0_8 } from '@a2ui-sdk/types'
 import type { CHAT_STREAM_STATUS } from '@/config/constants'
 import type { StreamPhase, ChatInput } from '@/schemas'
 
-export type ChatStreamStatus =
-  (typeof CHAT_STREAM_STATUS)[keyof typeof CHAT_STREAM_STATUS]
+export type ChatStreamStatus = (typeof CHAT_STREAM_STATUS)[keyof typeof CHAT_STREAM_STATUS]
 
 export type StatusMessage = {
   phase: StreamPhase

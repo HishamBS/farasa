@@ -20,10 +20,7 @@ export function SearchResults({ results, query }: SearchResultsProps) {
       <p className="text-xs text-[--text-muted]">
         {results.length} result{results.length !== 1 ? 's' : ''} for &ldquo;{query}&rdquo;
       </p>
-      <motion.div
-        className="flex flex-col gap-2"
-        {...(shouldReduce ? {} : staggerContainer)}
-      >
+      <motion.div className="flex flex-col gap-2" {...(shouldReduce ? {} : staggerContainer)}>
         {results.map((result, i) => (
           <motion.a
             key={i}

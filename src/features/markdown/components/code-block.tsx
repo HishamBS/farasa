@@ -3,7 +3,12 @@
 import { useEffect, useState } from 'react'
 import { codeToHtml } from 'shiki'
 import { SHIKI_LANGS } from '../config/shiki-config'
-import { LIMITS, CODE_BLOCK_FALLBACK_LANG, SHIKI_DARK_THEME, SHIKI_LIGHT_THEME } from '@/config/constants'
+import {
+  LIMITS,
+  CODE_BLOCK_FALLBACK_LANG,
+  SHIKI_DARK_THEME,
+  SHIKI_LIGHT_THEME,
+} from '@/config/constants'
 import { useTheme } from '@/lib/utils/use-theme'
 import { CopyButton } from './copy-button'
 
@@ -37,7 +42,9 @@ export function CodeBlock({ children, className }: CodeBlockProps) {
         // Leave as plain pre/code on error
       }
     })()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [code, validLang, theme])
 
   return (
@@ -47,10 +54,7 @@ export function CodeBlock({ children, className }: CodeBlockProps) {
         <CopyButton code={code} />
       </div>
 
-      <div
-        className="overflow-x-auto text-sm leading-relaxed"
-        data-line-numbers={showLineNumbers}
-      >
+      <div className="overflow-x-auto text-sm leading-relaxed" data-line-numbers={showLineNumbers}>
         {html ? (
           <div
             className="[&>pre]:!bg-transparent [&>pre]:p-4"

@@ -47,9 +47,7 @@ export function ThinkingBlock({ thinking }: ThinkingBlockProps) {
                   className="size-1 rounded-full bg-[--thinking]"
                   {...(shouldReduce ? {} : pulse)}
                   transition={
-                    shouldReduce
-                      ? {}
-                      : { ...pulse.transition, delay: i * MOTION.STAGGER_CHILDREN }
+                    shouldReduce ? {} : { ...pulse.transition, delay: i * MOTION.STAGGER_CHILDREN }
                   }
                 />
               ))}
@@ -73,11 +71,7 @@ export function ThinkingBlock({ thinking }: ThinkingBlockProps) {
 
       <AnimatePresence initial={false}>
         {isExpanded && (
-          <motion.div
-            key="content"
-            {...(shouldReduce ? {} : expand)}
-            className="overflow-hidden"
-          >
+          <motion.div key="content" {...(shouldReduce ? {} : expand)} className="overflow-hidden">
             <p className="max-h-48 overflow-y-auto px-3 py-2.5 font-mono text-xs leading-relaxed text-[--thinking]/50 whitespace-pre-wrap bg-[--thinking-bg] border border-[--thinking-border] rounded-xl border-t-0 rounded-t-sm">
               {thinking.content}
             </p>

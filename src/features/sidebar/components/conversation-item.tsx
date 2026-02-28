@@ -67,7 +67,6 @@ export function ConversationItem({
     },
   })
 
-
   const handleClick = useCallback(() => {
     if (isLongPressMenuOpen) {
       setIsLongPressMenuOpen(false)
@@ -97,13 +96,10 @@ export function ConversationItem({
     [id, isPinned, updateMutation],
   )
 
-  const handleDeleteClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation()
-      setShowDeleteConfirm(true)
-    },
-    [],
-  )
+  const handleDeleteClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    setShowDeleteConfirm(true)
+  }, [])
 
   const handleDeleteConfirmed = useCallback(() => {
     deleteMutation.mutate({ id })
@@ -177,104 +173,105 @@ export function ConversationItem({
 
   return (
     <>
-    <motion.div
-      className={cn(
-        'group relative flex items-center gap-2 rounded-lg px-2.5 py-2 cursor-pointer min-h-11',
-        'transition-colors hover:bg-[--bg-surface-hover]',
-        isActive && 'bg-[--bg-surface-hover]',
-      )}
-      onClick={handleClick}
-      onContextMenu={(e) => { e.preventDefault(); setIsLongPressMenuOpen(true) }}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      onTouchCancel={handleTouchEnd}
-      onTouchMove={handleTouchEnd}
-      {...(shouldReduce ? {} : fadeInUp)}
-    >
-      {isActive && (
-        <span className="absolute left-0 top-1/2 h-3/6 w-0.5 -translate-y-1/2 rounded-r-full bg-[--accent]" />
-      )}
-
-      {isPinned && (
-        <Pin size={10} className="shrink-0 text-[--accent] opacity-60" />
-      )}
-
-      <div className="min-w-0 flex-1">
-        {isEditing ? (
-          <input
-            ref={inputRef}
-            value={editValue}
-            onChange={handleEditChange}
-            onBlur={handleRenameCommit}
-            onKeyDown={handleRenameKeyDown}
-            onClick={(e) => e.stopPropagation()}
-            className="w-full bg-transparent text-sm text-[--text-primary] outline-none border-b border-[--accent]"
-          />
-        ) : (
-          <p className="truncate text-sm text-[--text-primary]">{title}</p>
-        )}
-        <p className="text-xs text-[--text-ghost]">{formattedDate}</p>
-      </div>
-
-      <div
+      <motion.div
         className={cn(
-          'shrink-0 items-center gap-1',
-          isLongPressMenuOpen ? 'flex' : 'hidden group-hover:flex',
+          'group relative flex items-center gap-2 rounded-lg px-2.5 py-2 cursor-pointer min-h-11',
+          'transition-colors hover:bg-[--bg-surface-hover]',
+          isActive && 'bg-[--bg-surface-hover]',
         )}
+        onClick={handleClick}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          setIsLongPressMenuOpen(true)
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+        onTouchMove={handleTouchEnd}
+        {...(shouldReduce ? {} : fadeInUp)}
       >
-        <button
-          type="button"
-          onClick={handleRenameStart}
-          className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:text-[--text-primary]"
-          aria-label="Rename"
-        >
-          <Pencil size={12} />
-        </button>
-        <button
-          type="button"
-          onClick={handleExport}
-          disabled={isExporting}
-          className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:text-[--text-primary] disabled:opacity-50"
-          aria-label="Export as Markdown"
-        >
-          <Download size={12} />
-        </button>
-        <button
-          type="button"
-          onClick={handlePin}
-          className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:text-[--text-primary]"
-          aria-label={isPinned ? 'Unpin' : 'Pin'}
-        >
-          {isPinned ? <PinOff size={12} /> : <Pin size={12} />}
-        </button>
-        <button
-          type="button"
-          onClick={handleDeleteClick}
-          className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:text-[--error]"
-          aria-label="Delete"
-        >
-          <Trash2 size={12} />
-        </button>
-      </div>
-    </motion.div>
+        {isActive && (
+          <span className="absolute left-0 top-1/2 h-3/6 w-0.5 -translate-y-1/2 rounded-r-full bg-[--accent]" />
+        )}
 
-    <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{UI_TEXT.DELETE_CONFIRM_TITLE}</AlertDialogTitle>
-          <AlertDialogDescription>{UI_TEXT.DELETE_CONFIRM_BODY}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={handleDeleteConfirmed}
-            className="bg-[--error] text-white hover:opacity-90"
+        {isPinned && <Pin size={10} className="shrink-0 text-[--accent] opacity-60" />}
+
+        <div className="min-w-0 flex-1">
+          {isEditing ? (
+            <input
+              ref={inputRef}
+              value={editValue}
+              onChange={handleEditChange}
+              onBlur={handleRenameCommit}
+              onKeyDown={handleRenameKeyDown}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full bg-transparent text-sm text-[--text-primary] outline-none border-b border-[--accent]"
+            />
+          ) : (
+            <p className="truncate text-sm text-[--text-primary]">{title}</p>
+          )}
+          <p className="text-xs text-[--text-ghost]">{formattedDate}</p>
+        </div>
+
+        <div
+          className={cn(
+            'shrink-0 items-center gap-1',
+            isLongPressMenuOpen ? 'flex' : 'hidden group-hover:flex',
+          )}
+        >
+          <button
+            type="button"
+            onClick={handleRenameStart}
+            className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:text-[--text-primary]"
+            aria-label="Rename"
           >
-            {UI_TEXT.DELETE_CONFIRM_ACTION}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+            <Pencil size={12} />
+          </button>
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={isExporting}
+            className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:text-[--text-primary] disabled:opacity-50"
+            aria-label="Export as Markdown"
+          >
+            <Download size={12} />
+          </button>
+          <button
+            type="button"
+            onClick={handlePin}
+            className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:text-[--text-primary]"
+            aria-label={isPinned ? 'Unpin' : 'Pin'}
+          >
+            {isPinned ? <PinOff size={12} /> : <Pin size={12} />}
+          </button>
+          <button
+            type="button"
+            onClick={handleDeleteClick}
+            className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:text-[--error]"
+            aria-label="Delete"
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
+      </motion.div>
+
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{UI_TEXT.DELETE_CONFIRM_TITLE}</AlertDialogTitle>
+            <AlertDialogDescription>{UI_TEXT.DELETE_CONFIRM_BODY}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirmed}
+              className="bg-[--error] text-white hover:opacity-90"
+            >
+              {UI_TEXT.DELETE_CONFIRM_ACTION}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

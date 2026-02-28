@@ -15,10 +15,10 @@ export default auth((req) => {
   }
 
   if (isTrpcApi && !isLoggedIn) {
-    return new Response(
-      JSON.stringify({ error: { message: AppError.UNAUTHORIZED } }),
-      { status: 401, headers: { 'Content-Type': 'application/json' } },
-    )
+    return new Response(JSON.stringify({ error: { message: AppError.UNAUTHORIZED } }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 
   if (isAuthPage && isLoggedIn) {

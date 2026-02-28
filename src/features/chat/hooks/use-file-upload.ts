@@ -86,9 +86,7 @@ export function useFileUpload() {
             }
           }
           xhr.onload = () =>
-            xhr.status === 200
-              ? resolve()
-              : reject(new Error(`Upload failed: ${xhr.status}`))
+            xhr.status === 200 ? resolve() : reject(new Error(`Upload failed: ${xhr.status}`))
           xhr.onerror = () => reject(new Error('Network error during upload'))
           xhr.send(file)
         })

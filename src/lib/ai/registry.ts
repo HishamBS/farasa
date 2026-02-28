@@ -90,11 +90,7 @@ export function clearModelRegistryCache(): void {
 export async function getModelRegistry(force = false): Promise<ModelConfig[]> {
   const cached = cache.get(MODEL_REGISTRY_CACHE_KEY)
 
-  if (
-    !force &&
-    cached &&
-    Date.now() - cached.fetchedAt < LIMITS.MODEL_REGISTRY_CACHE_TTL_MS
-  ) {
+  if (!force && cached && Date.now() - cached.fetchedAt < LIMITS.MODEL_REGISTRY_CACHE_TTL_MS) {
     return cached.models
   }
 

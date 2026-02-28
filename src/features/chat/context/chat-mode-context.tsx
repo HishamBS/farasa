@@ -13,11 +13,7 @@ const ChatModeContext = createContext<ChatModeContextValue | null>(null)
 
 export function ChatModeProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<SearchMode>(CHAT_MODES.CHAT)
-  return (
-    <ChatModeContext.Provider value={{ mode, setMode }}>
-      {children}
-    </ChatModeContext.Provider>
-  )
+  return <ChatModeContext.Provider value={{ mode, setMode }}>{children}</ChatModeContext.Provider>
 }
 
 export function useChatMode(): ChatModeContextValue {

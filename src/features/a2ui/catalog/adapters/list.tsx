@@ -23,13 +23,7 @@ export function ListAdapter({
   const childIds = children?.explicitList ?? []
 
   return (
-    <div
-      className={cn(
-        'flex gap-2',
-        isHorizontal ? 'flex-row flex-wrap' : 'flex-col',
-        alignClass,
-      )}
-    >
+    <div className={cn('flex gap-2', isHorizontal ? 'flex-row flex-wrap' : 'flex-col', alignClass)}>
       {childIds.map((id) => (
         <ComponentRenderer key={id} surfaceId={surfaceId} componentId={id} />
       ))}

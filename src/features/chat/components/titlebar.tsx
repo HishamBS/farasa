@@ -83,9 +83,7 @@ export function Titlebar({ onMenuClick }: TitlebarProps) {
         </button>
 
         <div className="flex-1 truncate">
-          {title && (
-            <span className="text-sm font-medium text-[--text-secondary]">{title}</span>
-          )}
+          {title && <span className="text-sm font-medium text-[--text-secondary]">{title}</span>}
         </div>
 
         <ModeToggle value={mode} onChange={setMode} />
@@ -104,9 +102,15 @@ export function Titlebar({ onMenuClick }: TitlebarProps) {
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={handlePin}>
                 {conversation.isPinned ? (
-                  <><PinOff size={14} className="mr-2" />Unpin</>
+                  <>
+                    <PinOff size={14} className="mr-2" />
+                    Unpin
+                  </>
                 ) : (
-                  <><Pin size={14} className="mr-2" />Pin</>
+                  <>
+                    <Pin size={14} className="mr-2" />
+                    Pin
+                  </>
                 )}
               </DropdownMenuItem>
               <DropdownMenuSeparator />

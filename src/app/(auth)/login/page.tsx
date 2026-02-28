@@ -21,7 +21,11 @@ export default function LoginPage() {
         <motion.div
           className="absolute inset-0 bg-gradient-to-br from-[--accent-muted] via-transparent to-[--thinking-bg]"
           animate={shouldReduce ? {} : { opacity: [0.4, 0.7, 0.4] }}
-          transition={{ duration: MOTION.DURATION_BACKGROUND_LOOP, repeat: MOTION.REPEAT_INFINITE, ease: MOTION.EASING_IN_OUT }}
+          transition={{
+            duration: MOTION.DURATION_BACKGROUND_LOOP,
+            repeat: MOTION.REPEAT_INFINITE,
+            ease: MOTION.EASING_IN_OUT,
+          }}
         />
       </div>
 

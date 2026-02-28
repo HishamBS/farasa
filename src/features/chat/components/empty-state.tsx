@@ -32,18 +32,18 @@ type EmptyStateProps = {
 
 export function EmptyState({ onSelect }: EmptyStateProps) {
   const shouldReduce = useReducedMotion()
-  const handleSelect = useCallback((text: string) => { onSelect?.(text) }, [onSelect])
+  const handleSelect = useCallback(
+    (text: string) => {
+      onSelect?.(text)
+    },
+    [onSelect],
+  )
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4">
-      <motion.div
-        className="flex flex-col items-center gap-2"
-        {...(shouldReduce ? {} : fadeInUp)}
-      >
+      <motion.div className="flex flex-col items-center gap-2" {...(shouldReduce ? {} : fadeInUp)}>
         <h1 className="text-2xl font-semibold text-[--text-primary]">farasa</h1>
-        <p className="text-sm text-[--text-muted]">
-          How can I help you today?
-        </p>
+        <p className="text-sm text-[--text-muted]">How can I help you today?</p>
       </motion.div>
 
       <motion.div
@@ -51,11 +51,7 @@ export function EmptyState({ onSelect }: EmptyStateProps) {
         {...(shouldReduce ? {} : staggerContainer)}
       >
         {EMPTY_STATE_SUGGESTIONS.map((suggestion) => (
-          <SuggestionChip
-            key={suggestion}
-            text={suggestion}
-            onSelect={handleSelect}
-          />
+          <SuggestionChip key={suggestion} text={suggestion} onSelect={handleSelect} />
         ))}
       </motion.div>
     </div>

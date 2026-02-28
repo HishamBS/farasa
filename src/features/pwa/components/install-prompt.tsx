@@ -9,8 +9,7 @@ type BeforeInstallPromptEvent = Event & {
 }
 
 export function InstallPrompt() {
-  const [promptEvent, setPromptEvent] =
-    useState<BeforeInstallPromptEvent | null>(null)
+  const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null)
   const [isDismissed, setIsDismissed] = useState(false)
 
   useEffect(() => {

@@ -28,11 +28,7 @@ export async function tavilySearch(input: SearchQuery): Promise<SearchResponse> 
 
   const images = input.includeImages
     ? (result.images ?? [])
-        .map((img) =>
-          SearchImageSchema.safeParse(
-            typeof img === 'string' ? { url: img } : img,
-          ),
-        )
+        .map((img) => SearchImageSchema.safeParse(typeof img === 'string' ? { url: img } : img))
         .filter((r): r is { success: true; data: SearchImage } => r.success)
         .map((r) => r.data)
     : []

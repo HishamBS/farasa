@@ -239,7 +239,7 @@ export const EXTERNAL_URLS = {
 
 export const APP_CONFIG = {
   NAME: 'Farasa',
-  DEFAULT_LOCALHOST_URL: 'http://localhost:3000',
+  DEFAULT_LOCALHOST_URL: 'http://localhost:3010',
   THEME_COLOR: '#09090b',
   DEFAULT_THEME: 'dark',
   LOCALE: 'en',
@@ -256,14 +256,12 @@ export const EMPTY_STATE_SUGGESTIONS = [
 export const UI_TEXT = {
   SIDEBAR_SEARCH_PLACEHOLDER: 'Search conversations',
   NEW_CHAT_ARIA_LABEL: 'New chat',
-  OFFLINE_BANNER:
-    "You're offline — your conversations will be here when you're back",
+  OFFLINE_BANNER: "You're offline — your conversations will be here when you're back",
   NEW_MESSAGES_LABEL: 'New messages',
   OPEN_SIDEBAR_ARIA: 'Open sidebar',
   CHAT_KEYBOARD_HINT: '↵ send · ⇧↵ newline',
   DELETE_CONFIRM_TITLE: 'Delete conversation?',
-  DELETE_CONFIRM_BODY:
-    'This will permanently delete the conversation and all its messages.',
+  DELETE_CONFIRM_BODY: 'This will permanently delete the conversation and all its messages.',
   DELETE_CONFIRM_ACTION: 'Delete',
 } as const
 

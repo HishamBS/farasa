@@ -40,7 +40,10 @@ export function ImageGallery({ images }: ImageGalleryProps) {
             <img
               src={img.url}
               alt={img.description ?? ''}
-              className={cn('size-full object-cover', !shouldReduce && 'transition-transform duration-200 hover:scale-105')}
+              className={cn(
+                'size-full object-cover',
+                !shouldReduce && 'transition-transform duration-200 hover:scale-105',
+              )}
             />
           </motion.button>
         ))}

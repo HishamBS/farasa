@@ -1,0 +1,7 @@
+.next/
+node_modules/
+public/sw.js
+bun.lock
+*.min.js
+drizzle/
+*.sh

@@ -18,9 +18,7 @@ function streamStateReducer(state: StreamState, action: StreamAction): StreamSta
   switch (action.type) {
     case 'STATUS': {
       const now = Date.now()
-      const existing = state.statusMessages.findIndex(
-        (s) => s.phase === action.phase,
-      )
+      const existing = state.statusMessages.findIndex((s) => s.phase === action.phase)
       if (existing >= 0) {
         const updated = [...state.statusMessages]
         const current = updated[existing]
@@ -32,10 +30,7 @@ function streamStateReducer(state: StreamState, action: StreamAction): StreamSta
       return {
         ...state,
         phase: CHAT_STREAM_STATUS.ACTIVE,
-        statusMessages: [
-          ...state.statusMessages,
-          { phase: action.phase, message: action.message },
-        ],
+        statusMessages: [...state.statusMessages, { phase: action.phase, message: action.message }],
       }
     }
 
@@ -55,9 +50,7 @@ function streamStateReducer(state: StreamState, action: StreamAction): StreamSta
       if (action.isComplete) {
         return {
           ...state,
-          thinking: state.thinking
-            ? { ...state.thinking, completedAt: Date.now() }
-            : null,
+          thinking: state.thinking ? { ...state.thinking, completedAt: Date.now() } : null,
         }
       }
       return {
@@ -72,10 +65,7 @@ function streamStateReducer(state: StreamState, action: StreamAction): StreamSta
     case 'TOOL_START': {
       return {
         ...state,
-        toolExecutions: [
-          ...state.toolExecutions,
-          { name: action.name, input: action.input },
-        ],
+        toolExecutions: [...state.toolExecutions, { name: action.name, input: action.input }],
       }
     }
 

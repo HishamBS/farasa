@@ -10,6 +10,7 @@ import type { ChatInputHandle } from './chat-input'
 import { CHAT_STREAM_STATUS, SESSION_KEYS, UX } from '@/config/constants'
 import { ChatInputSchema } from '@/schemas/message'
 import type { TitlebarPhase } from '@/types/stream'
+import { useStreamPhase } from '../context/stream-phase-context'
 
 type ChatContainerProps = {
   conversationId: string
@@ -20,6 +21,7 @@ export function ChatContainer({ conversationId, onPhaseChange }: ChatContainerPr
   const { streamState, sendMessage, abort, retry } = useChatStream()
   const isStreaming = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
   const chatInputRef = useRef<ChatInputHandle>(null)
+  const { setPhase } = useStreamPhase()
 
   const titlebarPhase = useMemo((): TitlebarPhase => {
     if (streamState.phase === CHAT_STREAM_STATUS.COMPLETE) return 'done'
@@ -36,8 +38,9 @@ export function ChatContainer({ conversationId, onPhaseChange }: ChatContainerPr
   }, [streamState.phase, streamState.thinking])
 
   useEffect(() => {
+    setPhase(titlebarPhase)
     onPhaseChange?.(titlebarPhase)
-  }, [titlebarPhase, onPhaseChange])
+  }, [titlebarPhase, setPhase, onPhaseChange])
 
   const { data: conversation } = trpc.conversation.getById.useQuery(
     { id: conversationId },

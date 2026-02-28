@@ -241,32 +241,28 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
               </AnimatePresence>
             </div>
           </div>
-
-          <div className="mt-1.5 flex items-center gap-2">
-            <ModelSelector
-              ref={modelSelectorRef}
-              value={selectedModel}
-              onChange={setSelectedModel}
-            />
-
-            <button
-              type="button"
-              onClick={handleAttachClick}
-              className="hidden items-center gap-1 rounded-md px-2 py-1 text-xs text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-secondary] sm:inline-flex"
-            >
-              <Paperclip size={12} />
-              Attach file
-            </button>
-
-            <span className="ml-auto hidden text-xs text-[--text-ghost] sm:block">
-              {UI_TEXT.CHAT_KEYBOARD_HINT}
-            </span>
-          </div>
-
-          {mode === 'search' && (
-            <div className="mt-1 text-xs text-[--text-muted]">Search mode is active.</div>
-          )}
         </div>
+
+        <div className="flex items-center gap-2 px-0.5 pt-1.5">
+          <ModelSelector ref={modelSelectorRef} value={selectedModel} onChange={setSelectedModel} />
+
+          <button
+            type="button"
+            onClick={handleAttachClick}
+            className="hidden items-center gap-1 rounded-md px-2 py-1 text-xs text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-secondary] sm:inline-flex"
+          >
+            <Paperclip size={12} />
+            Attach file
+          </button>
+
+          <span className="ml-auto hidden text-[11.5px] text-[--text-ghost] sm:block">
+            {UI_TEXT.CHAT_KEYBOARD_HINT}
+          </span>
+        </div>
+
+        {mode === 'search' && (
+          <div className="mt-1 px-1 text-xs text-[--text-muted]">Search mode is active.</div>
+        )}
       </div>
     </div>
   )

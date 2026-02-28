@@ -86,9 +86,10 @@ const authConfig: NextAuthConfig = {
       clientSecret: env.AUTH_GOOGLE_SECRET,
     }),
   ],
+  session: { strategy: 'jwt' },
   callbacks: {
-    session({ session, user }) {
-      session.user.id = user.id
+    session({ session, token }) {
+      if (token.sub) session.user.id = token.sub
       return session
     },
   },

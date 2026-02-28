@@ -144,7 +144,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
   )
 
   return (
-    <div className="border-t border-[--border-subtle] bg-[--bg-root] pb-[env(safe-area-inset-bottom)]">
+    <div className="shrink-0 border-t border-[--border-subtle] bg-[--bg-root] pb-[env(safe-area-bottom)]">
       <div className="mx-auto max-w-(--content-max-width) px-5 pb-4 pt-2.5 lg:px-6">
         <div
           onDragOver={handleDragOver}

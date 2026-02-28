@@ -122,7 +122,7 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
 
   return (
     <>
-      <header className="flex h-12 shrink-0 items-center gap-2.5 bg-[--bg-root] border-b border-[--border-subtle] px-4">
+      <header className="relative z-20 flex h-12 shrink-0 items-center gap-2.5 border-b border-[--border-subtle] bg-[--bg-root] px-4">
         <button
           type="button"
           onClick={onMenuClick}

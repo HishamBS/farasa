@@ -79,6 +79,7 @@ export const ChatInputSchema = z.object({
   mode: SearchModeSchema.default(CHAT_MODES.CHAT),
   model: z.string().optional(),
   attachmentIds: z.array(z.string().uuid()).default([]),
+  skipUserInsert: z.boolean().optional(),
 })
 
 export const ToolCallSchema = z.object({

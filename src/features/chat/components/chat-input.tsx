@@ -19,7 +19,6 @@ import { useChatInput } from '../hooks/use-chat-input'
 import { useFileUpload } from '../hooks/use-file-upload'
 import { useChatMode } from '../context/chat-mode-context'
 import { ModelSelector } from './model-selector'
-import { ModeToggle } from './mode-toggle'
 import { AttachmentPreview } from './attachment-preview'
 import { MicButton } from '@/features/voice/components/mic-button'
 import type { ModelSelectorHandle } from './model-selector'
@@ -60,7 +59,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     setExternalContent,
   } = useChatInput(initialModel)
 
-  const { mode, setMode } = useChatMode()
+  const { mode } = useChatMode()
 
   const { uploadFile, uploadStates, removeFile } = useFileUpload()
 
@@ -249,7 +248,6 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
               value={selectedModel}
               onChange={setSelectedModel}
             />
-            <ModeToggle value={mode} onChange={setMode} />
 
             <button
               type="button"

@@ -7,6 +7,8 @@ import { trpc } from '@/trpc/provider'
 import { ROUTES, PATTERNS } from '@/config/routes'
 import { UX, UI_TEXT } from '@/config/constants'
 import type { TitlebarPhase } from '@/types/stream'
+import { ModeToggle } from './mode-toggle'
+import { useChatMode } from '../context/chat-mode-context'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +35,7 @@ type TitlebarProps = {
 export function Titlebar({ onMenuClick }: TitlebarProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const { mode, setMode } = useChatMode()
   const utils = trpc.useUtils()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
@@ -89,6 +92,8 @@ export function Titlebar({ onMenuClick }: TitlebarProps) {
           )}
         </div>
 
+        <ModeToggle value={mode} onChange={setMode} />
+
         {conversationId && conversation && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -124,6 +129,16 @@ export function Titlebar({ onMenuClick }: TitlebarProps) {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+        )}
+
+        {!(conversationId && conversation) && (
+          <button
+            type="button"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-secondary]"
+            aria-label="More options"
+          >
+            <MoreHorizontal size={16} />
+          </button>
         )}
       </header>
 

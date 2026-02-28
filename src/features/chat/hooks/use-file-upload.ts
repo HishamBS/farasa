@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { trpc } from '@/trpc/provider'
 import { SUPPORTED_FILE_TYPES, LIMITS } from '@/config/constants'
 
@@ -127,6 +127,18 @@ export function useFileUpload() {
       next.delete(fileName)
       return next
     })
+  }, [])
+
+  // Revoke all preview object URLs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      setUploadStates((prev) => {
+        for (const state of prev.values()) {
+          if (state.previewUrl) URL.revokeObjectURL(state.previewUrl)
+        }
+        return prev
+      })
+    }
   }, [])
 
   return { uploadFile, uploadStates, removeFile }

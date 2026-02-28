@@ -25,35 +25,35 @@ This is the definitive, locked specification for the AI Chat System project. Eve
 
 ## 2. Complete Technology Stack
 
-| Layer              | Technology                                 | Version             | Justification                                                   |
-| ------------------ | ------------------------------------------ | ------------------- | --------------------------------------------------------------- |
-| Runtime            | Bun                                        | 1.5+                | Fast startup, native TypeScript, Next.js 15 compatible          |
-| Framework          | Next.js                                    | 15 (App Router)     | Spec requirement, RSC, middleware, React 19                     |
-| API Layer          | tRPC                                       | v11                 | End-to-end type safety for all operations including streaming   |
-| Client State       | TanStack Query                             | v5 (via tRPC React) | Caching, optimistic updates, automatic invalidation             |
-| AI Gateway         | OpenRouter                                 | latest              | Unified OpenAI-compatible API for all model providers           |
-| AI SDK             | `openai` (npm)                             | latest              | OpenAI-compatible SDK, used with OpenRouter `baseURL`           |
-| Agent UI           | `@a2ui-sdk/react`                          | v0.8                | Official React renderer for Google A2UI protocol                |
-| A2UI Types         | `@a2ui-sdk/types`                          | v0.8                | TypeScript types for A2UI protocol messages                     |
-| A2UI Utils         | `@a2ui-sdk/utils`                          | v0.8                | Utility functions for A2UI value resolution                     |
-| Validation         | Zod                                        | latest              | SSOT — schemas define runtime validation and TypeScript types   |
-| Auth               | Auth.js (NextAuth)                         | v5                  | Google OAuth, middleware-level route protection                 |
-| ORM                | Drizzle ORM                                | latest              | Type-safe, no codegen, SQL-transparent, schema-as-code          |
-| Database           | PostgreSQL via Neon                        | serverless          | Scales to zero, HTTP/WebSocket driver, free tier                |
-| DB Driver          | `@neondatabase/serverless`                 | latest              | Works in serverless/container environments                      |
-| File Storage       | Google Cloud Storage                       | latest              | Presigned URLs, direct client upload, GCP credits available     |
-| Styling            | Tailwind CSS                               | v4                  | Utility-first, responsive, mobile-first                         |
-| UI Components      | shadcn/ui                                  | latest              | Owned components, accessible, customizable                      |
-| Motion             | Framer Motion                              | latest              | Orchestrated layout animations, spring physics, gesture support |
-| Code Highlighting  | Shiki                                      | latest              | VS Code engine, SSR-safe, all languages supported               |
-| Markdown Rendering | react-markdown                             | latest              | Parse AI markdown responses                                     |
-| Markdown Plugins   | remark-gfm, rehype-sanitize, rehype-katex  | latest              | GFM tables, sanitized HTML (XSS-safe), math rendering           |
-| Search API         | Tavily                                     | latest              | Purpose-built for AI apps, returns structured results + images  |
-| PWA                | @serwist/next                              | latest              | Service worker, offline shell, installable                      |
-| Fonts              | next/font                                  | built-in            | Geist Sans + Geist Mono                                         |
-| Containerization   | Docker                                     | multi-stage         | Bun base image, standalone Next.js output                       |
-| Deployment         | GCP Cloud Run                              | latest              | Scales to zero, container-based, `me-central1` region           |
-| SSL/Domain         | Cloud Run domain mapping or Cloudflare DNS | —                   | Managed SSL certificates                                        |
+| Layer              | Technology                                 | Version             | Justification                                                    |
+| ------------------ | ------------------------------------------ | ------------------- | ---------------------------------------------------------------- |
+| Runtime            | Bun                                        | 1.5+                | Fast startup, native TypeScript, Next.js 15 compatible           |
+| Framework          | Next.js                                    | 15 (App Router)     | Spec requirement, RSC, middleware, React 19                      |
+| API Layer          | tRPC                                       | v11                 | End-to-end type safety for all operations including streaming    |
+| Client State       | TanStack Query                             | v5 (via tRPC React) | Caching, optimistic updates, automatic invalidation              |
+| AI Gateway         | OpenRouter                                 | latest              | Unified OpenAI-compatible API for all model providers            |
+| AI SDK             | `@openrouter/sdk`                          | pinned              | Native OpenRouter SDK — typed reasoning, provider routing, tools |
+| Agent UI           | `@a2ui-sdk/react`                          | v0.8                | Official React renderer for Google A2UI protocol                 |
+| A2UI Types         | `@a2ui-sdk/types`                          | v0.8                | TypeScript types for A2UI protocol messages                      |
+| A2UI Utils         | `@a2ui-sdk/utils`                          | v0.8                | Utility functions for A2UI value resolution                      |
+| Validation         | Zod                                        | latest              | SSOT — schemas define runtime validation and TypeScript types    |
+| Auth               | Auth.js (NextAuth)                         | v5                  | Google OAuth, middleware-level route protection                  |
+| ORM                | Drizzle ORM                                | latest              | Type-safe, no codegen, SQL-transparent, schema-as-code           |
+| Database           | PostgreSQL via Neon                        | serverless          | Scales to zero, HTTP/WebSocket driver, free tier                 |
+| DB Driver          | `@neondatabase/serverless`                 | latest              | Works in serverless/container environments                       |
+| File Storage       | Google Cloud Storage                       | latest              | Presigned URLs, direct client upload, GCP credits available      |
+| Styling            | Tailwind CSS                               | v4                  | Utility-first, responsive, mobile-first                          |
+| UI Components      | shadcn/ui                                  | latest              | Owned components, accessible, customizable                       |
+| Motion             | Framer Motion                              | latest              | Orchestrated layout animations, spring physics, gesture support  |
+| Code Highlighting  | Shiki                                      | latest              | VS Code engine, SSR-safe, all languages supported                |
+| Markdown Rendering | react-markdown                             | latest              | Parse AI markdown responses                                      |
+| Markdown Plugins   | remark-gfm, rehype-sanitize, rehype-katex  | latest              | GFM tables, sanitized HTML (XSS-safe), math rendering            |
+| Search API         | Tavily                                     | latest              | Purpose-built for AI apps, returns structured results + images   |
+| PWA                | @serwist/next                              | latest              | Service worker, offline shell, installable                       |
+| Fonts              | next/font                                  | built-in            | Geist Sans + Geist Mono                                          |
+| Containerization   | Docker                                     | multi-stage         | Bun base image, standalone Next.js output                        |
+| Deployment         | GCP Cloud Run                              | latest              | Scales to zero, container-based, `me-central1` region            |
+| SSL/Domain         | Cloud Run domain mapping or Cloudflare DNS | —                   | Managed SSL certificates                                         |
 
 ---
 
@@ -717,7 +717,7 @@ Multiple phases visible simultaneously — thinking block stays visible while te
 
 ### F3. Multi-Model Support via OpenRouter
 
-Single `openai` SDK with OpenRouter `baseURL`. Dynamic registry from `/api/v1/models`, cached. Fallback static config. Models grouped by provider. Each entry: id, name, provider, capabilities, contextWindow, pricing, supportsVision, supportsTools.
+Native `@openrouter/sdk`. Dynamic registry from `/api/v1/models`, cached. Fallback static config. Models grouped by provider. Each entry: id, name, provider, capabilities, contextWindow, pricing, supportsVision, supportsTools.
 
 **Model Selector UI**: Trigger shows current model + provider dot, or "Auto ✨". Dropdown: `fadeInDown` + backdrop blur, grouped by provider. Each section: provider name + colored dot header. Each item: model name, context badge, pricing indicator. "Auto" at top with sparkle icon. Selected item: accent highlight. Keyboard navigable. Persisted per conversation.
 

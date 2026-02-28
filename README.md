@@ -162,28 +162,28 @@ close before showing partial output.
 
 ## Tech Stack
 
-| Layer             | Technology                                               | Version       | Why                                          |
-| ----------------- | -------------------------------------------------------- | ------------- | -------------------------------------------- |
-| Runtime           | [Bun](https://bun.sh)                                    | 1.2+          | Native TS execution, fast installs           |
-| Framework         | [Next.js](https://nextjs.org)                            | 15 App Router | RSC + middleware + React 19                  |
-| API               | [tRPC](https://trpc.io)                                  | v11           | End-to-end types, zero codegen, SSE built-in |
-| Client state      | [TanStack Query](https://tanstack.com/query)             | v5            | Caching, optimistic updates                  |
-| AI gateway        | [OpenRouter](https://openrouter.ai)                      | —             | One key, 100+ models, live pricing metadata  |
-| AI SDK            | `openai` npm                                             | latest        | OpenRouter-compatible via `baseURL` override |
-| Agent UI          | `@a2ui-sdk/react`                                        | v0.4          | Agent-generated interactive components       |
-| Validation        | [Zod](https://zod.dev)                                   | latest        | SSOT — all TS types derived via `z.infer`    |
-| Auth              | [Auth.js](https://authjs.dev)                            | v5            | Google OAuth, middleware-native              |
-| ORM               | [Drizzle ORM](https://orm.drizzle.team)                  | latest        | No query engine, SQL-transparent, edge-safe  |
-| Database          | [Neon Postgres](https://neon.tech)                       | serverless    | Scales to zero, HTTP driver                  |
-| Storage           | [Google Cloud Storage](https://cloud.google.com/storage) | —             | Presigned URL direct uploads                 |
-| Search            | [Tavily](https://tavily.com)                             | latest        | AI-optimised search with image results       |
-| Styling           | [Tailwind CSS](https://tailwindcss.com)                  | v4            | CSS custom property token system             |
-| UI                | [shadcn/ui](https://ui.shadcn.com)                       | latest        | Owned, accessible components                 |
-| Animation         | [Framer Motion](https://www.framer.com/motion/)          | latest        | Spring physics, FLIP, gestures               |
-| Code highlighting | [Shiki](https://shiki.matsu.io)                          | latest        | VS Code grammar engine, SSR-safe             |
-| Markdown          | react-markdown + plugins                                 | latest        | GFM, sanitized HTML, KaTeX math              |
-| PWA               | [@serwist/next](https://serwist.pages.dev)               | latest        | Service worker, offline shell                |
-| Deployment        | [GCP Cloud Run](https://cloud.google.com/run)            | —             | `me-central1`, scales to zero                |
+| Layer             | Technology                                               | Version       | Why                                                              |
+| ----------------- | -------------------------------------------------------- | ------------- | ---------------------------------------------------------------- |
+| Runtime           | [Bun](https://bun.sh)                                    | 1.2+          | Native TS execution, fast installs                               |
+| Framework         | [Next.js](https://nextjs.org)                            | 15 App Router | RSC + middleware + React 19                                      |
+| API               | [tRPC](https://trpc.io)                                  | v11           | End-to-end types, zero codegen, SSE built-in                     |
+| Client state      | [TanStack Query](https://tanstack.com/query)             | v5            | Caching, optimistic updates                                      |
+| AI gateway        | [OpenRouter](https://openrouter.ai)                      | —             | One key, 100+ models, live pricing metadata                      |
+| AI SDK            | `@openrouter/sdk`                                        | pinned        | Native OpenRouter SDK — typed provider routing, reasoning, tools |
+| Agent UI          | `@a2ui-sdk/react`                                        | v0.4          | Agent-generated interactive components                           |
+| Validation        | [Zod](https://zod.dev)                                   | latest        | SSOT — all TS types derived via `z.infer`                        |
+| Auth              | [Auth.js](https://authjs.dev)                            | v5            | Google OAuth, middleware-native                                  |
+| ORM               | [Drizzle ORM](https://orm.drizzle.team)                  | latest        | No query engine, SQL-transparent, edge-safe                      |
+| Database          | [Neon Postgres](https://neon.tech)                       | serverless    | Scales to zero, HTTP driver                                      |
+| Storage           | [Google Cloud Storage](https://cloud.google.com/storage) | —             | Presigned URL direct uploads                                     |
+| Search            | [Tavily](https://tavily.com)                             | latest        | AI-optimised search with image results                           |
+| Styling           | [Tailwind CSS](https://tailwindcss.com)                  | v4            | CSS custom property token system                                 |
+| UI                | [shadcn/ui](https://ui.shadcn.com)                       | latest        | Owned, accessible components                                     |
+| Animation         | [Framer Motion](https://www.framer.com/motion/)          | latest        | Spring physics, FLIP, gestures                                   |
+| Code highlighting | [Shiki](https://shiki.matsu.io)                          | latest        | VS Code grammar engine, SSR-safe                                 |
+| Markdown          | react-markdown + plugins                                 | latest        | GFM, sanitized HTML, KaTeX math                                  |
+| PWA               | [@serwist/next](https://serwist.pages.dev)               | latest        | Service worker, offline shell                                    |
+| Deployment        | [GCP Cloud Run](https://cloud.google.com/run)            | —             | `me-central1`, scales to zero                                    |
 
 ---
 
@@ -405,8 +405,8 @@ support can be added without changing the router interface if bidirectional mess
 `z.infer<typeof Schema>`, never handwritten. The same schema validates tRPC inputs, database
 writes, and client-side forms — one change propagates everywhere with no drift.
 
-**OpenRouter over direct provider SDKs** — One API key and a single `baseURL` override on the
-`openai` npm package replace a dozen provider SDKs. The live model registry fetches all available
+**OpenRouter over direct provider SDKs** — One API key through the native `@openrouter/sdk`
+replaces a dozen provider SDKs. The live model registry fetches all available
 models with pricing and capability metadata from `/api/v1/models`, cached for one hour. The LLM
 router classifies intent and selects the optimal model per request, surfacing its reasoning in
 real time.

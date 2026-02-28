@@ -7,7 +7,7 @@ import { MessageList } from './message-list'
 import { ChatInput } from './chat-input'
 import { StreamProgress } from '@/features/stream-phases/components/stream-progress'
 import type { ChatInputHandle } from './chat-input'
-import { CHAT_STREAM_STATUS, SESSION_KEYS, UX } from '@/config/constants'
+import { CHAT_STREAM_STATUS, SESSION_KEYS, UX, CHAT_MODES, MESSAGE_ROLES } from '@/config/constants'
 import { ChatInputSchema } from '@/schemas/message'
 import type { TitlebarPhase } from '@/types/stream'
 import { useStreamPhase } from '../context/stream-phase-context'
@@ -20,6 +20,7 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
   const { streamState, sendMessage, abort, retry } = useChatStream()
   const isStreaming = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
   const chatInputRef = useRef<ChatInputHandle>(null)
+  const streamStartedRef = useRef(false)
   const { setPhase } = useStreamPhase()
 
   const titlebarPhase = useMemo((): TitlebarPhase => {
@@ -58,16 +59,31 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
     const storageKey = `${SESSION_KEYS.PENDING_CHAT_INPUT_PREFIX}${conversationId}`
     const raw = sessionStorage.getItem(storageKey)
     if (!raw) return
-
+    streamStartedRef.current = true
     try {
       const parsed = ChatInputSchema.safeParse(JSON.parse(raw))
-      if (parsed.success) {
-        sendMessage(parsed.data)
-      }
+      if (parsed.success) sendMessage(parsed.data)
     } finally {
       sessionStorage.removeItem(storageKey)
     }
   }, [conversationId, sendMessage])
+
+  useEffect(() => {
+    if (streamStartedRef.current) return
+    if (streamState.phase !== CHAT_STREAM_STATUS.IDLE) return
+    if (messages.length === 0) return
+    const lastMessage = messages[messages.length - 1]
+    if (!lastMessage || lastMessage.role !== MESSAGE_ROLES.USER) return
+    streamStartedRef.current = true
+    sendMessage({
+      conversationId,
+      content: lastMessage.content,
+      mode: CHAT_MODES.CHAT,
+      model: undefined,
+      attachmentIds: [],
+      skipUserInsert: true,
+    })
+  }, [messages, streamState.phase, conversationId, sendMessage])
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">

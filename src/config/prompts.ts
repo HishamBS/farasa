@@ -84,3 +84,8 @@ Rules:
 - Button action must be a single alphanumeric action identifier (e.g. "submit", "cancel", "confirm")
 - Unknown or unsupported component types will be ignored by the renderer`,
 } as const
+
+export const USER_REQUEST_DELIMITERS = {
+  OPEN: '<user_request>',
+  CLOSE: '</user_request>',
+} as const

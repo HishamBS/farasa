@@ -18,7 +18,7 @@ import {
   AI_MARKUP,
   SEARCH_DEPTHS,
 } from '@/config/constants'
-import { PROMPTS } from '@/config/prompts'
+import { PROMPTS, USER_REQUEST_DELIMITERS } from '@/config/prompts'
 import { AppError } from '@/lib/utils/errors'
 import type { StreamChunk } from '@/schemas/message'
 import type { ToolCall, Usage } from '@/schemas/message'
@@ -151,7 +151,8 @@ export const chatRouter = router({
           yield modelChunk
         }
 
-        let userContent: string | ContentBlock[] = input.content
+        const wrappedContent = `${USER_REQUEST_DELIMITERS.OPEN}\n${input.content}\n${USER_REQUEST_DELIMITERS.CLOSE}`
+        let userContent: string | ContentBlock[] = wrappedContent
         if (input.attachmentIds.length > 0) {
           const statusChunk: StreamChunk = {
             type: STREAM_EVENTS.STATUS,
@@ -160,7 +161,7 @@ export const chatRouter = router({
           }
           yield statusChunk
 
-          const blocks: ContentBlock[] = [{ type: 'text', text: input.content }]
+          const blocks: ContentBlock[] = [{ type: 'text', text: wrappedContent }]
           const attachmentRows = await ctx.db
             .select()
             .from(attachments)
@@ -448,11 +449,15 @@ export const chatRouter = router({
           }
           yield doneChunk
       } catch (err) {
-        if (err instanceof TRPCError) throw err
+        if (err instanceof TRPCError) {
+          // Re-throw user-facing errors (4xx) unchanged; sanitize any internal errors
+          if (err.code !== 'INTERNAL_SERVER_ERROR') throw err
+          console.error('[chat.stream] Internal error:', err.message)
+          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: AppError.CHAT_PROCESSING })
+        }
 
-        const isDev = process.env.NODE_ENV === 'development'
         if (err instanceof Error) {
-          console.error('[chat.stream]', isDev ? err : err.message)
+          console.error('[chat.stream]', err.message)
         }
         const errorChunk: StreamChunk = {
           type: STREAM_EVENTS.ERROR,

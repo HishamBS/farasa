@@ -1,7 +1,7 @@
 import { neon } from '@neondatabase/serverless'
 import { drizzle as neonDrizzle } from 'drizzle-orm/neon-http'
 import { drizzle as postgresDrizzle } from 'drizzle-orm/postgres-js'
-import { type PgQueryResultHKT, PgDatabase } from 'drizzle-orm/pg-core'
+import { type PgQueryResultHKT, type PgDatabase } from 'drizzle-orm/pg-core'
 import postgres from 'postgres'
 import { env } from '@/config/env'
 import * as schema from './schema'

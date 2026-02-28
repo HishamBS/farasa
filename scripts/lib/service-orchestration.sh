@@ -227,6 +227,15 @@ start_hybrid_stack() {
     start_service_postgres_docker || return 1
     echo ""
 
+    if [[ ! -d "./drizzle" ]]; then
+        print_info "First run — generating migrations from schema..."
+        run_db_generate || return 1
+        echo ""
+    fi
+
+    run_db_migrate || return 1
+    echo ""
+
     start_service_dev || return 1
 
     echo ""

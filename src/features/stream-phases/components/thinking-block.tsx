@@ -78,11 +78,9 @@ export function ThinkingBlock({ thinking }: ThinkingBlockProps) {
             {...(shouldReduce ? {} : expand)}
             className="overflow-hidden"
           >
-            <div className="px-3 pb-3">
-              <p className="font-mono text-xs leading-relaxed text-[--text-muted] whitespace-pre-wrap">
-                {thinking.content}
-              </p>
-            </div>
+            <p className="max-h-48 overflow-y-auto px-3 py-2.5 font-mono text-xs leading-relaxed text-[--thinking]/50 whitespace-pre-wrap bg-[--thinking-bg] border border-[--thinking-border] rounded-xl border-t-0 rounded-t-sm">
+              {thinking.content}
+            </p>
           </motion.div>
         )}
         {!isExpanded && (

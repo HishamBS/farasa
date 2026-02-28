@@ -2,7 +2,8 @@
 
 import { useCallback, useRef } from 'react'
 import { trpcClient } from '@/trpc/client'
-import { STREAM_EVENTS } from '@/config/constants'
+import { trpc } from '@/trpc/provider'
+import { STREAM_EVENTS, STREAM_PHASES } from '@/config/constants'
 import { useStreamState } from '@/features/stream-phases/hooks/use-stream-state'
 import { AppError } from '@/lib/utils/errors'
 import type { ChatInput, StreamChunk } from '@/schemas/message'
@@ -11,10 +12,13 @@ import type { v0_8 } from '@a2ui-sdk/types'
 export function useChatStream() {
   const { state: streamState, dispatch, reset } = useStreamState()
   const abortRef = useRef<(() => void) | null>(null)
+  const lastInputRef = useRef<ChatInput | null>(null)
+  const utils = trpc.useUtils()
 
   const sendMessage = useCallback(
     (input: ChatInput) => {
       abortRef.current?.()
+      lastInputRef.current = input
       dispatch({ type: 'SAVE_INPUT', input })
       reset()
 
@@ -27,6 +31,11 @@ export function useChatStream() {
                 phase: chunk.phase,
                 message: chunk.message,
               })
+              if (chunk.phase === STREAM_PHASES.GENERATING_TITLE) {
+                void utils.conversation.list.invalidate()
+                const convId = lastInputRef.current?.conversationId
+                if (convId) void utils.conversation.getById.invalidate({ id: convId })
+              }
               break
             case STREAM_EVENTS.MODEL_SELECTED:
               dispatch({

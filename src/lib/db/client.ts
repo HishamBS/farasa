@@ -1,18 +1,28 @@
 import { neon } from '@neondatabase/serverless'
-import { drizzle } from 'drizzle-orm/neon-http'
+import { drizzle as neonDrizzle } from 'drizzle-orm/neon-http'
+import { drizzle as postgresDrizzle } from 'drizzle-orm/postgres-js'
+import { type PgQueryResultHKT, PgDatabase } from 'drizzle-orm/pg-core'
+import postgres from 'postgres'
 import { env } from '@/config/env'
 import * as schema from './schema'
 import * as relations from './relations'
+import { isNeonUrl } from './utils'
 
-// During build (SKIP_ENV_VALIDATION=1), use a syntactically valid placeholder so
-// neon() can initialize without throwing. No actual connection is made at init time.
+const fullSchema = { ...schema, ...relations }
+
+// During build (SKIP_ENV_VALIDATION=1), use a syntactically valid placeholder.
+// No actual connection is made at init time.
 const dbUrl =
   process.env.SKIP_ENV_VALIDATION === '1'
     ? 'postgresql://build:build@localhost:5432/build'
     : env.DATABASE_URL
 
-const sql = neon(dbUrl)
+function createDb(): PgDatabase<PgQueryResultHKT, typeof fullSchema> {
+  if (isNeonUrl(dbUrl)) {
+    return neonDrizzle(neon(dbUrl), { schema: fullSchema })
+  }
+  return postgresDrizzle(postgres(dbUrl), { schema: fullSchema })
+}
 
-export const db = drizzle(sql, { schema: { ...schema, ...relations } })
-
+export const db = createDb()
 export type DB = typeof db

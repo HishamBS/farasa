@@ -6,6 +6,7 @@ const envSchema = z.object({
     .min(32, 'AUTH_SECRET must be at least 32 characters. Run: bunx auth secret'),
   AUTH_GOOGLE_ID: z.string().min(1, 'AUTH_GOOGLE_ID is required'),
   AUTH_GOOGLE_SECRET: z.string().min(1, 'AUTH_GOOGLE_SECRET is required'),
+  AUTH_URL: z.string().url().optional(),
   OPENROUTER_API_KEY: z.string().min(1, 'OPENROUTER_API_KEY is required'),
   DATABASE_URL: z.string().url('DATABASE_URL must be a valid URL'),
   TAVILY_API_KEY: z

@@ -1,7 +1,7 @@
-import type { ChatCompletionTool } from 'openai/resources'
+import type { ToolDefinitionJson } from '@openrouter/sdk/models'
 import { TOOL_NAMES } from '@/config/constants'
 
-export const WEB_SEARCH_TOOL: ChatCompletionTool = {
+export const WEB_SEARCH_TOOL: ToolDefinitionJson = {
   type: 'function',
   function: {
     name: TOOL_NAMES.WEB_SEARCH,
@@ -20,4 +20,4 @@ export const WEB_SEARCH_TOOL: ChatCompletionTool = {
   },
 }
 
-export const ALL_TOOLS: ChatCompletionTool[] = [WEB_SEARCH_TOOL]
+export const ALL_TOOLS: ToolDefinitionJson[] = [WEB_SEARCH_TOOL]

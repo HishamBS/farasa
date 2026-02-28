@@ -14,7 +14,6 @@ import {
   AI_REASONING,
   AI_PARAMS,
   LIMITS,
-  OPENROUTER_FIELDS,
   AI_MARKUP,
   SEARCH_DEPTHS,
 } from '@/config/constants'
@@ -22,15 +21,13 @@ import { PROMPTS, USER_REQUEST_DELIMITERS } from '@/config/prompts'
 import { AppError } from '@/lib/utils/errors'
 import type { StreamChunk } from '@/schemas/message'
 import type { ToolCall, Usage } from '@/schemas/message'
+import type { Message, ToolResponseMessage } from '@openrouter/sdk/models'
 
 type ContentBlock =
   | { type: 'text'; text: string }
-  | { type: 'image_url'; image_url: { url: string } }
+  | { type: 'image_url'; imageUrl: { url: string } }
 
-type OAIMessage =
-  | { role: 'system'; content: string }
-  | { role: 'user'; content: string | ContentBlock[] }
-  | { role: 'assistant'; content: string }
+type UserMessageContent = string | ContentBlock[]
 
 export const chatRouter = router({
   stream: rateLimitedChatProcedure.input(ChatInputSchema).subscription(async function* ({
@@ -147,7 +144,7 @@ export const chatRouter = router({
       }
 
       const wrappedContent = `${USER_REQUEST_DELIMITERS.OPEN}\n${input.content}\n${USER_REQUEST_DELIMITERS.CLOSE}`
-      let userContent: string | ContentBlock[] = wrappedContent
+      let userContent: UserMessageContent = wrappedContent
       if (input.attachmentIds.length > 0) {
         const statusChunk: StreamChunk = {
           type: STREAM_EVENTS.STATUS,
@@ -171,7 +168,7 @@ export const chatRouter = router({
           if (att.fileType.startsWith('image/')) {
             blocks.push({
               type: 'image_url',
-              image_url: { url: att.storageUrl },
+              imageUrl: { url: att.storageUrl },
             })
           } else {
             blocks.push({
@@ -256,23 +253,24 @@ export const chatRouter = router({
 
       const systemContent =
         PROMPTS.CHAT_SYSTEM_PROMPT + '\n\n' + PROMPTS.A2UI_SYSTEM_PROMPT + searchContext
-      const oaiMessages: OAIMessage[] = [
+      const sdkMessages: Message[] = [
         { role: 'system', content: systemContent },
-        { role: 'user', content: userContent },
+        { role: 'user', content: userContent as string },
       ]
 
       const { openrouter } = await import('@/lib/ai/client')
       const { ALL_TOOLS } = await import('@/lib/ai/tools')
-      const stream = await openrouter.chat.completions.create(
+      const stream = await openrouter.chat.send(
         {
-          model: selectedModel,
-          messages: oaiMessages,
-          stream: true,
-          max_tokens: AI_PARAMS.CHAT_MAX_TOKENS,
-          stream_options: { include_usage: true },
-          ...(input.mode === CHAT_MODES.CHAT
-            ? { tools: ALL_TOOLS, tool_choice: 'auto' as const }
-            : {}),
+          chatGenerationParams: {
+            model: selectedModel,
+            messages: sdkMessages,
+            stream: true,
+            maxTokens: AI_PARAMS.CHAT_MAX_TOKENS,
+            ...(input.mode === CHAT_MODES.CHAT
+              ? { tools: ALL_TOOLS, toolChoice: 'auto' as const }
+              : {}),
+          },
         },
         { signal },
       )
@@ -290,9 +288,9 @@ export const chatRouter = router({
       for await (const chunk of stream) {
         if (chunk.usage) {
           const parsedUsage = UsageSchema.safeParse({
-            promptTokens: chunk.usage.prompt_tokens ?? 0,
-            completionTokens: chunk.usage.completion_tokens ?? 0,
-            totalTokens: chunk.usage.total_tokens ?? 0,
+            promptTokens: chunk.usage.promptTokens ?? 0,
+            completionTokens: chunk.usage.completionTokens ?? 0,
+            totalTokens: chunk.usage.totalTokens ?? 0,
           })
           if (parsedUsage.success) {
             usage = parsedUsage.data
@@ -302,25 +300,20 @@ export const chatRouter = router({
         const delta = chunk.choices[0]?.delta
         if (!delta) continue
 
-        // justified: OpenRouter thinking tokens are not in the standard OpenAI delta type
-        const deltaAsRecord = delta as Record<string, unknown>
-        if (
-          typeof deltaAsRecord[OPENROUTER_FIELDS.THINKING] === 'string' &&
-          deltaAsRecord[OPENROUTER_FIELDS.THINKING]
-        ) {
+        if (delta.reasoning) {
           if (!thinkingStartedAt) thinkingStartedAt = Date.now()
-          thinkingContent += deltaAsRecord[OPENROUTER_FIELDS.THINKING] as string
+          thinkingContent += delta.reasoning
           const thinkTokenChunk: StreamChunk = {
             type: STREAM_EVENTS.THINKING,
-            content: deltaAsRecord[OPENROUTER_FIELDS.THINKING] as string,
+            content: delta.reasoning,
             isComplete: false,
           }
           yield thinkTokenChunk
           continue
         }
 
-        if (delta.tool_calls) {
-          for (const tc of delta.tool_calls) {
+        if (delta.toolCalls) {
+          for (const tc of delta.toolCalls) {
             const buf = toolCallArgBuffers.get(tc.index) ?? {
               id: tc.id ?? '',
               name: tc.function?.name ?? '',
@@ -402,17 +395,16 @@ export const chatRouter = router({
 
       // Handle model-initiated tool calls (chat mode autonomous search)
       if (toolCallArgBuffers.size > 0 && input.mode === CHAT_MODES.CHAT) {
-        const assistantToolCallMessage: OAIMessage & { tool_calls?: unknown[] } = {
+        const assistantToolCallMessage: Message = {
           role: 'assistant',
           content: fullText || '',
-          tool_calls: [...toolCallArgBuffers.entries()].map(([index, tc]) => ({
-            index,
+          toolCalls: [...toolCallArgBuffers.entries()].map(([, tc]) => ({
             id: tc.id,
             type: 'function' as const,
             function: { name: tc.name, arguments: tc.args },
           })),
         }
-        const toolResultMessages: (OAIMessage & { tool_call_id?: string; role: 'tool' })[] = []
+        const toolResultMessages: ToolResponseMessage[] = []
 
         for (const [, tc] of toolCallArgBuffers.entries()) {
           if (tc.name === TOOL_NAMES.WEB_SEARCH) {
@@ -458,36 +450,37 @@ export const chatRouter = router({
               .map((r) => `[${r.title}](${r.url})\n${r.snippet}`)
               .join('\n\n')
             toolResultMessages.push({
-              role: 'tool' as const,
-              tool_call_id: tc.id,
+              role: 'tool',
               content: resultsText,
-            } as OAIMessage & { tool_call_id?: string; role: 'tool' })
+              toolCallId: tc.id,
+            })
           }
         }
 
         if (toolResultMessages.length > 0) {
           fullText = ''
-          const followUpMessages = [
-            ...oaiMessages,
-            assistantToolCallMessage as unknown as OAIMessage,
-            ...(toolResultMessages as unknown as OAIMessage[]),
+          const followUpMessages: Message[] = [
+            ...sdkMessages,
+            assistantToolCallMessage,
+            ...toolResultMessages,
           ]
-          const followUpStream = await openrouter.chat.completions.create(
+          const followUpStream = await openrouter.chat.send(
             {
-              model: selectedModel,
-              messages: followUpMessages,
-              stream: true,
-              max_tokens: AI_PARAMS.CHAT_MAX_TOKENS,
-              stream_options: { include_usage: true },
+              chatGenerationParams: {
+                model: selectedModel,
+                messages: followUpMessages,
+                stream: true,
+                maxTokens: AI_PARAMS.CHAT_MAX_TOKENS,
+              },
             },
             { signal },
           )
           for await (const fchunk of followUpStream) {
             if (fchunk.usage) {
               const parsedUsage = UsageSchema.safeParse({
-                promptTokens: fchunk.usage.prompt_tokens ?? 0,
-                completionTokens: fchunk.usage.completion_tokens ?? 0,
-                totalTokens: fchunk.usage.total_tokens ?? 0,
+                promptTokens: fchunk.usage.promptTokens ?? 0,
+                completionTokens: fchunk.usage.completionTokens ?? 0,
+                totalTokens: fchunk.usage.totalTokens ?? 0,
               })
               if (parsedUsage.success) usage = parsedUsage.data
             }

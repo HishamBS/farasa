@@ -5,23 +5,34 @@ import { ModelSelectionSchema } from '@/schemas/model'
 import type { ModelSelection } from '@/schemas/model'
 
 export async function routeModel(prompt: string): Promise<ModelSelection> {
-  const response = await openrouter.chat.completions.create({
-    model: ROUTER_MODEL,
-    messages: [
-      { role: 'system', content: PROMPTS.ROUTER_SYSTEM_PROMPT },
-      {
-        role: 'user',
-        content: `<user_request>${prompt}</user_request>`,
-      },
-    ],
-    response_format: { type: 'json_object' },
-    max_tokens: AI_PARAMS.ROUTER_MAX_TOKENS,
-    temperature: AI_PARAMS.ROUTER_TEMPERATURE,
+  const response = await openrouter.chat.send({
+    chatGenerationParams: {
+      model: ROUTER_MODEL,
+      messages: [
+        { role: 'system', content: PROMPTS.ROUTER_SYSTEM_PROMPT },
+        {
+          role: 'user',
+          content: `<user_request>${prompt}</user_request>`,
+        },
+      ],
+      responseFormat: { type: 'json_object' },
+      maxTokens: AI_PARAMS.ROUTER_MAX_TOKENS,
+      temperature: AI_PARAMS.ROUTER_TEMPERATURE,
+    },
   })
 
+  if (!('choices' in response)) {
+    return {
+      selectedModel: DEFAULT_MODEL,
+      category: MODEL_CATEGORIES.GENERAL,
+      reasoning: 'Auto-router fallback — unexpected response type',
+    }
+  }
+
   const raw = response.choices[0]?.message.content ?? '{}'
+  const content = typeof raw === 'string' ? raw : '{}'
   try {
-    return ModelSelectionSchema.parse(JSON.parse(raw))
+    return ModelSelectionSchema.parse(JSON.parse(content))
   } catch (error) {
     console.error('[router] Model selection parse failed, using default:', error)
     return {

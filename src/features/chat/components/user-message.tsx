@@ -56,7 +56,7 @@ export function UserMessage({ content, attachments }: UserMessageProps) {
             })}
           </div>
         )}
-        <p className="px-4 py-2.5 text-sm leading-relaxed text-[--text-primary] whitespace-pre-wrap">
+        <p className="px-3.5 py-2.5 text-sm leading-relaxed text-[--text-primary] whitespace-pre-wrap">
           {content}
         </p>
       </div>

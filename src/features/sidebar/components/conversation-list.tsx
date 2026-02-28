@@ -46,11 +46,11 @@ export function ConversationList({ search }: ConversationListProps) {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-1 px-2">
+      <div className="flex flex-col gap-1 px-1.5">
         {Array.from({ length: UX.SIDEBAR_SKELETON_COUNT }).map((_, i) => (
           <div
             key={`skeleton-${i}`}
-            className="h-11 rounded-lg bg-[--bg-surface-hover] animate-pulse"
+            className="h-11 rounded-xl bg-[--bg-surface-hover] animate-pulse"
           />
         ))}
       </div>
@@ -66,7 +66,7 @@ export function ConversationList({ search }: ConversationListProps) {
   }
 
   return (
-    <div className="flex flex-col gap-0.5 px-2">
+    <div className="flex flex-col gap-0.5 px-1.5 pb-3">
       {conversations.map((conv) => (
         <ConversationItem
           key={conv.id}

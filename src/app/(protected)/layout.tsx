@@ -28,7 +28,11 @@ export default function ProtectedLayout({ children }: { children: ReactNode }) {
       <StreamPhaseProvider>
         <div className="flex h-screen overflow-hidden bg-[--bg-root]">
           <SidebarContainer isOpen={isOpen} onClose={close} onOpen={open}>
-            <SidebarHeader searchValue={searchValue} onSearchChange={setSearchValue} />
+            <SidebarHeader
+              searchValue={searchValue}
+              onSearchChange={setSearchValue}
+              onClose={close}
+            />
             <div className="flex-1 overflow-y-auto py-2">
               <ConversationList search={searchValue} />
             </div>

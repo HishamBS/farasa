@@ -68,7 +68,7 @@ export function MessageList({
         <EmptyState onSelect={onSuggestionSelect} />
       ) : (
         <div
-          className="relative mx-auto max-w-2xl px-4 lg:px-6"
+          className="relative mx-auto max-w-2xl px-5 lg:px-6"
           style={{ height: `${virtualizer.getTotalSize()}px` }}
         >
           {virtualizer.getVirtualItems().map((virtualItem) => {

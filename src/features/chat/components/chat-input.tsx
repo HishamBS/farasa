@@ -147,7 +147,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
   return (
     // env(safe-area-inset-bottom) prevents the input from being obscured on notched devices
     <div className="border-t border-[--border-subtle] bg-[--bg-root] [padding-bottom:env(safe-area-inset-bottom)]">
-      <div className="mx-auto max-w-2xl px-4 pb-4 pt-2 lg:px-6">
+      <div className="mx-auto max-w-2xl px-5 pb-4 pt-2.5 lg:px-6">
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -175,7 +175,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
             </div>
           )}
 
-          {/* max-h-48 matches UX.TEXTAREA_MAX_HEIGHT_PIXELS */}
+          {/* max-h-[7.5rem] matches UX.TEXTAREA_MAX_HEIGHT_PIXELS (120px) */}
           <textarea
             ref={textareaRef}
             value={content}
@@ -183,7 +183,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
             onKeyDown={handleKey}
             placeholder={APP_CONFIG.CHAT_PLACEHOLDER}
             rows={1}
-            className="min-h-6 w-full resize-none bg-transparent text-sm text-[--text-primary] placeholder:text-[--text-ghost] outline-none max-h-48"
+            className="min-h-6 w-full resize-none bg-transparent text-sm text-[--text-primary] placeholder:text-[--text-ghost] outline-none max-h-[7.5rem]"
             disabled={isStreaming}
           />
 

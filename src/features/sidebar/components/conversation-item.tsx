@@ -175,7 +175,7 @@ export function ConversationItem({
     <>
       <motion.div
         className={cn(
-          'group relative flex items-center gap-2 rounded-lg px-2.5 py-2 cursor-pointer min-h-11',
+          'group relative flex items-center gap-2 rounded-xl px-2.5 py-2 cursor-pointer min-h-11',
           'transition-colors hover:bg-[--bg-surface-hover]',
           isActive && 'bg-[--bg-surface-hover]',
         )}
@@ -208,7 +208,14 @@ export function ConversationItem({
               className="w-full bg-transparent text-sm text-[--text-primary] outline-none border-b border-[--accent]"
             />
           ) : (
-            <p className="truncate text-sm text-[--text-primary]">{title}</p>
+            <p
+              className={cn(
+                'truncate text-sm',
+                isActive ? 'text-[--text-primary]' : 'text-[--text-secondary]',
+              )}
+            >
+              {title}
+            </p>
           )}
           <p className="text-xs text-[--text-ghost]">{formattedDate}</p>
         </div>

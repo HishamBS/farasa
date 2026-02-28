@@ -16,7 +16,7 @@ export function UserMenu() {
   }, [])
 
   return (
-    <div className="flex items-center gap-2 border-t border-[--border-subtle] px-4 py-3">
+    <div className="flex items-center gap-2 border-t border-[--border-subtle] px-3 py-2.5">
       {session?.user?.image ? (
         <Image
           src={session.user.image}

@@ -20,7 +20,7 @@ export default function ProtectedLayout({ children }: { children: ReactNode }) {
   return (
     <ChatModeProvider>
       <div className="flex h-screen overflow-hidden bg-[--bg-root]">
-        <SidebarContainer isOpen={isOpen} onClose={close}>
+        <SidebarContainer isOpen={isOpen} onClose={close} onOpen={open}>
           <SidebarHeader searchValue={searchValue} onSearchChange={setSearchValue} />
           <div className="flex-1 overflow-y-auto py-2">
             <ConversationList search={searchValue} />

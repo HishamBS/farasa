@@ -9,6 +9,7 @@ export type SidebarProps = {
   children: ReactNode
   isOpen: boolean
   onClose: () => void
+  onOpen: () => void
 }
 
 export type TitlebarProps = {

@@ -2,18 +2,38 @@
 
 import { useCallback } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
+import type { PanInfo } from 'framer-motion'
 import { slideInLeft } from '@/lib/utils/motion'
 import { cn } from '@/lib/utils/cn'
-import { MOTION } from '@/config/constants'
+import { MOTION, UX } from '@/config/constants'
 import type { SidebarProps } from '@/types/layout'
 
-export function SidebarContainer({ children, isOpen, onClose }: SidebarProps) {
+export function SidebarContainer({ children, isOpen, onClose, onOpen }: SidebarProps) {
   const shouldReduce = useReducedMotion()
 
   const handleBackdropClick = useCallback(() => onClose(), [onClose])
 
+  const handleSwipeDragEnd = useCallback(
+    (_event: PointerEvent, info: PanInfo) => {
+      if (info.offset.x > UX.SIDEBAR_SWIPE_THRESHOLD && info.velocity.x > 0) {
+        onOpen()
+      }
+    },
+    [onOpen],
+  )
+
   return (
     <>
+      {!isOpen && (
+        <motion.div
+          className="fixed left-0 top-0 z-30 h-full w-4 touch-none lg:hidden"
+          drag="x"
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.3}
+          onDragEnd={handleSwipeDragEnd}
+        />
+      )}
+
       <AnimatePresence>
         {isOpen && (
           <motion.div

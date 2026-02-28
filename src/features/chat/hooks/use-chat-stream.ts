@@ -9,6 +9,12 @@ import { AppError } from '@/lib/utils/errors'
 import type { ChatInput, StreamChunk } from '@/schemas/message'
 import type { v0_8 } from '@a2ui-sdk/types'
 
+function isA2UIMessage(value: unknown): value is v0_8.A2UIMessage {
+  if (value === null || typeof value !== 'object') return false
+  if (!('type' in value)) return false
+  return typeof value['type'] === 'string'
+}
+
 export function useChatStream() {
   const { state: streamState, dispatch, reset } = useStreamState()
   const abortRef = useRef<(() => void) | null>(null)
@@ -71,16 +77,8 @@ export function useChatStream() {
             case STREAM_EVENTS.A2UI:
               try {
                 const parsed: unknown = JSON.parse(chunk.jsonl)
-                if (
-                  parsed !== null &&
-                  typeof parsed === 'object' &&
-                  'type' in parsed &&
-                  typeof (parsed as Record<string, unknown>)['type'] === 'string'
-                ) {
-                  dispatch({
-                    type: 'A2UI_MESSAGE',
-                    message: parsed as v0_8.A2UIMessage,
-                  })
+                if (isA2UIMessage(parsed)) {
+                  dispatch({ type: 'A2UI_MESSAGE', message: parsed })
                 }
               } catch {
                 // Non-fatal: malformed A2UI JSONL is skipped

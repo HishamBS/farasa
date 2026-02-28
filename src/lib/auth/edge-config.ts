@@ -14,4 +14,9 @@ export const edgeAuthConfig: NextAuthConfig = {
   pages: {
     signIn: ROUTES.LOGIN,
   },
+  callbacks: {
+    authorized({ auth }) {
+      return !!auth?.user
+    },
+  },
 }

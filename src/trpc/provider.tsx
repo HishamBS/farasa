@@ -18,6 +18,9 @@ function makeQueryClient() {
     defaultOptions: {
       queries: {
         staleTime: UX.QUERY_STALE_TIME_MS,
+        gcTime: UX.QUERY_GC_TIME_MS,
+        refetchOnWindowFocus: false,
+        retry: false,
       },
     },
   })

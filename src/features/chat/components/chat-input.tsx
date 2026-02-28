@@ -19,6 +19,7 @@ import { useChatInput } from '../hooks/use-chat-input'
 import { useFileUpload } from '../hooks/use-file-upload'
 import { useChatMode } from '../context/chat-mode-context'
 import { ModelSelector } from './model-selector'
+import { ModeToggle } from './mode-toggle'
 import { AttachmentPreview } from './attachment-preview'
 import { MicButton } from '@/features/voice/components/mic-button'
 import type { ModelSelectorHandle } from './model-selector'
@@ -59,13 +60,12 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     setExternalContent,
   } = useChatInput(initialModel)
 
-  const { mode } = useChatMode()
+  const { mode, setMode } = useChatMode()
 
   const { uploadFile, uploadStates, removeFile } = useFileUpload()
 
   useImperativeHandle(ref, () => ({ setContent: setExternalContent }))
 
-  // Cmd/Ctrl+K opens the model selector from anywhere in the page
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -145,22 +145,21 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
   )
 
   return (
-    // env(safe-area-inset-bottom) prevents the input from being obscured on notched devices
     <div className="border-t border-[--border-subtle] bg-[--bg-root] [padding-bottom:env(safe-area-inset-bottom)]">
-      <div className="mx-auto max-w-2xl px-5 pb-4 pt-2.5 lg:px-6">
+      <div className="mx-auto max-w-[var(--content-max-width)] px-5 pb-4 pt-2.5 lg:px-6">
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           className={cn(
-            'flex flex-col gap-2 rounded-2xl border bg-[--bg-glass] py-[10px] pr-[10px] pl-[14px] backdrop-blur-xl transition-all shadow-[0_2px_20px_rgba(0,0,0,0.2)]',
+            'rounded-2xl border bg-[--bg-glass] px-3 py-2.5 shadow-[0_2px_20px_rgba(0,0,0,0.2)] backdrop-blur-2xl',
             isDragging
               ? 'border-[--accent] ring-4 ring-[--accent-muted]'
               : 'border-[--border-default] focus-within:border-[--accent-focus]',
           )}
         >
           {uploadStates.size > 0 && (
-            <div className="flex flex-col gap-1">
+            <div className="mb-2 flex flex-col gap-1">
               {[...uploadStates.entries()].map(([fileName, state]) => (
                 <AttachmentPreview
                   key={fileName}
@@ -175,30 +174,17 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
             </div>
           )}
 
-          {/* max-h-[7.5rem] matches UX.TEXTAREA_MAX_HEIGHT_PIXELS (120px) */}
-          <textarea
-            ref={textareaRef}
-            value={content}
-            onChange={handleContentChange}
-            onKeyDown={handleKey}
-            placeholder={APP_CONFIG.CHAT_PLACEHOLDER}
-            rows={1}
-            className="min-h-6 w-full resize-none bg-transparent text-sm text-[--text-primary] placeholder:text-[--text-ghost] outline-none max-h-[7.5rem]"
-            disabled={isStreaming}
-          />
-
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <ModelSelector
-                ref={modelSelectorRef}
-                value={selectedModel}
-                onChange={setSelectedModel}
-              />
-            </div>
-
-            <span className="hidden text-xs text-[--text-ghost] sm:block">
-              {UI_TEXT.CHAT_KEYBOARD_HINT}
-            </span>
+          <div className="flex items-end gap-2">
+            <textarea
+              ref={textareaRef}
+              value={content}
+              onChange={handleContentChange}
+              onKeyDown={handleKey}
+              placeholder={APP_CONFIG.CHAT_PLACEHOLDER}
+              rows={1}
+              className="min-h-6 max-h-[7.5rem] w-full resize-none bg-transparent text-sm text-[--text-primary] placeholder:text-[--text-muted] outline-none"
+              disabled={isStreaming}
+            />
 
             <div className="flex items-center gap-1">
               <input
@@ -209,14 +195,16 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
                 className="hidden"
                 multiple
               />
+
               <button
                 type="button"
                 onClick={handleAttachClick}
-                className="flex size-8 items-center justify-center rounded-[9px] text-[--text-ghost] transition-colors hover:text-[--text-secondary]"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-secondary]"
                 aria-label="Attach file"
               >
                 <Paperclip className="size-4" />
               </button>
+
               <MicButton onTranscript={handleTranscript} />
 
               <AnimatePresence mode="wait">
@@ -237,9 +225,9 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
                     onClick={handleSubmit}
                     disabled={!canSend}
                     className={cn(
-                      'flex min-h-11 min-w-11 items-center justify-center rounded-[9px] transition-all hover:scale-[1.08]',
+                      'flex min-h-8 min-w-8 items-center justify-center rounded-lg transition-transform',
                       canSend
-                        ? 'bg-[--accent] text-[--bg-root] hover:bg-[--accent-hover]'
+                        ? 'bg-[--accent] text-[--bg-root] hover:scale-[1.08] hover:bg-[--accent-hover]'
                         : 'bg-[--bg-surface-hover] text-[--text-ghost]',
                     )}
                     {...(shouldReduce ? {} : scaleIn)}
@@ -254,6 +242,32 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
               </AnimatePresence>
             </div>
           </div>
+
+          <div className="mt-1.5 flex items-center gap-2">
+            <ModelSelector
+              ref={modelSelectorRef}
+              value={selectedModel}
+              onChange={setSelectedModel}
+            />
+            <ModeToggle value={mode} onChange={setMode} />
+
+            <button
+              type="button"
+              onClick={handleAttachClick}
+              className="hidden items-center gap-1 rounded-md px-2 py-1 text-xs text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-secondary] sm:inline-flex"
+            >
+              <Paperclip size={12} />
+              Attach file
+            </button>
+
+            <span className="ml-auto hidden text-xs text-[--text-ghost] sm:block">
+              {UI_TEXT.CHAT_KEYBOARD_HINT}
+            </span>
+          </div>
+
+          {mode === 'search' && (
+            <div className="mt-1 text-xs text-[--text-muted]">Search mode is active.</div>
+          )}
         </div>
       </div>
     </div>

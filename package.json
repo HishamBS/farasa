@@ -17,7 +17,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:squash": "rm -rf ./drizzle && drizzle-kit generate",
+    "db:squash": "rm -rf ./drizzle && drizzle-kit generate --name=initial_schema",
     "db:reset": "docker compose -f docker/docker-compose.dev.yml down -v && docker compose -f docker/docker-compose.dev.yml up -d postgres && sleep 3 && bun run db:squash && bun run db:migrate"
   },
   "lint-staged": {

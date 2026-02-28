@@ -16,7 +16,9 @@ node_modules/
 out/
 dist/
 build/
-public/sw.js
+# Serwist generated service worker
+/public/sw.js
+/public/sw.js.map
 
 # Environment variables — never commit
 .env

@@ -18,7 +18,7 @@ function SuggestionChip({ text, onSelect }: SuggestionChipProps) {
     <motion.button
       type="button"
       onClick={handleClick}
-      className="rounded-xl border border-[--border-default] bg-[--bg-surface] p-3 text-left text-sm text-[--text-secondary] transition-colors hover:border-[--accent] hover:text-[--text-primary]"
+      className="rounded-2xl border border-white/10 bg-[--bg-surface] p-3 text-left text-sm text-[--text-secondary] transition-colors hover:border-white/20 hover:bg-[--bg-surface-hover] hover:text-[--text-primary]"
       {...(shouldReduce ? {} : fadeInUp)}
     >
       {text}

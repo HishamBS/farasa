@@ -176,8 +176,10 @@ export function ConversationItem({
       <motion.div
         className={cn(
           'group relative flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2',
-          'transition-colors hover:bg-[--bg-surface-hover]',
-          isActive && 'bg-[--bg-surface-active]',
+          'transition-all hover:bg-[--bg-surface-hover]',
+          isActive &&
+            'bg-[--bg-glass-strong] shadow-[0_2px_10px_rgba(0,0,0,0.1)] shadow-black/30 border border-[--border-subtle]',
+          !isActive && 'border border-transparent',
         )}
         onClick={handleClick}
         onContextMenu={(e) => {

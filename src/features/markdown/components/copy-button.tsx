@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { Check, Copy } from 'lucide-react'
 import { UX } from '@/config/constants'
 
 type CopyButtonProps = {
@@ -21,10 +20,9 @@ export function CopyButton({ code }: CopyButtonProps) {
     <button
       type="button"
       onClick={handleCopy}
-      className="flex items-center gap-1 text-xs text-[--text-muted] transition-colors hover:text-[--text-primary]"
+      className="text-[11px] text-[--text-ghost] transition-colors hover:text-[--text-secondary]"
       aria-label={copied ? 'Copied' : 'Copy code'}
     >
-      {copied ? <Check size={12} /> : <Copy size={12} />}
       {copied ? 'Copied' : 'Copy'}
     </button>
   )

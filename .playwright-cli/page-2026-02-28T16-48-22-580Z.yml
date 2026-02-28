@@ -1,0 +1,17 @@
+- generic [active] [ref=e1]:
+  - button "Install App" [ref=e21]:
+    - img [ref=e22]
+    - text: Install App
+  - main [ref=e2]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - generic [ref=e10]: f
+        - heading "farasa" [level=1] [ref=e11]
+        - paragraph [ref=e12]: Your intelligent AI assistant
+      - button "Continue with Google" [ref=e13]:
+        - img [ref=e14]
+        - text: Continue with Google
+      - paragraph [ref=e19]: By continuing, you agree to our terms of service
+  - button "Open Next.js Dev Tools" [ref=e30] [cursor=pointer]:
+    - img [ref=e31]
+  - alert [ref=e34]

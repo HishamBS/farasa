@@ -28,7 +28,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{const t=localStorage.getItem('theme');document.documentElement.setAttribute('data-theme',t??'${APP_CONFIG.DEFAULT_THEME}')}catch(e){}`,
+            __html: `try{const t=localStorage.getItem('theme')??'${APP_CONFIG.DEFAULT_THEME}';document.documentElement.setAttribute('data-theme',t);document.documentElement.classList.toggle('dark',t==='dark')}catch(e){}`,
           }}
         />
       </head>

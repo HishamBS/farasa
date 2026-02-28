@@ -1,5 +1,5 @@
 import { openrouter } from './client'
-import { ROUTER_MODEL, AI_PARAMS } from '@/config/constants'
+import { ROUTER_MODEL, DEFAULT_MODEL, AI_PARAMS, MODEL_CATEGORIES } from '@/config/constants'
 import { PROMPTS } from '@/config/prompts'
 import { ModelSelectionSchema } from '@/schemas/model'
 import type { ModelSelection } from '@/schemas/model'
@@ -20,5 +20,14 @@ export async function routeModel(prompt: string): Promise<ModelSelection> {
   })
 
   const raw = response.choices[0]?.message.content ?? '{}'
-  return ModelSelectionSchema.parse(JSON.parse(raw))
+  try {
+    return ModelSelectionSchema.parse(JSON.parse(raw))
+  } catch (error) {
+    console.error('[router] Model selection parse failed, using default:', error)
+    return {
+      selectedModel: DEFAULT_MODEL,
+      category: MODEL_CATEGORIES.GENERAL,
+      reasoning: 'Auto-router fallback — parse error',
+    }
+  }
 }

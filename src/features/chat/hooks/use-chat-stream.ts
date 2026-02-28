@@ -107,7 +107,7 @@ export function useChatStream() {
 
       abortRef.current = () => subscription.unsubscribe()
     },
-    [dispatch, reset],
+    [dispatch, reset, utils],
   )
 
   const abort = useCallback(() => {

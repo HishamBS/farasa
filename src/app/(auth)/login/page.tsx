@@ -2,11 +2,9 @@
 
 import { useCallback } from 'react'
 import { signIn } from 'next-auth/react'
-import { motion } from 'framer-motion'
-import { fadeInUp, scaleIn, staggerContainer, hoverPress } from '@/lib/utils/motion'
-import { useReducedMotion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
+import { fadeInUp, scaleIn } from '@/lib/utils/motion'
 import { ROUTES } from '@/config/routes'
-import { MOTION } from '@/config/constants'
 
 export default function LoginPage() {
   const shouldReduce = useReducedMotion()
@@ -16,54 +14,27 @@ export default function LoginPage() {
   }, [])
 
   return (
-    <div className="relative w-full max-w-sm px-4">
-      <div className="absolute inset-0 -z-10 overflow-hidden rounded-3xl">
-        <motion.div
-          className="absolute inset-0 bg-gradient-to-br from-[--accent-muted] via-transparent to-[--thinking-bg]"
-          animate={shouldReduce ? {} : { opacity: [0.4, 0.7, 0.4] }}
-          transition={{
-            duration: MOTION.DURATION_BACKGROUND_LOOP,
-            repeat: MOTION.REPEAT_INFINITE,
-            ease: MOTION.EASING_IN_OUT,
-          }}
-        />
-      </div>
-
+    <div className="relative z-10 w-full max-w-sm px-4">
       <motion.div
-        className="relative rounded-2xl border border-[--border-default] bg-[--bg-glass] p-8 backdrop-blur-xl shadow-2xl"
+        className="rounded-2xl border border-[--border-default] bg-[--bg-shell] p-8 shadow-2xl shadow-black/30 backdrop-blur-2xl"
         {...(shouldReduce ? {} : fadeInUp)}
       >
         <motion.div
           className="mb-8 flex flex-col items-center gap-2"
-          {...(shouldReduce ? {} : staggerContainer)}
+          {...(shouldReduce ? {} : scaleIn)}
         >
-          <motion.div {...(shouldReduce ? {} : scaleIn)}>
-            <div className="mb-1 size-10 rounded-xl bg-[--accent-muted] flex items-center justify-center">
-              <span className="text-lg font-bold text-[--accent]">f</span>
-            </div>
-          </motion.div>
+          <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-xl bg-[--accent-muted]">
+            <span className="text-lg font-bold text-[--accent]">f</span>
+          </div>
 
-          <motion.h1
-            className="text-2xl font-semibold tracking-tight text-[--text-primary]"
-            {...(shouldReduce ? {} : fadeInUp)}
-          >
-            farasa
-          </motion.h1>
-
-          <motion.p
-            className="text-sm text-[--text-muted] text-center"
-            {...(shouldReduce ? {} : fadeInUp)}
-          >
-            Your intelligent AI assistant
-          </motion.p>
+          <h1 className="text-2xl font-semibold tracking-tight text-[--text-primary]">farasa</h1>
+          <p className="text-sm text-[--text-muted]">Your intelligent AI workspace</p>
         </motion.div>
 
-        <motion.button
+        <button
           type="button"
           onClick={handleGoogleSignIn}
-          className="flex w-full items-center justify-center gap-3 rounded-xl border border-[--border-default] bg-[--bg-surface] px-4 py-3 text-sm font-medium text-[--text-primary] transition-colors hover:border-[--accent] hover:bg-[--bg-surface-hover] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--accent] min-h-11"
-          {...(shouldReduce ? {} : fadeInUp)}
-          {...(shouldReduce ? {} : hoverPress)}
+          className="flex min-h-11 w-full items-center justify-center gap-3 rounded-xl border border-[--border-default] bg-[--bg-surface] px-4 py-3 text-sm font-medium text-[--text-primary] transition-colors hover:border-[--accent-glow] hover:bg-[--bg-surface-hover]"
         >
           <svg className="size-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
             <path
@@ -84,14 +55,11 @@ export default function LoginPage() {
             />
           </svg>
           Continue with Google
-        </motion.button>
+        </button>
 
-        <motion.p
-          className="mt-6 text-center text-xs text-[--text-ghost]"
-          {...(shouldReduce ? {} : fadeInUp)}
-        >
+        <p className="mt-6 text-center text-xs text-[--text-ghost]">
           By continuing, you agree to our terms of service
-        </motion.p>
+        </p>
       </motion.div>
     </div>
   )

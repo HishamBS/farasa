@@ -421,6 +421,15 @@ custom properties in `src/styles/themes.css`. Components reference `var(--bg-sur
 `var(--accent)`, never hardcoded hex values or Tailwind color utilities. Dark/light mode is a
 single class toggle on `:root` with zero JavaScript layout flash.
 
+**Whisper UI language** — The protected chat experience follows the `mockups/1-whisper.html`
+visual grammar: glass sidebar shell, editorial assistant prose, compact titlebar, and explicit
+phase rail (`Routed → Thinking → Responding → Done`). Parity checkpoints and capture workflow are
+documented in:
+
+- `docs/WHISPER_UI_PARITY_CHECKLIST.md`
+- `docs/WHISPER_VISUAL_REGRESSION.md`
+- `scripts/whisper-visual-regression.mjs`
+
 ### Trade-offs
 
 | Decision      | Chosen         | Alternative    | Rationale                                            |

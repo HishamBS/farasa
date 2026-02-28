@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { usePathname } from 'next/navigation'
 import { Download } from 'lucide-react'
+import { ROUTES } from '@/config/routes'
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>
@@ -9,6 +11,7 @@ type BeforeInstallPromptEvent = Event & {
 }
 
 export function InstallPrompt() {
+  const pathname = usePathname()
   const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null)
   const [isDismissed, setIsDismissed] = useState(false)
 
@@ -41,7 +44,7 @@ export function InstallPrompt() {
     setIsDismissed(true)
   }, [promptEvent])
 
-  if (!promptEvent || isDismissed) return null
+  if (!promptEvent || isDismissed || pathname.startsWith(ROUTES.CHAT)) return null
 
   return (
     <div className="fixed bottom-4 right-4 z-50">

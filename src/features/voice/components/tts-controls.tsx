@@ -25,7 +25,7 @@ export function TTSControls({ content }: TTSControlsProps) {
     <button
       type="button"
       onClick={handleClick}
-      className="flex min-h-11 min-w-11 items-center justify-center text-[--text-ghost] transition-colors hover:text-[--text-muted]"
+      className="flex min-h-8 min-w-8 items-center justify-center rounded-md text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-secondary]"
       aria-label={isSpeaking ? 'Stop reading' : 'Read aloud'}
     >
       {isSpeaking ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}

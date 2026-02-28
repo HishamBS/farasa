@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3010",
-    "build": "next build",
+    "build": "NEXT_DISABLE_WEBPACK_CACHE=1 NEXT_PRIVATE_BUILD_WORKER=0 node node_modules/next/dist/bin/next build",
     "start": "next start",
     "type-check": "next typegen && tsc --noEmit",
     "lint": "next lint && bun run lint:ssot-literals",

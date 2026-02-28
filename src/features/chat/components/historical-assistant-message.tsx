@@ -3,7 +3,6 @@
 import { useMemo } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { fadeInUp } from '@/lib/utils/motion'
-import { ModelBadge } from '@/features/stream-phases/components/model-badge'
 import { ThinkingBlock } from '@/features/stream-phases/components/thinking-block'
 import { ToolExecution } from '@/features/stream-phases/components/tool-execution'
 import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
@@ -11,8 +10,9 @@ import { A2UIMessage } from '@/features/a2ui/components/a2ui-message'
 import { TTSControls } from '@/features/voice/components/tts-controls'
 import { MessageMetadataSchema } from '@/schemas/message'
 import { TOOL_NAMES, AI_PARAMS } from '@/config/constants'
+import { AssistantFrame } from './assistant-frame'
 import type { Message, MessageMetadata } from '@/schemas/message'
-import type { ModelSelectionState, ThinkingState, ToolExecutionState } from '@/types/stream'
+import type { ThinkingState, ToolExecutionState } from '@/types/stream'
 import type { v0_8 } from '@a2ui-sdk/types'
 
 type HistoricalAssistantMessageProps = {
@@ -32,14 +32,6 @@ function parseA2UIMessages(raw: unknown[] | undefined): v0_8.A2UIMessage[] {
     }
   }
   return result
-}
-
-function buildModelSelection(metadata: MessageMetadata): ModelSelectionState | null {
-  if (!metadata.modelUsed) return null
-  return {
-    model: metadata.modelUsed,
-    reasoning: metadata.routerReasoning ?? '',
-  }
 }
 
 function buildThinkingState(metadata: MessageMetadata): ThinkingState | null {
@@ -72,6 +64,11 @@ function buildToolExecutions(metadata: MessageMetadata): ToolExecutionState[] {
   ]
 }
 
+function extractModelName(modelId: string): string {
+  const parts = modelId.split('/')
+  return parts.length > 1 ? (parts.slice(1).join('/') ?? modelId) : modelId
+}
+
 export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessageProps) {
   const shouldReduce = useReducedMotion()
 
@@ -82,51 +79,43 @@ export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessa
 
   const metadata = parsed.success ? parsed.data : null
 
-  const modelSelection = useMemo(
-    () => (metadata ? buildModelSelection(metadata) : null),
-    [metadata],
-  )
-
   const thinking = useMemo(() => (metadata ? buildThinkingState(metadata) : null), [metadata])
 
   const toolExecutions = useMemo(() => (metadata ? buildToolExecutions(metadata) : []), [metadata])
 
   const a2uiMessages = useMemo(() => parseA2UIMessages(metadata?.a2uiMessages), [metadata])
 
+  const modelLabel = metadata?.modelUsed ? extractModelName(metadata.modelUsed) : null
+  const tokenLabel =
+    metadata?.usage?.totalTokens && metadata.usage.totalTokens > 0
+      ? `${metadata.usage.totalTokens.toLocaleString()} tokens`
+      : null
+
   return (
-    <motion.div className="flex flex-col gap-3" {...(shouldReduce ? {} : fadeInUp)}>
-      <ModelBadge isRouting={false} modelSelection={modelSelection} />
+    <motion.div {...(shouldReduce ? {} : fadeInUp)}>
+      <AssistantFrame modelLabel={modelLabel} tokenLabel={tokenLabel}>
+        <div className="space-y-3">
+          {thinking && <ThinkingBlock thinking={thinking} />}
 
-      {thinking && <ThinkingBlock thinking={thinking} />}
-
-      {toolExecutions.length > 0 && (
-        <div className="flex flex-col gap-2">
-          {toolExecutions.map((execution, i) => (
-            <ToolExecution key={i} execution={execution} />
-          ))}
-        </div>
-      )}
-
-      {message.content && <MarkdownRenderer content={message.content} />}
-
-      {a2uiMessages.length > 0 && <A2UIMessage messages={a2uiMessages} />}
-
-      {message.content && (
-        <div className="flex items-center">
-          <TTSControls content={message.content} />
-        </div>
-      )}
-
-      {metadata?.usage && (
-        <div className="flex items-center gap-3 text-xs text-[--text-ghost]">
-          {(metadata.usage.totalTokens ?? 0) > 0 && (
-            <span>{metadata.usage.totalTokens?.toLocaleString()} tokens</span>
+          {toolExecutions.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {toolExecutions.map((execution, i) => (
+                <ToolExecution key={i} execution={execution} />
+              ))}
+            </div>
           )}
-          {metadata.usage.cost !== undefined && metadata.usage.cost > 0 && (
-            <span>${metadata.usage.cost.toFixed(4)}</span>
+
+          {message.content && <MarkdownRenderer content={message.content} />}
+
+          {a2uiMessages.length > 0 && <A2UIMessage messages={a2uiMessages} />}
+
+          {message.content && (
+            <div className="flex items-center">
+              <TTSControls content={message.content} />
+            </div>
           )}
         </div>
-      )}
+      </AssistantFrame>
     </motion.div>
   )
 }

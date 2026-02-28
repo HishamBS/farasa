@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, useReducedMotion } from 'framer-motion'
-import { Pin, PinOff, Trash2, Pencil, Download } from 'lucide-react'
+import { Circle, Pin, PinOff, Trash2, Pencil, Download } from 'lucide-react'
 import { fadeInUp } from '@/lib/utils/motion'
 import { cn } from '@/lib/utils/cn'
 import { formatDate } from '@/lib/utils/format'
@@ -175,9 +175,9 @@ export function ConversationItem({
     <>
       <motion.div
         className={cn(
-          'group relative flex items-center gap-2 rounded-xl px-2.5 py-2 cursor-pointer min-h-11',
+          'group relative flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2',
           'transition-colors hover:bg-[--bg-surface-hover]',
-          isActive && 'bg-[--bg-surface-hover]',
+          isActive && 'bg-[--bg-surface-active]',
         )}
         onClick={handleClick}
         onContextMenu={(e) => {
@@ -190,12 +190,6 @@ export function ConversationItem({
         onTouchMove={handleTouchEnd}
         {...(shouldReduce ? {} : fadeInUp)}
       >
-        {isActive && (
-          <span className="absolute left-0 top-1/2 h-3/6 w-0.5 -translate-y-1/2 rounded-r-full bg-[--accent]" />
-        )}
-
-        {isPinned && <Pin size={10} className="shrink-0 text-[--accent] opacity-60" />}
-
         <div className="min-w-0 flex-1">
           {isEditing ? (
             <input
@@ -210,15 +204,27 @@ export function ConversationItem({
           ) : (
             <p
               className={cn(
-                'truncate text-sm',
+                'truncate text-sm leading-tight',
                 isActive ? 'text-[--text-primary]' : 'text-[--text-secondary]',
               )}
             >
               {title}
             </p>
           )}
-          <p className="text-xs text-[--text-ghost]">{formattedDate}</p>
+          <p className="mt-0.5 text-xs text-[--text-muted]">{formattedDate}</p>
         </div>
+
+        {(isPinned || isActive) && (
+          <span
+            className={cn(
+              'absolute right-2 top-1/2 -translate-y-1/2',
+              isPinned ? 'text-[--accent]' : 'text-[--text-ghost]',
+            )}
+            aria-hidden="true"
+          >
+            <Circle size={6} fill="currentColor" stroke="none" />
+          </span>
+        )}
 
         <div
           className={cn(
@@ -229,7 +235,7 @@ export function ConversationItem({
           <button
             type="button"
             onClick={handleRenameStart}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:text-[--text-primary]"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:bg-[--bg-surface-hover] hover:text-[--text-primary]"
             aria-label="Rename"
           >
             <Pencil size={12} />
@@ -238,7 +244,7 @@ export function ConversationItem({
             type="button"
             onClick={handleExport}
             disabled={isExporting}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:text-[--text-primary] disabled:opacity-50"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:bg-[--bg-surface-hover] hover:text-[--text-primary] disabled:opacity-50"
             aria-label="Export as Markdown"
           >
             <Download size={12} />
@@ -246,7 +252,7 @@ export function ConversationItem({
           <button
             type="button"
             onClick={handlePin}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:text-[--text-primary]"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:bg-[--bg-surface-hover] hover:text-[--text-primary]"
             aria-label={isPinned ? 'Unpin' : 'Pin'}
           >
             {isPinned ? <PinOff size={12} /> : <Pin size={12} />}
@@ -254,7 +260,7 @@ export function ConversationItem({
           <button
             type="button"
             onClick={handleDeleteClick}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:text-[--error]"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:bg-[--bg-surface-hover] hover:text-[--error]"
             aria-label="Delete"
           >
             <Trash2 size={12} />

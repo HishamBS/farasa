@@ -33,13 +33,13 @@ export function UserMenu() {
       )}
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs text-[--text-secondary]">{session?.user?.name ?? 'User'}</p>
+        <p className="truncate text-sm text-[--text-secondary]">{session?.user?.name ?? 'User'}</p>
       </div>
 
       <button
         type="button"
         onClick={toggleTheme}
-        className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-primary]"
+        className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-secondary]"
         aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
       >
         {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}

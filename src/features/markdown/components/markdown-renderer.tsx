@@ -29,7 +29,7 @@ const components: Components = {
     )
   },
   blockquote: ({ children }) => (
-    <blockquote className="my-3 border-l-2 border-[--accent] pl-4 italic text-[--text-muted]">
+    <blockquote className="my-3 border-l border-[--accent-glow] pl-4 italic text-[--text-muted]">
       {children}
     </blockquote>
   ),
@@ -58,13 +58,17 @@ const components: Components = {
     <h3 className="mb-2 mt-4 text-base font-medium text-[--text-primary]">{children}</h3>
   ),
   p: ({ children }) => (
-    <p className="mb-3 text-sm leading-relaxed text-[--text-primary]">{children}</p>
+    <p className="mb-3 text-[0.95rem] leading-7 text-[--text-primary]">{children}</p>
   ),
   ul: ({ children }) => (
-    <ul className="mb-3 list-disc space-y-1 pl-5 text-sm text-[--text-primary]">{children}</ul>
+    <ul className="mb-3 list-disc space-y-1 pl-5 text-[0.95rem] text-[--text-primary]">
+      {children}
+    </ul>
   ),
   ol: ({ children }) => (
-    <ol className="mb-3 list-decimal space-y-1 pl-5 text-sm text-[--text-primary]">{children}</ol>
+    <ol className="mb-3 list-decimal space-y-1 pl-5 text-[0.95rem] text-[--text-primary]">
+      {children}
+    </ol>
   ),
   li: ({ children }) => <li className="leading-relaxed">{children}</li>,
   strong: ({ children }) => (

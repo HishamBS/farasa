@@ -41,10 +41,10 @@ export function MicButton({ onTranscript }: MicButtonProps) {
       type="button"
       onClick={handleClick}
       className={cn(
-        'flex size-8 items-center justify-center rounded-xl transition-colors',
+        'flex size-8 items-center justify-center rounded-lg transition-colors',
         isListening
           ? 'text-[--error] hover:bg-[--bg-surface-hover]'
-          : 'text-[--text-ghost] hover:text-[--text-secondary]',
+          : 'text-[--text-muted] hover:bg-[--bg-surface-hover] hover:text-[--text-secondary]',
       )}
       aria-label={isListening ? 'Stop recording' : 'Start voice input'}
       aria-pressed={isListening}

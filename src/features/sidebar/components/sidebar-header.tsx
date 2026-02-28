@@ -2,17 +2,25 @@
 
 import { useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, X } from 'lucide-react'
+import { Plus, Search, X } from 'lucide-react'
 import { ROUTES } from '@/config/routes'
 import { UI_TEXT } from '@/config/constants'
 
 type SidebarHeaderProps = {
+  isSearchOpen: boolean
   searchValue: string
   onSearchChange: (value: string) => void
   onClose: () => void
+  onSearchToggle: () => void
 }
 
-export function SidebarHeader({ searchValue, onSearchChange, onClose }: SidebarHeaderProps) {
+export function SidebarHeader({
+  isSearchOpen,
+  searchValue,
+  onSearchChange,
+  onClose,
+  onSearchToggle,
+}: SidebarHeaderProps) {
   const router = useRouter()
 
   const handleNewChat = useCallback(() => {
@@ -21,14 +29,22 @@ export function SidebarHeader({ searchValue, onSearchChange, onClose }: SidebarH
 
   return (
     <div className="flex-shrink-0">
-      <div className="flex items-center gap-2 border-b border-[--border-subtle] pt-4 px-3.5 pb-2.5">
+      <div className="flex items-center gap-2 border-b border-[--border-subtle] px-3.5 pb-2.5 pt-4">
         <span className="flex-1 text-sm font-semibold tracking-tight text-[--text-primary]">
           far<span className="text-[--accent]">asa</span>
         </span>
         <button
           type="button"
+          onClick={onSearchToggle}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-secondary]"
+          aria-label="Toggle search conversations"
+        >
+          <Search size={14} />
+        </button>
+        <button
+          type="button"
           onClick={onClose}
-          className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-primary] lg:hidden"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-secondary] lg:hidden"
           aria-label="Close sidebar"
         >
           <X size={15} />
@@ -44,12 +60,14 @@ export function SidebarHeader({ searchValue, onSearchChange, onClose }: SidebarH
           <Plus size={14} className="flex-shrink-0" />
           New conversation
         </button>
-        <input
-          value={searchValue}
-          onChange={(event) => onSearchChange(event.target.value)}
-          placeholder={UI_TEXT.SIDEBAR_SEARCH_PLACEHOLDER}
-          className="mt-2 w-full rounded-lg border border-[--border-default] bg-[--bg-input] px-3 py-2 text-sm text-[--text-primary] placeholder:text-[--text-ghost] outline-none focus:border-[--accent]"
-        />
+        {isSearchOpen && (
+          <input
+            value={searchValue}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder={UI_TEXT.SIDEBAR_SEARCH_PLACEHOLDER}
+            className="mt-2 w-full rounded-lg border border-[--border-default] bg-[--bg-input] px-3 py-2 text-sm text-[--text-primary] placeholder:text-[--text-ghost] outline-none focus:border-[--accent]"
+          />
+        )}
       </div>
     </div>
   )

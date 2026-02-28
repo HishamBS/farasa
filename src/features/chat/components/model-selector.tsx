@@ -161,7 +161,7 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
           aria-haspopup="listbox"
           aria-expanded={open}
           aria-label={value ? `Model: ${selected?.name ?? value}` : 'Model: Auto'}
-          className="flex min-h-11 items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-[--text-ghost] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-muted]"
+          className="flex min-h-8 items-center gap-1.5 rounded-md px-2 py-1 text-xs text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-secondary]"
         >
           {value ? (
             <>
@@ -188,7 +188,7 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
             <motion.div
               role="listbox"
               aria-label="Select model"
-              className="absolute bottom-full left-0 z-50 mb-1 max-h-72 w-64 overflow-y-auto rounded-xl border border-[--border-subtle] bg-[--bg-glass] shadow-xl shadow-black/20 backdrop-blur-lg"
+              className="absolute bottom-full left-0 z-50 mb-1 max-h-72 w-72 overflow-y-auto rounded-xl border border-[--border-subtle] bg-[--bg-shell-strong] shadow-xl shadow-black/30 backdrop-blur-2xl"
               {...(shouldReduce ? {} : fadeInDown)}
             >
               <div className="p-1">
@@ -202,7 +202,7 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
                   tabIndex={focusedIndex === 0 ? 0 : -1}
                   onClick={handleSelectAuto}
                   className={cn(
-                    'flex w-full min-h-11 items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[--bg-surface-hover]',
+                    'flex w-full min-h-10 items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[--bg-surface-hover]',
                     !value && 'bg-[--accent-muted] text-[--accent]',
                   )}
                 >
@@ -242,7 +242,7 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
                         tabIndex={focusedIndex === idx ? 0 : -1}
                         onClick={() => handleSelect(m.id)}
                         className={cn(
-                          'flex w-full min-h-11 flex-col gap-1 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[--bg-surface-hover]',
+                          'flex w-full min-h-10 flex-col gap-1 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[--bg-surface-hover]',
                           value === m.id && 'bg-[--accent-muted] text-[--accent]',
                         )}
                       >

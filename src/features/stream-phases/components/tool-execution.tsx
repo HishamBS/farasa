@@ -56,7 +56,7 @@ export function ToolExecution({ execution }: ToolExecutionProps) {
         'rounded-xl border p-3 transition-colors',
         isComplete
           ? 'border-[--border-subtle] bg-[--bg-surface]'
-          : 'border-[--accent] bg-[--bg-surface] shadow-md shadow-[--accent-muted]',
+          : 'border-[--accent-glow] bg-[--bg-surface] shadow-md shadow-[--accent-muted]',
       )}
       {...(shouldReduce ? {} : fadeInUp)}
     >

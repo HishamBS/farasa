@@ -1,13 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { CloudOff } from 'lucide-react'
 import { fadeInDown } from '@/lib/utils/motion'
 import { UI_TEXT } from '@/config/constants'
+import { ROUTES } from '@/config/routes'
 
 export function OfflineBanner() {
   const shouldReduce = useReducedMotion()
+  const pathname = usePathname()
   const [isOffline, setIsOffline] = useState(false)
 
   useEffect(() => {
@@ -24,7 +27,7 @@ export function OfflineBanner() {
 
   return (
     <AnimatePresence>
-      {isOffline && (
+      {isOffline && !pathname.startsWith(ROUTES.CHAT) && (
         <motion.div
           role="status"
           aria-live="assertive"

@@ -1,7 +1,6 @@
 'use client'
 
-import { useRef, useCallback } from 'react'
-import { useVirtualizer } from '@tanstack/react-virtual'
+import { useRef, useCallback, useMemo } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { ChevronDown } from 'lucide-react'
 import { fadeIn } from '@/lib/utils/motion'
@@ -20,11 +19,6 @@ type MessageListProps = {
   onSuggestionSelect?: (text: string) => void
 }
 
-// Tailwind gap-6 = 24px, py-6 = 24px top/bottom
-const ITEM_GAP_PX = 24
-const LIST_PADDING_PX = 24
-const ESTIMATED_ITEM_HEIGHT_PX = 120
-
 export function MessageList({
   messages,
   streamState,
@@ -38,18 +32,14 @@ export function MessageList({
 
   const showStreaming = isStreaming && streamState.phase !== CHAT_STREAM_STATUS.IDLE
 
-  // Total virtual items = historical messages + 1 streaming slot (when active)
-  const itemCount = messages.length + (showStreaming ? 1 : 0)
-
-  const virtualizer = useVirtualizer({
-    count: itemCount,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => ESTIMATED_ITEM_HEIGHT_PX,
-    overscan: 5,
-    paddingStart: LIST_PADDING_PX,
-    paddingEnd: LIST_PADDING_PX,
-    gap: ITEM_GAP_PX,
-  })
+  const dividerLabel = useMemo(() => {
+    if (messages.length === 0) return null
+    const latest = messages[messages.length - 1]
+    if (!latest) return null
+    const now = new Date()
+    const sameDay = latest.createdAt.toDateString() === now.toDateString()
+    return sameDay ? 'Today' : latest.createdAt.toLocaleDateString()
+  }, [messages])
 
   const scrollToBottom = useCallback(() => {
     const container = parentRef.current
@@ -63,39 +53,25 @@ export function MessageList({
   const { isPaused, resume } = useAutoScroll(isStreaming, parentRef, scrollToBottom)
 
   return (
-    <div ref={parentRef} className="flex-1 overflow-y-auto">
+    <div ref={parentRef} className="flex-1 overflow-y-auto px-0 py-6">
       {isEmpty ? (
         <EmptyState onSelect={onSuggestionSelect} />
       ) : (
-        <div
-          className="relative mx-auto max-w-2xl px-5 lg:px-6"
-          style={{ height: `${virtualizer.getTotalSize()}px` }}
-        >
-          {virtualizer.getVirtualItems().map((virtualItem) => {
-            const isStreamingSlot = virtualItem.index === messages.length
-            const message = messages[virtualItem.index]
+        <div className="mx-auto flex w-full max-w-[var(--content-max-width)] flex-col px-5 lg:px-6">
+          {dividerLabel && (
+            <div className="mb-4 flex items-center gap-2.5 text-xs text-[--text-muted]">
+              <span className="h-px flex-1 bg-[--border-subtle]" />
+              <span>{dividerLabel}</span>
+              <span className="h-px flex-1 bg-[--border-subtle]" />
+            </div>
+          )}
 
-            return (
-              <div
-                key={virtualItem.key}
-                data-index={virtualItem.index}
-                ref={virtualizer.measureElement}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  transform: `translateY(${virtualItem.start}px)`,
-                }}
-              >
-                {isStreamingSlot ? (
-                  <AssistantMessage streamState={streamState} />
-                ) : message !== undefined ? (
-                  <MessageBubble message={message} />
-                ) : null}
-              </div>
-            )
-          })}
+          <div className="space-y-6">
+            {messages.map((message) => (
+              <MessageBubble key={message.id} message={message} />
+            ))}
+            {showStreaming && <AssistantMessage streamState={streamState} />}
+          </div>
         </div>
       )}
 
@@ -103,7 +79,7 @@ export function MessageList({
         <motion.button
           type="button"
           onClick={resume}
-          className="fixed bottom-24 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-full border border-[--border-default] bg-[--bg-surface] px-4 py-2 text-sm text-[--text-secondary] shadow-lg hover:bg-[--bg-surface-hover]"
+          className="fixed bottom-24 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-[--border-default] bg-[--bg-shell-strong] px-4 py-2 text-sm text-[--text-secondary] shadow-lg hover:bg-[--bg-surface-hover]"
           {...(shouldReduce ? {} : fadeIn)}
           aria-label="Scroll to latest message"
         >

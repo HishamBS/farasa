@@ -64,7 +64,7 @@ await db.insert(messages).values([
     content:
       "I'm Farasa — your intelligent AI assistant. I can help with coding, research, writing, data analysis, and more. I can also search the web, read files, and render interactive UIs directly in our conversation.",
     metadata: {
-      modelUsed: MODEL_IDS.CLAUDE_SONNET_4,
+      modelUsed: MODEL_IDS.LLAMA_31_8B,
       routerReasoning: 'General greeting — fast model sufficient.',
     },
   },

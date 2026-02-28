@@ -2,29 +2,8 @@
 
 import { useCallback } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
-import { fadeInUp, staggerContainer } from '@/lib/utils/motion'
+import { fadeInUp } from '@/lib/utils/motion'
 import { EMPTY_STATE_SUGGESTIONS } from '@/config/constants'
-
-type SuggestionChipProps = {
-  text: string
-  onSelect: (text: string) => void
-}
-
-function SuggestionChip({ text, onSelect }: SuggestionChipProps) {
-  const shouldReduce = useReducedMotion()
-  const handleClick = useCallback(() => onSelect(text), [onSelect, text])
-
-  return (
-    <motion.button
-      type="button"
-      onClick={handleClick}
-      className="rounded-2xl border border-[--border-subtle] bg-[--bg-surface] p-3 text-left text-sm text-[--text-secondary] transition-colors hover:border-[--border-default] hover:bg-[--bg-surface-hover] hover:text-[--text-primary]"
-      {...(shouldReduce ? {} : fadeInUp)}
-    >
-      {text}
-    </motion.button>
-  )
-}
 
 type EmptyStateProps = {
   onSelect?: (text: string) => void
@@ -32,28 +11,25 @@ type EmptyStateProps = {
 
 export function EmptyState({ onSelect }: EmptyStateProps) {
   const shouldReduce = useReducedMotion()
-  const handleSelect = useCallback(
-    (text: string) => {
-      onSelect?.(text)
-    },
-    [onSelect],
-  )
+  const handleSelect = useCallback(() => {
+    const defaultSuggestion = EMPTY_STATE_SUGGESTIONS[0]
+    if (defaultSuggestion) {
+      onSelect?.(defaultSuggestion)
+    }
+  }, [onSelect])
+
+  const previewSuggestion = EMPTY_STATE_SUGGESTIONS[0] ?? 'Ask anything...'
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4">
-      <motion.div className="flex flex-col items-center gap-2" {...(shouldReduce ? {} : fadeInUp)}>
-        <h1 className="text-2xl font-semibold text-[--text-primary]">farasa</h1>
-        <p className="text-sm text-[--text-muted]">How can I help you today?</p>
-      </motion.div>
-
-      <motion.div
-        className="grid w-full max-w-sm grid-cols-2 gap-2"
-        {...(shouldReduce ? {} : staggerContainer)}
+    <div className="relative flex h-full flex-col items-center px-4">
+      <motion.button
+        type="button"
+        onClick={handleSelect}
+        className="mt-8 rounded-2xl border border-[--border-default] bg-[--bg-shell] px-6 py-3 text-base text-[--text-secondary] backdrop-blur-xl transition-colors hover:text-[--text-primary] sm:mt-10"
+        {...(shouldReduce ? {} : fadeInUp)}
       >
-        {EMPTY_STATE_SUGGESTIONS.map((suggestion) => (
-          <SuggestionChip key={suggestion} text={suggestion} onSelect={handleSelect} />
-        ))}
-      </motion.div>
+        {previewSuggestion}
+      </motion.button>
     </div>
   )
 }

@@ -1,16 +1,27 @@
 import { eq } from 'drizzle-orm'
 import { neon } from '@neondatabase/serverless'
-import { drizzle } from 'drizzle-orm/neon-http'
+import { drizzle as neonDrizzle } from 'drizzle-orm/neon-http'
+import { drizzle as postgresDrizzle } from 'drizzle-orm/postgres-js'
+import { type PgDatabase, type PgQueryResultHKT } from 'drizzle-orm/pg-core'
+import postgres from 'postgres'
 import { MODEL_IDS } from '@/config/constants'
 import { conversations, messages, users } from './schema'
+import { isNeonUrl } from './utils'
 
 const databaseUrl = process.env['DATABASE_URL']
 if (!databaseUrl) {
   throw new Error('DATABASE_URL must be set to run seed. Check .env.example.')
 }
 
-const sql = neon(databaseUrl)
-const db = drizzle(sql)
+let pgClient: ReturnType<typeof postgres> | null = null
+
+const db: PgDatabase<PgQueryResultHKT> = (() => {
+  if (isNeonUrl(databaseUrl)) {
+    return neonDrizzle(neon(databaseUrl))
+  }
+  pgClient = postgres(databaseUrl, { max: 1 })
+  return postgresDrizzle(pgClient)
+})()
 
 const devUserId = 'dev-user-00000000-0000-0000-0000-000000000001'
 
@@ -18,6 +29,7 @@ const [existingUser] = await db.select({ id: users.id }).from(users).where(eq(us
 
 if (existingUser) {
   console.log('Seed data already present. Skipping.')
+  await pgClient?.end()
   process.exit(0)
 }
 
@@ -59,4 +71,5 @@ await db.insert(messages).values([
 ])
 
 console.log(`Seed complete. Dev user: ${devUserId}`)
+await pgClient?.end()
 process.exit(0)

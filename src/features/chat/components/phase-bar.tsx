@@ -13,9 +13,17 @@ const PHASE_ORDER = [
   STREAM_PHASES.GENERATING_UI,
 ] as const
 
+const ACTIVE_PHASE_INDEX = {
+  [TITLEBAR_PHASE.IDLE]: -1,
+  [TITLEBAR_PHASE.THINKING]: 1,
+  [TITLEBAR_PHASE.STREAMING]: 4, // generating UI is the last phase before done
+  [TITLEBAR_PHASE.DONE]: 5,
+}
+
 export function PhaseBar({ model }: { model?: string }) {
   const { phase } = useStreamPhase()
   const isActive = phase !== TITLEBAR_PHASE.IDLE && phase !== TITLEBAR_PHASE.DONE
+  const currentIndex = ACTIVE_PHASE_INDEX[phase] ?? 0
 
   return (
     <AnimatePresence>
@@ -25,31 +33,46 @@ export function PhaseBar({ model }: { model?: string }) {
           animate={{ height: 'auto', opacity: 1 }}
           exit={{ height: 0, opacity: 0 }}
           transition={{ duration: MOTION.DURATION_FAST, ease: MOTION.EASING_IN_OUT }}
-          className="flex-shrink-0 overflow-hidden"
+          className="shrink-0 overflow-hidden"
         >
-          <div className="flex items-center justify-between gap-3 border-b border-[--border-subtle] bg-gradient-to-b from-[--accent-muted] to-transparent px-4 py-2">
-            <div className="flex items-center gap-3">
-              {PHASE_ORDER.map((p) => {
+          <div className="flex items-center gap-3 border-b border-[--border-subtle] bg-linear-to-r from-[--accent-muted] to-transparent px-5 py-2.5">
+            <div className="flex items-center gap-2 flex-1">
+              {PHASE_ORDER.map((p, idx) => {
                 const label = STREAM_PROGRESS.LABELS[p]
+                const isPassed = currentIndex > idx
+                const isCurrent = currentIndex === idx
+                const isThinking = isCurrent && p === STREAM_PHASES.THINKING
+
                 return (
-                  <div key={p} className="flex items-center gap-1.5">
+                  <div
+                    key={p}
+                    className={cn(
+                      'flex items-center gap-1.5 text-xs transition-colors duration-300',
+                      isPassed && 'text-[--success]',
+                      isCurrent && !isThinking && 'text-[--text-primary] font-medium',
+                      isThinking && 'text-[--thinking]',
+                      !isPassed && !isCurrent && 'text-[--text-ghost]',
+                    )}
+                  >
                     <span
                       className={cn(
-                        'size-1.5 rounded-full transition-colors',
-                        phase === TITLEBAR_PHASE.THINKING && p === STREAM_PHASES.THINKING
-                          ? 'animate-pulse bg-[--accent]'
-                          : 'bg-[--border-subtle]',
+                        'size-1.5 shrink-0 rounded-full transition-all duration-300',
+                        isPassed && 'bg-[--success]',
+                        isCurrent && !isThinking && 'bg-[--accent] animate-pulse',
+                        isThinking && 'bg-[--thinking] animate-pulse',
+                        !isPassed && !isCurrent && 'bg-[--text-ghost]/40',
                       )}
                     />
-                    <span className="text-xs text-[--text-ghost]">{label}</span>
+                    <span>{label}</span>
                   </div>
                 )
               })}
             </div>
             {model && (
-              <span className="rounded-full bg-[--bg-surface] px-2 py-0.5 text-xs text-[--text-secondary]">
+              <div className="ml-auto flex items-center gap-1.5 rounded-full bg-[--provider-anthropic-muted] border border-[--provider-anthropic-border] px-2.5 py-1 text-xs text-[--provider-anthropic]">
+                <span className="size-1.5 rounded-full bg-[--provider-anthropic]" />
                 {model}
-              </span>
+              </div>
             )}
           </div>
         </motion.div>

@@ -53,12 +53,11 @@ export function SidebarContainer({ children, isOpen, onClose, onOpen }: SidebarP
         animate={shouldReduce ? {} : { x: isOpen ? 0 : '-100%' }}
         transition={shouldReduce ? {} : { duration: MOTION.DURATION_SLOW, ease: MOTION.EASING }}
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex flex-col',
-          'bg-[--bg-shell] border-r border-[--border-subtle] backdrop-blur-2xl saturate-150',
+          'fixed inset-y-0 left-0 z-50 flex w-72 flex-col',
+          'bg-[--bg-glass] border-r border-[--border-subtle] backdrop-blur-xl saturate-150',
           'shadow-2xl shadow-black/30 lg:shadow-none',
-          'lg:relative',
+          'lg:static lg:translate-x-0',
         )}
-        style={{ width: 'var(--sidebar-width)' }}
         aria-label="Sidebar"
       >
         <motion.div className="flex h-full flex-col" {...(shouldReduce ? {} : slideInLeft)}>

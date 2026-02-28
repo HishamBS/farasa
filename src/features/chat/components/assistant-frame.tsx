@@ -19,7 +19,7 @@ export function AssistantFrame({
   return (
     <article className="mb-4">
       <div className="mb-2.5 flex items-center gap-2">
-        <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-[--accent] to-[--thinking] text-[0.625rem] font-semibold text-[--bg-root]">
+        <div className="flex size-6 items-center justify-center rounded-lg bg-gradient-to-br from-[--accent] to-[--thinking] text-[10px] font-bold text-[--bg-root]">
           f
         </div>
         <span className="text-sm font-medium text-[--text-secondary]">farasa</span>
@@ -31,7 +31,7 @@ export function AssistantFrame({
         >
           {!isStreaming && modelLabel && (
             <>
-              <span className="h-1.5 w-1.5 rounded-full bg-[--provider-anthropic]" />
+              <span className="size-1.5 rounded-full bg-[--provider-anthropic]" />
               <span>{modelLabel}</span>
             </>
           )}
@@ -40,7 +40,9 @@ export function AssistantFrame({
         </div>
       </div>
 
-      <div className="pl-8 text-[0.95rem] leading-7 text-[--text-primary]">{children}</div>
+      <div className="pl-8 text-sm lg:text-[0.9375rem] leading-[1.72] text-[--text-primary]">
+        {children}
+      </div>
     </article>
   )
 }

@@ -1,11 +1,12 @@
 'use client'
 
-import { useMemo, useCallback, useState } from 'react'
+import { useMemo, useCallback, useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Menu, MoreHorizontal, Pin, PinOff, Trash2 } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Menu, MoreHorizontal, Pin, PinOff, Trash2, Check } from 'lucide-react'
 import { trpc } from '@/trpc/provider'
 import { ROUTES, PATTERNS } from '@/config/routes'
-import { UX, UI_TEXT } from '@/config/constants'
+import { UX, UI_TEXT, MOTION } from '@/config/constants'
 import type { TitlebarPhase } from '@/types/stream'
 import { ModeToggle } from './mode-toggle'
 import { useChatMode } from '../context/chat-mode-context'
@@ -32,12 +33,23 @@ type TitlebarProps = {
   streamPhase?: TitlebarPhase
 }
 
-export function Titlebar({ onMenuClick }: TitlebarProps) {
+export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { mode, setMode } = useChatMode()
   const utils = trpc.useUtils()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showDone, setShowDone] = useState(false)
+
+  useEffect(() => {
+    if (streamPhase === 'done') {
+      setShowDone(true)
+      const timer = setTimeout(() => setShowDone(false), 2000)
+      return () => clearTimeout(timer)
+    } else {
+      setShowDone(false)
+    }
+  }, [streamPhase])
 
   const conversationId = useMemo(() => {
     const match = PATTERNS.CHAT_ID.exec(pathname)
@@ -72,9 +84,45 @@ export function Titlebar({ onMenuClick }: TitlebarProps) {
 
   const title = conversation?.title ?? null
 
+  const getPillContent = () => {
+    if (streamPhase === 'thinking') {
+      return {
+        bg: 'bg-[--thinking-bg]',
+        border: 'border-[--thinking-border]',
+        text: 'text-[--thinking]',
+        label: 'Thinking',
+        showDot: true,
+      }
+    }
+    if (streamPhase === 'streaming') {
+      return {
+        bg: 'bg-[--accent-muted]',
+        border: 'border-[--accent-glow]',
+        text: 'text-[--accent]',
+        label: 'Generating',
+        showDot: true,
+      }
+    }
+    if (streamPhase === 'done') {
+      return {
+        bg: 'bg-emerald-400/10',
+        border: 'border-emerald-400/20',
+        text: 'text-[--success]',
+        label: 'Ready',
+        showDot: false,
+      }
+    }
+    return null
+  }
+  const pillInfo = getPillContent()
+  const isPillVisible =
+    streamPhase === 'thinking' ||
+    streamPhase === 'streaming' ||
+    (streamPhase === 'done' && showDone)
+
   return (
     <>
-      <header className="flex h-12 flex-shrink-0 items-center gap-2.5 border-b border-[--border-subtle] px-4">
+      <header className="flex h-12 shrink-0 items-center gap-2.5 bg-[--bg-root] border-b border-[--border-subtle] px-4">
         <button
           type="button"
           onClick={onMenuClick}
@@ -84,13 +132,37 @@ export function Titlebar({ onMenuClick }: TitlebarProps) {
           <Menu size={16} />
         </button>
 
-        <div className="min-w-0 flex-1 truncate">
-          {title ? (
-            <span className="text-sm font-medium text-[--text-secondary]">{title}</span>
-          ) : (
-            <span className="text-sm font-medium text-[--text-muted]">New Chat</span>
-          )}
+        <div className="flex items-center gap-3">
+          <div className="truncate max-w-[200px] md:max-w-xs">
+            {title ? (
+              <span className="text-sm font-medium text-[--text-secondary]">{title}</span>
+            ) : (
+              <span className="text-sm font-medium text-[--text-muted]">New Chat</span>
+            )}
+          </div>
+
+          <AnimatePresence mode="wait">
+            {isPillVisible && pillInfo && (
+              <motion.div
+                key={pillInfo.label}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: MOTION.DURATION_NORMAL }}
+                className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-medium ${pillInfo.bg} ${pillInfo.border} ${pillInfo.text}`}
+              >
+                {pillInfo.showDot ? (
+                  <span className={`size-1.5 rounded-full animate-pulse bg-current`} />
+                ) : (
+                  <Check size={10} className="text-[--success]" />
+                )}
+                {pillInfo.label}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
+
+        <div className="flex-1" />
 
         <ModeToggle value={mode} onChange={setMode} />
 

@@ -144,14 +144,14 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
   )
 
   return (
-    <div className="border-t border-[--border-subtle] bg-[--bg-root] [padding-bottom:env(safe-area-inset-bottom)]">
-      <div className="mx-auto max-w-[var(--content-max-width)] px-5 pb-4 pt-2.5 lg:px-6">
+    <div className="border-t border-[--border-subtle] bg-[--bg-root] pb-[env(safe-area-inset-bottom)]">
+      <div className="mx-auto max-w-(--content-max-width) px-5 pb-4 pt-2.5 lg:px-6">
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           className={cn(
-            'rounded-2xl border bg-[--bg-glass] px-3 py-2.5 shadow-[0_2px_20px_rgba(0,0,0,0.2)] backdrop-blur-2xl',
+            'rounded-2xl border bg-[--bg-glass] px-3 py-2.5 shadow-[0_2px_20px_rgba(0,0,0,0.2)] backdrop-blur-[20px] saturate-140',
             isDragging
               ? 'border-[--accent] ring-4 ring-[--accent-muted]'
               : 'border-[--border-default] focus-within:border-[--accent-focus]',
@@ -181,7 +181,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
               onKeyDown={handleKey}
               placeholder={APP_CONFIG.CHAT_PLACEHOLDER}
               rows={1}
-              className="min-h-6 max-h-[7.5rem] w-full resize-none bg-transparent text-sm text-[--text-primary] placeholder:text-[--text-muted] outline-none"
+              className="min-h-6 max-h-30 w-full resize-none bg-transparent text-sm text-[--text-primary] placeholder:text-[--text-muted] outline-none"
               disabled={isStreaming}
             />
 
@@ -224,7 +224,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
                     onClick={handleSubmit}
                     disabled={!canSend}
                     className={cn(
-                      'flex min-h-8 min-w-8 items-center justify-center rounded-lg transition-transform',
+                      'flex min-h-8 min-w-8 items-center justify-center rounded-lg transition-transform duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
                       canSend
                         ? 'bg-[--accent] text-[--bg-root] hover:scale-[1.08] hover:bg-[--accent-hover]'
                         : 'bg-[--bg-surface-hover] text-[--text-ghost]',

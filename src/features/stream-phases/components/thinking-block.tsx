@@ -2,8 +2,8 @@
 
 import { useState, useCallback } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { expand, collapse, pulse } from '@/lib/utils/motion'
-import { UX, MOTION, STATUS_MESSAGES } from '@/config/constants'
+import { expand, collapse } from '@/lib/utils/motion'
+import { UX, STATUS_MESSAGES } from '@/config/constants'
 import type { ThinkingState } from '@/types/stream'
 
 type ThinkingBlockProps = {
@@ -28,18 +28,22 @@ export function ThinkingBlock({ thinking }: ThinkingBlockProps) {
       <button
         type="button"
         onClick={toggle}
-        className="inline-flex items-center gap-2 rounded-lg border border-[--thinking-border] bg-[--thinking-bg] px-3 py-2 text-left"
+        className="inline-flex items-center gap-2 rounded-[10px] border border-[--thinking-border] bg-[--thinking-bg] px-3 py-1.5 text-left transition-transform duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:scale-[1.02]"
         aria-expanded={isExpanded}
       >
         <div className="flex items-center gap-1">
           {[0, 1, 2].map((i) => (
             <motion.span
               key={i}
-              className="h-1.5 w-1.5 rounded-full bg-[--thinking]"
-              {...(shouldReduce ? {} : pulse)}
-              transition={
-                shouldReduce ? {} : { ...pulse.transition, delay: i * MOTION.STAGGER_CHILDREN }
-              }
+              className="size-1.5 rounded-full bg-[--thinking]"
+              animate={{ scale: [0, 1, 0, 0] }}
+              transition={{
+                duration: 1.4,
+                ease: 'easeInOut',
+                repeat: Infinity,
+                times: [0, 0.4, 0.8, 1],
+                delay: i * 0.16,
+              }}
             />
           ))}
         </div>

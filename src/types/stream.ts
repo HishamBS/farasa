@@ -1,6 +1,6 @@
 import type { v0_8 } from '@a2ui-sdk/types'
 import type { CHAT_STREAM_STATUS } from '@/config/constants'
-import type { StreamPhase } from '@/schemas'
+import type { StreamPhase, ChatInput } from '@/schemas'
 
 export type ChatStreamStatus =
   (typeof CHAT_STREAM_STATUS)[keyof typeof CHAT_STREAM_STATUS]
@@ -38,6 +38,7 @@ export type StreamState = {
   textContent: string
   a2uiMessages: v0_8.A2UIMessage[]
   error: string | null
+  lastInput: ChatInput | null
 }
 
 export type StreamAction =
@@ -51,3 +52,4 @@ export type StreamAction =
   | { type: 'ERROR'; message: string }
   | { type: 'DONE' }
   | { type: 'RESET' }
+  | { type: 'SAVE_INPUT'; input: ChatInput }

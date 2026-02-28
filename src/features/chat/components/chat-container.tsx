@@ -15,7 +15,7 @@ type ChatContainerProps = {
 }
 
 export function ChatContainer({ conversationId }: ChatContainerProps) {
-  const { streamState, sendMessage, abort } = useChatStream()
+  const { streamState, sendMessage, abort, retry } = useChatStream()
   const isStreaming = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
   const chatInputRef = useRef<ChatInputHandle>(null)
 
@@ -50,7 +50,7 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <StreamProgress streamState={streamState} />
+      <StreamProgress streamState={streamState} onRetry={retry} />
       <MessageList
         messages={messages}
         streamState={streamState}

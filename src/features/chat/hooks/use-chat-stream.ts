@@ -15,6 +15,7 @@ export function useChatStream() {
   const sendMessage = useCallback(
     (input: ChatInput) => {
       abortRef.current?.()
+      dispatch({ type: 'SAVE_INPUT', input })
       reset()
 
       const subscription = trpcClient.chat.stream.subscribe(input, {
@@ -105,5 +106,11 @@ export function useChatStream() {
     abortRef.current = null
   }, [])
 
-  return { streamState, sendMessage, abort }
+  const retry = useCallback(() => {
+    if (streamState.lastInput) {
+      sendMessage(streamState.lastInput)
+    }
+  }, [streamState.lastInput, sendMessage])
+
+  return { streamState, sendMessage, abort, retry }
 }

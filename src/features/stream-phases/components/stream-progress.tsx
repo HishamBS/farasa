@@ -1,17 +1,19 @@
 'use client'
 
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
+import { AlertCircle, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import {
   STREAM_PHASES,
   CHAT_STREAM_STATUS,
   STREAM_PROGRESS,
 } from '@/config/constants'
-import { fadeInDown } from '@/lib/utils/motion'
+import { fadeInDown, fadeInUp } from '@/lib/utils/motion'
 import type { StreamState } from '@/types/stream'
 
 type StreamProgressProps = {
   streamState: StreamState
+  onRetry?: () => void
 }
 
 type PhaseStatus =
@@ -23,7 +25,7 @@ type DisplayPhase = {
   status: PhaseStatus
 }
 
-export function StreamProgress({ streamState }: StreamProgressProps) {
+export function StreamProgress({ streamState, onRetry }: StreamProgressProps) {
   const shouldReduce = useReducedMotion()
   const isActive = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
   const { statusMessages, modelSelection, textContent } = streamState
@@ -56,6 +58,28 @@ export function StreamProgress({ streamState }: StreamProgressProps) {
         return parts.length > 1 ? parts.slice(1).join('/') : modelSelection.model
       })()
     : ''
+
+  if (streamState.phase === CHAT_STREAM_STATUS.ERROR && streamState.error) {
+    return (
+      <motion.div
+        {...(shouldReduce ? {} : fadeInUp)}
+        className="mx-auto flex max-w-2xl items-center gap-2 rounded-lg border border-[--error]/20 bg-[--error]/5 px-3 py-2 text-sm text-[--error] my-3"
+      >
+        <AlertCircle className="size-4 shrink-0" />
+        <span className="flex-1">{streamState.error}</span>
+        {onRetry && streamState.lastInput && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="flex items-center gap-1 rounded px-2 py-1 text-xs text-[--text-muted] hover:text-[--text-primary] hover:bg-[--bg-surface-hover]"
+          >
+            <RefreshCw className="size-3" />
+            Retry
+          </button>
+        )}
+      </motion.div>
+    )
+  }
 
   return (
     <AnimatePresence>

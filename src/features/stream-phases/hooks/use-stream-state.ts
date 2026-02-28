@@ -11,6 +11,7 @@ const initialState: StreamState = {
   textContent: '',
   a2uiMessages: [],
   error: null,
+  lastInput: null,
 }
 
 function streamStateReducer(state: StreamState, action: StreamAction): StreamState {
@@ -115,8 +116,12 @@ function streamStateReducer(state: StreamState, action: StreamAction): StreamSta
       return { ...state, phase: CHAT_STREAM_STATUS.COMPLETE }
     }
 
+    case 'SAVE_INPUT': {
+      return { ...state, lastInput: action.input }
+    }
+
     case 'RESET': {
-      return initialState
+      return { ...initialState, lastInput: state.lastInput }
     }
   }
 }

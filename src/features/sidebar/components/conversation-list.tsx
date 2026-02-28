@@ -1,10 +1,11 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import { trpc } from '@/trpc/provider'
 import { ConversationItem } from './conversation-item'
 import { ROUTES } from '@/config/routes'
-import { UX } from '@/config/constants'
+import { LIMITS, UX } from '@/config/constants'
 
 type ConversationListProps = {
   search: string
@@ -12,9 +13,41 @@ type ConversationListProps = {
 
 export function ConversationList({ search }: ConversationListProps) {
   const pathname = usePathname()
-  const { data: conversations, isLoading } = trpc.conversation.list.useQuery({
-    search: search.trim() || undefined,
-  })
+  const sentinelRef = useRef<HTMLDivElement>(null)
+
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = trpc.conversation.list.useInfiniteQuery(
+    {
+      search: search.trim() || undefined,
+      limit: LIMITS.PAGINATION_DEFAULT_LIMIT,
+    },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      staleTime: UX.QUERY_STALE_TIME_FOREVER,
+    },
+  )
+
+  const conversations = data?.pages.flatMap((p) => p.items) ?? []
+
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el || !hasNextPage) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting && !isFetchingNextPage) {
+          void fetchNextPage()
+        }
+      },
+      { threshold: 0.1 },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasNextPage, fetchNextPage, isFetchingNextPage])
 
   if (isLoading) {
     return (
@@ -29,7 +62,7 @@ export function ConversationList({ search }: ConversationListProps) {
     )
   }
 
-  if (!conversations?.length) {
+  if (!conversations.length) {
     return (
       <div className="px-4 py-8 text-center">
         <p className="text-sm text-[--text-ghost]">No conversations yet</p>
@@ -49,6 +82,14 @@ export function ConversationList({ search }: ConversationListProps) {
           updatedAt={conv.updatedAt}
         />
       ))}
+
+      <div ref={sentinelRef} className="h-1">
+        {isFetchingNextPage && (
+          <div className="flex justify-center py-2">
+            <span className="size-4 animate-spin rounded-full border-2 border-[--border-default] border-t-[--accent]" />
+          </div>
+        )}
+      </div>
     </div>
   )
 }

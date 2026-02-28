@@ -30,12 +30,20 @@ export const conversationRouter = router({
         conditions.push(like(conversations.title, `%${input.search}%`))
       }
 
-      return ctx.db
+      const fetchLimit = input.limit + 1
+      const rows = await ctx.db
         .select()
         .from(conversations)
         .where(and(...conditions))
         .orderBy(desc(conversations.isPinned), desc(conversations.updatedAt))
-        .limit(input.limit)
+        .limit(fetchLimit)
+
+      const hasMore = rows.length === fetchLimit
+      const items = hasMore ? rows.slice(0, input.limit) : rows
+      const lastItem = items[items.length - 1]
+      const nextCursor = hasMore && lastItem ? lastItem.updatedAt.toISOString() : undefined
+
+      return { items, nextCursor }
     }),
 
   getById: protectedProcedure

@@ -1,7 +1,9 @@
 'use client'
 
 import { useCallback } from 'react'
+import { motion } from 'framer-motion'
 import { X, FileText, Loader2, CheckCircle2 } from 'lucide-react'
+import { fadeInUp } from '@/lib/utils/motion'
 import type { UploadState } from '../hooks/use-file-upload'
 
 type AttachmentPreviewProps = {
@@ -22,7 +24,11 @@ export function AttachmentPreview({ fileName, uploadState, onRemove }: Attachmen
   const isImage = uploadState.fileType.startsWith('image/')
 
   return (
-    <div className="relative flex items-center gap-2 rounded-xl border border-[--border-subtle] bg-[--bg-surface] p-2">
+    <motion.div
+      className="relative flex items-center gap-2 rounded-xl border border-[--border-subtle] bg-[--bg-surface] p-2"
+      {...fadeInUp}
+      exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.15 } }}
+    >
       {isImage && uploadState.previewUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -69,6 +75,6 @@ export function AttachmentPreview({ fileName, uploadState, onRemove }: Attachmen
           <X className="size-3.5" />
         </button>
       )}
-    </div>
+    </motion.div>
   )
 }

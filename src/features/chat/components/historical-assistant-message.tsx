@@ -128,6 +128,17 @@ export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessa
           <TTSControls content={message.content} />
         </div>
       )}
+
+      {metadata?.usage && (
+        <div className="flex items-center gap-3 text-xs text-[--text-ghost]">
+          {(metadata.usage.totalTokens ?? 0) > 0 && (
+            <span>{metadata.usage.totalTokens?.toLocaleString()} tokens</span>
+          )}
+          {metadata.usage.cost !== undefined && metadata.usage.cost > 0 && (
+            <span>${metadata.usage.cost.toFixed(4)}</span>
+          )}
+        </div>
+      )}
     </motion.div>
   )
 }

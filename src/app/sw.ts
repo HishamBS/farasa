@@ -14,6 +14,14 @@ const serwist = new Serwist({
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
+  fallbacks: {
+    entries: [
+      {
+        url: '/offline',
+        matcher: ({ request }: { request: Request }) => request.destination === 'document',
+      },
+    ],
+  },
 })
 
 serwist.addEventListeners()

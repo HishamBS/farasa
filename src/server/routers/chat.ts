@@ -266,6 +266,7 @@ export const chatRouter = router({
         ]
 
         const { openrouter } = await import('@/lib/ai/client')
+        const { ALL_TOOLS } = await import('@/lib/ai/tools')
         const stream = await openrouter.chat.completions.create(
           {
             model: selectedModel,
@@ -273,6 +274,9 @@ export const chatRouter = router({
             stream: true,
             max_tokens: AI_PARAMS.CHAT_MAX_TOKENS,
             stream_options: { include_usage: true },
+            ...(input.mode === CHAT_MODES.CHAT
+              ? { tools: ALL_TOOLS, tool_choice: 'auto' as const }
+              : {}),
           },
           { signal },
         )
@@ -285,6 +289,7 @@ export const chatRouter = router({
         let inA2UI = false
         let a2uiBuffer = ''
         let usage: Usage | undefined
+        const toolCallArgBuffers = new Map<number, { id: string; name: string; args: string }>()
 
         for await (const chunk of stream) {
           if (chunk.usage) {
@@ -315,6 +320,17 @@ export const chatRouter = router({
               isComplete: false,
             }
             yield thinkTokenChunk
+            continue
+          }
+
+          if (delta.tool_calls) {
+            for (const tc of delta.tool_calls) {
+              const buf = toolCallArgBuffers.get(tc.index) ?? { id: tc.id ?? '', name: tc.function?.name ?? '', args: '' }
+              buf.args += tc.function?.arguments ?? ''
+              if (tc.id) buf.id = tc.id
+              if (tc.function?.name) buf.name = tc.function.name
+              toolCallArgBuffers.set(tc.index, buf)
+            }
             continue
           }
 
@@ -384,6 +400,103 @@ export const chatRouter = router({
             isComplete: true,
           }
           yield thinkCompleteChunk
+        }
+
+        // Handle model-initiated tool calls (chat mode autonomous search)
+        if (toolCallArgBuffers.size > 0 && input.mode === CHAT_MODES.CHAT) {
+          const assistantToolCallMessage: OAIMessage & { tool_calls?: unknown[] } = {
+            role: 'assistant',
+            content: fullText || '',
+            tool_calls: [...toolCallArgBuffers.entries()].map(([index, tc]) => ({
+              index,
+              id: tc.id,
+              type: 'function' as const,
+              function: { name: tc.name, arguments: tc.args },
+            })),
+          }
+          const toolResultMessages: (OAIMessage & { tool_call_id?: string; role: 'tool' })[] = []
+
+          for (const [, tc] of toolCallArgBuffers.entries()) {
+            if (tc.name === TOOL_NAMES.WEB_SEARCH) {
+              let query = tc.args
+              try { query = (JSON.parse(tc.args) as { query: string }).query } catch { /* ignore */ }
+
+              const toolStartChunk: StreamChunk = {
+                type: STREAM_EVENTS.TOOL_START,
+                toolName: TOOL_NAMES.WEB_SEARCH,
+                input: { query },
+              }
+              yield toolStartChunk
+              const toolStartedAt = Date.now()
+
+              const { tavilySearch } = await import('@/lib/search/tavily')
+              const response = await tavilySearch({
+                query,
+                maxResults: LIMITS.SEARCH_MAX_RESULTS,
+                includeImages: true,
+                searchDepth: SEARCH_DEPTHS.BASIC,
+              })
+              searchResults = response.results
+              searchImages = response.images
+
+              const toolResultChunk: StreamChunk = {
+                type: STREAM_EVENTS.TOOL_RESULT,
+                toolName: TOOL_NAMES.WEB_SEARCH,
+                result: { query: response.query, results: response.results, images: response.images },
+              }
+              yield toolResultChunk
+              toolCalls.push({
+                name: TOOL_NAMES.WEB_SEARCH,
+                input: { query },
+                result: { query: response.query, results: response.results },
+                durationMs: Date.now() - toolStartedAt,
+              })
+
+              const resultsText = response.results
+                .map((r) => `[${r.title}](${r.url})\n${r.snippet}`)
+                .join('\n\n')
+              toolResultMessages.push({
+                role: 'tool' as const,
+                tool_call_id: tc.id,
+                content: resultsText,
+              } as OAIMessage & { tool_call_id?: string; role: 'tool' })
+            }
+          }
+
+          if (toolResultMessages.length > 0) {
+            fullText = ''
+            const followUpMessages = [
+              ...oaiMessages,
+              assistantToolCallMessage as unknown as OAIMessage,
+              ...toolResultMessages as unknown as OAIMessage[],
+            ]
+            const followUpStream = await openrouter.chat.completions.create(
+              {
+                model: selectedModel,
+                messages: followUpMessages,
+                stream: true,
+                max_tokens: AI_PARAMS.CHAT_MAX_TOKENS,
+                stream_options: { include_usage: true },
+              },
+              { signal },
+            )
+            for await (const fchunk of followUpStream) {
+              if (fchunk.usage) {
+                const parsedUsage = UsageSchema.safeParse({
+                  promptTokens: fchunk.usage.prompt_tokens ?? 0,
+                  completionTokens: fchunk.usage.completion_tokens ?? 0,
+                  totalTokens: fchunk.usage.total_tokens ?? 0,
+                })
+                if (parsedUsage.success) usage = parsedUsage.data
+              }
+              const fdelta = fchunk.choices[0]?.delta
+              if (fdelta?.content) {
+                fullText += fdelta.content
+                const textChunk: StreamChunk = { type: STREAM_EVENTS.TEXT, content: fdelta.content }
+                yield textChunk
+              }
+            }
+          }
         }
 
         const metadata = MessageMetadataSchema.parse({

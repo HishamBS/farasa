@@ -9,7 +9,7 @@ import {
   forwardRef,
   useImperativeHandle,
 } from 'react'
-import { motion, useReducedMotion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Send, Paperclip } from 'lucide-react'
 import { scaleIn } from '@/lib/utils/motion'
 import { StopButton } from './stop-button'
@@ -146,7 +146,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
     return (
       // env(safe-area-inset-bottom) prevents the input from being obscured on notched devices
       <div className="border-t border-[--border-subtle] bg-[--bg-root] [padding-bottom:env(safe-area-inset-bottom)]">
-        <div className="mx-auto max-w-2xl px-4 py-3 lg:px-6">
+        <div className="mx-auto max-w-2xl px-4 pb-4 pt-2 lg:px-6">
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -218,25 +218,35 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
                 </button>
                 <MicButton onTranscript={handleTranscript} />
 
-                {isStreaming ? (
-                  <StopButton onAbort={onAbort} />
-                ) : (
-                  <motion.button
-                    type="button"
-                    onClick={handleSubmit}
-                    disabled={!canSend}
-                    className={cn(
-                      'flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-all hover:scale-110',
-                      canSend
-                        ? 'bg-[--accent] text-[--bg-root] hover:bg-[--accent-hover]'
-                        : 'bg-[--bg-surface-hover] text-[--text-ghost]',
-                    )}
-                    {...(shouldReduce ? {} : scaleIn)}
-                    aria-label="Send message"
-                  >
-                    <Send size={14} />
-                  </motion.button>
-                )}
+                <AnimatePresence mode="wait">
+                  {isStreaming ? (
+                    <motion.div
+                      key="stop"
+                      {...(shouldReduce ? {} : scaleIn)}
+                      exit={shouldReduce ? {} : { scale: 0.8, opacity: 0, transition: { duration: 0.15 } }}
+                    >
+                      <StopButton onAbort={onAbort} />
+                    </motion.div>
+                  ) : (
+                    <motion.button
+                      key="send"
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={!canSend}
+                      className={cn(
+                        'flex min-h-11 min-w-11 items-center justify-center rounded-xl transition-all hover:scale-110',
+                        canSend
+                          ? 'bg-[--accent] text-[--bg-root] hover:bg-[--accent-hover]'
+                          : 'bg-[--bg-surface-hover] text-[--text-ghost]',
+                      )}
+                      {...(shouldReduce ? {} : scaleIn)}
+                      exit={shouldReduce ? {} : { scale: 0.8, opacity: 0, transition: { duration: 0.15 } }}
+                      aria-label="Send message"
+                    >
+                      <Send size={14} />
+                    </motion.button>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </div>

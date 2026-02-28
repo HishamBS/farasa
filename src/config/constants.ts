@@ -128,10 +128,6 @@ export const STREAM_PROGRESS = {
   },
 } as const
 
-export const OPENROUTER_FIELDS = {
-  THINKING: 'thinking',
-} as const
-
 export const AI_MARKUP = {
   A2UI_FENCE_START: '```a2ui',
   CODE_FENCE_END: '```',
@@ -233,7 +229,6 @@ export const AI_REASONING = {
 } as const
 
 export const EXTERNAL_URLS = {
-  OPENROUTER_API: 'https://openrouter.ai/api/v1',
   OPENROUTER_MODELS: 'https://openrouter.ai/api/v1/models',
   GCS_BASE: 'https://storage.googleapis.com',
 } as const

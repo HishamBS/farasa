@@ -1,6 +1,9 @@
-import { auth } from '@/lib/auth/config'
+import NextAuth from 'next-auth'
+import { edgeAuthConfig } from '@/lib/auth/edge-config'
 import { ROUTES } from '@/config/routes'
 import { AppError } from '@/lib/utils/errors'
+
+const { auth } = NextAuth(edgeAuthConfig)
 
 export default auth((req) => {
   const isLoggedIn = !!req.auth

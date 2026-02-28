@@ -16,6 +16,56 @@ Next.js 15 · tRPC v11 SSE · React 19 · Bun · Neon Postgres · GCP Cloud Run
 
 ---
 
+## Quick Start
+
+> **Evaluators:** 3 steps to a running app.
+
+### Prerequisites
+
+- [Bun](https://bun.sh) `>= 1.0`
+- [Docker](https://docs.docker.com/get-docker/) (for local Postgres — image pulled automatically)
+- Google OAuth credentials ([create here](https://console.cloud.google.com/apis/credentials))
+
+### 1. Configure environment
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` and fill in:
+
+| Variable             | Where to get it                                                                 |
+| -------------------- | ------------------------------------------------------------------------------- |
+| `AUTH_SECRET`        | Run: `openssl rand -base64 32`                                                  |
+| `AUTH_GOOGLE_ID`     | Google Cloud Console → OAuth 2.0 Client IDs                                     |
+| `AUTH_GOOGLE_SECRET` | Same as above                                                                   |
+| `OPENROUTER_API_KEY` | [openrouter.ai/keys](https://openrouter.ai/keys)                                |
+| `DATABASE_URL`       | Pre-filled: `postgresql://farasa_user:farasa_password@localhost:5433/farasa_db` |
+
+Add `http://localhost:3010/api/auth/callback/google` to your OAuth client's **Authorized redirect URIs**.
+
+### 2. Install dependencies
+
+```bash
+bun install
+```
+
+### 3. Start
+
+```bash
+./start.sh dev:hybrid
+```
+
+This single command handles everything:
+
+- Pulls and starts a local PostgreSQL container via Docker
+- Generates and applies the database schema
+- Starts the Next.js development server
+
+**App:** http://localhost:3010 — sign in with Google to begin.
+
+---
+
 ## Why Farasa?
 
 **فراسة** (_farāsa_) — in Arabic, the faculty of perceptive insight; reading intent and meaning

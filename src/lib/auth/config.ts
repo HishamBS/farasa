@@ -72,7 +72,6 @@ function withEncryptedTokens(adapter: Adapter): Adapter {
 
 const authConfig: NextAuthConfig = {
   trustHost: true,
-  session: { strategy: 'jwt' },
   adapter: withEncryptedTokens(
     DrizzleAdapter(db, {
       usersTable: schema.users,
@@ -88,8 +87,8 @@ const authConfig: NextAuthConfig = {
     }),
   ],
   callbacks: {
-    session({ session, token }) {
-      if (token.sub) session.user.id = token.sub
+    session({ session, user }) {
+      session.user.id = user.id
       return session
     },
   },

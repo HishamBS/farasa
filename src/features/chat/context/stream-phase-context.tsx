@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState } from 'react'
 import type { TitlebarPhase } from '@/types/stream'
+import { TITLEBAR_PHASE } from '@/config/constants'
 
 interface StreamPhaseContextValue {
   phase: TitlebarPhase
@@ -9,12 +10,12 @@ interface StreamPhaseContextValue {
 }
 
 const StreamPhaseContext = createContext<StreamPhaseContextValue>({
-  phase: 'idle',
+  phase: TITLEBAR_PHASE.IDLE,
   setPhase: () => undefined,
 })
 
 export function StreamPhaseProvider({ children }: { children: React.ReactNode }) {
-  const [phase, setPhase] = useState<TitlebarPhase>('idle')
+  const [phase, setPhase] = useState<TitlebarPhase>(TITLEBAR_PHASE.IDLE)
   return (
     <StreamPhaseContext.Provider value={{ phase, setPhase }}>
       {children}

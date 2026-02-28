@@ -41,15 +41,6 @@ export const MODEL_CATEGORIES = {
 } as const
 
 export const MODEL_IDS = {
-  CLAUDE_SONNET_4: 'anthropic/claude-sonnet-4-20250514',
-  CLAUDE_HAIKU_35: 'anthropic/claude-3-5-haiku-20241022',
-  CLAUDE_OPUS_4: 'anthropic/claude-opus-4-20250514',
-  GPT_4O: 'openai/gpt-4o',
-  GPT_4O_MINI: 'openai/gpt-4o-mini',
-  O4_MINI: 'openai/o4-mini',
-  GEMINI_25_PRO: 'google/gemini-2.5-pro-preview',
-  GEMINI_20_FLASH: 'google/gemini-2.0-flash',
-  LLAMA_33_70B: 'meta-llama/llama-3.3-70b-instruct',
   LLAMA_31_8B: 'meta-llama/llama-3.1-8b-instruct',
 } as const
 
@@ -79,6 +70,13 @@ export const CHAT_STREAM_STATUS = {
   ACTIVE: 'active',
   COMPLETE: 'complete',
   ERROR: 'error',
+} as const
+
+export const TITLEBAR_PHASE = {
+  IDLE: 'idle',
+  THINKING: 'thinking',
+  STREAMING: 'streaming',
+  DONE: 'done',
 } as const
 
 export const CHAT_MODES = {
@@ -117,6 +115,7 @@ export const STREAM_PROGRESS = {
     SELECTED: 'selected',
     STREAMING: 'streaming',
   },
+  ORDER: [STREAM_PHASES.ROUTING, STREAM_PHASES.THINKING, 'streaming', 'done'] as const,
   LABELS: {
     [STREAM_PHASES.ROUTING]: 'Routing',
     [STREAM_PHASES.THINKING]: 'Thinking',
@@ -125,6 +124,7 @@ export const STREAM_PROGRESS = {
     [STREAM_PHASES.GENERATING_UI]: 'Rendering',
     [STREAM_PHASES.GENERATING_TITLE]: 'Title',
     STREAMING: 'Responding',
+    DONE: 'Done',
   },
 } as const
 
@@ -161,16 +161,6 @@ export const PROVIDER_TEXT_CLASSES: Record<string, string> = {
 }
 
 export const ROUTER_MODEL = MODEL_IDS.LLAMA_31_8B
-export const DEFAULT_MODEL = MODEL_IDS.CLAUDE_SONNET_4
-
-export const PREFERRED_MODELS = {
-  [MODEL_CATEGORIES.CODE]: MODEL_IDS.CLAUDE_SONNET_4,
-  [MODEL_CATEGORIES.ANALYSIS]: MODEL_IDS.GEMINI_25_PRO,
-  [MODEL_CATEGORIES.CREATIVE]: MODEL_IDS.CLAUDE_SONNET_4,
-  [MODEL_CATEGORIES.VISION]: MODEL_IDS.CLAUDE_SONNET_4,
-  [MODEL_CATEGORIES.FAST]: MODEL_IDS.LLAMA_33_70B,
-  [MODEL_CATEGORIES.GENERAL]: MODEL_IDS.CLAUDE_SONNET_4,
-} as const
 
 export const UX = {
   STATUS_MIN_DISPLAY_MS: 500,
@@ -187,14 +177,14 @@ export const UX = {
   SCROLL_BUTTON_BOTTOM_OFFSET: 24,
   LONG_PRESS_DELAY_MS: 500,
   QUERY_STALE_TIME_FOREVER: Infinity,
-  SEND_BUTTON_HOVER_SCALE: 1.1,
+  SEND_BUTTON_HOVER_SCALE: 1.08,
 } as const
 
 export const MOTION = {
-  DURATION_FAST: 0.15,
+  DURATION_FAST: 0.16,
   DURATION_NORMAL: 0.2,
   DURATION_MEDIUM: 0.25,
-  DURATION_SLOW: 0.3,
+  DURATION_SLOW: 0.35,
   DURATION_LOOP: 1.5,
   DURATION_BACKGROUND_LOOP: 4,
   STAGGER_CHILDREN: 0.05,

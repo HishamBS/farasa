@@ -1,5 +1,5 @@
 import type { v0_8 } from '@a2ui-sdk/types'
-import type { CHAT_STREAM_STATUS } from '@/config/constants'
+import type { CHAT_STREAM_STATUS, TITLEBAR_PHASE } from '@/config/constants'
 import type { StreamPhase, ChatInput } from '@/schemas'
 
 export type ChatStreamStatus = (typeof CHAT_STREAM_STATUS)[keyof typeof CHAT_STREAM_STATUS]
@@ -53,4 +53,4 @@ export type StreamAction =
   | { type: 'RESET' }
   | { type: 'SAVE_INPUT'; input: ChatInput }
 
-export type TitlebarPhase = 'idle' | 'thinking' | 'streaming' | 'done'
+export type TitlebarPhase = (typeof TITLEBAR_PHASE)[keyof typeof TITLEBAR_PHASE]

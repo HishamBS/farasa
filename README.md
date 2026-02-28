@@ -1,6 +1,4 @@
-<!-- Replace OWNER with your GitHub username after pushing -->
-
-[![CI](https://github.com/OWNER/farasa/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/OWNER/farasa/actions/workflows/ci.yml)
+[![CI](https://github.com/hishambs/farasa/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hishambs/farasa/actions/workflows/ci.yml)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
 [![Bun](https://img.shields.io/badge/Bun-1.2+-fbf0df?logo=bun&logoColor=000)](https://bun.sh/)
@@ -55,30 +53,30 @@ platform distinct.
 ## Architecture
 
 ```mermaid
-flowchart LR
-    Browser(["Browser · React 19"])
+graph LR
+    Browser["Browser\nReact 19"]
 
-    subgraph next ["Next.js 15 · Bun"]
-        MW[Auth Middleware]
-        tRPC[tRPC Handler]
+    subgraph SRV ["Next.js 15 + Bun Runtime"]
+        MW["Auth Middleware"]
+        tRPC["tRPC Handler"]
     end
 
-    subgraph routers [Routers]
-        chat[chat.stream]
-        conv[conversation]
-        model[model]
-        srch[search]
-        upl[upload]
+    subgraph API ["Routers"]
+        chat["chat.stream"]
+        conv["conversation"]
+        model["model"]
+        srch["search"]
+        upl["upload"]
     end
 
-    subgraph infra [Infrastructure]
-        OR[(OpenRouter)]
-        PG[(Neon Postgres)]
-        TV[(Tavily)]
-        GCS[(Cloud Storage)]
+    subgraph INFRA ["Infrastructure"]
+        OR[("OpenRouter\n100+ LLMs")]
+        PG[("Neon Postgres")]
+        TV[("Tavily")]
+        GCS[("Cloud Storage")]
     end
 
-    Browser -->|SSE / HTTP| MW
+    Browser -->|"SSE / HTTP"| MW
     MW --> tRPC
     tRPC --> chat
     tRPC --> conv
@@ -90,6 +88,16 @@ flowchart LR
     conv --> PG
     srch --> TV
     upl --> GCS
+
+    classDef client fill:#1a1a2e,stroke:#e94560,color:#e0e0e0
+    classDef server fill:#16213e,stroke:#0f3460,color:#e0e0e0
+    classDef router fill:#0f3460,stroke:#533483,color:#e0e0e0
+    classDef infra fill:#533483,stroke:#e94560,color:#e0e0e0
+
+    class Browser client
+    class MW,tRPC server
+    class chat,conv,model,srch,upl router
+    class OR,PG,TV,GCS infra
 ```
 
 `splitLink` routes SSE subscriptions through `httpSubscriptionLink` and queries/mutations through

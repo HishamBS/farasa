@@ -11,6 +11,17 @@ export function useSidebar() {
   const close = useCallback(() => setIsOpen(false), [])
   const toggle = useCallback(() => setIsOpen((prev) => !prev), [])
 
+  // Sidebar is always open on desktop (lg+). Framer Motion needs JS state to match.
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)')
+    if (mq.matches) setIsOpen(true)
+    const handler = (e: MediaQueryListEvent) => {
+      if (e.matches) setIsOpen(true)
+    }
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+
   useEffect(() => {
     function onTouchStart(e: TouchEvent) {
       const touch = e.touches[0]

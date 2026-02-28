@@ -72,11 +72,11 @@ export function Titlebar({ onMenuClick }: TitlebarProps) {
 
   return (
     <>
-      <header className="flex h-12 flex-shrink-0 items-center gap-2 border-b border-[--border-subtle] px-4">
+      <header className="flex h-12 flex-shrink-0 items-center gap-2.5 border-b border-[--border-subtle] px-4">
         <button
           type="button"
           onClick={onMenuClick}
-          className="flex size-9 items-center justify-center rounded-lg text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-primary] lg:hidden"
+          className="flex size-7 items-center justify-center rounded-lg text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-primary] lg:hidden"
           aria-label={UI_TEXT.OPEN_SIDEBAR_ARIA}
         >
           <Menu size={18} />
@@ -95,7 +95,7 @@ export function Titlebar({ onMenuClick }: TitlebarProps) {
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="flex size-9 items-center justify-center rounded-lg text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-primary]"
+                className="flex size-7 items-center justify-center rounded-lg text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-primary]"
                 aria-label="More options"
               >
                 <MoreHorizontal size={16} />

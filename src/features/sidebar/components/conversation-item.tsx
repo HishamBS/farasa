@@ -179,17 +179,22 @@ export function ConversationItem({
     <>
     <motion.div
       className={cn(
-        'group relative flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer min-h-11',
+        'group relative flex items-center gap-2 rounded-lg px-2.5 py-2 cursor-pointer min-h-11',
         'transition-colors hover:bg-[--bg-surface-hover]',
-        isActive && 'bg-[--bg-surface-hover] border-l-2 border-[--accent] pl-2.5',
+        isActive && 'bg-[--bg-surface-hover]',
       )}
       onClick={handleClick}
+      onContextMenu={(e) => { e.preventDefault(); setIsLongPressMenuOpen(true) }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
       onTouchMove={handleTouchEnd}
       {...(shouldReduce ? {} : fadeInUp)}
     >
+      {isActive && (
+        <span className="absolute left-0 top-1/2 h-3/6 w-0.5 -translate-y-1/2 rounded-r-full bg-[--accent]" />
+      )}
+
       {isPinned && (
         <Pin size={10} className="shrink-0 text-[--accent] opacity-60" />
       )}

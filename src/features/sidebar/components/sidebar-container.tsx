@@ -28,13 +28,15 @@ export function SidebarContainer({ children, isOpen, onClose }: SidebarProps) {
         )}
       </AnimatePresence>
 
-      <aside
+      <motion.aside
+        initial={false}
+        animate={shouldReduce ? {} : { x: isOpen ? 0 : '-100%' }}
+        transition={shouldReduce ? {} : { duration: MOTION.DURATION_SLOW, ease: MOTION.EASING }}
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col',
-          'bg-[--bg-glass] backdrop-blur-xl border-r border-[--border-subtle]',
-          'transition-transform duration-300',
-          'lg:relative lg:translate-x-0 lg:transition-none',
-          isOpen ? 'translate-x-0' : '-translate-x-full',
+          'fixed inset-y-0 left-0 z-50 flex w-72 flex-col',
+          'bg-[--bg-glass] backdrop-blur-xl saturate-150 border-r border-[--border-subtle]',
+          'shadow-2xl shadow-black/30 lg:shadow-none',
+          'lg:relative',
         )}
         aria-label="Sidebar"
       >
@@ -44,7 +46,7 @@ export function SidebarContainer({ children, isOpen, onClose }: SidebarProps) {
         >
           {children}
         </motion.div>
-      </aside>
+      </motion.aside>
     </>
   )
 }

@@ -47,7 +47,7 @@ export function EmptyState({ onSelect }: EmptyStateProps) {
       </motion.div>
 
       <motion.div
-        className="grid w-full max-w-sm grid-cols-2 gap-3"
+        className="grid w-full max-w-sm grid-cols-2 gap-2"
         {...(shouldReduce ? {} : staggerContainer)}
       >
         {EMPTY_STATE_SUGGESTIONS.map((suggestion) => (

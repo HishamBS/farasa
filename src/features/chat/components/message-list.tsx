@@ -39,7 +39,9 @@ export function MessageList({
       ) : (
         <div className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-6 lg:px-6">
           {messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} />
+            <motion.div key={msg.id} layout={!shouldReduce}>
+              <MessageBubble message={msg} />
+            </motion.div>
           ))}
 
           {isStreaming && streamState.phase !== CHAT_STREAM_STATUS.IDLE && (

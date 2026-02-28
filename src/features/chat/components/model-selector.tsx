@@ -242,17 +242,38 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
                         tabIndex={focusedIndex === idx ? 0 : -1}
                         onClick={() => handleSelect(m.id)}
                         className={cn(
-                          'flex w-full min-h-11 items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[--bg-surface-hover]',
+                          'flex w-full min-h-11 flex-col gap-1 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[--bg-surface-hover]',
                           value === m.id && 'bg-[--accent-muted] text-[--accent]',
                         )}
                       >
-                        <span className="flex-1 truncate font-mono">{m.name}</span>
-                        <span className="shrink-0 text-[--text-ghost]">
-                          {Math.round(m.contextWindow / LIMITS.TOKENS_PER_K)}k
-                        </span>
-                        <span className="shrink-0 text-[--text-ghost]">
-                          ${m.pricing.promptPerMillion}/M
-                        </span>
+                        <div className="flex w-full items-center gap-2">
+                          <span className="flex-1 truncate font-mono">{m.name}</span>
+                          <span className="shrink-0 text-[--text-ghost]">
+                            {Math.round(m.contextWindow / LIMITS.TOKENS_PER_K)}k
+                          </span>
+                          <span className="shrink-0 text-[--text-ghost]">
+                            ${m.pricing.promptPerMillion}/M
+                          </span>
+                        </div>
+                        {(m.supportsThinking || m.supportsVision || m.supportsTools) && (
+                          <div className="flex flex-wrap gap-1">
+                            {m.supportsThinking && (
+                              <span className="rounded-full bg-[--thinking]/10 px-1.5 py-0.5 text-[10px] text-[--thinking]">
+                                Thinking
+                              </span>
+                            )}
+                            {m.supportsVision && (
+                              <span className="rounded-full bg-[--accent-muted] px-1.5 py-0.5 text-[10px] text-[--accent]">
+                                Vision
+                              </span>
+                            )}
+                            {m.supportsTools && (
+                              <span className="rounded-full bg-[--bg-surface-active] px-1.5 py-0.5 text-[10px] text-[--text-muted]">
+                                Tools
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </button>
                     )
                   })}

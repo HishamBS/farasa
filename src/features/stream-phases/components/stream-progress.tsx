@@ -6,8 +6,6 @@ import {
   STREAM_PHASES,
   CHAT_STREAM_STATUS,
   STREAM_PROGRESS,
-  PROVIDER_DOT_CLASSES,
-  PROVIDER_TEXT_CLASSES,
 } from '@/config/constants'
 import { fadeInDown } from '@/lib/utils/motion'
 import type { StreamState } from '@/types/stream'
@@ -52,10 +50,12 @@ export function StreamProgress({ streamState }: StreamProgressProps) {
     })
   }
 
-  const provider = modelSelection?.model.split('/')[0] ?? ''
-  const dotClass = PROVIDER_DOT_CLASSES[provider] ?? 'bg-[--text-ghost]'
-  const textClass = PROVIDER_TEXT_CLASSES[provider] ?? 'text-[--text-muted]'
-  const modelName = modelSelection?.model.split('/').slice(1).join('/') ?? ''
+  const modelName = modelSelection
+    ? (() => {
+        const parts = modelSelection.model.split('/')
+        return parts.length > 1 ? parts.slice(1).join('/') : modelSelection.model
+      })()
+    : ''
 
   return (
     <AnimatePresence>
@@ -98,13 +98,8 @@ export function StreamProgress({ streamState }: StreamProgressProps) {
             </div>
 
             {modelSelection && (
-              <div
-                className={cn(
-                  'ml-auto flex items-center gap-1.5 rounded-full border border-[--border-subtle] px-2.5 py-1 text-xs',
-                  textClass,
-                )}
-              >
-                <span className={cn('size-1.5 rounded-full', dotClass)} />
+              <div className="ml-auto flex items-center gap-1.5 rounded-full border border-orange-400/20 bg-orange-400/10 px-2.5 py-1 text-xs text-[--provider-anthropic]">
+                <span className="size-1.5 rounded-full bg-[--provider-anthropic]" />
                 <span className="font-mono">{modelName}</span>
               </div>
             )}

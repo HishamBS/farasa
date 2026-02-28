@@ -99,8 +99,7 @@ export async function getModelRegistry(force = false): Promise<ModelConfig[]> {
     cache.set(MODEL_REGISTRY_CACHE_KEY, { models, fetchedAt: Date.now() })
     return models
   } catch (error) {
-    console.error('[registry] OpenRouter fetch failed, using static fallback:', error)
-    const { STATIC_MODEL_REGISTRY } = await import('@/config/models')
-    return [...STATIC_MODEL_REGISTRY]
+    console.error('[registry] OpenRouter fetch failed:', error)
+    throw error
   }
 }

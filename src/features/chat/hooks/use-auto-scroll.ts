@@ -1,16 +1,15 @@
 'use client'
 
-import { useRef, useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import type { RefObject } from 'react'
 import { UX } from '@/config/constants'
 
-export function useAutoScroll(isActive: boolean) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const bottomRef = useRef<HTMLDivElement>(null)
+export function useAutoScroll(
+  isActive: boolean,
+  containerRef: RefObject<HTMLDivElement | null>,
+  scrollToBottom: () => void,
+) {
   const [isPaused, setIsPaused] = useState(false)
-
-  const scrollToBottom = useCallback(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [])
 
   useEffect(() => {
     const container = containerRef.current
@@ -29,7 +28,7 @@ export function useAutoScroll(isActive: boolean) {
 
     container.addEventListener('scroll', onScroll, { passive: true })
     return () => container.removeEventListener('scroll', onScroll)
-  }, [])
+  }, [containerRef])
 
   useEffect(() => {
     if (isActive && !isPaused) {
@@ -42,5 +41,5 @@ export function useAutoScroll(isActive: boolean) {
     scrollToBottom()
   }, [scrollToBottom])
 
-  return { containerRef, bottomRef, isPaused, resume }
+  return { isPaused, resume }
 }

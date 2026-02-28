@@ -1,5 +1,7 @@
 'use client'
 
+import { useRef, useCallback } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { motion, useReducedMotion } from 'framer-motion'
 import { ChevronDown } from 'lucide-react'
 import { fadeIn } from '@/lib/utils/motion'
@@ -18,6 +20,11 @@ type MessageListProps = {
   onSuggestionSelect?: (text: string) => void
 }
 
+// Tailwind gap-6 = 24px, py-6 = 24px top/bottom
+const ITEM_GAP_PX = 24
+const LIST_PADDING_PX = 24
+const ESTIMATED_ITEM_HEIGHT_PX = 120
+
 export function MessageList({
   messages,
   streamState,
@@ -25,35 +32,80 @@ export function MessageList({
   onSuggestionSelect,
 }: MessageListProps) {
   const shouldReduce = useReducedMotion()
-  const { containerRef, bottomRef, isPaused, resume } = useAutoScroll(
-    isStreaming,
-  )
+  const parentRef = useRef<HTMLDivElement>(null)
 
   const isEmpty =
     messages.length === 0 && streamState.phase === CHAT_STREAM_STATUS.IDLE
 
+  const showStreaming =
+    isStreaming && streamState.phase !== CHAT_STREAM_STATUS.IDLE
+
+  // Total virtual items = historical messages + 1 streaming slot (when active)
+  const itemCount = messages.length + (showStreaming ? 1 : 0)
+
+  const virtualizer = useVirtualizer({
+    count: itemCount,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ESTIMATED_ITEM_HEIGHT_PX,
+    overscan: 5,
+    paddingStart: LIST_PADDING_PX,
+    paddingEnd: LIST_PADDING_PX,
+    gap: ITEM_GAP_PX,
+  })
+
+  const scrollToBottom = useCallback(() => {
+    const container = parentRef.current
+    if (!container) return
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: shouldReduce ? 'auto' : 'smooth',
+    })
+  }, [shouldReduce])
+
+  const { isPaused, resume } = useAutoScroll(
+    isStreaming,
+    parentRef,
+    scrollToBottom,
+  )
+
   return (
-    <div ref={containerRef} className="flex-1 overflow-y-auto">
+    <div ref={parentRef} className="flex-1 overflow-y-auto">
       {isEmpty ? (
         <EmptyState onSelect={onSuggestionSelect} />
       ) : (
-        <div className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-6 lg:px-6">
-          {messages.map((msg) => (
-            <motion.div key={msg.id} layout={!shouldReduce}>
-              <MessageBubble message={msg} />
-            </motion.div>
-          ))}
+        <div
+          className="relative mx-auto max-w-2xl px-4 lg:px-6"
+          style={{ height: `${virtualizer.getTotalSize()}px` }}
+        >
+          {virtualizer.getVirtualItems().map((virtualItem) => {
+            const isStreamingSlot = virtualItem.index === messages.length
+            const message = messages[virtualItem.index]
 
-          {isStreaming && streamState.phase !== CHAT_STREAM_STATUS.IDLE && (
-            <AssistantMessage streamState={streamState} />
-          )}
-
-          <div ref={bottomRef} />
+            return (
+              <div
+                key={virtualItem.key}
+                data-index={virtualItem.index}
+                ref={virtualizer.measureElement}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  transform: `translateY(${virtualItem.start}px)`,
+                }}
+              >
+                {isStreamingSlot ? (
+                  <AssistantMessage streamState={streamState} />
+                ) : message !== undefined ? (
+                  <MessageBubble message={message} />
+                ) : null}
+              </div>
+            )
+          })}
         </div>
       )}
 
       {isPaused && isStreaming && (
-        // UX.SCROLL_BUTTON_BOTTOM_OFFSET = 24 → bottom-24
         <motion.button
           type="button"
           onClick={resume}

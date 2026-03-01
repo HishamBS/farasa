@@ -7,12 +7,25 @@ import { fadeIn } from '@/lib/utils/motion'
 import { MessageBubble } from './message-bubble'
 import { AssistantMessage } from './assistant-message'
 import { EmptyState } from './empty-state'
+import { GroupMessageGroup } from '@/features/group/components/group-message-group'
 import { useAutoScroll } from '../hooks/use-auto-scroll'
 import { CHAT_STREAM_STATUS, MESSAGE_ROLES, MOTION, UI_TEXT } from '@/config/constants'
 import { useConversationCost } from '../context/conversation-cost-context'
 import { formatCost, formatTokenCount } from '@/lib/utils/format'
 import type { StreamState } from '@/types/stream'
 import type { MessageWithAttachments } from '@/schemas/conversation'
+import type { UseSynthesisReturn } from '@/features/group/hooks/use-group-synthesis'
+import type { ModelMeta } from '@/features/group/types'
+
+type LiveGroupData = {
+  modelStates: Map<string, StreamState>
+  modelOrder: string[]
+  groupDone: boolean
+  groupId: string | undefined
+  conversationId: string
+  synthesis: UseSynthesisReturn
+  models: ModelMeta[]
+}
 
 type MessageListProps = {
   messages: MessageWithAttachments[]
@@ -20,7 +33,13 @@ type MessageListProps = {
   isStreaming: boolean
   pendingUserMessage?: string | null
   onSuggestionSelect?: (text: string) => void
+  conversationId?: string
+  liveGroup?: LiveGroupData | null
 }
+
+type RenderItem =
+  | { type: 'single'; message: MessageWithAttachments }
+  | { type: 'group'; messages: MessageWithAttachments[]; groupId: string }
 
 export function MessageList({
   messages,
@@ -28,12 +47,17 @@ export function MessageList({
   isStreaming,
   pendingUserMessage,
   onSuggestionSelect,
+  conversationId,
+  liveGroup,
 }: MessageListProps) {
   const shouldReduce = useReducedMotion()
   const parentRef = useRef<HTMLDivElement>(null)
 
   const isEmpty =
-    messages.length === 0 && streamState.phase === CHAT_STREAM_STATUS.IDLE && !pendingUserMessage
+    messages.length === 0 &&
+    streamState.phase === CHAT_STREAM_STATUS.IDLE &&
+    !pendingUserMessage &&
+    !liveGroup
 
   const lastUserMessageContent =
     messages.length > 0 ? messages.findLast((m) => m.role === MESSAGE_ROLES.USER)?.content : null
@@ -50,6 +74,37 @@ export function MessageList({
     (streamState.phase === CHAT_STREAM_STATUS.COMPLETE &&
       hasStreamedContent &&
       !lastMessageIsAssistant)
+
+  const renderItems = useMemo((): RenderItem[] => {
+    const items: RenderItem[] = []
+    let i = 0
+    while (i < messages.length) {
+      const msg = messages[i]
+      if (!msg) {
+        i++
+        continue
+      }
+      const groupId = msg.metadata?.groupId
+      if (msg.role === MESSAGE_ROLES.ASSISTANT && groupId && !msg.metadata?.isGroupSynthesis) {
+        const groupMsgs: MessageWithAttachments[] = [msg]
+        while (
+          i + 1 < messages.length &&
+          messages[i + 1]?.role === MESSAGE_ROLES.ASSISTANT &&
+          messages[i + 1]?.metadata?.groupId === groupId &&
+          !messages[i + 1]?.metadata?.isGroupSynthesis
+        ) {
+          i++
+          const next = messages[i]
+          if (next) groupMsgs.push(next)
+        }
+        items.push({ type: 'group', messages: groupMsgs, groupId })
+      } else {
+        items.push({ type: 'single', message: msg })
+      }
+      i++
+    }
+    return items
+  }, [messages])
 
   const dividerLabel = useMemo(() => {
     if (messages.length === 0) return null
@@ -69,7 +124,8 @@ export function MessageList({
     })
   }, [shouldReduce])
 
-  const { isPaused, resume } = useAutoScroll(isStreaming, parentRef, scrollToBottom)
+  const isAnyStreaming = isStreaming || (!!liveGroup && !liveGroup.groupDone)
+  const { isPaused, resume } = useAutoScroll(isAnyStreaming, parentRef, scrollToBottom)
   const { totalCostUsd, totalTokens } = useConversationCost()
 
   return (
@@ -87,9 +143,23 @@ export function MessageList({
           )}
 
           <div className="flex flex-col gap-9">
-            {messages.map((message) => (
-              <MessageBubble key={message.id} message={message} />
-            ))}
+            {renderItems.map((item) => {
+              if (item.type === 'group') {
+                const historicalMessages = item.messages.map((msg) => ({
+                  modelId: msg.metadata?.modelUsed ?? '',
+                  content: msg.content,
+                }))
+                return (
+                  <GroupMessageGroup
+                    key={item.groupId}
+                    mode="historical"
+                    historicalMessages={historicalMessages}
+                    conversationId={conversationId ?? ''}
+                  />
+                )
+              }
+              return <MessageBubble key={item.message.id} message={item.message} />
+            })}
             {showPendingBubble && (
               <div className="flex justify-end">
                 <div className="max-w-[80%] rounded-2xl bg-(--bg-surface-active) px-4 py-2.5 text-sm text-(--text-primary)">
@@ -98,6 +168,18 @@ export function MessageList({
               </div>
             )}
             {showStreaming && <AssistantMessage streamState={streamState} />}
+            {liveGroup && (
+              <GroupMessageGroup
+                mode="live"
+                modelStates={liveGroup.modelStates}
+                modelOrder={liveGroup.modelOrder}
+                groupDone={liveGroup.groupDone}
+                groupId={liveGroup.groupId}
+                conversationId={liveGroup.conversationId}
+                synthesis={liveGroup.synthesis}
+                models={liveGroup.models}
+              />
+            )}
           </div>
 
           {totalCostUsd > 0 && (
@@ -111,7 +193,7 @@ export function MessageList({
       )}
 
       <AnimatePresence>
-        {isPaused && isStreaming && (
+        {isPaused && isAnyStreaming && (
           <motion.button
             type="button"
             onClick={resume}

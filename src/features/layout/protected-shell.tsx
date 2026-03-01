@@ -11,6 +11,7 @@ import { Titlebar } from '@/features/chat/components/titlebar'
 import { PhaseBar } from '@/features/chat/components/phase-bar'
 import { ChatModeProvider } from '@/features/chat/context/chat-mode-context'
 import { StreamPhaseProvider, useStreamPhase } from '@/features/chat/context/stream-phase-context'
+import { GroupModeProvider } from '@/features/group/context/group-context'
 
 type ProtectedShellProps = {
   children: ReactNode
@@ -44,29 +45,31 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
 
   return (
     <ChatModeProvider>
-      <StreamPhaseProvider>
-        <div className="flex h-screen overflow-hidden bg-[--bg-root]">
-          <SidebarContainer isOpen={isOpen} onClose={close} onOpen={open}>
-            <SidebarHeader
-              isSearchOpen={isSearchOpen}
-              searchValue={searchValue}
-              onSearchChange={setSearchValue}
-              onClose={close}
-              onSearchToggle={handleSearchToggle}
-            />
-            <div className="flex-1 overflow-y-auto py-2">
-              <ConversationList search={searchValue} />
-            </div>
-            <UserMenu />
-          </SidebarContainer>
+      <GroupModeProvider>
+        <StreamPhaseProvider>
+          <div className="flex h-screen overflow-hidden bg-[--bg-root]">
+            <SidebarContainer isOpen={isOpen} onClose={close} onOpen={open}>
+              <SidebarHeader
+                isSearchOpen={isSearchOpen}
+                searchValue={searchValue}
+                onSearchChange={setSearchValue}
+                onClose={close}
+                onSearchToggle={handleSearchToggle}
+              />
+              <div className="flex-1 overflow-y-auto py-2">
+                <ConversationList search={searchValue} />
+              </div>
+              <UserMenu />
+            </SidebarContainer>
 
-          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            <TitlebarWithPhase onMenuClick={handleMenuClick} />
-            <PhaseBar />
-            <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
+            <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+              <TitlebarWithPhase onMenuClick={handleMenuClick} />
+              <PhaseBar />
+              <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
+            </div>
           </div>
-        </div>
-      </StreamPhaseProvider>
+        </StreamPhaseProvider>
+      </GroupModeProvider>
     </ChatModeProvider>
   )
 }

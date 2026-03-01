@@ -1,4 +1,4 @@
-import { and, asc, eq, or, sql } from 'drizzle-orm'
+import { and, asc, eq, or } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure, rateLimitedChatProcedure } from '../trpc'
 import { GroupStreamInputSchema, GroupSynthesizeInputSchema } from '@/schemas/group'
@@ -260,15 +260,7 @@ export const groupRouter = router({
         .set({ updatedAt: new Date() })
         .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
 
-      const [messageCount] = await ctx.db
-        .select({ value: sql<number>`count(*)` })
-        .from(messages)
-        .where(eq(messages.conversationId, conversationId))
-        .limit(1)
-
-      const shouldGenerateTitle =
-        conversation.title === NEW_CHAT_TITLE &&
-        Number(messageCount?.value ?? 0) <= 1 + input.models.length
+      const shouldGenerateTitle = conversation.title === NEW_CHAT_TITLE
 
       if (shouldGenerateTitle) {
         try {

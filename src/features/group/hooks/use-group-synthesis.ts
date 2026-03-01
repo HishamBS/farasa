@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { trpcClient } from '@/trpc/client'
 import { GROUP_EVENTS } from '@/config/constants'
 import type { GroupSynthesisOutputChunk } from '@/schemas/group'
@@ -88,11 +88,14 @@ export function useGroupSynthesis(): UseSynthesisReturn {
     }
   }, [])
 
-  return {
-    synthesisText,
-    isSynthesizing,
-    isDone,
-    error,
-    trigger,
-  }
+  return useMemo(
+    () => ({
+      synthesisText,
+      isSynthesizing,
+      isDone,
+      error,
+      trigger,
+    }),
+    [synthesisText, isSynthesizing, isDone, error, trigger],
+  )
 }

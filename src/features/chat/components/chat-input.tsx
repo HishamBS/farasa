@@ -14,7 +14,7 @@ import { Send, Paperclip } from 'lucide-react'
 import { scaleIn } from '@/lib/utils/motion'
 import { StopButton } from './stop-button'
 import { cn } from '@/lib/utils/cn'
-import { APP_CONFIG, SUPPORTED_FILE_TYPES, UI_TEXT } from '@/config/constants'
+import { APP_CONFIG, UI_TEXT } from '@/config/constants'
 import { useChatInput } from '../hooks/use-chat-input'
 import { useFileUpload } from '../hooks/use-file-upload'
 import { useChatMode } from '../context/chat-mode-context'
@@ -61,7 +61,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
 
   const { mode } = useChatMode()
 
-  const { uploadFile, uploadStates, removeFile } = useFileUpload()
+  const { uploadFile, uploadStates, removeFile, supportedFileTypes } = useFileUpload()
 
   useImperativeHandle(ref, () => ({ setContent: setExternalContent }))
 
@@ -84,6 +84,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
       model: selectedModel,
       conversationId,
       attachmentIds,
+      streamRequestId: crypto.randomUUID(),
+      attempt: 0,
     })
     clear()
   }, [content, mode, selectedModel, conversationId, attachmentIds, isStreaming, onSend, clear])
@@ -101,8 +103,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     async (files: FileList | null) => {
       if (!files) return
       for (const file of Array.from(files)) {
-        const attachmentId = await uploadFile(file)
-        if (attachmentId) addAttachment(attachmentId)
+        const uploaded = await uploadFile(file)
+        if (uploaded) addAttachment(uploaded.attachmentId)
       }
     },
     [uploadFile, addAttachment],
@@ -151,7 +153,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           className={cn(
-            'rounded-2xl border bg-[--bg-glass] px-3 py-2.5 shadow-[0_2px_20px_rgba(0,0,0,0.2)] backdrop-blur-[20px] saturate-140',
+            'rounded-2xl border bg-[--bg-glass] px-3 py-2.5 shadow-(--shadow-elevation-2) backdrop-blur-[20px] saturate-140',
             isDragging
               ? 'border-[--accent] ring-4 ring-[--accent-muted]'
               : 'border-[--border-default] focus-within:border-[--accent-focus]',
@@ -159,13 +161,13 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
         >
           {uploadStates.size > 0 && (
             <div className="mb-2 flex flex-col gap-1">
-              {[...uploadStates.entries()].map(([fileName, state]) => (
+              {[...uploadStates.entries()].map(([token, state]) => (
                 <AttachmentPreview
-                  key={fileName}
-                  fileName={fileName}
+                  key={token}
+                  fileName={state.fileName}
                   uploadState={state}
                   onRemove={() => {
-                    removeFile(fileName)
+                    removeFile(token)
                     if (state.attachmentId) removeAttachment(state.attachmentId)
                   }}
                 />
@@ -189,7 +191,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
               <input
                 ref={fileInputRef}
                 type="file"
-                accept={SUPPORTED_FILE_TYPES.join(',')}
+                accept={supportedFileTypes.join(',')}
                 onChange={handleFileInput}
                 className="hidden"
                 multiple

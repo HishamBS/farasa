@@ -42,7 +42,7 @@ export function ModeToggle({ value, onChange }: ModeToggleProps) {
           {value === modeValue && !shouldReduce && (
             <motion.span
               layoutId="mode-active-pill"
-              className="absolute inset-0 rounded-lg border border-[--border-subtle] bg-[--bg-surface-active] shadow-[0_1px_4px_rgba(0,0,0,0.4)]"
+              className="absolute inset-0 rounded-lg border border-[--border-subtle] bg-[--bg-surface-active] shadow-(--shadow-elevation-1)"
               transition={springBounce}
             />
           )}

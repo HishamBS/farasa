@@ -55,7 +55,7 @@ export function SidebarContainer({ children, isOpen, onClose, onOpen }: SidebarP
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex w-72 flex-col',
           'bg-[--bg-glass] border-r border-[--border-subtle] backdrop-blur-xl saturate-150',
-          'shadow-2xl shadow-black/30 lg:shadow-none',
+          'shadow-(--shadow-elevation-2) lg:shadow-none',
           'lg:static lg:translate-x-0',
         )}
         aria-label="Sidebar"

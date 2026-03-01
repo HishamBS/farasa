@@ -21,8 +21,10 @@ import { useChatMode } from '../context/chat-mode-context'
 import { ModelSelector } from './model-selector'
 import { AttachmentPreview } from './attachment-preview'
 import { MicButton } from '@/features/voice/components/mic-button'
+import { GroupModelPicker } from '@/features/group/components/group-model-picker'
 import type { ModelSelectorHandle } from './model-selector'
 import type { ChatInput as ChatInputType } from '@/schemas/message'
+import type { GroupStreamInput } from '@/schemas/group'
 
 export type ChatInputHandle = {
   setContent: (text: string) => void
@@ -34,10 +36,11 @@ type ChatInputProps = {
   isStreaming: boolean
   conversationId?: string
   initialModel?: string | null
+  onGroupSubmit?: (input: GroupStreamInput) => void
 }
 
 export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput(
-  { onSend, onAbort, isStreaming, conversationId, initialModel },
+  { onSend, onAbort, isStreaming, conversationId, initialModel, onGroupSubmit },
   ref,
 ) {
   const shouldReduce = useReducedMotion()
@@ -85,6 +88,18 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
 
   const handleSubmit = useCallback(() => {
     if (!content.trim() || isStreaming || isTooLong) return
+    if (mode === 'group') {
+      if (onGroupSubmit) {
+        onGroupSubmit({
+          content: content.trim(),
+          models: [],
+          conversationId,
+          attachmentIds,
+        })
+        clear()
+      }
+      return
+    }
     onSend({
       content: content.trim(),
       mode,
@@ -102,6 +117,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     attachmentIds,
     isStreaming,
     onSend,
+    onGroupSubmit,
     clear,
   ])
 
@@ -280,7 +296,15 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
         </div>
 
         <div className="mt-1.5 flex items-center gap-2.5">
-          <ModelSelector ref={modelSelectorRef} value={selectedModel} onChange={setSelectedModel} />
+          {mode === 'group' ? (
+            <GroupModelPicker />
+          ) : (
+            <ModelSelector
+              ref={modelSelectorRef}
+              value={selectedModel}
+              onChange={setSelectedModel}
+            />
+          )}
 
           <button
             type="button"
@@ -305,6 +329,10 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
 
         {mode === 'search' && (
           <div className="mt-1 px-1 text-xs text-(--text-muted)">Search mode is active.</div>
+        )}
+
+        {mode === 'group' && (
+          <div className="mt-1 px-1 text-xs text-(--text-muted)">Group mode is active.</div>
         )}
       </div>
     </div>

@@ -5,22 +5,23 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { springBounce } from '@/lib/utils/motion'
 import { CHAT_MODES } from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
-import type { SearchMode } from '@/schemas/search'
+import type { ChatMode } from '@/schemas/message'
 
 type ModeToggleProps = {
-  value: SearchMode
-  onChange: (mode: SearchMode) => void
+  value: ChatMode
+  onChange: (mode: ChatMode) => void
 }
 
-const MODES: ReadonlyArray<{ value: SearchMode; label: string }> = [
+const MODES: ReadonlyArray<{ value: ChatMode; label: string }> = [
   { value: CHAT_MODES.CHAT, label: 'Chat' },
   { value: CHAT_MODES.SEARCH, label: 'Search' },
+  { value: CHAT_MODES.GROUP, label: 'Group' },
 ]
 
 export function ModeToggle({ value, onChange }: ModeToggleProps) {
   const shouldReduce = useReducedMotion()
 
-  const handleChange = useCallback((mode: SearchMode) => () => onChange(mode), [onChange])
+  const handleChange = useCallback((mode: ChatMode) => () => onChange(mode), [onChange])
 
   return (
     <div className="flex items-center gap-0.5 rounded-xl border border-(--border-subtle) bg-(--bg-surface) p-1">

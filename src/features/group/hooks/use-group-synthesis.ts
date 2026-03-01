@@ -11,7 +11,7 @@ type SynthesisParams = {
   judgeModel: string
 }
 
-type UseSynthesisReturn = {
+export type UseSynthesisReturn = {
   synthesisText: string
   isSynthesizing: boolean
   isDone: boolean

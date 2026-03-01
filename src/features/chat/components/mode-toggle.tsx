@@ -32,9 +32,9 @@ export function ModeToggle({ value, onChange }: ModeToggleProps) {
           className={cn(
             'relative min-h-7 min-w-[72px] rounded-lg px-3 py-1 text-xs font-semibold transition-all',
             value === modeValue
-              ? 'text-[--text-primary]'
+              ? 'text-white'
               : 'text-[--text-muted] hover:text-[--text-secondary]',
-            shouldReduce && value === modeValue && 'bg-[--bg-surface-active]',
+            shouldReduce && value === modeValue && 'bg-[--accent]',
           )}
           aria-pressed={value === modeValue}
           aria-label={`${label} mode`}
@@ -42,7 +42,7 @@ export function ModeToggle({ value, onChange }: ModeToggleProps) {
           {value === modeValue && !shouldReduce && (
             <motion.span
               layoutId="mode-active-pill"
-              className="absolute inset-0 rounded-lg border border-[--border-subtle] bg-[--bg-surface-active] shadow-(--shadow-elevation-1)"
+              className="absolute inset-0 rounded-lg border border-[--accent] bg-[--accent] shadow-(--shadow-elevation-1)"
               transition={springBounce}
             />
           )}

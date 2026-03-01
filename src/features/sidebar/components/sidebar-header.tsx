@@ -28,7 +28,7 @@ export function SidebarHeader({
   }, [router])
 
   return (
-    <div className="flex-shrink-0">
+    <div className="shrink-0">
       <div className="flex items-center gap-2 border-b border-[--border-subtle] px-3.5 pb-2.5 pt-4">
         <span className="flex-1 text-sm font-semibold tracking-tight text-[--text-primary]">
           far<span className="text-[--accent]">asa</span>
@@ -54,10 +54,10 @@ export function SidebarHeader({
         <button
           type="button"
           onClick={handleNewChat}
-          className="flex w-full items-center gap-2 rounded-xl border border-[--accent-glow] bg-[--accent-muted] px-3 py-2 text-sm font-medium text-[--accent] transition-colors hover:bg-[--accent-glow]"
+          className="flex w-full items-center gap-2 rounded-xl border border-[--accent] bg-[--accent] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[--accent-hover] hover:border-[--accent-hover] shadow-sm"
           aria-label={UI_TEXT.NEW_CHAT_ARIA_LABEL}
         >
-          <Plus size={14} className="flex-shrink-0" />
+          <Plus size={14} className="shrink-0" />
           New conversation
         </button>
         {isSearchOpen && (

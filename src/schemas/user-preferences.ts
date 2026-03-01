@@ -5,6 +5,8 @@ export const UserPreferencesUpdateSchema = z
     theme: z.string(),
     sidebarExpanded: z.boolean(),
     defaultModel: z.string().nullable(),
+    groupModels: z.array(z.string()).min(2).max(3).optional(),
+    groupJudgeModel: z.string().nullable().optional(),
   })
   .partial()
 

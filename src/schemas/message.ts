@@ -119,6 +119,8 @@ export const MessageMetadataSchema = z.object({
   searchResults: z.array(SearchResultSchema).optional(),
   searchImages: z.array(SearchImageSchema).optional(),
   usage: UsageSchema.optional(),
+  groupId: z.string().uuid().optional(),
+  isGroupSynthesis: z.boolean().optional(),
 })
 
 export const MessageSchema = z.object({

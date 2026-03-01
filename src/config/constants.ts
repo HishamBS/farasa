@@ -138,6 +138,7 @@ export const TRPC_CODES = {
 export const CHAT_MODES = {
   CHAT: 'chat',
   SEARCH: 'search',
+  GROUP: 'group',
 } as const
 
 export const TOOL_NAMES = {
@@ -376,6 +377,23 @@ export const UI_TEXT = {
   WELCOME_BODY:
     "I'm your AI assistant. Let's build something amazing together today. What's on your mind?",
   EXPLORE_MORE: 'Explore more',
+} as const
+
+export const GROUP_LIMITS = {
+  MAX_MODELS: 3,
+  MIN_MODELS: 2,
+} as const
+
+export const GROUP_EVENTS = {
+  MODEL_CHUNK: 'group_model_chunk',
+  DONE: 'group_done',
+  SYNTHESIS_CHUNK: 'group_synthesis_chunk',
+  SYNTHESIS_DONE: 'group_synthesis_done',
+} as const
+
+export const GROUP_STATUS_MESSAGES = {
+  SYNTHESIZING: 'Synthesizing responses...',
+  STARTING: 'Starting group comparison...',
 } as const
 
 export const MARKDOWN_SANITIZE = {

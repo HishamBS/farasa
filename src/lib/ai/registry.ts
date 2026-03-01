@@ -29,24 +29,9 @@ type ModelRegistryOptions = {
 
 const cache = new Map<string, CacheEntry>()
 
-function normalizeProvider(rawProvider: string): ModelConfig['provider'] | null {
-  switch (rawProvider) {
-    case PROVIDERS.OPENAI:
-      return PROVIDERS.OPENAI
-    case PROVIDERS.ANTHROPIC:
-      return PROVIDERS.ANTHROPIC
-    case PROVIDERS.GOOGLE:
-      return PROVIDERS.GOOGLE
-    case PROVIDERS.GROQ:
-      return PROVIDERS.GROQ
-    case PROVIDERS.CEREBRAS:
-      return PROVIDERS.CEREBRAS
-    case PROVIDERS.META:
-    case 'meta-llama':
-      return PROVIDERS.META
-    default:
-      return null
-  }
+function normalizeProvider(rawProvider: string): string {
+  if (rawProvider === 'meta-llama') return PROVIDERS.META
+  return rawProvider
 }
 
 async function fetchFromOpenRouter(runtimeConfig: RuntimeConfig): Promise<ModelConfig[]> {
@@ -65,7 +50,6 @@ async function fetchFromOpenRouter(runtimeConfig: RuntimeConfig): Promise<ModelC
   for (const raw of json.data) {
     const providerId = raw.id.split('/')[0] ?? ''
     const provider = normalizeProvider(providerId)
-    if (!provider) continue
     const params = raw.supported_parameters ?? []
 
     const parsed = ModelConfigSchema.safeParse({

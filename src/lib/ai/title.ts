@@ -30,7 +30,16 @@ export async function generateTitle(
   )
 
   const raw = response.choices[0]?.message.content
-  const content = typeof raw === 'string' ? raw.trim() : ''
+  const content =
+    typeof raw === 'string'
+      ? raw
+          .trim()
+          .replace(
+            /^[\u201C\u201D\u2018\u2019"'"""''«»]+|[\u201C\u201D\u2018\u2019"'"""''«»]+$/g,
+            '',
+          )
+          .trim()
+      : ''
   if (!content) {
     throw new Error('Title generation returned empty content.')
   }

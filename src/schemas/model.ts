@@ -27,7 +27,7 @@ export const ModelPricingSchema = z.object({
 export const ModelConfigSchema = z.object({
   id: z.string(),
   name: z.string(),
-  provider: ProviderSchema,
+  provider: z.string(),
   capabilities: z.array(ModelCapabilitySchema),
   contextWindow: z.number().int().positive(),
   supportsVision: z.boolean(),

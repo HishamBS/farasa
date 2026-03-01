@@ -36,7 +36,7 @@ export const ModelConfigSchema = z
     pricing: ModelPricingSchema,
   })
   .transform((raw) => {
-    const rawProvider = raw.id.split('/')[0] ?? raw.id
+    const [rawProvider = raw.id] = raw.id.split('/')
     return { ...raw, provider: PROVIDER_ALIASES[rawProvider] ?? rawProvider }
   })
 

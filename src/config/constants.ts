@@ -199,7 +199,7 @@ export const PROVIDERS = {
   CEREBRAS: 'cerebras',
 } as const
 
-export const PROVIDER_ALIASES: Record<string, string> = {
+export const PROVIDER_ALIASES: Record<string, (typeof PROVIDERS)[keyof typeof PROVIDERS]> = {
   'meta-llama': PROVIDERS.META,
 }
 

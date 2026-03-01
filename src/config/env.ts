@@ -27,6 +27,7 @@ function loadEnv(): z.infer<typeof envSchema> {
   if (!parsed.success) {
     if (process.env.SKIP_ENV_VALIDATION === '1') {
       console.warn('[env] Skipping validation during build phase')
+      // Build phase skips validation (SKIP_ENV_VALIDATION=1); runtime always validates via the parsed result above.
       return process.env as unknown as z.infer<typeof envSchema>
     }
     console.error('Invalid environment variables:')

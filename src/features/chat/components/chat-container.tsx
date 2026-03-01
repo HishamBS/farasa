@@ -138,12 +138,12 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   }, [streamState.detectedSearchMode, setMode])
 
   const { data: conversation } = trpc.conversation.getById.useQuery(
-    { id: conversationId! },
+    { id: conversationId ?? '' },
     { staleTime: UX.QUERY_STALE_TIME_FOREVER, enabled: !!conversationId },
   )
 
   const { data: messages = [] } = trpc.conversation.messages.useQuery(
-    { conversationId: conversationId! },
+    { conversationId: conversationId ?? '' },
     { staleTime: UX.QUERY_STALE_TIME_FOREVER, enabled: !!conversationId },
   )
 

@@ -69,7 +69,7 @@ These principles apply to every file, every function, every line of code in the 
 - The model registry is the single truth for all available models and their capabilities
 - Environment variables are validated through a single Zod schema in `src/config/env.ts`
 - Route paths are defined once in `src/config/routes.ts`
-- All constants, limits, and configuration values are defined once in `src/config/constants.ts`
+- Compile-time constants are defined once in `src/config/constants.ts`; runtime/business behavior is defined in `src/schemas/runtime-config.ts` and resolved via `src/lib/runtime-config/service.ts`
 - The A2UI catalog definition is the single truth for all agent-renderable UI components
 - The design token system (colors, spacing, radii, shadows) is defined once via CSS custom properties and Tailwind config — referenced everywhere, never duplicated
 - Motion presets are defined once in `src/lib/utils/motion.ts` — every animated component references these presets
@@ -94,12 +94,12 @@ These principles apply to every file, every function, every line of code in the 
 ### 3.4 No Literal Strings
 
 - All route paths are constants in `src/config/routes.ts`
-- All error messages are constants or enums, never inline strings
+- Runtime error/status copy is sourced from runtime config, never duplicated in feature modules
 - All OpenRouter model IDs are sourced from the model registry, never hardcoded in components or routers
 - All GCS bucket names, collection names, API endpoints are in `src/config/constants.ts` or `src/config/env.ts`
-- All system prompts and prompt templates are constants in `src/config/prompts.ts`
+- Runtime prompt templates and wrappers are sourced from runtime config
 - All A2UI component type strings are referenced from the catalog definition
-- All status phase messages are constants, never inline
+- All status phase messages are runtime-config values, never inline
 
 ### 3.5 No Inline Types
 
@@ -110,12 +110,12 @@ These principles apply to every file, every function, every line of code in the 
 
 ### 3.6 No Magic Numbers
 
-- All limits (max message length, max file size, pagination defaults, token limits) are in `src/config/constants.ts`
-- All timeouts, retry counts, debounce durations are constants
+- Runtime limits (max message length, max file size, pagination defaults, token limits) are in runtime config
+- Runtime timeouts, retry counts, and stream policy values are in runtime config
 - All breakpoints are referenced from Tailwind config, never hardcoded pixel values
 - All animation durations, spring configs, and easings are constants in `MOTION` object
-- All API rate limits, cache TTLs, and expiry durations are constants
-- All UX timing values (minimum status display duration, debounce intervals, transition delays) are constants in `UX` object
+- API rate limits and upload expiry durations are runtime-config values
+- Runtime UX timing values (e.g., auto-scroll threshold, copy-feedback timing) are runtime-config values
 
 ### 3.7 No Pixels — Ever
 

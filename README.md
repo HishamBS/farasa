@@ -34,13 +34,15 @@ cp .env.example .env
 
 Open `.env` and fill in:
 
-| Variable             | Where to get it                                                                 |
-| -------------------- | ------------------------------------------------------------------------------- |
-| `AUTH_SECRET`        | Run: `openssl rand -base64 32`                                                  |
-| `AUTH_GOOGLE_ID`     | Google Cloud Console → OAuth 2.0 Client IDs                                     |
-| `AUTH_GOOGLE_SECRET` | Same as above                                                                   |
-| `OPENROUTER_API_KEY` | [openrouter.ai/keys](https://openrouter.ai/keys)                                |
-| `DATABASE_URL`       | Pre-filled: `postgresql://farasa_user:farasa_password@localhost:5433/farasa_db` |
+| Variable                      | Where to get it                                                                 |
+| ----------------------------- | ------------------------------------------------------------------------------- |
+| `AUTH_SECRET`                 | Run: `openssl rand -base64 32`                                                  |
+| `AUTH_GOOGLE_ID`              | Google Cloud Console → OAuth 2.0 Client IDs                                     |
+| `AUTH_GOOGLE_SECRET`          | Same as above                                                                   |
+| `OPENROUTER_API_KEY`          | [openrouter.ai/keys](https://openrouter.ai/keys)                                |
+| `DATABASE_URL`                | Pre-filled: `postgresql://farasa_user:farasa_password@localhost:5433/farasa_db` |
+| `RUNTIME_CONFIG_JSON`         | Required runtime/business config JSON (see `.env.example`)                      |
+| `RUNTIME_CONFIG_CACHE_TTL_MS` | Optional in-memory cache TTL for runtime config snapshots                       |
 
 Add `http://localhost:3010/api/auth/callback/google` to your OAuth client's **Authorized redirect URIs**.
 
@@ -158,6 +160,19 @@ The streaming protocol is a `StreamChunk` discriminated union emitted in phase o
 state machine (`useChatStream`) renders all phases simultaneously — no waiting for the stream to
 close before showing partial output.
 
+### Runtime Config SSOT
+
+All runtime business behavior is resolved through `RuntimeConfigService` in
+`src/lib/runtime-config/service.ts` with this precedence:
+
+1. user override (DB)
+2. tenant override (DB)
+3. system config (DB)
+4. environment (`RUNTIME_CONFIG_JSON`)
+
+No runtime/business fallback defaults are hardcoded in feature codepaths. If required keys are
+missing, the app fails with typed runtime-config errors instead of silently degrading.
+
 ---
 
 ## Tech Stack
@@ -206,6 +221,7 @@ src/
 │   │   ├── chat.ts              # 7-phase SSE streaming
 │   │   ├── conversation.ts      # CRUD, pagination, pin, Markdown export
 │   │   ├── model.ts             # Live registry — OpenRouter with 1h cache
+│   │   ├── runtime-config.ts    # Runtime config read/invalidate procedures
 │   │   ├── search.ts            # Tavily web search
 │   │   └── upload.ts            # GCS presigned URL + confirmation
 │   └── trpc.ts                  # Context, auth middleware, rate limiting
@@ -223,12 +239,13 @@ src/
 ├── lib/
 │   ├── ai/                      # OpenRouter client, model router, registry, tools
 │   ├── db/                      # Drizzle schema, relations, client, migrations
+│   ├── runtime-config/          # Dynamic runtime config resolution + cache
 │   ├── upload/                  # GCS presigned URL generation + sanitization
 │   ├── search/                  # Tavily wrapper
 │   ├── security/                # Sliding-window rate limiter, AES-GCM token crypto
 │   └── utils/                   # cn, format, error messages, motion presets
 │
-├── schemas/                     # Zod SSOT — message, conversation, model, search, upload
+├── schemas/                     # Zod SSOT — message, conversation, model, search, upload, runtime-config
 ├── config/                      # constants.ts, env.ts, routes.ts, models.ts, prompts.ts
 ├── types/                       # Pure TypeScript domain types
 ├── styles/themes.css            # CSS custom properties — dark + light token system
@@ -250,7 +267,10 @@ chat.stream({
   messages: Message[],
   sessionId: string,
   mode: 'chat' | 'search',
+  streamRequestId: string, // required request lineage ID
+  attempt: number, // required internal retry attempt counter
   attachmentIds?: string[],
+  skipUserInsert?: boolean,
 })
 
 // Emitted in phase order:
@@ -263,6 +283,15 @@ chat.stream({
 { type: 'a2ui'; jsonl: string }
 { type: 'done'; usage?: TokenUsage }
 { type: 'error'; message: string; code?: string }
+```
+
+### `chat.cancel`
+
+```ts
+chat.cancel({
+  conversationId: string,
+  streamRequestId: string,
+})
 ```
 
 ### Conversations
@@ -283,6 +312,9 @@ conversation.exportMarkdown({ id })               // Markdown string
 model.list()                                      // All models — 1h cache
 model.getById({ id })                             // Metadata + capabilities + pricing
 model.refresh()                                   // Invalidate cache
+
+runtimeConfig.get()                               // Resolved dynamic runtime config
+runtimeConfig.invalidate({ scope? })              // Clear cache snapshots
 
 search.web({ query, maxResults? })                // Tavily → results + images
 upload.presignedUrl({ filename, mimeType })       // GCS signed URL + DB record
@@ -306,6 +338,8 @@ upload.confirmUpload({ id, contentType })         // Mark confirmed after upload
 | `GOOGLE_APPLICATION_CREDENTIALS` | —        | Service account JSON path (local dev only)                     |
 | `NEXT_PUBLIC_APP_URL`            | ✓        | App base URL — OAuth callbacks + OpenRouter Referer            |
 | `AUTH_URL`                       | —        | Auth.js callback URL (defaults to `NEXT_PUBLIC_APP_URL`)       |
+| `RUNTIME_CONFIG_JSON`            | ✓        | Runtime/business behavior contract (JSON)                      |
+| `RUNTIME_CONFIG_CACHE_TTL_MS`    | —        | Runtime config cache TTL in milliseconds                       |
 | `NODE_ENV`                       | —        | `development` \| `production` (set by runtime)                 |
 
 ---
@@ -410,6 +444,11 @@ replaces a dozen provider SDKs. The live model registry fetches all available
 models with pricing and capability metadata from `/api/v1/models`, cached for one hour. The LLM
 router classifies intent and selects the optimal model per request, surfacing its reasoning in
 real time.
+
+**Dynamic runtime config over hardcoded business constants** — Chat behavior, retry policy, model
+routing policy, UX status copy, limits, safety policy, and feature toggles resolve through
+`RuntimeConfigService` with strict schema validation. Runtime codepaths do not silently fallback to
+hardcoded business defaults when required config keys are missing.
 
 **A2UI for agent-rendered components** — Rather than hardcoding every possible output format,
 `@a2ui-sdk/react` lets the AI emit structured component trees via the A2UI JSONL protocol. Custom

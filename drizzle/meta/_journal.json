@@ -15,6 +15,13 @@
       "when": 1772395200000,
       "tag": "0001_runtime_config_and_stream_ids",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772398800000,
+      "tag": "0002_seed_system_runtime_config",
+      "breakpoints": true
     }
   ]
 }

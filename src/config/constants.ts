@@ -188,8 +188,6 @@ export const PROVIDER_TEXT_CLASSES: Record<string, string> = {
   [PROVIDERS.CEREBRAS]: 'text-[--provider-cerebras]',
 }
 
-export const ROUTER_MODEL = MODEL_IDS.LLAMA_31_8B
-
 export const UX = {
   STATUS_MIN_DISPLAY_MS: 500,
   THINKING_COLLAPSE_DEFAULT: true,
@@ -244,7 +242,6 @@ export const SHIKI_LIGHT_THEME = 'vitesse-light' as const
 
 export const AI_REASONING = {
   MODEL_EXPLICIT: 'Model explicitly specified by user.',
-  ROUTING_FALLBACK: 'Fallback to default model due to routing error.',
 } as const
 
 export const EXTERNAL_URLS = {

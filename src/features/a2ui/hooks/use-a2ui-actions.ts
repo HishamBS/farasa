@@ -4,7 +4,6 @@ import { useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { trpc } from '@/trpc/provider'
 import { ROUTES } from '@/config/routes'
-import { LIMITS } from '@/config/constants'
 import type { ActionPayload } from '@a2ui-sdk/types/0.8'
 
 export function useA2UIActions() {
@@ -15,6 +14,7 @@ export function useA2UIActions() {
   const deleteConversation = trpc.conversation.delete.useMutation()
   const refreshModels = trpc.model.refresh.useMutation()
   const executeSearch = trpc.search.execute.useMutation()
+  const runtimeConfigQuery = trpc.runtimeConfig.get.useQuery()
 
   const handleAction = useCallback(
     (action: ActionPayload) => {
@@ -61,11 +61,13 @@ export function useA2UIActions() {
         case 'search': {
           const query = String(action.context['query'] ?? '').trim()
           if (!query) return
+          const runtimeConfig = runtimeConfigQuery.data
+          if (!runtimeConfig) return
           void executeSearch.mutateAsync({
             query,
-            includeImages: true,
-            maxResults: LIMITS.SEARCH_MAX_RESULTS,
-            searchDepth: 'basic',
+            includeImages: runtimeConfig.search.includeImagesByDefault,
+            maxResults: runtimeConfig.limits.searchMaxResults,
+            searchDepth: runtimeConfig.search.defaultDepth,
           })
           return
         }
@@ -77,6 +79,7 @@ export function useA2UIActions() {
       executeSearch,
       refreshModels,
       router,
+      runtimeConfigQuery.data,
       updateConversation,
       utils.conversation.list,
       utils.model.list,

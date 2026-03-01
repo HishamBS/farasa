@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import type { RefObject } from 'react'
-import { UX } from '@/config/constants'
+import { trpc } from '@/trpc/provider'
 
 export function useAutoScroll(
   isActive: boolean,
@@ -10,16 +10,20 @@ export function useAutoScroll(
   scrollToBottom: () => void,
 ) {
   const [isPaused, setIsPaused] = useState(false)
+  const runtimeConfigQuery = trpc.runtimeConfig.get.useQuery()
 
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
+    const threshold = runtimeConfigQuery.data?.ux.autoScrollThreshold
+    if (threshold === undefined) return
+    const thresholdValue = threshold
 
     function onScroll() {
       if (!container) return
       const { scrollTop, scrollHeight, clientHeight } = container
       const distanceFromBottom = scrollHeight - scrollTop - clientHeight
-      if (distanceFromBottom > UX.AUTO_SCROLL_THRESHOLD) {
+      if (distanceFromBottom > thresholdValue) {
         setIsPaused(true)
       } else {
         setIsPaused(false)
@@ -28,7 +32,7 @@ export function useAutoScroll(
 
     container.addEventListener('scroll', onScroll, { passive: true })
     return () => container.removeEventListener('scroll', onScroll)
-  }, [containerRef])
+  }, [containerRef, runtimeConfigQuery.data?.ux.autoScrollThreshold])
 
   useEffect(() => {
     if (isActive && !isPaused) {

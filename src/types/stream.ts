@@ -36,7 +36,13 @@ export type StreamState = {
   toolExecutions: ToolExecutionState[]
   textContent: string
   a2uiMessages: v0_8.A2UIMessage[]
-  error: string | null
+  error: {
+    message: string
+    code?: string
+    reasonCode?: string
+    recoverable?: boolean
+    attempt?: number
+  } | null
   lastInput: ChatInput | null
 }
 
@@ -48,7 +54,16 @@ export type StreamAction =
   | { type: 'TOOL_RESULT'; name: string; result: unknown }
   | { type: 'TEXT_CHUNK'; content: string }
   | { type: 'A2UI_MESSAGE'; message: v0_8.A2UIMessage }
-  | { type: 'ERROR'; message: string }
+  | {
+      type: 'ERROR'
+      error: {
+        message: string
+        code?: string
+        reasonCode?: string
+        recoverable?: boolean
+        attempt?: number
+      }
+    }
   | { type: 'DONE' }
   | { type: 'RESET' }
   | { type: 'SAVE_INPUT'; input: ChatInput }

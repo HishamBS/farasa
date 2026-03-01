@@ -8,6 +8,7 @@ const bucket = storage.bucket(env.GCS_BUCKET_NAME)
 type PresignedUrlOptions = {
   fileName: string
   fileType: string
+  expiresInMs: number
 }
 
 type PresignedUrlResult = {
@@ -25,6 +26,7 @@ function sanitizeFileName(fileName: string): string {
 export async function getPresignedUploadUrl({
   fileName,
   fileType,
+  expiresInMs,
 }: PresignedUrlOptions): Promise<PresignedUrlResult> {
   const safeFileName = sanitizeFileName(fileName)
   const objectName = `uploads/${crypto.randomUUID()}/${safeFileName}`
@@ -33,7 +35,7 @@ export async function getPresignedUploadUrl({
   const [uploadUrl] = await file.getSignedUrl({
     version: 'v4',
     action: 'write',
-    expires: Date.now() + LIMITS.UPLOAD_URL_EXPIRY_MS,
+    expires: Date.now() + expiresInMs,
     contentType: fileType,
   })
 

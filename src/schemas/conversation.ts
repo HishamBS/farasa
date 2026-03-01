@@ -1,15 +1,16 @@
 import { z } from 'zod'
-import { LIMITS } from '@/config/constants'
 import { AttachmentSchema, MessageSchema } from './message'
 
 export const CreateConversationSchema = z.object({
-  title: z.string().max(LIMITS.CONVERSATION_TITLE_MAX_LENGTH).optional(),
+  title: z.string().min(1).optional(),
   model: z.string().optional(),
+  firstMessage: z.string().min(1).optional(),
+  streamRequestId: z.string().uuid().optional(),
 })
 
 export const UpdateConversationSchema = z.object({
   id: z.string().uuid(),
-  title: z.string().max(LIMITS.CONVERSATION_TITLE_MAX_LENGTH).optional(),
+  title: z.string().min(1).optional(),
   model: z.string().optional(),
   isPinned: z.boolean().optional(),
 })
@@ -23,14 +24,9 @@ export const DeleteConversationSchema = z.object({
 })
 
 export const ConversationFilterSchema = z.object({
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(LIMITS.PAGINATION_MAX_LIMIT)
-    .default(LIMITS.PAGINATION_DEFAULT_LIMIT),
+  limit: z.number().int().min(1).optional(),
   cursor: z.string().datetime().optional(),
-  search: z.string().max(LIMITS.SEARCH_QUERY_MAX_LENGTH).optional(),
+  search: z.string().min(1).optional(),
 })
 
 export const ConversationSummarySchema = z.object({
@@ -44,7 +40,7 @@ export const ConversationSummarySchema = z.object({
 
 export const GenerateTitleSchema = z.object({
   conversationId: z.string().uuid(),
-  firstMessage: z.string().min(1).max(LIMITS.MESSAGE_MAX_LENGTH),
+  firstMessage: z.string().min(1),
 })
 
 export const ExportConversationSchema = z.object({
@@ -53,12 +49,7 @@ export const ExportConversationSchema = z.object({
 
 export const MessageListInputSchema = z.object({
   conversationId: z.string().uuid(),
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(LIMITS.PAGINATION_MAX_LIMIT)
-    .default(LIMITS.PAGINATION_DEFAULT_LIMIT),
+  limit: z.number().int().min(1).optional(),
   cursor: z.string().datetime().optional(),
 })
 

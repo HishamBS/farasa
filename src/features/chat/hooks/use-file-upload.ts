@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { trpc } from '@/trpc/provider'
-import { SUPPORTED_FILE_TYPES, LIMITS } from '@/config/constants'
 
 export type UploadState = {
+  token: string
+  fileName: string
   progress: number
   attachmentId: string | null
   error: string | null
@@ -13,61 +14,98 @@ export type UploadState = {
   fileType: string
 }
 
-const INITIAL: Omit<UploadState, 'previewUrl' | 'fileType'> = {
-  progress: 0,
-  attachmentId: null,
-  error: null,
-  isUploading: false,
+type UploadResult = {
+  token: string
+  attachmentId: string
 }
 
 export function useFileUpload() {
   const [uploadStates, setUploadStates] = useState<Map<string, UploadState>>(new Map())
+  const runtimeConfigQuery = trpc.runtimeConfig.get.useQuery()
   const presignedUrlMutation = trpc.upload.presignedUrl.useMutation()
   const confirmMutation = trpc.upload.confirmUpload.useMutation()
 
-  const uploadFile = useCallback(
-    async (file: File): Promise<string | null> => {
-      const fileType = file.type as (typeof SUPPORTED_FILE_TYPES)[number]
+  const supportedFileTypes = useMemo(
+    () => runtimeConfigQuery.data?.limits.supportedFileTypes ?? [],
+    [runtimeConfigQuery.data?.limits.supportedFileTypes],
+  )
 
-      if (!(SUPPORTED_FILE_TYPES as ReadonlyArray<string>).includes(fileType)) {
-        setUploadStates((prev) =>
-          new Map(prev).set(file.name, {
-            ...INITIAL,
-            previewUrl: null,
-            fileType: file.type,
-            error: `Unsupported type: ${file.type}`,
-          }),
-        )
+  const upsertState = useCallback(
+    (token: string, updater: (previous?: UploadState) => UploadState) => {
+      setUploadStates((prev) => {
+        const next = new Map(prev)
+        const previous = next.get(token)
+        next.set(token, updater(previous))
+        return next
+      })
+    },
+    [],
+  )
+
+  const uploadFile = useCallback(
+    async (file: File): Promise<UploadResult | null> => {
+      const token = crypto.randomUUID()
+      const runtimeConfig = runtimeConfigQuery.data
+      if (!runtimeConfig) {
+        upsertState(token, () => ({
+          token,
+          fileName: file.name,
+          progress: 0,
+          attachmentId: null,
+          error: 'Upload configuration unavailable.',
+          isUploading: false,
+          previewUrl: null,
+          fileType: file.type,
+        }))
         return null
       }
 
-      if (file.size > LIMITS.FILE_MAX_SIZE_BYTES) {
-        setUploadStates((prev) =>
-          new Map(prev).set(file.name, {
-            ...INITIAL,
-            previewUrl: null,
-            fileType: file.type,
-            error: `File exceeds ${LIMITS.FILE_MAX_SIZE_BYTES / 1024 / 1024}MB limit`,
-          }),
-        )
+      if (!runtimeConfig.limits.supportedFileTypes.includes(file.type)) {
+        upsertState(token, () => ({
+          token,
+          fileName: file.name,
+          progress: 0,
+          attachmentId: null,
+          error: `Unsupported type: ${file.type}`,
+          isUploading: false,
+          previewUrl: null,
+          fileType: file.type,
+        }))
+        return null
+      }
+
+      if (file.size > runtimeConfig.limits.fileMaxSizeBytes) {
+        const maxSizeMb = runtimeConfig.limits.fileMaxSizeBytes / 1024 / 1024
+        upsertState(token, () => ({
+          token,
+          fileName: file.name,
+          progress: 0,
+          attachmentId: null,
+          error: `File exceeds ${maxSizeMb}MB limit`,
+          isUploading: false,
+          previewUrl: null,
+          fileType: file.type,
+        }))
         return null
       }
 
       const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null
 
-      setUploadStates((prev) =>
-        new Map(prev).set(file.name, {
-          ...INITIAL,
-          isUploading: true,
-          previewUrl,
-          fileType: file.type,
-        }),
-      )
+      upsertState(token, () => ({
+        token,
+        fileName: file.name,
+        progress: 0,
+        attachmentId: null,
+        error: null,
+        isUploading: true,
+        previewUrl,
+        fileType: file.type,
+      }))
 
       try {
         const { uploadUrl, attachmentId } = await presignedUrlMutation.mutateAsync({
           fileName: file.name,
-          fileType,
+          fileType: file.type,
           fileSize: file.size,
         })
 
@@ -75,15 +113,21 @@ export function useFileUpload() {
           const xhr = new XMLHttpRequest()
           xhr.open('PUT', uploadUrl)
           xhr.setRequestHeader('Content-Type', file.type)
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-              const pct = Math.round((e.loaded / e.total) * 100)
-              setUploadStates((prev) => {
-                const current = prev.get(file.name)
-                if (!current) return prev
-                return new Map(prev).set(file.name, { ...current, progress: pct })
-              })
-            }
+          xhr.upload.onprogress = (event) => {
+            if (!event.lengthComputable) return
+            const progress = Math.round((event.loaded / event.total) * 100)
+            upsertState(token, (previous) => ({
+              ...(previous ?? {
+                token,
+                fileName: file.name,
+                attachmentId: null,
+                error: null,
+                isUploading: true,
+                previewUrl,
+                fileType: file.type,
+              }),
+              progress,
+            }))
           }
           xhr.onload = () =>
             xhr.status === 200 ? resolve() : reject(new Error(`Upload failed: ${xhr.status}`))
@@ -93,51 +137,69 @@ export function useFileUpload() {
 
         await confirmMutation.mutateAsync({ attachmentId })
 
-        setUploadStates((prev) => {
-          const current = prev.get(file.name)
-          if (!current) return prev
-          return new Map(prev).set(file.name, {
-            ...current,
-            progress: 100,
-            attachmentId,
+        upsertState(token, (previous) => ({
+          ...(previous ?? {
+            token,
+            fileName: file.name,
+            progress: 0,
+            attachmentId: null,
+            error: null,
             isUploading: false,
-          })
-        })
-        return attachmentId
-      } catch (err) {
-        const error = err instanceof Error ? err.message : 'Upload failed'
-        setUploadStates((prev) => {
-          const current = prev.get(file.name)
-          if (!current) return prev
-          return new Map(prev).set(file.name, { ...current, isUploading: false, error })
-        })
+            previewUrl,
+            fileType: file.type,
+          }),
+          progress: 100,
+          attachmentId,
+          isUploading: false,
+          error: null,
+        }))
+        return { token, attachmentId }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Upload failed'
+        upsertState(token, (previous) => ({
+          ...(previous ?? {
+            token,
+            fileName: file.name,
+            progress: 0,
+            attachmentId: null,
+            error: null,
+            isUploading: false,
+            previewUrl,
+            fileType: file.type,
+          }),
+          isUploading: false,
+          error: message,
+        }))
         return null
       }
     },
-    [presignedUrlMutation, confirmMutation],
+    [confirmMutation, presignedUrlMutation, runtimeConfigQuery.data, upsertState],
   )
 
-  const removeFile = useCallback((fileName: string) => {
+  const removeFile = useCallback((token: string) => {
     setUploadStates((prev) => {
       const next = new Map(prev)
-      const state = next.get(fileName)
-      if (state?.previewUrl) URL.revokeObjectURL(state.previewUrl)
-      next.delete(fileName)
+      const state = next.get(token)
+      if (state?.previewUrl) {
+        URL.revokeObjectURL(state.previewUrl)
+      }
+      next.delete(token)
       return next
     })
   }, [])
 
-  // Revoke all preview object URLs on unmount to prevent memory leaks
   useEffect(() => {
     return () => {
       setUploadStates((prev) => {
         for (const state of prev.values()) {
-          if (state.previewUrl) URL.revokeObjectURL(state.previewUrl)
+          if (state.previewUrl) {
+            URL.revokeObjectURL(state.previewUrl)
+          }
         }
         return prev
       })
     }
   }, [])
 
-  return { uploadFile, uploadStates, removeFile }
+  return { uploadFile, uploadStates, removeFile, supportedFileTypes }
 }

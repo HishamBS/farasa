@@ -1,17 +1,9 @@
 import { z } from 'zod'
-import { LIMITS, SUPPORTED_FILE_TYPES } from '@/config/constants'
 
 export const UploadRequestSchema = z.object({
-  fileName: z.string().min(1).max(LIMITS.FILE_NAME_MAX_LENGTH),
-  fileType: z.enum(SUPPORTED_FILE_TYPES),
-  fileSize: z
-    .number()
-    .int()
-    .positive()
-    .max(
-      LIMITS.FILE_MAX_SIZE_BYTES,
-      `File must be ≤ ${LIMITS.FILE_MAX_SIZE_BYTES / 1024 / 1024}MB`,
-    ),
+  fileName: z.string().min(1),
+  fileType: z.string().min(1),
+  fileSize: z.number().int().positive(),
   conversationId: z.string().uuid().optional(),
 })
 

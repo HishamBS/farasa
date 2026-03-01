@@ -1,15 +1,18 @@
 import { tavily } from '@tavily/core'
 import { env } from '@/config/env'
 import { SearchResultSchema, SearchImageSchema } from '@/schemas/search'
-import { LIMITS } from '@/config/constants'
 import type { SearchQuery, SearchResponse, SearchResult, SearchImage } from '@/schemas/search'
 
 const client = tavily({ apiKey: env.TAVILY_API_KEY })
 
 export async function tavilySearch(input: SearchQuery): Promise<SearchResponse> {
+  if (!input.maxResults) {
+    throw new Error('Search maxResults is required at runtime.')
+  }
+
   const result = await client.search(input.query, {
     searchDepth: input.searchDepth ?? 'basic',
-    maxResults: input.maxResults ?? LIMITS.SEARCH_MAX_RESULTS,
+    maxResults: input.maxResults,
     includeImages: input.includeImages ?? false,
   })
 

@@ -1,16 +1,20 @@
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
   pgTable,
   primaryKey,
   text,
+  uniqueIndex,
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 import type { AdapterAccountType } from '@auth/core/adapters'
 import type { MessageMetadata } from '@/schemas/message'
+import type { RuntimeConfigOverride } from '@/schemas/runtime-config'
 import { NEW_CHAT_TITLE } from '@/config/constants'
 
 export const users = pgTable('users', {
@@ -103,11 +107,40 @@ export const messages = pgTable(
     role: text('role', { enum: ['user', 'assistant', 'system'] }).notNull(),
     content: text('content').notNull(),
     metadata: jsonb('metadata').$type<MessageMetadata>(),
+    clientRequestId: text('client_request_id'),
+    streamSequenceMax: integer('stream_sequence_max'),
     tokenCount: integer('token_count'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   },
   (table) => ({
     msgConvCreatedIdx: index('msg_conv_created_idx').on(table.conversationId, table.createdAt),
+    msgConvRequestUnique: uniqueIndex('msg_conv_request_unique').on(
+      table.conversationId,
+      table.role,
+      table.clientRequestId,
+    ),
+  }),
+)
+
+export const runtimeConfigs = pgTable(
+  'runtime_configs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    scope: text('scope', { enum: ['system', 'tenant', 'user'] }).notNull(),
+    scopeKey: text('scope_key'),
+    payload: jsonb('payload').$type<RuntimeConfigOverride>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => ({
+    runtimeScopeUnique: uniqueIndex('runtime_scope_unique').on(table.scope, table.scopeKey),
+    runtimeScopeIdx: index('runtime_scope_idx').on(table.scope, table.scopeKey),
+    runtimeScopeCheck: check(
+      'runtime_scope_check',
+      // system must not have scopeKey; user/tenant must have scopeKey
+      // validated in DB as an invariant
+      sql`((${table.scope} = 'system' AND ${table.scopeKey} IS NULL) OR (${table.scope} IN ('tenant','user') AND ${table.scopeKey} IS NOT NULL))`,
+    ),
   }),
 )
 

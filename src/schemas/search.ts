@@ -1,16 +1,11 @@
 import { z } from 'zod'
-import { LIMITS, CHAT_MODES } from '@/config/constants'
+import { CHAT_MODES } from '@/config/constants'
 
 export const SearchQuerySchema = z.object({
-  query: z.string().min(1).max(LIMITS.SEARCH_QUERY_MAX_LENGTH),
-  maxResults: z
-    .number()
-    .int()
-    .min(1)
-    .max(LIMITS.SEARCH_MAX_RESULTS)
-    .default(LIMITS.SEARCH_MAX_RESULTS),
-  includeImages: z.boolean().default(false),
-  searchDepth: z.enum(['basic', 'advanced']).default('basic'),
+  query: z.string().min(1),
+  maxResults: z.number().int().min(1).optional(),
+  includeImages: z.boolean().optional(),
+  searchDepth: z.enum(['basic', 'advanced']).optional(),
 })
 
 export const SearchImageSchema = z.object({

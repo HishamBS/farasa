@@ -1,28 +1,23 @@
-import { and, eq, inArray, isNotNull } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm'
+import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
-import { router, rateLimitedChatProcedure } from '../trpc'
-import { ChatInputSchema, MessageMetadataSchema } from '@/schemas/message'
-import { UsageSchema } from '@/schemas/message'
+import { router, protectedProcedure, rateLimitedChatProcedure } from '../trpc'
+import { ChatInputSchema, MessageMetadataSchema, UsageSchema } from '@/schemas/message'
 import type { SearchImage, SearchResult } from '@/schemas/search'
 import { conversations, messages, attachments } from '@/lib/db/schema'
 import {
   STREAM_EVENTS,
   STREAM_PHASES,
-  STATUS_MESSAGES,
   CHAT_MODES,
-  TOOL_NAMES,
-  AI_REASONING,
-  AI_PARAMS,
-  LIMITS,
-  AI_MARKUP,
-  SEARCH_DEPTHS,
   MESSAGE_ROLES,
   TRPC_CODES,
+  NEW_CHAT_TITLE,
+  AI_MARKUP,
 } from '@/config/constants'
-import { PROMPTS, USER_REQUEST_DELIMITERS } from '@/config/prompts'
 import { AppError } from '@/lib/utils/errors'
 import type { StreamChunk } from '@/schemas/message'
 import type { ToolCall, Usage } from '@/schemas/message'
+import type { RuntimeConfig } from '@/schemas/runtime-config'
 import type { Message, ToolResponseMessage, ChatMessageContentItem } from '@openrouter/sdk/models'
 import {
   ToolChoiceOptionAuto,
@@ -30,6 +25,197 @@ import {
   ChatMessageContentItemImageType,
   ChatMessageContentItemTextType,
 } from '@openrouter/sdk/models'
+import { escapeXmlForPrompt, sanitizeA2UIJsonLine } from '@/lib/security/runtime-safety'
+
+type StreamSession = {
+  key: string
+  userId: string
+  conversationId: string
+  streamRequestId: string
+  abortController: AbortController
+}
+
+type StreamChunkPayload = {
+  type: StreamChunk['type']
+  [key: string]: unknown
+}
+
+const activeStreamsByConversation = new Map<string, StreamSession>()
+const activeStreamsByRequest = new Map<string, StreamSession>()
+
+function getConversationStreamKey(userId: string, conversationId: string): string {
+  return `${userId}:${conversationId}`
+}
+
+function createChunkEmitter(streamRequestId: string, attempt: number, enforceSequence: boolean) {
+  let sequence = 0
+  return (payload: StreamChunkPayload): StreamChunk => {
+    const base = {
+      ...payload,
+      streamRequestId,
+      attempt,
+    } as StreamChunk
+    if (!enforceSequence) {
+      return base
+    }
+    return {
+      ...base,
+      sequence: sequence++,
+    }
+  }
+}
+
+function beginStreamSession(params: {
+  userId: string
+  conversationId: string
+  streamRequestId: string
+}): StreamSession {
+  const key = getConversationStreamKey(params.userId, params.conversationId)
+  const existing = activeStreamsByConversation.get(key)
+
+  if (existing && existing.streamRequestId === params.streamRequestId) {
+    throw new TRPCError({
+      code: TRPC_CODES.BAD_REQUEST,
+      message: 'Duplicate active stream request.',
+    })
+  }
+
+  if (existing) {
+    existing.abortController.abort('superseded_by_new_stream')
+    endStreamSession(existing)
+  }
+
+  const session: StreamSession = {
+    key,
+    userId: params.userId,
+    conversationId: params.conversationId,
+    streamRequestId: params.streamRequestId,
+    abortController: new AbortController(),
+  }
+  activeStreamsByConversation.set(key, session)
+  activeStreamsByRequest.set(session.streamRequestId, session)
+  return session
+}
+
+function endStreamSession(session: StreamSession): void {
+  const activeForConversation = activeStreamsByConversation.get(session.key)
+  if (activeForConversation?.streamRequestId === session.streamRequestId) {
+    activeStreamsByConversation.delete(session.key)
+  }
+  const activeForRequest = activeStreamsByRequest.get(session.streamRequestId)
+  if (activeForRequest?.key === session.key) {
+    activeStreamsByRequest.delete(session.streamRequestId)
+  }
+}
+
+function classifyTerminalError(
+  runtimeConfig: RuntimeConfig,
+  error: unknown,
+): {
+  message: string
+  code?: string
+  reasonCode: string
+  recoverable: boolean
+} {
+  if (error instanceof TRPCError) {
+    if (error.code === TRPC_CODES.UNAUTHORIZED || error.code === TRPC_CODES.FORBIDDEN) {
+      return {
+        message: runtimeConfig.chat.errors.unauthorized,
+        code: error.code,
+        reasonCode: 'authorization_expired',
+        recoverable: false,
+      }
+    }
+    if (error.code === TRPC_CODES.BAD_REQUEST) {
+      const invalidModel = error.message === AppError.INVALID_MODEL
+      return {
+        message: invalidModel
+          ? runtimeConfig.chat.errors.invalidModel
+          : runtimeConfig.chat.errors.processing,
+        code: error.code,
+        reasonCode: 'validation_rejected',
+        recoverable: false,
+      }
+    }
+    return {
+      message: runtimeConfig.chat.errors.processing,
+      code: error.code,
+      reasonCode: 'provider_unavailable',
+      recoverable: true,
+    }
+  }
+
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase()
+    if (message.includes('abort') || message.includes('timeout')) {
+      return {
+        message: runtimeConfig.chat.errors.connection,
+        code: error.name,
+        reasonCode: 'transient_network',
+        recoverable: true,
+      }
+    }
+  }
+
+  return {
+    message: runtimeConfig.chat.errors.providerUnavailable,
+    reasonCode: 'provider_unavailable',
+    recoverable: true,
+  }
+}
+
+function buildSearchContext(results: SearchResult[], runtimeConfig: RuntimeConfig): string {
+  if (results.length === 0) {
+    return ''
+  }
+
+  const wrappers = runtimeConfig.prompts.wrappers
+  const normalize = (value: string) =>
+    runtimeConfig.safety.escapeSearchXml ? escapeXmlForPrompt(value) : value
+
+  const body = results
+    .map((result) => {
+      const title = normalize(result.title)
+      const snippet = normalize(result.snippet)
+      const url = normalize(result.url)
+      return `${wrappers.searchResultOpen}<title>${title}</title><snippet>${snippet}</snippet><url>${url}</url>${wrappers.searchResultClose}`
+    })
+    .join('\n')
+
+  return `\n\n${wrappers.searchResultsOpen}\n${body}\n${wrappers.searchResultsClose}`
+}
+
+function buildCombinedAbortSignal(signals: AbortSignal[], timeoutMs: number): AbortSignal {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => {
+    controller.abort()
+  }, timeoutMs)
+
+  const subscriptions: Array<() => void> = []
+  for (const candidate of signals) {
+    if (candidate.aborted) {
+      clearTimeout(timeoutId)
+      controller.abort()
+      break
+    }
+    const onAbort = () => controller.abort()
+    candidate.addEventListener('abort', onAbort, { once: true })
+    subscriptions.push(() => candidate.removeEventListener('abort', onAbort))
+  }
+
+  controller.signal.addEventListener(
+    'abort',
+    () => {
+      clearTimeout(timeoutId)
+      for (const unsubscribe of subscriptions) {
+        unsubscribe()
+      }
+    },
+    { once: true },
+  )
+
+  return controller.signal
+}
 
 export const chatRouter = router({
   stream: rateLimitedChatProcedure.input(ChatInputSchema).subscription(async function* ({
@@ -37,55 +223,93 @@ export const chatRouter = router({
     input,
     signal,
   }) {
+    const runtimeConfig = ctx.runtimeConfig
+    const emit = createChunkEmitter(
+      input.streamRequestId,
+      input.attempt,
+      runtimeConfig.chat.stream.enforceSequence,
+    )
+
     let conversationId = input.conversationId
-    let isNewConversation = false
-    type MessageRow = typeof messages.$inferSelect
-    let userMessage: MessageRow | null = null
+    let userMessageId: string | null = null
+    let streamSession: StreamSession | null = null
 
     try {
+      if (input.content.length > runtimeConfig.limits.messageMaxLength) {
+        throw new TRPCError({ code: TRPC_CODES.BAD_REQUEST, message: AppError.INVALID_INPUT })
+      }
+
       if (!conversationId) {
-        isNewConversation = true
-        const txResult = await ctx.db.transaction(async (tx) => {
-          const [created] = await tx
-            .insert(conversations)
-            .values({ userId: ctx.userId, model: input.model })
-            .returning()
-          if (!created) throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
-          const [msg] = await tx
+        const [created] = await ctx.db
+          .insert(conversations)
+          .values({
+            userId: ctx.userId,
+            model: input.model,
+          })
+          .returning({ id: conversations.id })
+        if (!created) {
+          throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
+        }
+        conversationId = created.id
+      }
+
+      const [conversation] = await ctx.db
+        .select({ id: conversations.id, title: conversations.title })
+        .from(conversations)
+        .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
+        .limit(1)
+      if (!conversation) {
+        throw new TRPCError({ code: TRPC_CODES.NOT_FOUND })
+      }
+
+      streamSession = beginStreamSession({
+        userId: ctx.userId,
+        conversationId,
+        streamRequestId: input.streamRequestId,
+      })
+      const combinedSignal = buildCombinedAbortSignal(
+        signal
+          ? [signal, streamSession.abortController.signal]
+          : [streamSession.abortController.signal],
+        runtimeConfig.chat.stream.timeoutMs,
+      )
+
+      if (!input.skipUserInsert) {
+        const [existingUserMessage] = await ctx.db
+          .select({ id: messages.id })
+          .from(messages)
+          .where(
+            and(
+              eq(messages.conversationId, conversationId),
+              eq(messages.role, MESSAGE_ROLES.USER),
+              eq(messages.clientRequestId, input.streamRequestId),
+            ),
+          )
+          .limit(1)
+
+        if (existingUserMessage) {
+          userMessageId = existingUserMessage.id
+        } else {
+          const [createdUserMessage] = await ctx.db
             .insert(messages)
             .values({
-              conversationId: created.id,
+              conversationId,
               role: MESSAGE_ROLES.USER,
               content: input.content,
+              clientRequestId: input.streamRequestId,
             })
-            .returning()
-          if (!msg) throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
-          return { id: created.id, userMessage: msg }
-        })
-        conversationId = txResult.id
-        userMessage = txResult.userMessage
-      } else {
-        const [conv] = await ctx.db
-          .select({ id: conversations.id })
-          .from(conversations)
-          .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
-          .limit(1)
-        if (!conv) throw new TRPCError({ code: TRPC_CODES.NOT_FOUND })
-        if (!input.skipUserInsert) {
-          const [msg] = await ctx.db
-            .insert(messages)
-            .values({ conversationId, role: MESSAGE_ROLES.USER, content: input.content })
-            .returning()
-          if (!msg) throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
-          userMessage = msg
+            .returning({ id: messages.id })
+          if (!createdUserMessage) {
+            throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
+          }
+          userMessageId = createdUserMessage.id
         }
       }
 
-      if (input.attachmentIds.length > 0) {
-        if (!userMessage) throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
-        const updated = await ctx.db
+      if (input.attachmentIds.length > 0 && userMessageId) {
+        const linked = await ctx.db
           .update(attachments)
-          .set({ messageId: userMessage.id })
+          .set({ messageId: userMessageId })
           .where(
             and(
               inArray(attachments.id, input.attachmentIds),
@@ -94,7 +318,8 @@ export const chatRouter = router({
             ),
           )
           .returning({ id: attachments.id })
-        if (updated.length !== input.attachmentIds.length) {
+
+        if (linked.length !== input.attachmentIds.length) {
           throw new TRPCError({
             code: TRPC_CODES.FORBIDDEN,
             message: AppError.ATTACHMENT_ACCESS_DENIED,
@@ -105,58 +330,67 @@ export const chatRouter = router({
       let selectedModel = input.model
       let routerReasoning: string | undefined
       const { getModelRegistry } = await import('@/lib/ai/registry')
-      const registry = await getModelRegistry()
+      const registry = await getModelRegistry({ runtimeConfig })
 
       if (!selectedModel) {
-        const chunk: StreamChunk = {
+        yield emit({
           type: STREAM_EVENTS.STATUS,
           phase: STREAM_PHASES.ROUTING,
-          message: STATUS_MESSAGES.ROUTING,
-        }
-        yield chunk
+          message: runtimeConfig.chat.statusMessages.routing,
+        })
 
         const { routeModel } = await import('@/lib/ai/router')
-        const selection = await routeModel(input.content, registry)
-        if (!registry.some((m) => m.id === selection.selectedModel)) {
+        const selection = await routeModel(input.content, registry, runtimeConfig)
+
+        if (!registry.some((model) => model.id === selection.selectedModel)) {
           throw new TRPCError({
             code: TRPC_CODES.BAD_REQUEST,
             message: AppError.INVALID_MODEL,
           })
         }
+
         selectedModel = selection.selectedModel
         routerReasoning = selection.reasoning
-
-        const modelChunk: StreamChunk = {
+        yield emit({
           type: STREAM_EVENTS.MODEL_SELECTED,
           model: selectedModel,
           reasoning: selection.reasoning,
-        }
-        yield modelChunk
-      } else {
-        // Validate the explicitly-provided model against the live registry
-        if (!registry.some((m) => m.id === selectedModel)) {
+        })
+      } else if (runtimeConfig.models.strictValidation) {
+        if (!registry.some((model) => model.id === selectedModel)) {
           throw new TRPCError({
             code: TRPC_CODES.BAD_REQUEST,
             message: AppError.INVALID_MODEL,
           })
         }
-        const modelChunk: StreamChunk = {
+
+        yield emit({
           type: STREAM_EVENTS.MODEL_SELECTED,
           model: selectedModel,
-          reasoning: AI_REASONING.MODEL_EXPLICIT,
-        }
-        yield modelChunk
+          reasoning: 'Model explicitly selected.',
+        })
       }
 
-      const wrappedContent = `${USER_REQUEST_DELIMITERS.OPEN}\n${input.content}\n${USER_REQUEST_DELIMITERS.CLOSE}`
+      if (!selectedModel) {
+        throw new TRPCError({
+          code: TRPC_CODES.INTERNAL_SERVER_ERROR,
+          message: AppError.INVALID_MODEL,
+        })
+      }
+
+      await ctx.db
+        .update(conversations)
+        .set({ model: selectedModel, updatedAt: new Date() })
+        .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
+
+      const wrappedContent = `${runtimeConfig.prompts.wrappers.userRequestOpen}\n${input.content}\n${runtimeConfig.prompts.wrappers.userRequestClose}`
       let userContent: string | ChatMessageContentItem[] = wrappedContent
       if (input.attachmentIds.length > 0) {
-        const statusChunk: StreamChunk = {
+        yield emit({
           type: STREAM_EVENTS.STATUS,
           phase: STREAM_PHASES.READING_FILES,
-          message: STATUS_MESSAGES.READING_FILES,
-        }
-        yield statusChunk
+          message: runtimeConfig.chat.statusMessages.readingFiles,
+        })
 
         const blocks: ChatMessageContentItem[] = [
           { type: ChatMessageContentItemTextType.Text, text: wrappedContent },
@@ -171,97 +405,96 @@ export const chatRouter = router({
               isNotNull(attachments.confirmedAt),
             ),
           )
-        for (const att of attachmentRows) {
-          if (att.fileType.startsWith('image/')) {
+        for (const attachment of attachmentRows) {
+          if (attachment.fileType.startsWith('image/')) {
             blocks.push({
               type: ChatMessageContentItemImageType.ImageUrl,
-              imageUrl: { url: att.storageUrl },
+              imageUrl: { url: attachment.storageUrl },
             })
           } else {
             blocks.push({
               type: ChatMessageContentItemTextType.Text,
-              text: `[Attachment: ${att.fileName} — ${att.fileType}]`,
+              text: `[Attachment: ${attachment.fileName} — ${attachment.fileType}]`,
             })
           }
         }
         userContent = blocks
       }
 
+      const searchToolName = runtimeConfig.search.toolName
       const toolCalls: ToolCall[] = []
       let searchContext = ''
       let searchResults: SearchResult[] = []
       let searchImages: SearchImage[] = []
+
       if (input.mode === CHAT_MODES.SEARCH) {
-        const searchingStatusChunk: StreamChunk = {
+        if (!runtimeConfig.features.searchEnabled) {
+          throw new TRPCError({
+            code: TRPC_CODES.BAD_REQUEST,
+            message: runtimeConfig.chat.errors.processing,
+          })
+        }
+
+        yield emit({
           type: STREAM_EVENTS.STATUS,
           phase: STREAM_PHASES.SEARCHING,
-          message: STATUS_MESSAGES.SEARCHING,
-        }
-        yield searchingStatusChunk
-
-        const toolStartChunk: StreamChunk = {
+          message: runtimeConfig.chat.statusMessages.searching,
+        })
+        yield emit({
           type: STREAM_EVENTS.TOOL_START,
-          toolName: TOOL_NAMES.WEB_SEARCH,
+          toolName: searchToolName,
           input: { query: input.content },
-        }
-        yield toolStartChunk
-        const toolStartedAt = Date.now()
-        const toolCall: ToolCall = {
-          name: TOOL_NAMES.WEB_SEARCH,
-          input: { query: input.content },
-        }
+        })
 
+        const startedAt = Date.now()
         const { tavilySearch } = await import('@/lib/search/tavily')
         const response = await tavilySearch({
           query: input.content,
-          maxResults: LIMITS.SEARCH_MAX_RESULTS,
-          includeImages: true,
-          searchDepth: SEARCH_DEPTHS.BASIC,
+          maxResults: runtimeConfig.limits.searchMaxResults,
+          includeImages: runtimeConfig.search.includeImagesByDefault,
+          searchDepth: runtimeConfig.search.defaultDepth,
         })
         searchResults = response.results
         searchImages = response.images
 
-        const toolResultChunk: StreamChunk = {
+        yield emit({
           type: STREAM_EVENTS.TOOL_RESULT,
-          toolName: TOOL_NAMES.WEB_SEARCH,
+          toolName: searchToolName,
           result: {
             query: response.query,
             results: response.results,
             images: response.images,
           },
-        }
-        yield toolResultChunk
-        toolCall.result = {
-          query: response.query,
-          results: response.results,
-          images: response.images,
-        }
-        toolCall.durationMs = Date.now() - toolStartedAt
-        toolCalls.push(toolCall)
-
-        // XML-wrap search results to block indirect prompt injection
-        searchContext =
-          '\n\n<search_results>\n' +
-          response.results
-            .map(
-              (r) =>
-                `<result><title>${r.title}</title><snippet>${r.snippet}</snippet><url>${r.url}</url></result>`,
-            )
-            .join('\n') +
-          '\n</search_results>'
+        })
+        toolCalls.push({
+          name: searchToolName,
+          input: { query: input.content },
+          result: {
+            query: response.query,
+            results: response.results,
+            images: response.images,
+          },
+          durationMs: Date.now() - startedAt,
+        })
+        searchContext = buildSearchContext(response.results, runtimeConfig)
       }
 
-      const thinkingChunk: StreamChunk = {
+      yield emit({
         type: STREAM_EVENTS.STATUS,
         phase: STREAM_PHASES.THINKING,
-        message: STATUS_MESSAGES.THINKING,
-      }
-      yield thinkingChunk
+        message: runtimeConfig.chat.statusMessages.thinking,
+      })
 
-      const systemContent =
-        PROMPTS.CHAT_SYSTEM_PROMPT + '\n\n' + PROMPTS.A2UI_SYSTEM_PROMPT + searchContext
+      const systemSections = [runtimeConfig.prompts.chatSystem]
+      if (runtimeConfig.features.a2uiEnabled) {
+        systemSections.push(runtimeConfig.prompts.a2uiSystem)
+      }
+      if (searchContext) {
+        systemSections.push(searchContext)
+      }
+
       const sdkMessages: Message[] = [
-        { role: MESSAGE_ROLES.SYSTEM, content: systemContent },
+        { role: MESSAGE_ROLES.SYSTEM, content: systemSections.join('\n\n') },
         { role: MESSAGE_ROLES.USER, content: userContent },
       ]
 
@@ -273,13 +506,13 @@ export const chatRouter = router({
             model: selectedModel,
             messages: sdkMessages,
             stream: true,
-            maxTokens: AI_PARAMS.CHAT_MAX_TOKENS,
+            maxTokens: runtimeConfig.ai.chatMaxTokens,
             ...(input.mode === CHAT_MODES.CHAT
               ? { tools: ALL_TOOLS, toolChoice: ToolChoiceOptionAuto.Auto }
               : {}),
           },
         },
-        { signal },
+        { signal: combinedSignal },
       )
 
       let fullText = ''
@@ -290,178 +523,214 @@ export const chatRouter = router({
       let inA2UI = false
       let a2uiBuffer = ''
       let usage: Usage | undefined
+      let streamSequenceMax = 0
       const toolCallArgBuffers = new Map<number, { id: string; name: string; args: string }>()
 
-      for await (const chunk of stream) {
-        if (chunk.usage) {
+      for await (const streamChunk of stream) {
+        if (streamChunk.usage) {
           const parsedUsage = UsageSchema.safeParse({
-            promptTokens: chunk.usage.promptTokens ?? 0,
-            completionTokens: chunk.usage.completionTokens ?? 0,
-            totalTokens: chunk.usage.totalTokens ?? 0,
+            promptTokens: streamChunk.usage.promptTokens ?? 0,
+            completionTokens: streamChunk.usage.completionTokens ?? 0,
+            totalTokens: streamChunk.usage.totalTokens ?? 0,
           })
           if (parsedUsage.success) {
             usage = parsedUsage.data
           }
         }
 
-        const delta = chunk.choices[0]?.delta
+        const delta = streamChunk.choices[0]?.delta
         if (!delta) continue
 
         if (delta.reasoning) {
           if (!thinkingStartedAt) thinkingStartedAt = Date.now()
           thinkingContent += delta.reasoning
-          const thinkTokenChunk: StreamChunk = {
+          const thinkingEvent = emit({
             type: STREAM_EVENTS.THINKING,
             content: delta.reasoning,
             isComplete: false,
+          })
+          if (typeof thinkingEvent.sequence === 'number') {
+            streamSequenceMax = Math.max(streamSequenceMax, thinkingEvent.sequence)
           }
-          yield thinkTokenChunk
+          yield thinkingEvent
           continue
         }
 
         if (delta.toolCalls) {
-          for (const tc of delta.toolCalls) {
-            const buf = toolCallArgBuffers.get(tc.index) ?? {
-              id: tc.id ?? '',
-              name: tc.function?.name ?? '',
+          for (const toolCall of delta.toolCalls) {
+            const existing = toolCallArgBuffers.get(toolCall.index) ?? {
+              id: toolCall.id ?? '',
+              name: toolCall.function?.name ?? '',
               args: '',
             }
-            buf.args += tc.function?.arguments ?? ''
-            if (tc.id) buf.id = tc.id
-            if (tc.function?.name) buf.name = tc.function.name
-            toolCallArgBuffers.set(tc.index, buf)
+            existing.args += toolCall.function?.arguments ?? ''
+            if (toolCall.id) existing.id = toolCall.id
+            if (toolCall.function?.name) existing.name = toolCall.function.name
+            toolCallArgBuffers.set(toolCall.index, existing)
           }
           continue
         }
 
-        if (delta.content) {
-          const text = delta.content
+        if (!delta.content) continue
 
-          if (text.includes(AI_MARKUP.A2UI_FENCE_START)) {
-            inA2UI = true
-            a2uiBuffer = ''
-            const a2uiStatusChunk: StreamChunk = {
-              type: STREAM_EVENTS.STATUS,
-              phase: STREAM_PHASES.GENERATING_UI,
-              message: STATUS_MESSAGES.GENERATING_UI,
-            }
-            yield a2uiStatusChunk
-            continue
+        const text = delta.content
+        if (text.includes(AI_MARKUP.A2UI_FENCE_START)) {
+          inA2UI = true
+          a2uiBuffer = ''
+          const generatingUiEvent = emit({
+            type: STREAM_EVENTS.STATUS,
+            phase: STREAM_PHASES.GENERATING_UI,
+            message: runtimeConfig.chat.statusMessages.generatingUi,
+          })
+          if (typeof generatingUiEvent.sequence === 'number') {
+            streamSequenceMax = Math.max(streamSequenceMax, generatingUiEvent.sequence)
           }
-          if (inA2UI && text.includes(AI_MARKUP.CODE_FENCE_END)) {
-            // Flush remaining buffer content
-            if (a2uiBuffer.trim()) {
-              a2uiLines.push(a2uiBuffer.trim())
-              const a2uiChunk: StreamChunk = {
-                type: STREAM_EVENTS.A2UI,
-                jsonl: a2uiBuffer.trim(),
-              }
-              yield a2uiChunk
-            }
-            inA2UI = false
-            a2uiBuffer = ''
-            continue
-          }
-          if (inA2UI) {
-            // Buffer tokens until we have complete lines to avoid token-boundary issues
-            a2uiBuffer += text
-            const lines = a2uiBuffer.split('\n')
-            a2uiBuffer = lines.pop() ?? ''
-            for (const line of lines) {
-              const trimmed = line.trim()
-              if (trimmed) {
-                a2uiLines.push(trimmed)
-                const a2uiChunk: StreamChunk = {
-                  type: STREAM_EVENTS.A2UI,
-                  jsonl: trimmed,
-                }
-                yield a2uiChunk
-              }
-            }
-            continue
-          }
-
-          fullText += text
-          const textChunk: StreamChunk = {
-            type: STREAM_EVENTS.TEXT,
-            content: text,
-          }
-          yield textChunk
+          yield generatingUiEvent
+          continue
         }
+
+        if (inA2UI && text.includes(AI_MARKUP.CODE_FENCE_END)) {
+          if (a2uiBuffer.trim()) {
+            const sanitizedLine = sanitizeA2UIJsonLine(a2uiBuffer.trim(), runtimeConfig.safety.a2ui)
+            if (sanitizedLine) {
+              a2uiLines.push(sanitizedLine)
+              const a2uiEvent = emit({
+                type: STREAM_EVENTS.A2UI,
+                jsonl: sanitizedLine,
+              })
+              if (typeof a2uiEvent.sequence === 'number') {
+                streamSequenceMax = Math.max(streamSequenceMax, a2uiEvent.sequence)
+              }
+              yield a2uiEvent
+            }
+          }
+          inA2UI = false
+          a2uiBuffer = ''
+          continue
+        }
+
+        if (inA2UI) {
+          a2uiBuffer += text
+          const lines = a2uiBuffer.split('\n')
+          a2uiBuffer = lines.pop() ?? ''
+          for (const line of lines) {
+            const trimmed = line.trim()
+            if (!trimmed) continue
+            const sanitizedLine = sanitizeA2UIJsonLine(trimmed, runtimeConfig.safety.a2ui)
+            if (!sanitizedLine) continue
+            a2uiLines.push(sanitizedLine)
+            const a2uiEvent = emit({
+              type: STREAM_EVENTS.A2UI,
+              jsonl: sanitizedLine,
+            })
+            if (typeof a2uiEvent.sequence === 'number') {
+              streamSequenceMax = Math.max(streamSequenceMax, a2uiEvent.sequence)
+            }
+            yield a2uiEvent
+          }
+          continue
+        }
+
+        fullText += text
+        const textEvent = emit({
+          type: STREAM_EVENTS.TEXT,
+          content: text,
+        })
+        if (typeof textEvent.sequence === 'number') {
+          streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
+        }
+        yield textEvent
       }
 
       if (thinkingContent) {
         thinkingDurationMs = thinkingStartedAt ? Date.now() - thinkingStartedAt : undefined
-        const thinkCompleteChunk: StreamChunk = {
+        const thinkingCompleteEvent = emit({
           type: STREAM_EVENTS.THINKING,
           content: '',
           isComplete: true,
+        })
+        if (typeof thinkingCompleteEvent.sequence === 'number') {
+          streamSequenceMax = Math.max(streamSequenceMax, thinkingCompleteEvent.sequence)
         }
-        yield thinkCompleteChunk
+        yield thinkingCompleteEvent
       }
 
-      // Handle model-initiated tool calls (chat mode autonomous search)
       if (toolCallArgBuffers.size > 0 && input.mode === CHAT_MODES.CHAT) {
         const assistantToolCallMessage: Message = {
           role: MESSAGE_ROLES.ASSISTANT,
           content: fullText || '',
-          toolCalls: [...toolCallArgBuffers.entries()].map(([, tc]) => ({
-            id: tc.id,
+          toolCalls: [...toolCallArgBuffers.entries()].map(([, toolCall]) => ({
+            id: toolCall.id,
             type: ChatMessageToolCallType.Function,
-            function: { name: tc.name, arguments: tc.args },
+            function: { name: toolCall.name, arguments: toolCall.args },
           })),
         }
         const toolResultMessages: ToolResponseMessage[] = []
 
-        for (const [, tc] of toolCallArgBuffers.entries()) {
-          if (tc.name === TOOL_NAMES.WEB_SEARCH) {
-            let query = tc.args
-            try {
-              query = (JSON.parse(tc.args) as { query: string }).query
-            } catch {
-              /* ignore */
-            }
+        for (const [, toolCall] of toolCallArgBuffers.entries()) {
+          if (toolCall.name !== searchToolName || !runtimeConfig.features.searchEnabled) continue
 
-            const toolStartChunk: StreamChunk = {
-              type: STREAM_EVENTS.TOOL_START,
-              toolName: TOOL_NAMES.WEB_SEARCH,
-              input: { query },
-            }
-            yield toolStartChunk
-            const toolStartedAt = Date.now()
-
-            const { tavilySearch } = await import('@/lib/search/tavily')
-            const response = await tavilySearch({
-              query,
-              maxResults: LIMITS.SEARCH_MAX_RESULTS,
-              includeImages: true,
-              searchDepth: SEARCH_DEPTHS.BASIC,
-            })
-            searchResults = response.results
-            searchImages = response.images
-
-            const toolResultChunk: StreamChunk = {
-              type: STREAM_EVENTS.TOOL_RESULT,
-              toolName: TOOL_NAMES.WEB_SEARCH,
-              result: { query: response.query, results: response.results, images: response.images },
-            }
-            yield toolResultChunk
-            toolCalls.push({
-              name: TOOL_NAMES.WEB_SEARCH,
-              input: { query },
-              result: { query: response.query, results: response.results },
-              durationMs: Date.now() - toolStartedAt,
-            })
-
-            const resultsText = response.results
-              .map((r) => `[${r.title}](${r.url})\n${r.snippet}`)
-              .join('\n\n')
-            toolResultMessages.push({
-              role: 'tool',
-              content: resultsText,
-              toolCallId: tc.id,
-            })
+          let query = toolCall.args
+          try {
+            query = (JSON.parse(toolCall.args) as { query: string }).query
+          } catch {
+            // If tool args are not JSON we pass through raw string query.
           }
+
+          const toolStartEvent = emit({
+            type: STREAM_EVENTS.TOOL_START,
+            toolName: searchToolName,
+            input: { query },
+          })
+          if (typeof toolStartEvent.sequence === 'number') {
+            streamSequenceMax = Math.max(streamSequenceMax, toolStartEvent.sequence)
+          }
+          yield toolStartEvent
+
+          const startedAt = Date.now()
+          const { tavilySearch } = await import('@/lib/search/tavily')
+          const response = await tavilySearch({
+            query,
+            maxResults: runtimeConfig.limits.searchMaxResults,
+            includeImages: runtimeConfig.search.includeImagesByDefault,
+            searchDepth: runtimeConfig.search.defaultDepth,
+          })
+          searchResults = response.results
+          searchImages = response.images
+
+          const toolResultEvent = emit({
+            type: STREAM_EVENTS.TOOL_RESULT,
+            toolName: searchToolName,
+            result: {
+              query: response.query,
+              results: response.results,
+              images: response.images,
+            },
+          })
+          if (typeof toolResultEvent.sequence === 'number') {
+            streamSequenceMax = Math.max(streamSequenceMax, toolResultEvent.sequence)
+          }
+          yield toolResultEvent
+
+          toolCalls.push({
+            name: searchToolName,
+            input: { query },
+            result: {
+              query: response.query,
+              results: response.results,
+              images: response.images,
+            },
+            durationMs: Date.now() - startedAt,
+          })
+
+          const resultsText = response.results
+            .map((result) => `[${result.title}](${result.url})\n${result.snippet}`)
+            .join('\n\n')
+          toolResultMessages.push({
+            role: 'tool',
+            content: resultsText,
+            toolCallId: toolCall.id,
+          })
         }
 
         if (toolResultMessages.length > 0) {
@@ -477,31 +746,42 @@ export const chatRouter = router({
                 model: selectedModel,
                 messages: followUpMessages,
                 stream: true,
-                maxTokens: AI_PARAMS.CHAT_MAX_TOKENS,
+                maxTokens: runtimeConfig.ai.chatMaxTokens,
               },
             },
-            { signal },
+            { signal: combinedSignal },
           )
-          for await (const fchunk of followUpStream) {
-            if (fchunk.usage) {
+
+          for await (const followUpChunk of followUpStream) {
+            if (followUpChunk.usage) {
               const parsedUsage = UsageSchema.safeParse({
-                promptTokens: fchunk.usage.promptTokens ?? 0,
-                completionTokens: fchunk.usage.completionTokens ?? 0,
-                totalTokens: fchunk.usage.totalTokens ?? 0,
+                promptTokens: followUpChunk.usage.promptTokens ?? 0,
+                completionTokens: followUpChunk.usage.completionTokens ?? 0,
+                totalTokens: followUpChunk.usage.totalTokens ?? 0,
               })
-              if (parsedUsage.success) usage = parsedUsage.data
+              if (parsedUsage.success) {
+                usage = parsedUsage.data
+              }
             }
-            const fdelta = fchunk.choices[0]?.delta
-            if (fdelta?.content) {
-              fullText += fdelta.content
-              const textChunk: StreamChunk = { type: STREAM_EVENTS.TEXT, content: fdelta.content }
-              yield textChunk
+
+            const followUpDelta = followUpChunk.choices[0]?.delta
+            if (!followUpDelta?.content) continue
+            fullText += followUpDelta.content
+            const textEvent = emit({
+              type: STREAM_EVENTS.TEXT,
+              content: followUpDelta.content,
+            })
+            if (typeof textEvent.sequence === 'number') {
+              streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
             }
+            yield textEvent
           }
         }
       }
 
       const metadata = MessageMetadataSchema.parse({
+        streamRequestId: input.streamRequestId,
+        recoveryAttemptCount: input.attempt,
         modelUsed: selectedModel,
         routerReasoning,
         thinkingContent: thinkingContent || undefined,
@@ -514,66 +794,119 @@ export const chatRouter = router({
         usage,
       })
 
-      await ctx.db.insert(messages).values({
-        conversationId,
-        role: MESSAGE_ROLES.ASSISTANT,
-        content: fullText,
-        metadata,
-      })
+      const [existingAssistantMessage] = await ctx.db
+        .select({ id: messages.id })
+        .from(messages)
+        .where(
+          and(
+            eq(messages.conversationId, conversationId),
+            eq(messages.role, MESSAGE_ROLES.ASSISTANT),
+            eq(messages.clientRequestId, input.streamRequestId),
+          ),
+        )
+        .limit(1)
+
+      if (existingAssistantMessage) {
+        await ctx.db
+          .update(messages)
+          .set({
+            content: fullText,
+            metadata,
+            streamSequenceMax,
+            tokenCount: usage?.totalTokens ?? null,
+          })
+          .where(eq(messages.id, existingAssistantMessage.id))
+      } else {
+        await ctx.db.insert(messages).values({
+          conversationId,
+          role: MESSAGE_ROLES.ASSISTANT,
+          content: fullText,
+          metadata,
+          clientRequestId: input.streamRequestId,
+          streamSequenceMax,
+          tokenCount: usage?.totalTokens ?? null,
+        })
+      }
 
       await ctx.db
         .update(conversations)
         .set({ updatedAt: new Date() })
         .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
 
-      if (isNewConversation) {
-        const titleConversationId = conversationId
-        if (!titleConversationId) {
-          throw new TRPCError({
-            code: TRPC_CODES.INTERNAL_SERVER_ERROR,
-            message: AppError.MISSING_CONVERSATION_ID,
-          })
-        }
-        const titleStatusChunk: StreamChunk = {
+      const [messageCount] = await ctx.db
+        .select({ value: sql<number>`count(*)` })
+        .from(messages)
+        .where(eq(messages.conversationId, conversationId))
+        .limit(1)
+      const shouldGenerateTitle =
+        conversation.title === NEW_CHAT_TITLE && Number(messageCount?.value ?? 0) <= 2
+
+      if (shouldGenerateTitle) {
+        const generatingTitleEvent = emit({
           type: STREAM_EVENTS.STATUS,
           phase: STREAM_PHASES.GENERATING_TITLE,
-          message: STATUS_MESSAGES.GENERATING_TITLE,
+          message: runtimeConfig.chat.statusMessages.generatingTitle,
+        })
+        if (typeof generatingTitleEvent.sequence === 'number') {
+          streamSequenceMax = Math.max(streamSequenceMax, generatingTitleEvent.sequence)
         }
-        yield titleStatusChunk
+        yield generatingTitleEvent
+
         const { generateTitle } = await import('@/lib/ai/title')
-        const title = await generateTitle(input.content)
+        const generatedTitle = await generateTitle(input.content, runtimeConfig)
+        const boundedTitle = generatedTitle.slice(
+          0,
+          runtimeConfig.limits.conversationTitleMaxLength,
+        )
         await ctx.db
           .update(conversations)
-          .set({ title, updatedAt: new Date() })
-          .where(
-            and(eq(conversations.id, titleConversationId), eq(conversations.userId, ctx.userId)),
-          )
+          .set({ title: boundedTitle, updatedAt: new Date() })
+          .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
       }
 
-      const doneChunk: StreamChunk = {
+      const doneEvent = emit({
         type: STREAM_EVENTS.DONE,
         usage,
+        terminalReason: input.attempt > 0 ? 'transient_recovered' : 'done',
+      })
+      if (typeof doneEvent.sequence === 'number') {
+        streamSequenceMax = Math.max(streamSequenceMax, doneEvent.sequence)
       }
-      yield doneChunk
-    } catch (err) {
-      if (err instanceof TRPCError) {
-        // Re-throw user-facing errors (4xx) unchanged; sanitize any internal errors
-        if (err.code !== TRPC_CODES.INTERNAL_SERVER_ERROR) throw err
-        console.error('[chat.stream] Internal error:', err.message)
-        throw new TRPCError({
-          code: TRPC_CODES.INTERNAL_SERVER_ERROR,
-          message: AppError.CHAT_PROCESSING,
-        })
-      }
-
-      if (err instanceof Error) {
-        console.error('[chat.stream]', err.message)
-      }
-      const errorChunk: StreamChunk = {
+      yield doneEvent
+    } catch (error) {
+      const terminal = classifyTerminalError(runtimeConfig, error)
+      yield emit({
         type: STREAM_EVENTS.ERROR,
-        message: AppError.CHAT_PROCESSING,
+        message: terminal.message,
+        code: terminal.code,
+        reasonCode: terminal.reasonCode,
+        recoverable: terminal.recoverable,
+      })
+    } finally {
+      if (streamSession) {
+        endStreamSession(streamSession)
       }
-      yield errorChunk
     }
   }),
+
+  cancel: protectedProcedure
+    .input(
+      z.object({
+        conversationId: z.string().uuid(),
+        streamRequestId: z.string().uuid().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const key = getConversationStreamKey(ctx.userId, input.conversationId)
+      const active = activeStreamsByConversation.get(key)
+      if (!active) {
+        return { cancelled: false }
+      }
+      if (input.streamRequestId && active.streamRequestId !== input.streamRequestId) {
+        return { cancelled: false }
+      }
+      active.abortController.abort('cancelled_by_client')
+      endStreamSession(active)
+      return { cancelled: true }
+    }),
 })

@@ -17,10 +17,11 @@ type ChatContainerProps = {
 }
 
 export function ChatContainer({ conversationId }: ChatContainerProps) {
-  const { streamState, sendMessage, abort, retry } = useChatStream()
+  const { streamState, sendMessage, abort } = useChatStream()
   const isStreaming = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
   const chatInputRef = useRef<ChatInputHandle>(null)
   const streamStartedRef = useRef(false)
+  const restoredDraftRef = useRef<string | null>(null)
   const { setPhase } = useStreamPhase()
 
   const titlebarPhase = useMemo((): TitlebarPhase => {
@@ -75,19 +76,30 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
     const lastMessage = messages[messages.length - 1]
     if (!lastMessage || lastMessage.role !== MESSAGE_ROLES.USER) return
     streamStartedRef.current = true
+    const inferredRequestId = lastMessage.clientRequestId ?? crypto.randomUUID()
     sendMessage({
       conversationId,
       content: lastMessage.content,
       mode: CHAT_MODES.CHAT,
       model: undefined,
       attachmentIds: [],
+      streamRequestId: inferredRequestId,
+      attempt: 0,
       skipUserInsert: true,
     })
   }, [messages, streamState.phase, conversationId, sendMessage])
 
+  useEffect(() => {
+    if (streamState.phase !== CHAT_STREAM_STATUS.ERROR) return
+    if (!streamState.lastInput?.content) return
+    if (restoredDraftRef.current === streamState.lastInput.streamRequestId) return
+    restoredDraftRef.current = streamState.lastInput.streamRequestId
+    chatInputRef.current?.setContent(streamState.lastInput.content)
+  }, [streamState.phase, streamState.lastInput])
+
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <StreamProgress streamState={streamState} onRetry={retry} />
+      <StreamProgress streamState={streamState} />
       <MessageList
         messages={messages}
         streamState={streamState}

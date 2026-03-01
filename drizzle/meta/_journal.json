@@ -8,6 +8,13 @@
       "when": 1772291904743,
       "tag": "0000_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1772395200000,
+      "tag": "0001_runtime_config_and_stream_ids",
+      "breakpoints": true
     }
   ]
 }

@@ -8,6 +8,8 @@ describe('schema contracts', () => {
       content: 'hello',
       mode: 'chat',
       attachmentIds: [],
+      streamRequestId: crypto.randomUUID(),
+      attempt: 0,
     })
     expect(parsed.content).toBe('hello')
   })
@@ -17,6 +19,8 @@ describe('schema contracts', () => {
       type: STREAM_EVENTS.STATUS,
       phase: STREAM_PHASES.THINKING,
       message: 'Thinking...',
+      streamRequestId: crypto.randomUUID(),
+      attempt: 0,
     })
     expect(parsed.type).toBe(STREAM_EVENTS.STATUS)
   })

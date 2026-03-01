@@ -98,7 +98,7 @@ function streamStateReducer(state: StreamState, action: StreamAction): StreamSta
       return {
         ...state,
         phase: CHAT_STREAM_STATUS.ERROR,
-        error: action.message,
+        error: action.error,
       }
     }
 

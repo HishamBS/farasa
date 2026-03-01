@@ -1,16 +1,19 @@
 import { router, protectedProcedure } from '../trpc'
 import { ModelByIdSchema, ModelConfigSchema, RefreshModelsSchema } from '@/schemas/model'
+import { getRuntimeConfig } from '@/lib/runtime-config/service'
 
 export const modelRouter = router({
-  list: protectedProcedure.query(async () => {
+  list: protectedProcedure.query(async ({ ctx }) => {
+    const runtimeConfig = await getRuntimeConfig({ userId: ctx.userId })
     const { getModelRegistry } = await import('@/lib/ai/registry')
-    const models = await getModelRegistry()
+    const models = await getModelRegistry({ runtimeConfig, userId: ctx.userId })
     return models
   }),
 
-  getById: protectedProcedure.input(ModelByIdSchema).query(async ({ input }) => {
+  getById: protectedProcedure.input(ModelByIdSchema).query(async ({ ctx, input }) => {
+    const runtimeConfig = await getRuntimeConfig({ userId: ctx.userId })
     const { getModelRegistry } = await import('@/lib/ai/registry')
-    const models = await getModelRegistry()
+    const models = await getModelRegistry({ runtimeConfig, userId: ctx.userId })
     const model = models.find((m) => m.id === input.id)
     if (!model) {
       return null
@@ -18,12 +21,17 @@ export const modelRouter = router({
     return ModelConfigSchema.parse(model)
   }),
 
-  refresh: protectedProcedure.input(RefreshModelsSchema).mutation(async ({ input }) => {
+  refresh: protectedProcedure.input(RefreshModelsSchema).mutation(async ({ ctx, input }) => {
+    const runtimeConfig = await getRuntimeConfig({ userId: ctx.userId, force: true })
     const { getModelRegistry, clearModelRegistryCache } = await import('@/lib/ai/registry')
     if (input.force) {
       clearModelRegistryCache()
     }
-    const models = await getModelRegistry(true)
+    const models = await getModelRegistry({
+      force: true,
+      runtimeConfig,
+      userId: ctx.userId,
+    })
     return { count: models.length }
   }),
 })

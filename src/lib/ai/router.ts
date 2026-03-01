@@ -1,24 +1,35 @@
 import { openrouter } from './client'
-import { ROUTER_MODEL, AI_PARAMS } from '@/config/constants'
-import { buildRouterPrompt } from '@/config/prompts'
 import { ModelSelectionSchema } from '@/schemas/model'
 import type { ModelSelection, ModelConfig } from '@/schemas/model'
+import type { RuntimeConfig } from '@/schemas/runtime-config'
 
 export async function routeModel(
   prompt: string,
   registry: ReadonlyArray<ModelConfig>,
+  runtimeConfig: RuntimeConfig,
 ): Promise<ModelSelection> {
-  const systemPrompt = buildRouterPrompt(registry.map((m) => m.id))
+  const modelIds = registry.map((m) => m.id).join('\n')
+  const systemPrompt =
+    `${runtimeConfig.prompts.routerSystem}\n\n` +
+    'Return ONLY valid JSON with keys: category, reasoning, selectedModel.\n' +
+    'selectedModel must exactly match one ID from <available_models>.\n' +
+    `<available_models>\n${modelIds}\n</available_models>`
+
+  const wrappedPrompt =
+    `${runtimeConfig.prompts.wrappers.userRequestOpen}\n` +
+    `${prompt}\n` +
+    `${runtimeConfig.prompts.wrappers.userRequestClose}`
+
   const response = await openrouter.chat.send({
     chatGenerationParams: {
-      model: ROUTER_MODEL,
+      model: runtimeConfig.models.routerModel,
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `<user_request>${prompt}</user_request>` },
+        { role: 'user', content: wrappedPrompt },
       ],
       responseFormat: { type: 'json_object' },
-      maxTokens: AI_PARAMS.ROUTER_MAX_TOKENS,
-      temperature: AI_PARAMS.ROUTER_TEMPERATURE,
+      maxTokens: runtimeConfig.ai.routerMaxTokens,
+      temperature: runtimeConfig.ai.routerTemperature,
     },
   })
 

@@ -1,20 +1,27 @@
 import { openrouter } from './client'
-import { PROMPTS } from '@/config/prompts'
-import { LIMITS, ROUTER_MODEL, AI_PARAMS } from '@/config/constants'
+import type { RuntimeConfig } from '@/schemas/runtime-config'
 
-export async function generateTitle(firstMessage: string): Promise<string> {
+export async function generateTitle(
+  firstMessage: string,
+  runtimeConfig: RuntimeConfig,
+): Promise<string> {
+  const wrappedMessage =
+    `${runtimeConfig.prompts.wrappers.messageOpen}` +
+    `${firstMessage}` +
+    `${runtimeConfig.prompts.wrappers.messageClose}`
+
   const response = await openrouter.chat.send({
     chatGenerationParams: {
-      model: ROUTER_MODEL,
+      model: runtimeConfig.models.routerModel,
       messages: [
-        { role: 'system', content: PROMPTS.TITLE_GENERATION_PROMPT },
+        { role: 'system', content: runtimeConfig.prompts.titleSystem },
         {
           role: 'user',
-          content: `<message>${firstMessage}</message>`,
+          content: wrappedMessage,
         },
       ],
-      maxTokens: AI_PARAMS.TITLE_MAX_TOKENS,
-      temperature: AI_PARAMS.TITLE_TEMPERATURE,
+      maxTokens: runtimeConfig.ai.titleMaxTokens,
+      temperature: runtimeConfig.ai.titleTemperature,
     },
   })
 
@@ -23,5 +30,5 @@ export async function generateTitle(firstMessage: string): Promise<string> {
   if (!content) {
     throw new Error('Title generation returned empty content.')
   }
-  return content.slice(0, LIMITS.CONVERSATION_TITLE_MAX_LENGTH)
+  return content
 }

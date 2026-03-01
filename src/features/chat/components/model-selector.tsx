@@ -35,6 +35,7 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
     const searchInputRef = useRef<HTMLInputElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
     const itemRefs = useRef<Array<HTMLButtonElement | null>>([])
+    const runtimeConfigQuery = trpc.runtimeConfig.get.useQuery()
 
     useImperativeHandle(ref, () => ({
       open: () => {
@@ -45,7 +46,7 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
     }))
 
     const { data: models = [] } = trpc.model.list.useQuery(undefined, {
-      staleTime: LIMITS.MODEL_REGISTRY_CACHE_TTL_MS,
+      staleTime: runtimeConfigQuery.data?.models.registry.cacheTtlMs ?? 0,
     })
 
     const filteredModels = useMemo(

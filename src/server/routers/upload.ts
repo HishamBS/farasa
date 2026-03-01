@@ -1,18 +1,39 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, isNull, lt } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, rateLimitedUploadProcedure } from '../trpc'
 import { UploadRequestSchema, ConfirmUploadSchema } from '@/schemas/upload'
 import { attachments } from '@/lib/db/schema'
-import { LIMITS, TRPC_CODES } from '@/config/constants'
+import { TRPC_CODES } from '@/config/constants'
 
 export const uploadRouter = router({
   presignedUrl: rateLimitedUploadProcedure
     .input(UploadRequestSchema)
     .mutation(async ({ ctx, input }) => {
+      const { runtimeConfig } = ctx
+      if (!runtimeConfig.limits.supportedFileTypes.includes(input.fileType)) {
+        throw new TRPCError({ code: TRPC_CODES.BAD_REQUEST })
+      }
+      if (input.fileSize > runtimeConfig.limits.fileMaxSizeBytes) {
+        throw new TRPCError({ code: TRPC_CODES.BAD_REQUEST })
+      }
+
+      const orphanCutoff = new Date(Date.now() - runtimeConfig.limits.uploadUrlExpiryMs)
+      await ctx.db
+        .delete(attachments)
+        .where(
+          and(
+            eq(attachments.userId, ctx.userId),
+            isNull(attachments.messageId),
+            isNull(attachments.confirmedAt),
+            lt(attachments.createdAt, orphanCutoff),
+          ),
+        )
+
       const { getPresignedUploadUrl } = await import('@/lib/upload/gcs')
       const { uploadUrl, storageUrl } = await getPresignedUploadUrl({
         fileName: input.fileName,
         fileType: input.fileType,
+        expiresInMs: runtimeConfig.limits.uploadUrlExpiryMs,
       })
 
       const [attachment] = await ctx.db
@@ -33,7 +54,7 @@ export const uploadRouter = router({
       return {
         uploadUrl,
         attachmentId: attachment.id,
-        expiresAt: Date.now() + LIMITS.UPLOAD_URL_EXPIRY_MS,
+        expiresAt: Date.now() + runtimeConfig.limits.uploadUrlExpiryMs,
       }
     }),
 

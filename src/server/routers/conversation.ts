@@ -14,9 +14,11 @@ import {
 } from '@/schemas/conversation'
 import { NEW_CHAT_TITLE, TRPC_CODES, MESSAGE_ROLES } from '@/config/constants'
 import type { MessageMetadata } from '@/schemas/message'
+import { getRuntimeConfig } from '@/lib/runtime-config/service'
 
 export const conversationRouter = router({
   list: protectedProcedure.input(ConversationFilterSchema).query(async ({ ctx, input }) => {
+    const runtimeConfig = await getRuntimeConfig({ userId: ctx.userId })
     const conditions = [eq(conversations.userId, ctx.userId)]
 
     if (input.cursor) {
@@ -28,7 +30,11 @@ export const conversationRouter = router({
       conditions.push(like(conversations.title, `%${input.search}%`))
     }
 
-    const fetchLimit = input.limit + 1
+    const resolvedLimit = Math.min(
+      input.limit ?? runtimeConfig.limits.paginationDefaultLimit,
+      runtimeConfig.limits.paginationMaxLimit,
+    )
+    const fetchLimit = resolvedLimit + 1
     const rows = await ctx.db
       .select()
       .from(conversations)
@@ -37,7 +43,7 @@ export const conversationRouter = router({
       .limit(fetchLimit)
 
     const hasMore = rows.length === fetchLimit
-    const items = hasMore ? rows.slice(0, input.limit) : rows
+    const items = hasMore ? rows.slice(0, resolvedLimit) : rows
     const lastItem = items[items.length - 1]
     const nextCursor = hasMore && lastItem ? lastItem.updatedAt.toISOString() : undefined
 
@@ -59,14 +65,38 @@ export const conversationRouter = router({
   }),
 
   create: protectedProcedure.input(CreateConversationSchema).mutation(async ({ ctx, input }) => {
-    const [created] = await ctx.db
-      .insert(conversations)
-      .values({
-        userId: ctx.userId,
-        title: input.title ?? NEW_CHAT_TITLE,
-        model: input.model,
-      })
-      .returning()
+    const runtimeConfig = await getRuntimeConfig({ userId: ctx.userId })
+    if (input.title && input.title.length > runtimeConfig.limits.conversationTitleMaxLength) {
+      throw new TRPCError({ code: TRPC_CODES.BAD_REQUEST })
+    }
+
+    const [created] = await ctx.db.transaction(async (tx) => {
+      const [conversation] = await tx
+        .insert(conversations)
+        .values({
+          userId: ctx.userId,
+          title:
+            input.title?.slice(0, runtimeConfig.limits.conversationTitleMaxLength) ??
+            NEW_CHAT_TITLE,
+          model: input.model,
+        })
+        .returning()
+
+      if (!conversation) {
+        throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
+      }
+
+      if (input.firstMessage) {
+        await tx.insert(messages).values({
+          conversationId: conversation.id,
+          role: MESSAGE_ROLES.USER,
+          content: input.firstMessage.slice(0, runtimeConfig.limits.messageMaxLength),
+          clientRequestId: input.streamRequestId ?? crypto.randomUUID(),
+        })
+      }
+
+      return [conversation]
+    })
 
     if (!created) {
       throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
@@ -76,11 +106,16 @@ export const conversationRouter = router({
   }),
 
   update: protectedProcedure.input(UpdateConversationSchema).mutation(async ({ ctx, input }) => {
+    const runtimeConfig = await getRuntimeConfig({ userId: ctx.userId })
     const { id, ...rest } = input
+    const safeTitle =
+      rest.title !== undefined
+        ? rest.title.slice(0, runtimeConfig.limits.conversationTitleMaxLength)
+        : undefined
 
     const [updated] = await ctx.db
       .update(conversations)
-      .set({ ...rest, updatedAt: new Date() })
+      .set({ ...rest, title: safeTitle, updatedAt: new Date() })
       .where(and(eq(conversations.id, id), eq(conversations.userId, ctx.userId)))
       .returning()
 
@@ -105,6 +140,7 @@ export const conversationRouter = router({
   }),
 
   generateTitle: protectedProcedure.input(GenerateTitleSchema).mutation(async ({ ctx, input }) => {
+    const runtimeConfig = await getRuntimeConfig({ userId: ctx.userId })
     const [conversation] = await ctx.db
       .select({ id: conversations.id })
       .from(conversations)
@@ -116,7 +152,8 @@ export const conversationRouter = router({
     }
 
     const { generateTitle } = await import('@/lib/ai/title')
-    const title = await generateTitle(input.firstMessage)
+    const generated = await generateTitle(input.firstMessage, runtimeConfig)
+    const title = generated.slice(0, runtimeConfig.limits.conversationTitleMaxLength)
 
     const [updated] = await ctx.db
       .update(conversations)
@@ -124,7 +161,11 @@ export const conversationRouter = router({
       .where(and(eq(conversations.id, input.conversationId), eq(conversations.userId, ctx.userId)))
       .returning({ title: conversations.title })
 
-    return { title: updated?.title ?? title }
+    const boundedTitle = (updated?.title ?? title).slice(
+      0,
+      runtimeConfig.limits.conversationTitleMaxLength,
+    )
+    return { title: boundedTitle }
   }),
 
   exportMarkdown: protectedProcedure
@@ -162,6 +203,7 @@ export const conversationRouter = router({
     }),
 
   messages: protectedProcedure.input(MessageListInputSchema).query(async ({ ctx, input }) => {
+    const runtimeConfig = await getRuntimeConfig({ userId: ctx.userId })
     const [conversation] = await ctx.db
       .select({ id: conversations.id })
       .from(conversations)
@@ -180,7 +222,10 @@ export const conversationRouter = router({
     const rows = await ctx.db.query.messages.findMany({
       where: and(...conditions),
       orderBy: (_fields, operators) => [operators.desc(messages.createdAt)],
-      limit: input.limit,
+      limit: Math.min(
+        input.limit ?? runtimeConfig.limits.paginationDefaultLimit,
+        runtimeConfig.limits.paginationMaxLimit,
+      ),
       with: {
         attachments: true,
       },

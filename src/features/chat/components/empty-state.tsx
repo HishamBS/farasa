@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import {
   Sparkles,
@@ -42,8 +42,14 @@ const getShuffledItems = (count: number) => {
 
 export function EmptyState({ onSelect }: EmptyStateProps) {
   const shouldReduce = useReducedMotion()
-  const [currentSuggestions, setCurrentSuggestions] = useState(() => getShuffledItems(3))
+  const [currentSuggestions, setCurrentSuggestions] = useState(() =>
+    EMPTY_STATE_SUGGESTIONS.slice(0, 3),
+  )
   const [isRefreshing, setIsRefreshing] = useState(false)
+
+  useEffect(() => {
+    setCurrentSuggestions(getShuffledItems(3))
+  }, [])
 
   const handleExploreMore = () => {
     setIsRefreshing(true)

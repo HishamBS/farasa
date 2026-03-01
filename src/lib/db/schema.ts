@@ -15,7 +15,7 @@ import { sql } from 'drizzle-orm'
 import type { AdapterAccountType } from '@auth/core/adapters'
 import type { MessageMetadata } from '@/schemas/message'
 import type { RuntimeConfigOverride } from '@/schemas/runtime-config'
-import { NEW_CHAT_TITLE } from '@/config/constants'
+import { CHAT_MODES, NEW_CHAT_TITLE } from '@/config/constants'
 
 export const users = pgTable('users', {
   id: text('id')
@@ -89,7 +89,7 @@ export const conversations = pgTable(
     title: text('title').notNull().default(NEW_CHAT_TITLE),
     model: text('model'),
     isPinned: boolean('is_pinned').notNull().default(false),
-    searchMode: text('search_mode').notNull().default('chat'),
+    searchMode: text('search_mode').notNull().default(CHAT_MODES.CHAT),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   },

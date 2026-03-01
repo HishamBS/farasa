@@ -38,7 +38,7 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
   return (
     <ChatModeProvider>
       <StreamPhaseProvider>
-        <div className="flex h-screen overflow-hidden bg-(--bg-root]">
+        <div className="flex h-screen overflow-hidden bg-[--bg-root]">
           <SidebarContainer isOpen={isOpen} onClose={close} onOpen={open}>
             <SidebarHeader
               isSearchOpen={isSearchOpen}

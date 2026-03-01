@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { useState } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createTRPCReact } from '@trpc/react-query'
 import { splitLink, httpBatchLink, httpSubscriptionLink } from '@trpc/client'
 import superjson from 'superjson'
@@ -10,11 +10,28 @@ import type { AppRouter } from '@/server/routers/_app'
 import { ROUTES } from '@/config/routes'
 import { UX } from '@/config/constants'
 import { getBaseUrl } from '@/trpc/client'
+import { isTrpcUnauthorizedError } from '@/lib/utils/trpc-errors'
 
 export const trpc = createTRPCReact<AppRouter>()
 
+function handleUnauthorized(error: unknown): void {
+  if (!isTrpcUnauthorizedError(error) || typeof window === 'undefined') return
+  if (window.location.pathname === ROUTES.LOGIN) return
+  window.location.replace(ROUTES.LOGIN)
+}
+
 function makeQueryClient() {
   return new QueryClient({
+    queryCache: new QueryCache({
+      onError: (error) => {
+        handleUnauthorized(error)
+      },
+    }),
+    mutationCache: new MutationCache({
+      onError: (error) => {
+        handleUnauthorized(error)
+      },
+    }),
     defaultOptions: {
       queries: {
         staleTime: UX.QUERY_STALE_TIME_MS,

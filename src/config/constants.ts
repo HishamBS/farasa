@@ -288,10 +288,26 @@ export const APP_CONFIG = {
 } as const
 
 export const EMPTY_STATE_SUGGESTIONS = [
-  'Explain quantum computing in simple terms',
-  'Write a Python script to parse CSV files',
-  'Summarize the latest AI research trends',
-  'Help me debug this TypeScript error',
+  {
+    title: 'Explain quantum computing',
+    label: 'in simple terms',
+    prompt:
+      'Explain quantum computing in simple terms, focusing on the core concepts without complex math.',
+    icon: 'BrainCircuit',
+  },
+  {
+    title: 'Write a Python script',
+    label: 'to parse CSV files',
+    prompt:
+      'Write a Python script using pandas to parse a large CSV file, clean the data, and output a summary report.',
+    icon: 'Terminal',
+  },
+  {
+    title: 'Summarize the latest',
+    label: 'AI research trends',
+    prompt: 'Summarize the latest AI research trends, focusing on LLMs and multimodal models.',
+    icon: 'Sparkles',
+  },
 ] as const
 
 export const UI_TEXT = {

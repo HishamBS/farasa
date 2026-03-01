@@ -5,6 +5,7 @@ import { modelRouter } from './model'
 import { uploadRouter } from './upload'
 import { searchRouter } from './search'
 import { runtimeConfigRouter } from './runtime-config'
+import { userPreferencesRouter } from './user-preferences'
 
 export const appRouter = router({
   chat: chatRouter,
@@ -13,6 +14,7 @@ export const appRouter = router({
   upload: uploadRouter,
   search: searchRouter,
   runtimeConfig: runtimeConfigRouter,
+  userPreferences: userPreferencesRouter,
 })
 
 export type AppRouter = typeof appRouter

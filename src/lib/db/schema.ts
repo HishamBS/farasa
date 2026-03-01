@@ -144,6 +144,16 @@ export const runtimeConfigs = pgTable(
   }),
 )
 
+export const userPreferences = pgTable('user_preferences', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  theme: text('theme').notNull().default('dark'),
+  sidebarExpanded: boolean('sidebar_expanded').notNull().default(true),
+  defaultModel: text('default_model'),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+})
+
 export const attachments = pgTable(
   'attachments',
   {

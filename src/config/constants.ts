@@ -73,6 +73,7 @@ export const STREAM_EVENTS = {
   A2UI: 'a2ui',
   ERROR: 'error',
   DONE: 'done',
+  USER_MESSAGE_SAVED: 'user_message_saved',
 } as const
 
 export const STREAM_PHASES = {

@@ -16,16 +16,27 @@ export function useTheme() {
     setTheme(initial)
     document.documentElement.setAttribute('data-theme', initial)
 
-    if (isStoredTheme) return
+    const handleCustomEvent = (e: Event) => {
+      setTheme((e as CustomEvent<Theme>).detail)
+    }
+    window.addEventListener('farasa-theme-change', handleCustomEvent)
 
-    const onMediaChange = (event: MediaQueryListEvent) => {
-      const nextTheme: Theme = event.matches ? 'dark' : 'light'
-      setTheme(nextTheme)
-      document.documentElement.setAttribute('data-theme', nextTheme)
+    if (!isStoredTheme) {
+      const onMediaChange = (event: MediaQueryListEvent) => {
+        const nextTheme: Theme = event.matches ? 'dark' : 'light'
+        setTheme(nextTheme)
+        document.documentElement.setAttribute('data-theme', nextTheme)
+        window.dispatchEvent(new CustomEvent('farasa-theme-change', { detail: nextTheme }))
+      }
+
+      media.addEventListener('change', onMediaChange)
+      return () => {
+        media.removeEventListener('change', onMediaChange)
+        window.removeEventListener('farasa-theme-change', handleCustomEvent)
+      }
     }
 
-    media.addEventListener('change', onMediaChange)
-    return () => media.removeEventListener('change', onMediaChange)
+    return () => window.removeEventListener('farasa-theme-change', handleCustomEvent)
   }, [])
 
   const toggleTheme = useCallback(() => {
@@ -33,6 +44,7 @@ export function useTheme() {
       const next: Theme = prev === 'dark' ? 'light' : 'dark'
       localStorage.setItem('theme', next)
       document.documentElement.setAttribute('data-theme', next)
+      window.dispatchEvent(new CustomEvent('farasa-theme-change', { detail: next }))
       return next
     })
   }, [])

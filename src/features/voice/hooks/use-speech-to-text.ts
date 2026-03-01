@@ -86,6 +86,29 @@ export function useSpeechToText() {
     }
   }, [])
 
+  const startWebSpeechFallback = useCallback((SR: SpeechRecognitionConstructor) => {
+    const recognition = new SR()
+    recognition.continuous = false
+    recognition.interimResults = false
+    recognition.lang = VOICE.STT_LANG
+    recognition.onerror = null
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let text = ''
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i]
+        if (result?.isFinal) text += result[0]?.transcript ?? ''
+      }
+      if (text) setState((prev) => ({ ...prev, transcript: text }))
+    }
+
+    recognition.onend = () => setState((prev) => ({ ...prev, isListening: false }))
+
+    recognitionRef.current = recognition
+    recognition.start()
+    setState((prev) => ({ ...prev, isListening: true }))
+  }, [])
+
   const startListening = useCallback(async () => {
     if (state.isListening || state.isTranscribing) return
 
@@ -124,26 +147,7 @@ export function useSpeechToText() {
           const SR = getSpeechRecognition()
           if (SR) {
             setState((prev) => ({ ...prev, isTranscribing: false }))
-            const recognition = new SR()
-            recognition.continuous = false
-            recognition.interimResults = false
-            recognition.lang = VOICE.STT_LANG
-            recognition.onerror = null
-
-            recognition.onresult = (event: SpeechRecognitionEvent) => {
-              let text = ''
-              for (let i = event.resultIndex; i < event.results.length; i++) {
-                const result = event.results[i]
-                if (result?.isFinal) text += result[0]?.transcript ?? ''
-              }
-              if (text) setState((prev) => ({ ...prev, transcript: text }))
-            }
-
-            recognition.onend = () => setState((prev) => ({ ...prev, isListening: false }))
-
-            recognitionRef.current = recognition
-            recognition.start()
-            setState((prev) => ({ ...prev, isListening: true }))
+            startWebSpeechFallback(SR)
           } else {
             setState((prev) => ({
               ...prev,
@@ -174,27 +178,8 @@ export function useSpeechToText() {
     const SR = getSpeechRecognition()
     if (!SR) return
 
-    const recognition = new SR()
-    recognition.continuous = false
-    recognition.interimResults = false
-    recognition.lang = VOICE.STT_LANG
-    recognition.onerror = null
-
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
-      let text = ''
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i]
-        if (result?.isFinal) text += result[0]?.transcript ?? ''
-      }
-      if (text) setState((prev) => ({ ...prev, transcript: text }))
-    }
-
-    recognition.onend = () => setState((prev) => ({ ...prev, isListening: false }))
-
-    recognitionRef.current = recognition
-    recognition.start()
-    setState((prev) => ({ ...prev, isListening: true }))
-  }, [state.isListening, state.isTranscribing, transcribeViaServer])
+    startWebSpeechFallback(SR)
+  }, [state.isListening, state.isTranscribing, transcribeViaServer, startWebSpeechFallback])
 
   const stopListening = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {

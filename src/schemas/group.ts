@@ -16,6 +16,11 @@ export const GroupModelChunkSchema = z.object({
   chunk: StreamChunkSchema,
 })
 
+export const GroupStreamEventChunkSchema = z.object({
+  type: z.literal(GROUP_EVENTS.STREAM_EVENT),
+  chunk: StreamChunkSchema,
+})
+
 export const GroupDoneChunkSchema = z.object({
   type: z.literal(GROUP_EVENTS.DONE),
   groupId: z.string().uuid(),
@@ -24,6 +29,7 @@ export const GroupDoneChunkSchema = z.object({
 
 export const GroupOutputChunkSchema = z.discriminatedUnion('type', [
   GroupModelChunkSchema,
+  GroupStreamEventChunkSchema,
   GroupDoneChunkSchema,
 ])
 
@@ -50,6 +56,7 @@ export const GroupSynthesizeInputSchema = z.object({
 
 export type GroupStreamInput = z.infer<typeof GroupStreamInputSchema>
 export type GroupModelChunk = z.infer<typeof GroupModelChunkSchema>
+export type GroupStreamEventChunk = z.infer<typeof GroupStreamEventChunkSchema>
 export type GroupDoneChunk = z.infer<typeof GroupDoneChunkSchema>
 export type GroupOutputChunk = z.infer<typeof GroupOutputChunkSchema>
 export type GroupSynthesisChunk = z.infer<typeof GroupSynthesisChunkSchema>

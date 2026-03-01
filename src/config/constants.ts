@@ -386,6 +386,7 @@ export const GROUP_LIMITS = {
 
 export const GROUP_EVENTS = {
   MODEL_CHUNK: 'group_model_chunk',
+  STREAM_EVENT: 'group_stream_event',
   DONE: 'group_done',
   SYNTHESIS_CHUNK: 'group_synthesis_chunk',
   SYNTHESIS_DONE: 'group_synthesis_done',

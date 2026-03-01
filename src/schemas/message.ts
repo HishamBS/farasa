@@ -84,6 +84,10 @@ export const StreamChunkSchema = z.discriminatedUnion('type', [
     type: z.literal(STREAM_EVENTS.USER_MESSAGE_SAVED),
     messageId: z.string(),
   }),
+  StreamEventMetaSchema.extend({
+    type: z.literal(STREAM_EVENTS.CONVERSATION_CREATED),
+    conversationId: z.string(),
+  }),
 ])
 
 export const InlineAttachmentSchema = z.object({

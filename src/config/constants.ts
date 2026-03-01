@@ -73,6 +73,7 @@ export const STREAM_EVENTS = {
   ERROR: 'error',
   DONE: 'done',
   USER_MESSAGE_SAVED: 'user_message_saved',
+  CONVERSATION_CREATED: 'conversation_created',
 } as const
 
 export const STREAM_PHASES = {

@@ -1,15 +1,17 @@
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { trpcClient } from '@/trpc/client'
 import { trpc } from '@/trpc/provider'
 import { STREAM_EVENTS, STREAM_PHASES, STREAM_ACTIONS } from '@/config/constants'
 import { useStreamState } from '@/features/stream-phases/hooks/use-stream-state'
 import type { ChatInput, StreamChunk } from '@/schemas/message'
 import type { v0_8 } from '@a2ui-sdk/types'
+import { ROUTES } from '@/config/routes'
 
 type ActiveStreamSession = {
-  conversationId: string
+  conversationId: string | undefined
   sessionId: string
   unsubscribe: () => void
   isSettled: boolean
@@ -28,6 +30,8 @@ export function useChatStream() {
   const utils = trpc.useUtils()
   const cancelStreamMutation = trpc.chat.cancel.useMutation()
   const activeSessionRef = useRef<ActiveStreamSession | null>(null)
+  const resolvedConversationIdRef = useRef<string | undefined>(undefined)
+  const router = useRouter()
 
   const clearActiveSession = useCallback(() => {
     const active = activeSessionRef.current
@@ -38,18 +42,7 @@ export function useChatStream() {
 
   const runStreamAttempt = useCallback(
     (input: ChatInput) => {
-      if (!input.conversationId) {
-        dispatch({
-          type: STREAM_ACTIONS.ERROR,
-          error: {
-            message: 'Conversation context is required before streaming.',
-            reasonCode: 'validation_rejected',
-            recoverable: false,
-            attempt: 0,
-          },
-        })
-        return
-      }
+      resolvedConversationIdRef.current = input.conversationId
 
       const activeConversationId = activeSessionRef.current?.conversationId
       if (activeConversationId && activeConversationId === input.conversationId) {
@@ -89,7 +82,8 @@ export function useChatStream() {
             attempt: 0,
           },
         })
-        void utils.conversation.messages.invalidate({ conversationId: input.conversationId! })
+        const convId = resolvedConversationIdRef.current
+        if (convId) void utils.conversation.messages.invalidate({ conversationId: convId })
       }
 
       const subscription = trpcClient.chat.stream.subscribe(input, {
@@ -98,11 +92,16 @@ export function useChatStream() {
           if (!active || active.sessionId !== sessionId) return
 
           switch (chunk.type) {
-            case STREAM_EVENTS.USER_MESSAGE_SAVED:
-              void utils.conversation.messages.invalidate({
-                conversationId: input.conversationId!,
-              })
+            case STREAM_EVENTS.CONVERSATION_CREATED:
+              resolvedConversationIdRef.current = chunk.conversationId
+              if (active) active.conversationId = chunk.conversationId
+              router.replace(ROUTES.CHAT_BY_ID(chunk.conversationId))
               break
+            case STREAM_EVENTS.USER_MESSAGE_SAVED: {
+              const convId = resolvedConversationIdRef.current
+              if (convId) void utils.conversation.messages.invalidate({ conversationId: convId })
+              break
+            }
             case STREAM_EVENTS.STATUS:
               dispatch({
                 type: STREAM_ACTIONS.STATUS,
@@ -110,8 +109,9 @@ export function useChatStream() {
                 message: chunk.message,
               })
               if (chunk.phase === STREAM_PHASES.GENERATING_TITLE) {
+                const convId = resolvedConversationIdRef.current
                 void utils.conversation.list.invalidate()
-                void utils.conversation.getById.invalidate({ id: input.conversationId! })
+                if (convId) void utils.conversation.getById.invalidate({ id: convId })
               }
               break
             case STREAM_EVENTS.MODEL_SELECTED:
@@ -164,16 +164,18 @@ export function useChatStream() {
                 attempt: chunk.attempt,
               })
               break
-            case STREAM_EVENTS.DONE:
+            case STREAM_EVENTS.DONE: {
               if (active.isSettled) return
               active.isSettled = true
               dispatch({ type: STREAM_ACTIONS.DONE })
-              void utils.conversation.messages.invalidate({
-                conversationId: input.conversationId!,
-              })
+              const convId = resolvedConversationIdRef.current
+              if (convId) {
+                void utils.conversation.messages.invalidate({ conversationId: convId })
+                void utils.conversation.getById.invalidate({ id: convId })
+              }
               void utils.conversation.list.invalidate()
-              void utils.conversation.getById.invalidate({ id: input.conversationId! })
               break
+            }
           }
         },
         onError(error: Error) {
@@ -194,7 +196,7 @@ export function useChatStream() {
 
       session.unsubscribe = () => subscription.unsubscribe()
     },
-    [clearActiveSession, dispatch, reset, utils],
+    [clearActiveSession, dispatch, reset, utils, router],
   )
 
   const sendMessage = useCallback(
@@ -211,9 +213,10 @@ export function useChatStream() {
     active.unsubscribe()
     activeSessionRef.current = null
 
-    void cancelStreamMutation.mutateAsync({
-      conversationId: active.conversationId,
-    })
+    const conversationId = resolvedConversationIdRef.current
+    if (conversationId) {
+      void cancelStreamMutation.mutateAsync({ conversationId })
+    }
   }, [cancelStreamMutation])
 
   useEffect(() => {

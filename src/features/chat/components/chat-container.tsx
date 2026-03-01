@@ -12,7 +12,7 @@ import { useStreamPhase } from '../context/stream-phase-context'
 import { ConversationCostProvider } from '../context/conversation-cost-context'
 
 type ChatContainerProps = {
-  conversationId: string
+  conversationId?: string
 }
 
 export function ChatContainer({ conversationId }: ChatContainerProps) {
@@ -40,13 +40,13 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
   }, [titlebarPhase, setPhase])
 
   const { data: conversation } = trpc.conversation.getById.useQuery(
-    { id: conversationId },
-    { staleTime: UX.QUERY_STALE_TIME_FOREVER },
+    { id: conversationId! },
+    { staleTime: UX.QUERY_STALE_TIME_FOREVER, enabled: !!conversationId },
   )
 
   const { data: messages = [] } = trpc.conversation.messages.useQuery(
-    { conversationId },
-    { staleTime: UX.QUERY_STALE_TIME_FOREVER },
+    { conversationId: conversationId! },
+    { staleTime: UX.QUERY_STALE_TIME_FOREVER, enabled: !!conversationId },
   )
 
   const handleSuggestionSelect = useCallback((text: string) => {

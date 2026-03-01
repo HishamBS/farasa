@@ -62,6 +62,14 @@ CREATE TABLE IF NOT EXISTS "sessions" (
 	"expires" timestamp with time zone NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "user_preferences" (
+	"user_id" text PRIMARY KEY NOT NULL,
+	"theme" text DEFAULT 'dark' NOT NULL,
+	"sidebar_expanded" boolean DEFAULT true NOT NULL,
+	"default_model" text,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "users" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text,
@@ -116,18 +124,20 @@ EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
 --> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "user_preferences" ADD CONSTRAINT "user_preferences_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "att_user_idx" ON "attachments" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "att_msg_idx" ON "attachments" USING btree ("message_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "conv_user_updated_idx" ON "conversations" USING btree ("user_id","updated_at");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "msg_conv_created_idx" ON "messages" USING btree ("conversation_id","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS "msg_conv_request_unique" ON "messages" USING btree ("conversation_id","role","client_request_id");--> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS "runtime_scope_unique" ON "runtime_configs" USING btree ("scope","scope_key");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "runtime_scope_idx" ON "runtime_configs" USING btree ("scope","scope_key");--> statement-breakpoint
-DO $$ BEGIN
- ALTER TABLE "runtime_configs" ADD CONSTRAINT "runtime_scope_check" CHECK ((("scope" = 'system' AND "scope_key" IS NULL) OR ("scope" IN ('tenant','user') AND "scope_key" IS NOT NULL)));
-EXCEPTION
- WHEN duplicate_object THEN null;
-END $$;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "runtime_scope_idx" ON "runtime_configs" USING btree ("scope","scope_key");
+--> statement-breakpoint
 INSERT INTO runtime_configs (scope, scope_key, payload, updated_at)
 SELECT
   'system',
@@ -249,18 +259,3 @@ WHERE NOT EXISTS (
   FROM runtime_configs
   WHERE scope = 'system'
 );
-
---> statement-breakpoint
-CREATE TABLE IF NOT EXISTS "user_preferences" (
-	"user_id" text PRIMARY KEY NOT NULL,
-	"theme" text DEFAULT 'dark' NOT NULL,
-	"sidebar_expanded" boolean DEFAULT true NOT NULL,
-	"default_model" text,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-DO $$ BEGIN
- ALTER TABLE "user_preferences" ADD CONSTRAINT "user_preferences_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
-EXCEPTION
- WHEN duplicate_object THEN null;
-END $$;

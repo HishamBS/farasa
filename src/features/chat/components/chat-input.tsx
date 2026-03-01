@@ -14,7 +14,7 @@ import { ArrowRight, Paperclip } from 'lucide-react'
 import { scaleIn } from '@/lib/utils/motion'
 import { StopButton } from './stop-button'
 import { cn } from '@/lib/utils/cn'
-import { APP_CONFIG, UI_TEXT, MOTION } from '@/config/constants'
+import { APP_CONFIG, UI_TEXT, MOTION, LIMITS } from '@/config/constants'
 import { useChatInput } from '../hooks/use-chat-input'
 import { useFileUpload } from '../hooks/use-file-upload'
 import { useChatMode } from '../context/chat-mode-context'
@@ -110,7 +110,11 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     [handleKeyDown, handleSubmit, isStreaming, onAbort],
   )
 
-  const canSend = useMemo(() => content.trim().length > 0 && !isStreaming, [content, isStreaming])
+  const isTooLong = content.length > LIMITS.MESSAGE_MAX_LENGTH
+  const canSend = useMemo(
+    () => content.trim().length > 0 && !isStreaming && !isTooLong,
+    [content, isStreaming, isTooLong],
+  )
 
   const handleFiles = useCallback(
     async (files: FileList | null) => {
@@ -291,7 +295,14 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           </button>
 
           <span className="ml-auto text-[11.5px] text-(--text-muted) hidden sm:block tracking-wide">
-            {UI_TEXT.CHAT_KEYBOARD_HINT}
+            {isTooLong ? (
+              <span className="text-(--error)">
+                {content.length.toLocaleString()} / {LIMITS.MESSAGE_MAX_LENGTH.toLocaleString()} —
+                message too long
+              </span>
+            ) : (
+              UI_TEXT.CHAT_KEYBOARD_HINT
+            )}
           </span>
         </div>
 

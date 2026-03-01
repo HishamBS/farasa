@@ -51,6 +51,7 @@ export function ConversationItem({
   const updateMutation = trpc.conversation.update.useMutation({
     onSuccess: () => {
       void utils.conversation.list.invalidate()
+      void utils.conversation.getById.invalidate({ id })
     },
     onError: (err) => {
       console.error('Failed to update conversation', err)

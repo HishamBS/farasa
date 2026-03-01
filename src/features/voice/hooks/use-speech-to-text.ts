@@ -8,6 +8,7 @@ type STTState = {
   isTranscribing: boolean
   transcript: string
   isSupported: boolean
+  permissionError: string | null
 }
 
 // Web Speech API type augmentation — not in all TypeScript lib versions
@@ -57,6 +58,7 @@ export function useSpeechToText() {
     isTranscribing: false,
     transcript: '',
     isSupported: false,
+    permissionError: null,
   })
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -88,6 +90,7 @@ export function useSpeechToText() {
     // Primary path: MediaRecorder → server STT
     if (hasMediaDevices()) {
       try {
+        setState((prev) => ({ ...prev, permissionError: null }))
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
         chunksRef.current = []
         const recorder = new MediaRecorder(stream)
@@ -118,8 +121,16 @@ export function useSpeechToText() {
         recorder.start()
         setState((prev) => ({ ...prev, isListening: true }))
         return
-      } catch {
-        // getUserMedia denied or unavailable — fall through to Web Speech
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'NotAllowedError') {
+          setState((prev) => ({
+            ...prev,
+            permissionError:
+              'Microphone access was denied. Please allow microphone in your browser settings.',
+          }))
+          return
+        }
+        // Other errors (device unavailable, etc.) — fall through to Web Speech
       }
     }
 

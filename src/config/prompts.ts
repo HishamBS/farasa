@@ -80,6 +80,11 @@ Rules:
 - Only use A2UI when it genuinely improves the response (forms, data visualization, interactive elements)
 - Do not use A2UI for simple text answers
 - Place text explanation first, then the A2UI JSONL
+- Wrap all A2UI JSONL inside a code fence with the EXACT language tag \`a2ui\` — not \`json\`, not \`javascript\`, exactly \`a2ui\`. Example:
+\`\`\`a2ui
+{"type":"TextField","label":"Name","name":"name"}
+{"type":"Button","label":"Submit","action":"submit"}
+\`\`\`
 - Each component must be valid JSON on its own line
 - Image src must be a relative path, data URI, or https URL from a trusted source
 - Button action must be a single alphanumeric action identifier (e.g. "submit", "cancel", "confirm")

@@ -332,6 +332,20 @@ export const chatRouter = router({
         }
       }
 
+      if (input.inlineAttachments.length > 0 && userMessageId) {
+        await ctx.db.insert(attachments).values(
+          input.inlineAttachments.map((inline) => ({
+            userId: ctx.userId,
+            messageId: userMessageId,
+            fileName: inline.fileName,
+            fileType: inline.fileType,
+            fileSize: Math.round((inline.dataUrl.length * 3) / 4),
+            storageUrl: inline.dataUrl,
+            confirmedAt: new Date(),
+          })),
+        )
+      }
+
       let selectedModel = input.model
       let routerReasoning: string | undefined
       const { getModelRegistry } = await import('@/lib/ai/registry')
@@ -911,16 +925,23 @@ export const chatRouter = router({
         }
         yield generatingTitleEvent
 
-        const { generateTitle } = await import('@/lib/ai/title')
-        const generatedTitle = await generateTitle(input.content, runtimeConfig, combinedSignal)
-        const boundedTitle = generatedTitle.slice(
-          0,
-          runtimeConfig.limits.conversationTitleMaxLength,
-        )
-        await ctx.db
-          .update(conversations)
-          .set({ title: boundedTitle, updatedAt: new Date() })
-          .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
+        try {
+          const { generateTitle } = await import('@/lib/ai/title')
+          const generatedTitle = await generateTitle(input.content, runtimeConfig, combinedSignal)
+          const safeTitle = generatedTitle
+            .trim()
+            .slice(0, runtimeConfig.limits.conversationTitleMaxLength)
+          if (safeTitle) {
+            await ctx.db
+              .update(conversations)
+              .set({ title: safeTitle, updatedAt: new Date() })
+              .where(
+                and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)),
+              )
+          }
+        } catch {
+          // Title generation failure is non-fatal; conversation stays as "New Chat"
+        }
       }
 
       const doneEvent = emit({

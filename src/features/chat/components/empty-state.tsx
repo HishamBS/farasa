@@ -48,7 +48,7 @@ const getShuffledItems = (count: number) => {
 export function EmptyState({ onSelect }: EmptyStateProps) {
   const shouldReduce = useReducedMotion()
   const [currentSuggestions, setCurrentSuggestions] = useState(() =>
-    EMPTY_STATE_SUGGESTIONS.slice(0, 3),
+    EMPTY_STATE_SUGGESTIONS.slice(0, 4),
   )
   const [isRefreshing, setIsRefreshing] = useState(false)
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -63,7 +63,7 @@ export function EmptyState({ onSelect }: EmptyStateProps) {
   const handleExploreMore = useCallback(() => {
     setIsRefreshing(true)
     refreshTimerRef.current = setTimeout(() => {
-      setCurrentSuggestions(getShuffledItems(3))
+      setCurrentSuggestions(getShuffledItems(4))
       setIsRefreshing(false)
     }, 500)
   }, [])
@@ -112,7 +112,7 @@ export function EmptyState({ onSelect }: EmptyStateProps) {
       </motion.div>
 
       {/* Suggestion Grid */}
-      <motion.div className="grid w-full max-w-3xl grid-cols-1 gap-3 md:grid-cols-3">
+      <motion.div className="grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2">
         {currentSuggestions.map((suggestion, index) => {
           const Icon = ICON_MAP[suggestion.icon]
 

@@ -37,7 +37,7 @@ export const ModelConfigSchema = z.object({
 })
 
 export const ModelSelectionSchema = z.object({
-  category: ModelCapabilitySchema,
+  category: z.string(),
   reasoning: z.string(),
   selectedModel: z.string(),
 })

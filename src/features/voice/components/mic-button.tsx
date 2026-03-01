@@ -15,6 +15,7 @@ export function MicButton({ onTranscript }: MicButtonProps) {
     isTranscribing,
     isSupported,
     transcript,
+    permissionError,
     startListening,
     stopListening,
     resetTranscript,
@@ -43,16 +44,25 @@ export function MicButton({ onTranscript }: MicButtonProps) {
       type="button"
       onClick={() => void handleClick()}
       disabled={isTranscribing}
+      title={permissionError ?? undefined}
       className={cn(
         'flex size-8 items-center justify-center rounded-lg transition-colors',
         isListening
           ? 'text-(--error) hover:bg-(--bg-surface-hover)'
           : isTranscribing
             ? 'cursor-wait text-(--text-ghost)'
-            : 'text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)',
+            : permissionError
+              ? 'text-(--error) hover:bg-(--bg-surface-hover)'
+              : 'text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)',
       )}
       aria-label={
-        isListening ? 'Stop recording' : isTranscribing ? 'Transcribing…' : 'Start voice input'
+        permissionError
+          ? permissionError
+          : isListening
+            ? 'Stop recording'
+            : isTranscribing
+              ? 'Transcribing…'
+              : 'Start voice input'
       }
       aria-pressed={isListening}
     >

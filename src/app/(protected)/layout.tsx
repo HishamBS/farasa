@@ -5,6 +5,6 @@ type ProtectedLayoutProps = {
   children: ReactNode
 }
 
-export default async function ProtectedLayout({ children }: ProtectedLayoutProps) {
+export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
   return <ProtectedShell>{children}</ProtectedShell>
 }

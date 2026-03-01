@@ -27,12 +27,35 @@ readonly DOCKER_APP_STARTUP_TIMEOUT=60
 # Dev Server (Next.js - native)
 # ============================================================================
 
+is_next_dev_process_running_on_dev_port() {
+    local pids
+    pids=$(lsof -ti:"$DEV_PORT" 2>/dev/null || true)
+    [[ -n "$pids" ]] || return 1
+
+    local pid
+    for pid in $pids; do
+        local cmd
+        cmd=$(ps -o command= -p "$pid" 2>/dev/null || true)
+        if [[ "$cmd" == *"next dev"* ]]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 start_service_dev() {
     print_section "Next.js Dev Server"
 
     if check_port_listening "$DEV_PORT"; then
-        print_success "Dev server already running on :${DEV_PORT}"
-        return 0
+        if is_next_dev_process_running_on_dev_port; then
+            print_success "Dev server already running on :${DEV_PORT}"
+            return 0
+        fi
+
+        print_error "Port :${DEV_PORT} is already in use by a non-dev process"
+        print_info "Stop the process on :${DEV_PORT} before starting native dev mode"
+        return 1
     fi
 
     ensure_directory "logs"
@@ -181,6 +204,17 @@ start_docker_stack() {
         return 1
     fi
 
+    if is_next_dev_process_running_on_dev_port; then
+        print_info "Stopping native dev server to free :${DEV_PORT} for Docker mode..."
+        stop_service_dev || return 1
+    fi
+
+    if check_port_listening "$DEV_PORT"; then
+        print_error "Port :${DEV_PORT} is already in use"
+        print_info "Stop the process on :${DEV_PORT} before starting Docker mode"
+        return 1
+    fi
+
     export COMPOSE_DOCKER_CLI_BUILD=1
     export DOCKER_BUILDKIT=1
 
@@ -317,6 +351,14 @@ run_build() {
     print_section "Production Build"
     print_step "Running: bun run build"
     echo ""
+
+    local restart_dev_after_build=false
+    if is_next_dev_process_running_on_dev_port; then
+        print_warning "Detected an active dev server on :${DEV_PORT}; stopping it before build"
+        stop_service_dev || return 1
+        restart_dev_after_build=true
+    fi
+
     local exit_code=0
     bun run build 2>&1 | follow_log_as_build || exit_code=$?
     if [[ $exit_code -eq 0 ]]; then
@@ -324,6 +366,15 @@ run_build() {
     else
         print_error "Build failed"
     fi
+
+    if [[ "$restart_dev_after_build" == "true" ]]; then
+        echo ""
+        print_step "Restarting dev server after build..."
+        if ! start_service_dev; then
+            print_warning "Dev server restart failed; start it manually with ./start.sh dev"
+        fi
+    fi
+
     return $exit_code
 }
 

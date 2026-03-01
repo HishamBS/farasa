@@ -7,6 +7,7 @@ import { TRPCProvider } from '@/trpc/provider'
 import { AuthSessionProvider } from '@/components/session-provider'
 import { OfflineBanner } from '@/features/pwa/components/offline-banner'
 import { InstallPrompt } from '@/features/pwa/components/install-prompt'
+import { DevServiceWorkerReset } from '@/features/pwa/components/dev-sw-reset'
 import './globals.css'
 import 'katex/dist/katex.min.css'
 
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         />
       </head>
       <body className={`${GeistSans.variable} ${GeistMono.variable} font-sans antialiased`}>
+        <DevServiceWorkerReset />
         <OfflineBanner />
         <InstallPrompt />
         <AuthSessionProvider>

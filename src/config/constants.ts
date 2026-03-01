@@ -265,7 +265,7 @@ export const NEW_CHAT_TITLE = 'New Chat' as const
 export const NEW_CONVERSATION_TITLE = 'New Conversation' as const
 export const CODE_BLOCK_FALLBACK_LANG = 'text' as const
 export const SHIKI_DARK_THEME = 'tokyo-night' as const
-export const SHIKI_LIGHT_THEME = 'vitesse-light' as const
+export const SHIKI_LIGHT_THEME = 'github-light' as const
 
 export const AI_REASONING = {
   MODEL_EXPLICIT: 'Model explicitly specified by user.',

@@ -219,7 +219,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
               <button
                 type="button"
                 onClick={handleAttachClick}
-                className="flex size-8 items-center justify-center rounded-lg text-(--text-muted) transition-colors hover:bg-white/5 hover:text-(--text-secondary)"
+                className="flex size-8 items-center justify-center rounded-lg text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)"
                 aria-label="Attach file"
               >
                 <Paperclip size={15} />

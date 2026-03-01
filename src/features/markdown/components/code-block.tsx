@@ -48,8 +48,8 @@ export function CodeBlock({ children, className }: CodeBlockProps) {
   }, [code, validLang, theme])
 
   return (
-    <div className="my-4 overflow-hidden rounded-xl border border-(--border-subtle) bg-(--bg-code-header) shadow-lg">
-      <div className="flex items-center justify-between border-b border-(--code-block-border) bg-white/2 px-3.5 py-1.5">
+    <div className="my-4 overflow-hidden rounded-xl border border-(--border-subtle) bg-(--bg-surface) shadow-lg">
+      <div className="flex items-center justify-between border-b border-(--code-block-border) bg-(--bg-code-header) px-3.5 py-1.5">
         <span className="font-mono text-[11px] text-(--text-muted) tracking-[0.04em] lowercase">
           {validLang}
         </span>

@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { UX } from '@/config/constants'
+import { cn } from '@/lib/utils/cn'
 
 type CopyButtonProps = {
   code: string
@@ -20,7 +21,10 @@ export function CopyButton({ code }: CopyButtonProps) {
     <button
       type="button"
       onClick={handleCopy}
-      className="rounded-md px-1.5 py-0.5 text-xs text-(--text-muted) transition-colors hover:bg-white/10 hover:text-(--text-primary)"
+      className={cn(
+        'rounded-md px-1.5 py-0.5 text-xs transition-colors hover:bg-(--bg-surface-hover)',
+        copied ? 'text-success' : 'text-(--text-muted)',
+      )}
       aria-label={copied ? 'Copied' : 'Copy code'}
     >
       {copied ? 'Copied' : 'Copy'}

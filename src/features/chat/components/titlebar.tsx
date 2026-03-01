@@ -84,7 +84,7 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
 
   const title = conversation?.title ?? null
 
-  const getPillContent = () => {
+  const pillInfo = useMemo(() => {
     if (streamPhase === 'thinking') {
       return {
         bg: 'bg-(--thinking-bg)',
@@ -105,16 +105,15 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
     }
     if (streamPhase === 'done') {
       return {
-        bg: 'bg-emerald-400/10',
-        border: 'border-emerald-400/20',
+        bg: 'bg-(--success)/10',
+        border: 'border-(--success)/20',
         text: 'text-(--success)',
         label: 'Ready',
         showDot: false,
       }
     }
     return null
-  }
-  const pillInfo = getPillContent()
+  }, [streamPhase])
   const isPillVisible =
     streamPhase === 'thinking' ||
     streamPhase === 'streaming' ||

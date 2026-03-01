@@ -8,7 +8,7 @@ import { MessageBubble } from './message-bubble'
 import { AssistantMessage } from './assistant-message'
 import { EmptyState } from './empty-state'
 import { useAutoScroll } from '../hooks/use-auto-scroll'
-import { CHAT_STREAM_STATUS, MOTION, UI_TEXT } from '@/config/constants'
+import { CHAT_STREAM_STATUS, MESSAGE_ROLES, MOTION, UI_TEXT } from '@/config/constants'
 import type { StreamState } from '@/types/stream'
 import type { MessageWithAttachments } from '@/schemas/conversation'
 
@@ -33,9 +33,14 @@ export function MessageList({
   const hasStreamedContent =
     !!streamState.textContent || !!streamState.thinking || streamState.toolExecutions.length > 0
 
+  const lastMessageIsAssistant =
+    messages.length > 0 && messages[messages.length - 1]?.role === MESSAGE_ROLES.ASSISTANT
+
   const showStreaming =
     (isStreaming && streamState.phase !== CHAT_STREAM_STATUS.IDLE) ||
-    (streamState.phase === CHAT_STREAM_STATUS.COMPLETE && hasStreamedContent)
+    (streamState.phase === CHAT_STREAM_STATUS.COMPLETE &&
+      hasStreamedContent &&
+      !lastMessageIsAssistant)
 
   const dividerLabel = useMemo(() => {
     if (messages.length === 0) return null

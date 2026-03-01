@@ -36,9 +36,7 @@ export function AssistantFrame({
         </div>
       </div>
 
-      <div className="pl-8 text-sm lg:text-[0.9375rem] leading-[1.72] text-(--text-primary)">
-        {children}
-      </div>
+      <div className="pl-8 text-[0.90625rem] leading-[1.72] text-(--text-primary)">{children}</div>
     </article>
   )
 }

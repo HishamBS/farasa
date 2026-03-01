@@ -264,7 +264,7 @@ export const MODEL_REGISTRY_CACHE_KEY = 'models' as const
 export const NEW_CHAT_TITLE = 'New Chat' as const
 export const NEW_CONVERSATION_TITLE = 'New Conversation' as const
 export const CODE_BLOCK_FALLBACK_LANG = 'text' as const
-export const SHIKI_DARK_THEME = 'vitesse-dark' as const
+export const SHIKI_DARK_THEME = 'tokyo-night' as const
 export const SHIKI_LIGHT_THEME = 'vitesse-light' as const
 
 export const AI_REASONING = {
@@ -282,7 +282,7 @@ export const APP_CONFIG = {
   THEME_COLOR: '#09090b',
   DEFAULT_THEME: 'dark',
   LOCALE: 'en',
-  CHAT_PLACEHOLDER: 'Message farasa...',
+  CHAT_PLACEHOLDER: 'Ask anything…',
 } as const
 
 export const EMPTY_STATE_SUGGESTIONS = [

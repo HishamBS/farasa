@@ -10,7 +10,7 @@ import {
   useImperativeHandle,
 } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { Send, Paperclip } from 'lucide-react'
+import { ArrowRight, Paperclip } from 'lucide-react'
 import { scaleIn } from '@/lib/utils/motion'
 import { StopButton } from './stop-button'
 import { cn } from '@/lib/utils/cn'
@@ -166,7 +166,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
 
   return (
     <div className="shrink-0 pb-4 xl:pb-6">
-      <div className="mx-auto w-full max-w-2xl px-5 lg:px-6">
+      <div className="mx-auto w-full max-w-170 px-5">
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -216,6 +216,15 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
                 multiple
               />
 
+              <button
+                type="button"
+                onClick={handleAttachClick}
+                className="flex size-8 items-center justify-center rounded-lg text-(--text-muted) transition-colors hover:bg-white/5 hover:text-(--text-secondary)"
+                aria-label="Attach file"
+              >
+                <Paperclip size={15} />
+              </button>
+
               <MicButton onTranscript={handleTranscript} />
 
               <AnimatePresence mode="wait">
@@ -259,8 +268,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
                     }
                     aria-label="Send message"
                   >
-                    <Send
-                      size={15}
+                    <ArrowRight
+                      size={14}
                       strokeWidth={2.5}
                       className={canSend ? 'translate-x-[0.5px] translate-y-[-0.5px]' : ''}
                     />

@@ -21,7 +21,6 @@ import { useChatMode } from '../context/chat-mode-context'
 import { ConversationCostProvider } from '../context/conversation-cost-context'
 import { useGroupStream } from '@/features/group/hooks/use-group-stream'
 import { useGroupSynthesis } from '@/features/group/hooks/use-group-synthesis'
-import { useGroupMode } from '@/features/group/context/group-context'
 import type { GroupStreamInput } from '@/schemas/group'
 import type { LiveGroupData, ModelMeta } from '@/features/group/types'
 
@@ -38,10 +37,8 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   const chatInputRef = useRef<ChatInputHandle>(null)
   const { setPhase, setModelSelection, setHasText } = useStreamPhase()
   const { mode, setMode } = useChatMode()
-  const { groupModels } = useGroupMode()
   const utils = trpc.useUtils()
 
-  // --- Group stream state ---
   const [groupStreamInput, setGroupStreamInput] = useState<GroupStreamInput | null>(null)
   const [groupPendingUserMessage, setGroupPendingUserMessage] = useState<string | null>(null)
   const groupConversationIdRef = useRef<string | undefined>(conversationId)
@@ -83,16 +80,12 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     }
   }, [groupDone, utils])
 
-  const handleGroupSubmit = useCallback(
-    (input: GroupStreamInput) => {
-      if (groupModels.length < GROUP_LIMITS.MIN_MODELS) return
-      setGroupPendingUserMessage(input.content)
-      setGroupStreamInput({ ...input, models: groupModels })
-    },
-    [groupModels],
-  )
+  const handleGroupSubmit = useCallback((input: GroupStreamInput) => {
+    if (input.models.length < GROUP_LIMITS.MIN_MODELS) return
+    setGroupPendingUserMessage(input.content)
+    setGroupStreamInput(input)
+  }, [])
 
-  // --- Model list for group tab display ---
   const { data: modelList = [] } = trpc.model.list.useQuery(undefined, {
     staleTime: UX.QUERY_STALE_TIME_FOREVER,
     enabled: mode === CHAT_MODES.GROUP,
@@ -106,7 +99,6 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     })
   }, [groupStreamInput, modelList])
 
-  // --- Titlebar phase ---
   const titlebarPhase = useMemo((): TitlebarPhase => {
     if (streamState.phase === CHAT_STREAM_STATUS.COMPLETE) return 'done'
     if (streamState.phase === CHAT_STREAM_STATUS.ACTIVE) {
@@ -147,7 +139,6 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     { staleTime: UX.QUERY_STALE_TIME_FOREVER, enabled: !!conversationId },
   )
 
-  // --- Transition live overlay → historical messages ---
   const messagesHaveGroup = useMemo(() => {
     if (!groupId) return false
     return messages.some((m) => m.metadata?.groupId === groupId)

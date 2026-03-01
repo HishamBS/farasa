@@ -14,7 +14,7 @@ import { ArrowRight, Paperclip } from 'lucide-react'
 import { scaleIn } from '@/lib/utils/motion'
 import { StopButton } from './stop-button'
 import { cn } from '@/lib/utils/cn'
-import { APP_CONFIG, UI_TEXT, MOTION, LIMITS, CHAT_MODES } from '@/config/constants'
+import { APP_CONFIG, UI_TEXT, MOTION, LIMITS, CHAT_MODES, GROUP_LIMITS } from '@/config/constants'
 import { useChatInput } from '../hooks/use-chat-input'
 import { useFileUpload } from '../hooks/use-file-upload'
 import { useChatMode } from '../context/chat-mode-context'
@@ -22,6 +22,7 @@ import { ModelSelector } from './model-selector'
 import { AttachmentPreview } from './attachment-preview'
 import { MicButton } from '@/features/voice/components/mic-button'
 import { GroupModelPicker } from '@/features/group/components/group-model-picker'
+import { useGroupMode } from '@/features/group/context/group-context'
 import type { ModelSelectorHandle } from './model-selector'
 import type { ChatInput as ChatInputType } from '@/schemas/message'
 import type { GroupStreamInput } from '@/schemas/group'
@@ -63,6 +64,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
   } = useChatInput(initialModel)
 
   const { mode } = useChatMode()
+  const { groupModels } = useGroupMode()
 
   const { uploadFile, uploadFileInline, gcsEnabled, uploadStates, removeFile, supportedFileTypes } =
     useFileUpload()
@@ -81,10 +83,11 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
   }, [])
 
   const isTooLong = content.length > LIMITS.MESSAGE_MAX_LENGTH
-  const canSend = useMemo(
-    () => content.trim().length > 0 && !isStreaming && !isTooLong && mode !== CHAT_MODES.GROUP,
-    [content, isStreaming, isTooLong, mode],
-  )
+  const canSend = useMemo(() => {
+    if (content.trim().length === 0 || isStreaming || isTooLong) return false
+    if (mode === CHAT_MODES.GROUP) return groupModels.length >= GROUP_LIMITS.MIN_MODELS
+    return true
+  }, [content, isStreaming, isTooLong, mode, groupModels])
 
   const handleSubmit = useCallback(() => {
     if (!content.trim() || isStreaming || isTooLong) return
@@ -92,7 +95,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
       if (onGroupSubmit) {
         onGroupSubmit({
           content: content.trim(),
-          models: [],
+          models: groupModels,
           conversationId,
           attachmentIds,
         })
@@ -116,6 +119,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     conversationId,
     attachmentIds,
     isStreaming,
+    groupModels,
     onSend,
     onGroupSubmit,
     clear,

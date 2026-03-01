@@ -219,7 +219,7 @@ export function ConversationItem({
               type="button"
               onClick={(e) => e.stopPropagation()}
               className={cn(
-                'flex size-7 items-center justify-center rounded text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)',
+                'flex size-11 items-center justify-center rounded text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)',
                 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
                 isActive && 'opacity-100',
               )}

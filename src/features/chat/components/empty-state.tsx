@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import {
   Sparkles,
@@ -15,7 +15,7 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { fadeInUp } from '@/lib/utils/motion'
-import { EMPTY_STATE_SUGGESTIONS, UI_TEXT } from '@/config/constants'
+import { EMPTY_STATE_SUGGESTIONS, UI_TEXT, MOTION } from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
 
 type EmptyStateProps = {
@@ -34,10 +34,15 @@ const ICON_MAP = {
   Box,
 } as const
 
-// Utility to get random items
 const getShuffledItems = (count: number) => {
-  const shuffled = [...EMPTY_STATE_SUGGESTIONS].sort(() => 0.5 - Math.random())
-  return shuffled.slice(0, count)
+  const array = [
+    ...EMPTY_STATE_SUGGESTIONS,
+  ] as unknown as (typeof EMPTY_STATE_SUGGESTIONS)[number][]
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[array[i], array[j]] = [array[j]!, array[i]!]
+  }
+  return array.slice(0, count)
 }
 
 export function EmptyState({ onSelect }: EmptyStateProps) {
@@ -46,18 +51,22 @@ export function EmptyState({ onSelect }: EmptyStateProps) {
     EMPTY_STATE_SUGGESTIONS.slice(0, 3),
   )
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     setCurrentSuggestions(getShuffledItems(3))
+    return () => {
+      if (refreshTimerRef.current !== null) clearTimeout(refreshTimerRef.current)
+    }
   }, [])
 
-  const handleExploreMore = () => {
+  const handleExploreMore = useCallback(() => {
     setIsRefreshing(true)
-    setTimeout(() => {
+    refreshTimerRef.current = setTimeout(() => {
       setCurrentSuggestions(getShuffledItems(3))
       setIsRefreshing(false)
-    }, 200) // slight delay to allow exit animation if we were doing one, or just simple state change
-  }
+    }, 500)
+  }, [])
 
   return (
     <div className="relative flex h-full flex-col items-center justify-center px-4 pb-12">
@@ -66,7 +75,7 @@ export function EmptyState({ onSelect }: EmptyStateProps) {
         className="mb-10 flex flex-col items-center gap-2 text-center"
         initial={shouldReduce ? {} : { opacity: 0, y: 10, scale: 0.95 }}
         animate={shouldReduce ? {} : { opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+        transition={{ duration: MOTION.DURATION_EXTRA_SLOW, ease: MOTION.EASING }}
       >
         <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-linear-to-br from-(--bg-surface-active) to-(--bg-root) shadow-xl shadow-(--accent-glow) ring-1 ring-(--border-subtle)">
           <Sparkles className="size-6 text-accent" />
@@ -85,7 +94,7 @@ export function EmptyState({ onSelect }: EmptyStateProps) {
         className="mb-3 flex w-full max-w-3xl justify-end"
         initial={shouldReduce ? {} : { opacity: 0 }}
         animate={shouldReduce ? {} : { opacity: 1 }}
-        transition={{ delay: 0.1, duration: 0.3 }}
+        transition={{ delay: 2 * MOTION.STAGGER_CHILDREN, duration: MOTION.DURATION_SLOW }}
       >
         <button
           type="button"
@@ -103,23 +112,21 @@ export function EmptyState({ onSelect }: EmptyStateProps) {
       </motion.div>
 
       {/* Suggestion Grid */}
-      <motion.div
-        className="grid w-full max-w-3xl grid-cols-1 gap-3 md:grid-cols-3"
-        initial="initial"
-        animate="animate"
-      >
+      <motion.div className="grid w-full max-w-3xl grid-cols-1 gap-3 md:grid-cols-3">
         {currentSuggestions.map((suggestion, index) => {
-          const Icon = ICON_MAP[suggestion.icon as keyof typeof ICON_MAP]
+          const Icon = ICON_MAP[suggestion.icon]
 
           return (
             <motion.button
-              key={`${suggestion.title}-${index}`}
+              key={suggestion.title}
               onClick={() => onSelect?.(suggestion.prompt)}
               variants={shouldReduce ? {} : fadeInUp}
               initial="initial"
               animate="animate"
-              // Add a slight stagger to each item based on its index
-              transition={{ delay: index * 0.05, duration: 0.2 }}
+              transition={{
+                delay: index * MOTION.STAGGER_CHILDREN,
+                duration: MOTION.DURATION_NORMAL,
+              }}
               className={cn(
                 'flex flex-col items-start gap-4 p-4 text-left',
                 'rounded-2xl border border-(--border-subtle) bg-(--bg-glass) backdrop-blur-xl',

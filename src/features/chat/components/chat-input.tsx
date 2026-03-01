@@ -14,7 +14,7 @@ import { ArrowRight, Paperclip } from 'lucide-react'
 import { scaleIn } from '@/lib/utils/motion'
 import { StopButton } from './stop-button'
 import { cn } from '@/lib/utils/cn'
-import { APP_CONFIG, UI_TEXT, MOTION, LIMITS } from '@/config/constants'
+import { APP_CONFIG, UI_TEXT, MOTION, LIMITS, CHAT_MODES } from '@/config/constants'
 import { useChatInput } from '../hooks/use-chat-input'
 import { useFileUpload } from '../hooks/use-file-upload'
 import { useChatMode } from '../context/chat-mode-context'
@@ -82,13 +82,13 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
 
   const isTooLong = content.length > LIMITS.MESSAGE_MAX_LENGTH
   const canSend = useMemo(
-    () => content.trim().length > 0 && !isStreaming && !isTooLong,
-    [content, isStreaming, isTooLong],
+    () => content.trim().length > 0 && !isStreaming && !isTooLong && mode !== CHAT_MODES.GROUP,
+    [content, isStreaming, isTooLong, mode],
   )
 
   const handleSubmit = useCallback(() => {
     if (!content.trim() || isStreaming || isTooLong) return
-    if (mode === 'group') {
+    if (mode === CHAT_MODES.GROUP) {
       if (onGroupSubmit) {
         onGroupSubmit({
           content: content.trim(),
@@ -296,7 +296,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
         </div>
 
         <div className="mt-1.5 flex items-center gap-2.5">
-          {mode === 'group' ? (
+          {mode === CHAT_MODES.GROUP ? (
             <GroupModelPicker />
           ) : (
             <ModelSelector
@@ -327,11 +327,11 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           </span>
         </div>
 
-        {mode === 'search' && (
+        {mode === CHAT_MODES.SEARCH && (
           <div className="mt-1 px-1 text-xs text-(--text-muted)">Search mode is active.</div>
         )}
 
-        {mode === 'group' && (
+        {mode === CHAT_MODES.GROUP && (
           <div className="mt-1 px-1 text-xs text-(--text-muted)">Group mode is active.</div>
         )}
       </div>

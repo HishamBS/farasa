@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, lt, or, sql } from 'drizzle-orm'
+import { and, asc, eq, or, sql } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure, rateLimitedChatProcedure } from '../trpc'
 import { GroupStreamInputSchema, GroupSynthesizeInputSchema } from '@/schemas/group'
@@ -245,6 +245,7 @@ export const groupRouter = router({
         const metadata = MessageMetadataSchema.parse({
           groupId,
           modelUsed: modelId,
+          userMessageId,
         })
         await ctx.db.insert(messages).values({
           conversationId,
@@ -363,35 +364,21 @@ export const groupRouter = router({
       })
     }
 
-    const firstGroupMessage = await ctx.db
-      .select({ createdAt: messages.createdAt })
-      .from(messages)
-      .where(
-        and(
-          eq(messages.conversationId, input.conversationId),
-          eq(messages.role, MESSAGE_ROLES.ASSISTANT),
-        ),
-      )
-      .orderBy(asc(messages.createdAt))
-      .limit(1)
-
-    const firstCreatedAt = firstGroupMessage[0]?.createdAt
+    const storedUserMessageId = filteredGroupMessages[0]?.metadata?.userMessageId ?? null
 
     let userMessageContent = ''
-    if (firstCreatedAt) {
-      const [precedingUserMessage] = await ctx.db
+    if (storedUserMessageId) {
+      const [userMsg] = await ctx.db
         .select({ content: messages.content })
         .from(messages)
         .where(
           and(
+            eq(messages.id, storedUserMessageId),
             eq(messages.conversationId, input.conversationId),
-            eq(messages.role, MESSAGE_ROLES.USER),
-            lt(messages.createdAt, firstCreatedAt),
           ),
         )
-        .orderBy(desc(messages.createdAt))
         .limit(1)
-      userMessageContent = precedingUserMessage?.content ?? ''
+      userMessageContent = userMsg?.content ?? ''
     }
 
     const modelResponsesXml = filteredGroupMessages

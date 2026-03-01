@@ -123,6 +123,7 @@ export const MessageMetadataSchema = z.object({
   usage: UsageSchema.optional(),
   groupId: z.string().uuid().optional(),
   isGroupSynthesis: z.boolean().optional(),
+  userMessageId: z.string().uuid().optional(),
 })
 
 export const MessageSchema = z.object({

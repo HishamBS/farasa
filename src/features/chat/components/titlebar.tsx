@@ -195,7 +195,7 @@ export function Titlebar({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)"
+                className="flex h-11 w-11 items-center justify-center rounded-lg text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)"
                 aria-label="More options"
               >
                 <MoreHorizontal size={16} />
@@ -230,7 +230,7 @@ export function Titlebar({
         {!(conversationId && conversation) && (
           <button
             type="button"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)"
             aria-label="More options"
           >
             <MoreHorizontal size={16} />

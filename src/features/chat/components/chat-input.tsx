@@ -14,7 +14,7 @@ import { Send, Paperclip } from 'lucide-react'
 import { scaleIn } from '@/lib/utils/motion'
 import { StopButton } from './stop-button'
 import { cn } from '@/lib/utils/cn'
-import { APP_CONFIG, UI_TEXT } from '@/config/constants'
+import { APP_CONFIG, UI_TEXT, MOTION } from '@/config/constants'
 import { useChatInput } from '../hooks/use-chat-input'
 import { useFileUpload } from '../hooks/use-file-upload'
 import { useChatMode } from '../context/chat-mode-context'
@@ -205,7 +205,13 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
                     key="stop"
                     {...(shouldReduce ? {} : scaleIn)}
                     exit={
-                      shouldReduce ? {} : { scale: 0.8, opacity: 0, transition: { duration: 0.15 } }
+                      shouldReduce
+                        ? {}
+                        : {
+                            scale: MOTION.SCALE_EXIT,
+                            opacity: 0,
+                            transition: { duration: MOTION.DURATION_EXTRA_FAST },
+                          }
                     }
                   >
                     <StopButton onAbort={onAbort} />
@@ -220,11 +226,17 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
                       'flex size-8 items-center justify-center rounded-lg transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
                       canSend
                         ? 'bg-(--accent) text-(--bg-root) shadow-md shadow-(--accent)/20 hover:scale-110 hover:bg-(--accent-hover)'
-                        : 'bg-white/5 text-white/20',
+                        : 'bg-(--accent)/50 text-(--bg-root)/60 cursor-not-allowed',
                     )}
                     {...(shouldReduce ? {} : scaleIn)}
                     exit={
-                      shouldReduce ? {} : { scale: 0.8, opacity: 0, transition: { duration: 0.15 } }
+                      shouldReduce
+                        ? {}
+                        : {
+                            scale: MOTION.SCALE_EXIT,
+                            opacity: 0,
+                            transition: { duration: MOTION.DURATION_EXTRA_FAST },
+                          }
                     }
                     aria-label="Send message"
                   >
@@ -248,7 +260,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
             Attach file
           </button>
 
-          <span className="ml-auto text-xs text-(--text-ghost) hidden sm:block">
+          <span className="ml-auto text-xs text-(--text-muted) hidden sm:block">
             {UI_TEXT.CHAT_KEYBOARD_HINT}
           </span>
         </div>

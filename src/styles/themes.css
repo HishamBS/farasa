@@ -53,6 +53,9 @@
   --provider-groq: #fb7185;
   --provider-cerebras: #fbbf24;
 
+  --assistant-avatar-from: #6366f1;
+  --code-block-border: #ffffff0a;
+
   --sidebar-width: 18rem;
   --content-max-width: 42.5rem;
 
@@ -138,7 +141,11 @@
   --provider-anthropic: #f97316;
   --provider-google: #3b82f6;
   --provider-meta: #6366f1;
+  --provider-groq: #d97706;
   --provider-cerebras: #f59e0b;
+
+  --assistant-avatar-from: #6366f1;
+  --code-block-border: #0000000f;
 
   --provider-anthropic-muted: rgba(249, 115, 22, 0.09);
   --provider-anthropic-border: rgba(249, 115, 22, 0.18);

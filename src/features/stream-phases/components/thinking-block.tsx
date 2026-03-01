@@ -41,7 +41,7 @@ export function ThinkingBlock({ thinking }: ThinkingBlockProps) {
             <motion.span
               key={i}
               className="size-1 rounded-full bg-(--thinking)"
-              animate={{ y: [0, -3, 0] }}
+              animate={{ y: [0, -MOTION.THINKING_PULSE_Y, 0] }}
               transition={{
                 duration: MOTION.DURATION_LOOP,
                 ease: MOTION.EASING_IN_OUT,

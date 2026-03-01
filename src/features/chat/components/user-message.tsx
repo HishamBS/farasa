@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { fadeIn, fadeInUp, scaleIn } from '@/lib/utils/motion'
+import { MOTION, UI } from '@/config/constants'
 import type { Attachment } from '@/schemas/message'
 
 type UserMessageProps = {
@@ -35,8 +36,8 @@ export function UserMessage({ content, attachments }: UserMessageProps) {
                     <Image
                       src={attachment.storageUrl}
                       alt={attachment.fileName}
-                      width={400}
-                      height={300}
+                      width={UI.IMAGE_PREVIEW_WIDTH}
+                      height={UI.IMAGE_PREVIEW_HEIGHT}
                       className="max-h-48 w-auto rounded-lg object-cover transition-opacity hover:opacity-90"
                     />
                   </button>
@@ -73,7 +74,7 @@ export function UserMessage({ content, attachments }: UserMessageProps) {
               key="lightbox-content"
               className="relative"
               {...scaleIn}
-              exit={{ opacity: 0, scale: 0.95 }}
+              exit={{ opacity: 0, scale: MOTION.SCALE_SUBTLE_EXIT }}
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}

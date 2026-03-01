@@ -6,6 +6,7 @@ import { signOut, useSession } from 'next-auth/react'
 import { LogOut, Sun, Moon } from 'lucide-react'
 import { useTheme } from '@/lib/utils/use-theme'
 import { ROUTES } from '@/config/routes'
+import { UI } from '@/config/constants'
 
 export function UserMenu() {
   const { data: session } = useSession()
@@ -21,13 +22,13 @@ export function UserMenu() {
         <Image
           src={session.user.image}
           alt={session.user.name ?? 'User avatar'}
-          width={28}
-          height={28}
+          width={UI.AVATAR_SIZE}
+          height={UI.AVATAR_SIZE}
           className="size-7 rounded-full object-cover shrink-0"
           referrerPolicy="no-referrer"
         />
       ) : (
-        <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-[#6366f1] to-(--thinking) text-xs font-semibold text-white">
+        <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-(--assistant-avatar-from) to-(--thinking) text-xs font-semibold text-white">
           {session?.user?.name?.[0]?.toUpperCase() ?? 'U'}
         </div>
       )}

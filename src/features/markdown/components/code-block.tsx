@@ -49,7 +49,7 @@ export function CodeBlock({ children, className }: CodeBlockProps) {
 
   return (
     <div className="my-4 overflow-hidden rounded-lg border border-(--border-subtle) bg-(--bg-code-header) shadow-inner">
-      <div className="flex items-center justify-between border-b border-[#ffffff0a] px-4 py-2">
+      <div className="flex items-center justify-between border-b border-(--code-block-border) px-4 py-2">
         <span className="font-mono text-xs text-(--text-muted) uppercase tracking-wide">
           {validLang}
         </span>

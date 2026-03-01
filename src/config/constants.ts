@@ -45,6 +45,21 @@ export const MODEL_CATEGORIES = {
 
 export const MODEL_IDS = {
   LLAMA_31_8B: 'meta-llama/llama-3.1-8b-instruct',
+  GEMINI_FLASH_LITE: 'google/gemini-2.0-flash-lite-001',
+} as const
+
+export const VOICE = {
+  STT_MODEL: 'openai/whisper',
+  TTS_MODEL: 'qwen/qwen3-tts',
+  STT_LANG: 'en-US',
+  TTS_MAX_CHARS: 4_096,
+  MAX_AUDIO_BYTES: 25 * 1024 * 1024,
+} as const
+
+export const UI = {
+  IMAGE_PREVIEW_WIDTH: 400,
+  IMAGE_PREVIEW_HEIGHT: 300,
+  AVATAR_SIZE: 28,
 } as const
 
 export const STREAM_EVENTS = {
@@ -208,6 +223,8 @@ export const UX = {
   QUERY_STALE_TIME_FOREVER: Infinity,
   QUERY_GC_TIME_MS: 30 * 60_000,
   SEND_BUTTON_HOVER_SCALE: 1.08,
+  DONE_NOTIFICATION_DURATION_MS: 2_000,
+  SIDEBAR_DRAG_ELASTIC: 0.3,
 } as const
 
 export const MOTION = {
@@ -215,6 +232,7 @@ export const MOTION = {
   DURATION_NORMAL: 0.2,
   DURATION_MEDIUM: 0.25,
   DURATION_SLOW: 0.35,
+  DURATION_EXTRA_FAST: 0.15,
   DURATION_LOOP: 1.5,
   DURATION_BACKGROUND_LOOP: 4,
   STAGGER_CHILDREN: 0.05,
@@ -224,6 +242,11 @@ export const MOTION = {
   EASING_IN_OUT: 'easeInOut',
   EASING_LINEAR: 'linear',
   REPEAT_INFINITE: Infinity,
+  THINKING_PULSE_Y: 3,
+  PILL_OFFSET_Y: -4,
+  PILL_SCALE: 0.98,
+  SCALE_EXIT: 0.8,
+  SCALE_SUBTLE_EXIT: 0.95,
 } as const
 
 export const AI_PARAMS = {

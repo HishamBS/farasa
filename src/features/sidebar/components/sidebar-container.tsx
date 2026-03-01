@@ -29,7 +29,7 @@ export function SidebarContainer({ children, isOpen, onClose, onOpen }: SidebarP
           className="fixed left-0 top-0 z-30 h-full w-4 touch-none lg:hidden"
           drag="x"
           dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={0.3}
+          dragElastic={UX.SIDEBAR_DRAG_ELASTIC}
           onDragEnd={handleSwipeDragEnd}
         />
       )}

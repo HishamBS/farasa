@@ -44,7 +44,7 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
   useEffect(() => {
     if (streamPhase === 'done') {
       setShowDone(true)
-      const timer = setTimeout(() => setShowDone(false), 2000)
+      const timer = setTimeout(() => setShowDone(false), UX.DONE_NOTIFICATION_DURATION_MS)
       return () => clearTimeout(timer)
     } else {
       setShowDone(false)
@@ -147,9 +147,9 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
           {pillInfo && isPillVisible && (
             <motion.div
               key={pillInfo.label}
-              initial={{ opacity: 0, y: -4, scale: 0.98 }}
+              initial={{ opacity: 0, y: MOTION.PILL_OFFSET_Y, scale: MOTION.PILL_SCALE }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -4, scale: 0.98 }}
+              exit={{ opacity: 0, y: MOTION.PILL_OFFSET_Y, scale: MOTION.PILL_SCALE }}
               transition={{ duration: MOTION.DURATION_FAST }}
               className={`mr-1 flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${pillInfo.bg} ${pillInfo.border} ${pillInfo.text}`}
             >

@@ -12,7 +12,6 @@ export type UploadState = {
   isUploading: boolean
   previewUrl: string | null
   fileType: string
-  inlineDataUrl: string | null
 }
 
 type UploadResult = {
@@ -61,13 +60,16 @@ export function useFileUpload() {
         isUploading: true,
         previewUrl,
         fileType: file.type,
-        inlineDataUrl: null,
       }))
 
       try {
         const dataUrl = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader()
-          reader.onload = () => resolve(reader.result as string)
+          reader.onload = () => {
+            const result = reader.result
+            if (typeof result === 'string') resolve(result)
+            else reject(new Error('Unexpected FileReader result type'))
+          }
           reader.onerror = () => reject(new Error('Failed to read file'))
           reader.readAsDataURL(file)
         })
@@ -88,7 +90,6 @@ export function useFileUpload() {
             isUploading: false,
             previewUrl,
             fileType: file.type,
-            inlineDataUrl: null,
           }),
           progress: 100,
           attachmentId,
@@ -108,7 +109,6 @@ export function useFileUpload() {
             isUploading: false,
             previewUrl,
             fileType: file.type,
-            inlineDataUrl: null,
           }),
           isUploading: false,
           error: message,
@@ -133,7 +133,6 @@ export function useFileUpload() {
         isUploading: true,
         previewUrl,
         fileType: file.type,
-        inlineDataUrl: null,
       }))
 
       try {
@@ -159,7 +158,6 @@ export function useFileUpload() {
                 isUploading: true,
                 previewUrl,
                 fileType: file.type,
-                inlineDataUrl: null,
               }),
               progress,
             }))
@@ -182,7 +180,6 @@ export function useFileUpload() {
             isUploading: false,
             previewUrl,
             fileType: file.type,
-            inlineDataUrl: null,
           }),
           progress: 100,
           attachmentId,
@@ -202,7 +199,6 @@ export function useFileUpload() {
             isUploading: false,
             previewUrl,
             fileType: file.type,
-            inlineDataUrl: null,
           }),
           isUploading: false,
           error: message,

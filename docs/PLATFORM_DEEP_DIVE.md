@@ -2415,20 +2415,43 @@ OpenRouter's model IDs use `meta-llama/llama-...` but the `PROVIDERS.META` const
 ### 8.3 Model Router (`src/lib/ai/router.ts`)
 
 ```typescript
-const systemPrompt =
-  `${runtimeConfig.prompts.routerSystem}\n\n` +
-  'Return ONLY valid JSON with keys: category, reasoning, selectedModel.\n' +
-  'selectedModel must exactly match one ID from <available_models>.\n' +
-  `<available_models>\n${modelIds}\n</available_models>`
+const systemPrompt = buildRouterPrompt(registry)
 ```
 
-**The router model:** `runtimeConfig.models.routerModel` defaults to a small, fast, cheap model (Llama 3.1 8B or Gemini Flash Lite). Routing must be fast — it adds latency before the main generation. A small model is accurate enough for classification.
+**`buildRouterPrompt(models: ReadonlyArray<ModelConfig>)`** (in `src/config/prompts.ts`) formats each model as a capability-rich row:
 
-**System prompt design:**
+```
+{id} | {name} | caps:{capabilities} | ctx:{context_k}k | vision:{y/n} | think:{y/n} | tools:{y/n}
+```
 
-- `routerSystem` from runtime config contains the routing logic: criteria for choosing CODE vs ANALYSIS vs CREATIVE models.
-- The `<available_models>` list contains all model IDs. The router must select from this exact list.
-- "Return ONLY valid JSON" — explicit instruction prevents the model from adding prose around the JSON.
+Example: `google/gemini-3-flash-preview | Gemini 3 Flash Preview | caps:fast,vision | ctx:1049k | vision:y | think:y | tools:y`
+
+The system prompt includes capability-first selection rules that guide the router:
+
+- User references images/screenshots → require `vision:y`
+- Multi-step proofs, code architecture → prefer `think:y`
+- Web search or real-time data needed → require `tools:y`
+- Simple lookups, yes/no → prefer `fast` caps; never a thinking model
+
+**The router model:** `runtimeConfig.models.routerModel` defaults to `google/gemini-3-flash-preview` — 1049k context, multimodal awareness, purpose-built for fast structured-output classification. Sub-second JSON responses add minimal latency to the stream.
+
+**`inferCapabilities(model: OpenRouterModel): ModelCapability[]`** (in `src/lib/ai/registry.ts`): assigns multi-label capability tags from `ROUTER_CAPABILITY_PATTERNS` (constants.ts) + API-reported parameters:
+
+- `code` — ID/name matches `['code', 'coder', 'codex', 'starcoder']`
+- `analysis` — `reasoning` parameter present OR ID matches `['o1', 'o3', 'o4', 'sonnet', 'opus', 'ultra']`
+- `vision` — image modality in `architecture.modality`
+- `fast` — ID/name matches `['flash', 'lite', 'mini', 'haiku', 'nano']`
+- `general` — default when nothing else matches
+
+**`ROUTER_CAPABILITY_PATTERNS`** in `src/config/constants.ts` holds all pattern arrays (R01 SSOT — no magic strings in registry or prompt code).
+
+**`RoutingPanel` component** (`src/features/chat/components/routing-panel.tsx`): Three animated states driven by `streamPhase: TitlebarPhase` and `modelSelection: ModelSelectionState | null` passed from `StreamPhaseContext`:
+
+1. `streamPhase !== 'idle' && modelSelection === null` → animated "Selecting model…" pulse pill
+2. `modelSelection !== null && !hasText && streamPhase !== 'done'` → expanded card: provider dot, model name, category badge, capability pills, context size, router reasoning
+3. `modelSelection !== null && (hasText || streamPhase === 'done')` → collapsed `• {modelName}` pill
+
+`StreamPhaseContext` carries `modelSelection` and `hasText` pushed by `ChatContainer` via `useEffect`s on `streamState.modelSelection` and `streamState.textContent.length`.
 
 **`responseFormat: { type: 'json_object' }`:** Forces the model to output valid JSON. Without this, some models might wrap JSON in markdown code fences or add explanatory text. With it, the entire response is a valid JSON object.
 

@@ -11,7 +11,7 @@ real-time SSE streaming, web search, file attachments, voice I/O, and agent-rend
 
 Next.js 15 · tRPC v11 SSE · React 19 · Bun · Neon Postgres · GCP Cloud Run
 
-**[Live Demo →](https://farasa.example.com)** · [Architecture](#architecture) ·
+**[Live Demo →](https://farasa.binseddeq.dev)** · [Architecture](#architecture) ·
 [API Reference](#api-reference) · [Setup](#setup)
 
 ---
@@ -68,6 +68,35 @@ This single command handles everything:
 
 ---
 
+## Platform Script
+
+`start.sh` is the single entry point for all local development tasks. Run without arguments to open an interactive menu, or pass a command directly:
+
+```bash
+./start.sh                 # interactive menu
+./start.sh dev:hybrid      # recommended for local dev (Docker Postgres + native Next.js)
+```
+
+| Command       | Description                                      |
+| ------------- | ------------------------------------------------ |
+| `dev`         | Native dev server on port 3010                   |
+| `dev:hybrid`  | Docker Postgres + native `bun dev` (recommended) |
+| `dev:docker`  | Full Docker stack (app + Postgres)               |
+| `stop`        | Stop all running services                        |
+| `status`      | Show running service status                      |
+| `logs`        | Follow dev server logs (live, colored)           |
+| `db:migrate`  | Apply pending database migrations                |
+| `db:generate` | Generate migration files from schema changes     |
+| `db:push`     | Push schema directly to DB (dev only)            |
+| `db:studio`   | Open Drizzle Studio on `:4983`                   |
+| `typecheck`   | TypeScript type-check (`tsc --noEmit`)           |
+| `lint`        | ESLint                                           |
+| `build`       | Production build                                 |
+| `validate`    | Validate `.env` configuration against schema     |
+| `cleanup`     | Force-kill all tracked processes                 |
+
+---
+
 ## Why Farasa?
 
 **فراسة** (_farāsa_) — in Arabic, the faculty of perceptive insight; reading intent and meaning
@@ -87,18 +116,18 @@ platform distinct.
 
 ## Features
 
-| Feature                 | Details                                                                                 |
-| ----------------------- | --------------------------------------------------------------------------------------- |
-| **LLM auto-router**     | Classifier selects the optimal model per prompt from 100+ providers                     |
-| **Real-time streaming** | 7-phase SSE stream: routing → thinking → tools → text → A2UI                            |
-| **Web search**          | Tavily — structured result cards with source attribution and image gallery              |
-| **File attachments**    | Multi-modal uploads via GCS presigned URLs (images, PDFs, text)                         |
-| **Voice I/O**           | Web Speech API: STT mic input and TTS message playback                                  |
-| **Agent UI (A2UI)**     | AI generates interactive React components via `@a2ui-sdk`                               |
-| **Conversation mgmt**   | Full CRUD, sidebar navigation, pinning, Markdown export                                 |
-| **Auth & security**     | Google OAuth, per-user DB isolation, sliding-window rate limiting, AES-GCM token crypto |
-| **PWA**                 | Offline-capable, installable, `@serwist/next` service worker                            |
-| **Theming**             | CSS custom property token system, zero-flash dark/light switching                       |
+| Feature                 | Details                                                                                                                                                                                                                        |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **LLM auto-router**     | Gemini Flash classifies each prompt and selects the optimal model from 100+ providers; capability-aware (vision, thinking, tools, context) with a live animated routing decision UI showing model, reasoning, and capabilities |
+| **Real-time streaming** | 7-phase SSE stream: routing → thinking → tools → text → A2UI                                                                                                                                                                   |
+| **Web search**          | Tavily — structured result cards with source attribution and image gallery                                                                                                                                                     |
+| **File attachments**    | Multi-modal uploads via GCS presigned URLs (images, PDFs, text)                                                                                                                                                                |
+| **Voice I/O**           | Server-side STT via OpenRouter Whisper + TTS via Qwen; browser Web Speech API as fallback                                                                                                                                      |
+| **Agent UI (A2UI)**     | AI generates interactive React components via `@a2ui-sdk`                                                                                                                                                                      |
+| **Conversation mgmt**   | Full CRUD, sidebar navigation, pinning, Markdown export                                                                                                                                                                        |
+| **Auth & security**     | Google OAuth, per-user DB isolation, sliding-window rate limiting, AES-GCM token crypto                                                                                                                                        |
+| **PWA**                 | Offline-capable, installable, `@serwist/next` service worker                                                                                                                                                                   |
+| **Theming**             | CSS custom property token system, zero-flash dark/light switching                                                                                                                                                              |
 
 ---
 
@@ -254,6 +283,24 @@ src/
 
 ---
 
+## Database Schema
+
+Nine tables in `src/lib/db/schema.ts`. All foreign keys use `onDelete: 'cascade'`. All timestamps use `withTimezone`.
+
+| Table                | Purpose                        | Key Columns                                                                                                                                   |
+| -------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `users`              | Identity                       | id, name, email (unique), image                                                                                                               |
+| `accounts`           | OAuth provider links (Auth.js) | userId FK, provider, providerAccountId                                                                                                        |
+| `sessions`           | Session tokens (Auth.js)       | sessionToken PK, userId FK, expires                                                                                                           |
+| `verificationTokens` | Email verification (Auth.js)   | identifier + token (compound PK)                                                                                                              |
+| `conversations`      | Chat sessions                  | userId FK, title, model, isPinned. Index: (userId, updatedAt)                                                                                 |
+| `messages`           | Chat messages + metadata       | conversationId FK, role, content, metadata JSONB, clientRequestId, streamSequenceMax, tokenCount. Index: (conversationId, createdAt)          |
+| `runtimeConfigs`     | Runtime config overrides       | scope (`system\|tenant\|user`), scopeKey, payload JSONB. Resolved in precedence order: user → tenant → system → `RUNTIME_CONFIG_JSON` env var |
+| `userPreferences`    | Per-user UI settings           | userId PK FK, theme, sidebarExpanded, defaultModel                                                                                            |
+| `attachments`        | File uploads                   | userId FK, messageId FK, fileName, storageUrl, confirmedAt                                                                                    |
+
+---
+
 ## API Reference
 
 All procedures are type-safe tRPC at `/api/trpc/[trpc]`.
@@ -325,22 +372,22 @@ upload.confirmUpload({ id, contentType })         // Mark confirmed after upload
 
 ## Environment Variables
 
-| Variable                         | Required | Description                                                    |
-| -------------------------------- | -------- | -------------------------------------------------------------- |
-| `AUTH_SECRET`                    | ✓        | Auth.js signing secret — `bunx auth secret`                    |
-| `AUTH_GOOGLE_ID`                 | ✓        | Google OAuth client ID                                         |
-| `AUTH_GOOGLE_SECRET`             | ✓        | Google OAuth client secret                                     |
-| `OPENROUTER_API_KEY`             | ✓        | [openrouter.ai/keys](https://openrouter.ai/keys)               |
-| `DATABASE_URL`                   | ✓        | Neon Postgres connection string                                |
-| `TAVILY_API_KEY`                 | ✓        | Starts with `tvly-` — [app.tavily.com](https://app.tavily.com) |
-| `GCS_BUCKET_NAME`                | ✓        | Google Cloud Storage bucket                                    |
-| `GCS_PROJECT_ID`                 | ✓        | GCP project ID                                                 |
-| `GOOGLE_APPLICATION_CREDENTIALS` | —        | Service account JSON path (local dev only)                     |
-| `NEXT_PUBLIC_APP_URL`            | ✓        | App base URL — OAuth callbacks + OpenRouter Referer            |
-| `AUTH_URL`                       | —        | Auth.js callback URL (defaults to `NEXT_PUBLIC_APP_URL`)       |
-| `RUNTIME_CONFIG_JSON`            | ✓        | Runtime/business behavior contract (JSON)                      |
-| `RUNTIME_CONFIG_CACHE_TTL_MS`    | —        | Runtime config cache TTL in milliseconds                       |
-| `NODE_ENV`                       | —        | `development` \| `production` (set by runtime)                 |
+| Variable                         | Required | Description                                                                                                                     |
+| -------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `AUTH_SECRET`                    | ✓        | Auth.js signing secret — `bunx auth secret`                                                                                     |
+| `AUTH_GOOGLE_ID`                 | ✓        | Google OAuth client ID                                                                                                          |
+| `AUTH_GOOGLE_SECRET`             | ✓        | Google OAuth client secret                                                                                                      |
+| `OPENROUTER_API_KEY`             | ✓        | [openrouter.ai/keys](https://openrouter.ai/keys)                                                                                |
+| `DATABASE_URL`                   | ✓        | Neon Postgres connection string                                                                                                 |
+| `TAVILY_API_KEY`                 | ✓        | Starts with `tvly-` — [app.tavily.com](https://app.tavily.com)                                                                  |
+| `GCS_BUCKET_NAME`                | ✓        | Google Cloud Storage bucket                                                                                                     |
+| `GCS_PROJECT_ID`                 | ✓        | GCP project ID                                                                                                                  |
+| `GOOGLE_APPLICATION_CREDENTIALS` | —        | Service account JSON path (local dev only)                                                                                      |
+| `NEXT_PUBLIC_APP_URL`            | ✓        | App base URL — OAuth callbacks + OpenRouter Referer                                                                             |
+| `AUTH_URL`                       | —        | Auth.js callback URL (defaults to `NEXT_PUBLIC_APP_URL`)                                                                        |
+| `RUNTIME_CONFIG_JSON`            | —        | Runtime config override JSON. Leave empty to use DB-seeded values. Resolution order: user → tenant → system (DB) → this env var |
+| `RUNTIME_CONFIG_CACHE_TTL_MS`    | —        | Runtime config cache TTL in milliseconds                                                                                        |
+| `NODE_ENV`                       | —        | `development` \| `production` (set by runtime)                                                                                  |
 
 ---
 

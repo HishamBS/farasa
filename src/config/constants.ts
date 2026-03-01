@@ -15,6 +15,7 @@ export const LIMITS = {
   TOKENS_PER_K: 1_000,
   CONVERSATION_HISTORY_LIMIT: 20,
   RUNTIME_CONFIG_CACHE_TTL_MS: 5_000,
+  EMPTY_STATE_CHIP_COUNT: 4,
 } as const
 
 export const RATE_LIMITS = {
@@ -46,7 +47,13 @@ export const MODEL_CATEGORIES = {
 export const MODEL_IDS = {
   LLAMA_31_8B: 'meta-llama/llama-3.1-8b-instruct',
   GEMINI_FLASH_LITE: 'google/gemini-2.0-flash-lite-001',
-  QWEN_35_A3B: 'qwen/qwen3.5-35b-a3b',
+  GEMINI_3_FLASH_PREVIEW: 'google/gemini-3-flash-preview',
+} as const
+
+export const ROUTER_CAPABILITY_PATTERNS = {
+  CODE: ['code', 'coder', 'codex', 'starcoder'] as const,
+  FAST: ['flash', 'lite', 'mini', 'haiku', 'nano'] as const,
+  ANALYSIS: ['o1', 'o3', 'o4', 'sonnet', 'opus', 'ultra'] as const,
 } as const
 
 export const VOICE = {

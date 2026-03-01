@@ -7,9 +7,11 @@ import { Menu, MoreHorizontal, Pin, PinOff, Trash2, Check } from 'lucide-react'
 import { trpc } from '@/trpc/provider'
 import { ROUTES, PATTERNS } from '@/config/routes'
 import { UX, UI_TEXT, MOTION } from '@/config/constants'
-import type { TitlebarPhase } from '@/types/stream'
+import type { TitlebarPhase, ModelSelectionState } from '@/types/stream'
 import { ModeToggle } from './mode-toggle'
+import { RoutingPanel } from './routing-panel'
 import { useChatMode } from '../context/chat-mode-context'
+import { SearchModeSchema } from '@/schemas/search'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,9 +33,16 @@ import {
 type TitlebarProps = {
   onMenuClick: () => void
   streamPhase?: TitlebarPhase
+  modelSelection?: ModelSelectionState | null
+  hasText?: boolean
 }
 
-export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
+export function Titlebar({
+  onMenuClick,
+  streamPhase = 'idle',
+  modelSelection = null,
+  hasText = false,
+}: TitlebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { mode, setMode } = useChatMode()
@@ -60,6 +69,15 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
     { id: conversationId ?? '' },
     { enabled: !!conversationId, staleTime: UX.QUERY_STALE_TIME_FOREVER },
   )
+
+  const { data: models = [] } = trpc.model.list.useQuery(undefined, {
+    staleTime: UX.QUERY_STALE_TIME_FOREVER,
+  })
+
+  useEffect(() => {
+    const parsed = SearchModeSchema.safeParse(conversation?.searchMode)
+    if (parsed.success) setMode(parsed.data)
+  }, [conversation?.searchMode, setMode])
 
   const updateMutation = trpc.conversation.update.useMutation({
     onSuccess: () => void utils.conversation.invalidate(),
@@ -142,6 +160,13 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
         </div>
 
         <div className="flex-1" />
+
+        <RoutingPanel
+          modelSelection={modelSelection}
+          streamPhase={streamPhase}
+          hasText={hasText}
+          models={models}
+        />
 
         <AnimatePresence mode="wait">
           {pillInfo && isPillVisible && (

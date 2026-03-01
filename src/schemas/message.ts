@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { STREAM_EVENTS, STREAM_PHASES, CHAT_MODES, LIMITS } from '@/config/constants'
+import { STREAM_EVENTS, STREAM_PHASES, CHAT_MODES } from '@/config/constants'
 import { SearchImageSchema, SearchModeSchema, SearchResultSchema } from './search'
 
 export const MessageRoleSchema = z.enum(['user', 'assistant', 'system'])
@@ -90,19 +90,12 @@ export const StreamChunkSchema = z.discriminatedUnion('type', [
   }),
 ])
 
-export const InlineAttachmentSchema = z.object({
-  dataUrl: z.string().max(LIMITS.INLINE_ATTACHMENT_MAX_DATA_URL_LENGTH),
-  fileName: z.string(),
-  fileType: z.string(),
-})
-
 export const ChatInputSchema = z.object({
   conversationId: z.string().uuid().optional(),
   content: z.string().min(1),
   mode: SearchModeSchema.default(CHAT_MODES.CHAT),
   model: z.string().optional(),
   attachmentIds: z.array(z.string().uuid()).default([]),
-  inlineAttachments: z.array(InlineAttachmentSchema).default([]),
 })
 
 export const ToolCallSchema = z.object({
@@ -140,7 +133,6 @@ export const MessageSchema = z.object({
   createdAt: z.date(),
 })
 
-export type InlineAttachment = z.infer<typeof InlineAttachmentSchema>
 export type MessageRole = z.infer<typeof MessageRoleSchema>
 export type Attachment = z.infer<typeof AttachmentSchema>
 export type Usage = z.infer<typeof UsageSchema>

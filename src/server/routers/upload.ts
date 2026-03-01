@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { and, eq, isNull, lt } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure, rateLimitedUploadProcedure } from '../trpc'
-import { UploadRequestSchema, ConfirmUploadSchema } from '@/schemas/upload'
+import { UploadRequestSchema, ConfirmUploadSchema, StoreInlineSchema } from '@/schemas/upload'
 import { attachments } from '@/lib/db/schema'
 import { TRPC_CODES } from '@/config/constants'
 import { env } from '@/config/env'
@@ -81,5 +81,37 @@ export const uploadRouter = router({
       }
 
       return { id: confirmed.id }
+    }),
+
+  storeInline: rateLimitedUploadProcedure
+    .input(StoreInlineSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { runtimeConfig } = ctx
+      if (!runtimeConfig.limits.supportedFileTypes.includes(input.fileType)) {
+        throw new TRPCError({ code: TRPC_CODES.BAD_REQUEST })
+      }
+
+      const fileSize = Math.ceil(input.dataUrl.length * 0.75)
+      if (fileSize > runtimeConfig.limits.fileMaxSizeBytes) {
+        throw new TRPCError({ code: TRPC_CODES.BAD_REQUEST })
+      }
+
+      const [attachment] = await ctx.db
+        .insert(attachments)
+        .values({
+          userId: ctx.userId,
+          fileName: input.fileName,
+          fileType: input.fileType,
+          fileSize,
+          storageUrl: input.dataUrl,
+          confirmedAt: new Date(),
+        })
+        .returning({ id: attachments.id })
+
+      if (!attachment) {
+        throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
+      }
+
+      return { attachmentId: attachment.id }
     }),
 })

@@ -1,25 +1,30 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useParams } from 'next/navigation'
 import { trpc } from '@/trpc/provider'
 import { useChatStream } from '../hooks/use-chat-stream'
 import { MessageList } from './message-list'
 import { ChatInput } from './chat-input'
 import type { ChatInputHandle } from './chat-input'
-import { CHAT_STREAM_STATUS, UX } from '@/config/constants'
+import { CHAT_MODES, CHAT_STREAM_STATUS, UX } from '@/config/constants'
 import type { TitlebarPhase } from '@/types/stream'
 import { useStreamPhase } from '../context/stream-phase-context'
+import { useChatMode } from '../context/chat-mode-context'
 import { ConversationCostProvider } from '../context/conversation-cost-context'
 
 type ChatContainerProps = {
   conversationId?: string
 }
 
-export function ChatContainer({ conversationId }: ChatContainerProps) {
+export function ChatContainer({ conversationId: conversationIdProp }: ChatContainerProps) {
+  const params = useParams()
+  const conversationId = (params?.id as string | undefined) ?? conversationIdProp
   const { streamState, sendMessage, abort } = useChatStream()
   const isStreaming = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
   const chatInputRef = useRef<ChatInputHandle>(null)
-  const { setPhase } = useStreamPhase()
+  const { setPhase, setModelSelection, setHasText } = useStreamPhase()
+  const { setMode } = useChatMode()
 
   const titlebarPhase = useMemo((): TitlebarPhase => {
     if (streamState.phase === CHAT_STREAM_STATUS.COMPLETE) return 'done'
@@ -38,6 +43,18 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
   useEffect(() => {
     setPhase(titlebarPhase)
   }, [titlebarPhase, setPhase])
+
+  useEffect(() => {
+    setModelSelection(streamState.modelSelection)
+  }, [streamState.modelSelection, setModelSelection])
+
+  useEffect(() => {
+    setHasText(streamState.textContent.length > 0)
+  }, [streamState.textContent, setHasText])
+
+  useEffect(() => {
+    if (streamState.detectedSearchMode) setMode(CHAT_MODES.SEARCH)
+  }, [streamState.detectedSearchMode, setMode])
 
   const { data: conversation } = trpc.conversation.getById.useQuery(
     { id: conversationId! },
@@ -66,6 +83,7 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
           messages={messages}
           streamState={streamState}
           isStreaming={isStreaming}
+          pendingUserMessage={streamState.pendingUserMessage}
           onSuggestionSelect={handleSuggestionSelect}
         />
       </ConversationCostProvider>

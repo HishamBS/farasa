@@ -1,5 +1,5 @@
 import { useReducer, useCallback } from 'react'
-import { CHAT_STREAM_STATUS, STREAM_ACTIONS } from '@/config/constants'
+import { CHAT_STREAM_STATUS, STREAM_ACTIONS, TOOL_NAMES } from '@/config/constants'
 import type { StreamState, StreamAction } from '@/types/stream'
 
 const initialState: StreamState = {
@@ -12,6 +12,8 @@ const initialState: StreamState = {
   a2uiMessages: [],
   error: null,
   lastInput: null,
+  detectedSearchMode: false,
+  pendingUserMessage: null,
 }
 
 function streamStateReducer(state: StreamState, action: StreamAction): StreamState {
@@ -66,6 +68,7 @@ function streamStateReducer(state: StreamState, action: StreamAction): StreamSta
       return {
         ...state,
         toolExecutions: [...state.toolExecutions, { name: action.name, input: action.input }],
+        detectedSearchMode: state.detectedSearchMode || action.name === TOOL_NAMES.WEB_SEARCH,
       }
     }
 
@@ -114,11 +117,12 @@ function streamStateReducer(state: StreamState, action: StreamAction): StreamSta
           state.thinking && !state.thinking.completedAt
             ? { ...state.thinking, completedAt: Date.now() }
             : state.thinking,
+        pendingUserMessage: null,
       }
     }
 
     case STREAM_ACTIONS.SAVE_INPUT: {
-      return { ...state, lastInput: action.input }
+      return { ...state, lastInput: action.input, pendingUserMessage: action.input.content }
     }
 
     case STREAM_ACTIONS.RESET: {

@@ -1,5 +1,6 @@
 import { openrouter } from './client'
 import { ModelSelectionSchema } from '@/schemas/model'
+import { buildRouterPrompt } from '@/config/prompts'
 import type { ModelSelection, ModelConfig } from '@/schemas/model'
 import type { RuntimeConfig } from '@/schemas/runtime-config'
 
@@ -9,12 +10,7 @@ export async function routeModel(
   runtimeConfig: RuntimeConfig,
   signal?: AbortSignal,
 ): Promise<ModelSelection> {
-  const modelIds = registry.map((m) => m.id).join('\n')
-  const systemPrompt =
-    `${runtimeConfig.prompts.routerSystem}\n\n` +
-    'Return ONLY valid JSON with keys: category, reasoning, selectedModel.\n' +
-    'selectedModel must exactly match one ID from <available_models>.\n' +
-    `<available_models>\n${modelIds}\n</available_models>`
+  const systemPrompt = buildRouterPrompt(registry)
 
   const wrappedPrompt =
     `${runtimeConfig.prompts.wrappers.userRequestOpen}\n` +

@@ -89,6 +89,7 @@ export const conversations = pgTable(
     title: text('title').notNull().default(NEW_CHAT_TITLE),
     model: text('model'),
     isPinned: boolean('is_pinned').notNull().default(false),
+    searchMode: text('search_mode').notNull().default('chat'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   },

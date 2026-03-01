@@ -17,6 +17,13 @@ export const ConfirmUploadSchema = z.object({
   attachmentId: z.string().uuid(),
 })
 
+export const StoreInlineSchema = z.object({
+  dataUrl: z.string().min(1),
+  fileName: z.string().min(1),
+  fileType: z.string().min(1),
+})
+
 export type UploadRequest = z.infer<typeof UploadRequestSchema>
 export type UploadResponse = z.infer<typeof UploadResponseSchema>
 export type ConfirmUpload = z.infer<typeof ConfirmUploadSchema>
+export type StoreInline = z.infer<typeof StoreInlineSchema>

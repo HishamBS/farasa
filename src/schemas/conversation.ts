@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { AttachmentSchema, MessageSchema } from './message'
+import { SearchModeSchema } from './search'
 
 export const CreateConversationSchema = z.object({
   title: z.string().min(1).optional(),
@@ -33,6 +34,7 @@ export const ConversationSummarySchema = z.object({
   title: z.string(),
   model: z.string().nullable(),
   isPinned: z.boolean(),
+  searchMode: SearchModeSchema.default('chat'),
   updatedAt: z.date(),
   createdAt: z.date(),
 })

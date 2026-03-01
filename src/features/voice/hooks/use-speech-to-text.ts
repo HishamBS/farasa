@@ -9,6 +9,7 @@ type STTState = {
   transcript: string
   isSupported: boolean
   permissionError: string | null
+  transcriptionError: string | null
 }
 
 // Web Speech API type augmentation — not in all TypeScript lib versions
@@ -59,6 +60,7 @@ export function useSpeechToText() {
     transcript: '',
     isSupported: false,
     permissionError: null,
+    transcriptionError: null,
   })
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -90,7 +92,7 @@ export function useSpeechToText() {
     // Primary path: MediaRecorder → server STT
     if (hasMediaDevices()) {
       try {
-        setState((prev) => ({ ...prev, permissionError: null }))
+        setState((prev) => ({ ...prev, permissionError: null, transcriptionError: null }))
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
         chunksRef.current = []
         const recorder = new MediaRecorder(stream)
@@ -104,7 +106,12 @@ export function useSpeechToText() {
           const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
           chunksRef.current = []
 
-          setState((prev) => ({ ...prev, isListening: false, isTranscribing: true }))
+          setState((prev) => ({
+            ...prev,
+            isListening: false,
+            isTranscribing: true,
+            transcriptionError: null,
+          }))
 
           const transcript = await transcribeViaServer(blob)
 
@@ -113,8 +120,37 @@ export function useSpeechToText() {
             return
           }
 
-          // Fallback: Web Speech API for a quick retry
-          setState((prev) => ({ ...prev, isTranscribing: false }))
+          // Fallback: Web Speech API
+          const SR = getSpeechRecognition()
+          if (SR) {
+            setState((prev) => ({ ...prev, isTranscribing: false }))
+            const recognition = new SR()
+            recognition.continuous = false
+            recognition.interimResults = false
+            recognition.lang = VOICE.STT_LANG
+            recognition.onerror = null
+
+            recognition.onresult = (event: SpeechRecognitionEvent) => {
+              let text = ''
+              for (let i = event.resultIndex; i < event.results.length; i++) {
+                const result = event.results[i]
+                if (result?.isFinal) text += result[0]?.transcript ?? ''
+              }
+              if (text) setState((prev) => ({ ...prev, transcript: text }))
+            }
+
+            recognition.onend = () => setState((prev) => ({ ...prev, isListening: false }))
+
+            recognitionRef.current = recognition
+            recognition.start()
+            setState((prev) => ({ ...prev, isListening: true }))
+          } else {
+            setState((prev) => ({
+              ...prev,
+              isTranscribing: false,
+              transcriptionError: 'Transcription failed. Please try again.',
+            }))
+          }
         }
 
         mediaRecorderRef.current = recorder

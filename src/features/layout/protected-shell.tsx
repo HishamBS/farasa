@@ -21,8 +21,15 @@ type TitlebarWithPhaseProps = {
 }
 
 function TitlebarWithPhase({ onMenuClick }: TitlebarWithPhaseProps) {
-  const { phase } = useStreamPhase()
-  return <Titlebar onMenuClick={onMenuClick} streamPhase={phase} />
+  const { phase, modelSelection, hasText } = useStreamPhase()
+  return (
+    <Titlebar
+      onMenuClick={onMenuClick}
+      streamPhase={phase}
+      modelSelection={modelSelection}
+      hasText={hasText}
+    />
+  )
 }
 
 export function ProtectedShell({ children }: ProtectedShellProps) {

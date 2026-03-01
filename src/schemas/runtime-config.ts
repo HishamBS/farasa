@@ -68,7 +68,7 @@ export const RuntimeConfigSchema = z.object({
     }),
   }),
   models: z.object({
-    routerModel: z.string().min(1).default(MODEL_IDS.QWEN_35_A3B),
+    routerModel: z.string().min(1).default(MODEL_IDS.GEMINI_3_FLASH_PREVIEW),
     failurePolicy: z.enum(['retry_then_fail']),
     strictValidation: z.boolean(),
     registry: z.object({

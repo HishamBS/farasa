@@ -3,13 +3,20 @@
 import { useCallback, useMemo, useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, useReducedMotion } from 'framer-motion'
-import { Circle, Pin, PinOff, Trash2, Pencil, Download } from 'lucide-react'
+import { MoreHorizontal, Pin, PinOff, Trash2, Pencil, Download } from 'lucide-react'
 import { fadeInUp } from '@/lib/utils/motion'
 import { cn } from '@/lib/utils/cn'
 import { formatDate } from '@/lib/utils/format'
 import { ROUTES } from '@/config/routes'
 import { UX, UI_TEXT } from '@/config/constants'
 import { trpc } from '@/trpc/provider'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,7 +47,6 @@ export function ConversationItem({
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
-  const [isLongPressMenuOpen, setIsLongPressMenuOpen] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [editValue, setEditValue] = useState(title)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -69,16 +75,12 @@ export function ConversationItem({
   })
 
   const handleClick = useCallback(() => {
-    if (isLongPressMenuOpen) {
-      setIsLongPressMenuOpen(false)
-      return
-    }
     if (!isEditing) router.push(ROUTES.CHAT_BY_ID(id))
-  }, [id, isEditing, isLongPressMenuOpen, router])
+  }, [id, isEditing, router])
 
   const handleTouchStart = useCallback(() => {
     longPressTimerRef.current = setTimeout(() => {
-      setIsLongPressMenuOpen(true)
+      // long press handled by dropdown trigger on mobile
     }, UX.LONG_PRESS_DELAY_MS)
   }, [])
 
@@ -181,10 +183,6 @@ export function ConversationItem({
           isActive ? 'bg-(--bg-surface-active)' : 'bg-transparent',
         )}
         onClick={handleClick}
-        onContextMenu={(e) => {
-          e.preventDefault()
-          setIsLongPressMenuOpen(true)
-        }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
@@ -215,65 +213,53 @@ export function ConversationItem({
           <p className="mt-0.5 text-xs text-(--text-muted)">{formattedDate}</p>
         </div>
 
-        {isActive && (
-          <div
-            className="absolute right-2 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_8px_var(--conversation-item-glow)]"
-            aria-hidden="true"
-          />
-        )}
-
-        {(isPinned || isActive) && (
-          <span
-            className={cn(
-              'absolute right-2 top-1/2 -translate-y-1/2',
-              isPinned ? 'text-accent' : 'text-(--text-ghost)',
-            )}
-            aria-hidden="true"
-          >
-            <Circle size={6} fill="currentColor" stroke="none" />
-          </span>
-        )}
-
-        <div
-          className={cn(
-            'shrink-0 items-center gap-1',
-            isLongPressMenuOpen ? 'flex' : 'hidden group-hover:flex',
-          )}
-        >
-          <button
-            type="button"
-            onClick={handleRenameStart}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-primary)"
-            aria-label="Rename"
-          >
-            <Pencil size={12} />
-          </button>
-          <button
-            type="button"
-            onClick={handleExport}
-            disabled={isExporting}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-primary) disabled:opacity-50"
-            aria-label="Export as Markdown"
-          >
-            <Download size={12} />
-          </button>
-          <button
-            type="button"
-            onClick={handlePin}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-primary)"
-            aria-label={isPinned ? 'Unpin' : 'Pin'}
-          >
-            {isPinned ? <PinOff size={12} /> : <Pin size={12} />}
-          </button>
-          <button
-            type="button"
-            onClick={handleDeleteClick}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--error)"
-            aria-label="Delete"
-          >
-            <Trash2 size={12} />
-          </button>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              onClick={(e) => e.stopPropagation()}
+              className={cn(
+                'flex size-7 items-center justify-center rounded text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)',
+                'opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
+                isActive && 'opacity-100',
+              )}
+              aria-label="More options"
+            >
+              <MoreHorizontal size={14} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenuItem onClick={handleRenameStart}>
+              <Pencil size={14} className="mr-2" />
+              Rename
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleExport} disabled={isExporting}>
+              <Download size={14} className="mr-2" />
+              Export
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handlePin}>
+              {isPinned ? (
+                <>
+                  <PinOff size={14} className="mr-2" />
+                  Unpin
+                </>
+              ) : (
+                <>
+                  <Pin size={14} className="mr-2" />
+                  Pin
+                </>
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={handleDeleteClick}
+              className="text-(--error) focus:text-(--error)"
+            >
+              <Trash2 size={14} className="mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </motion.div>
 
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>

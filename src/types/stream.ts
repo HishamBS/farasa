@@ -44,6 +44,8 @@ export type StreamState = {
     attempt?: number
   } | null
   lastInput: ChatInput | null
+  detectedSearchMode: boolean
+  pendingUserMessage: string | null
 }
 
 export type StreamAction =

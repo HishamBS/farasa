@@ -1,9 +1,11 @@
 import type { ModelConfig } from '@/schemas/model'
+import type { ModelCapability } from '@/schemas/model'
 import {
   MODEL_CATEGORIES,
   MODEL_REGISTRY_CACHE_KEY,
   EXTERNAL_URLS,
   PROVIDERS,
+  ROUTER_CAPABILITY_PATTERNS,
 } from '@/config/constants'
 import { ModelConfigSchema } from '@/schemas/model'
 import { env } from '@/config/env'
@@ -17,6 +19,42 @@ type OpenRouterModel = {
   architecture?: { modality?: string; tokenizer?: string }
   pricing?: { prompt?: string; completion?: string }
   supported_parameters?: string[]
+}
+
+function inferCapabilities(model: OpenRouterModel): ModelCapability[] {
+  const id = model.id.toLowerCase()
+  const name = (model.name ?? '').toLowerCase()
+  const params = model.supported_parameters ?? []
+  const supportsVision = model.architecture?.modality?.includes('image') ?? false
+  const supportsThinking = params.includes('reasoning')
+
+  const caps = new Set<ModelCapability>()
+
+  if (ROUTER_CAPABILITY_PATTERNS.CODE.some((p) => id.includes(p) || name.includes(p))) {
+    caps.add(MODEL_CATEGORIES.CODE)
+  }
+
+  if (supportsThinking) {
+    caps.add(MODEL_CATEGORIES.ANALYSIS)
+  }
+
+  if (supportsVision) {
+    caps.add(MODEL_CATEGORIES.VISION)
+  }
+
+  if (ROUTER_CAPABILITY_PATTERNS.FAST.some((p) => id.includes(p) || name.includes(p))) {
+    caps.add(MODEL_CATEGORIES.FAST)
+  }
+
+  if (ROUTER_CAPABILITY_PATTERNS.ANALYSIS.some((p) => id.includes(p))) {
+    caps.add(MODEL_CATEGORIES.ANALYSIS)
+  }
+
+  if (caps.size === 0) {
+    caps.add(MODEL_CATEGORIES.GENERAL)
+  }
+
+  return Array.from(caps)
 }
 
 type CacheEntry = { models: ModelConfig[]; fetchedAt: number }
@@ -52,15 +90,17 @@ async function fetchFromOpenRouter(runtimeConfig: RuntimeConfig): Promise<ModelC
     const provider = normalizeProvider(providerId)
     const params = raw.supported_parameters ?? []
 
+    const supportsVision = raw.architecture?.modality?.includes('image') ?? false
+    const supportsThinking = params.includes('reasoning')
     const parsed = ModelConfigSchema.safeParse({
       id: raw.id,
       name: raw.name,
       provider,
-      capabilities: [MODEL_CATEGORIES.GENERAL],
+      capabilities: inferCapabilities(raw),
       contextWindow: raw.context_length ?? 0,
-      supportsVision: raw.architecture?.modality?.includes('image') ?? false,
+      supportsVision,
       supportsTools: params.includes('tools'),
-      supportsThinking: params.includes('reasoning'),
+      supportsThinking,
       pricing: {
         promptPerMillion: parseFloat(raw.pricing?.prompt ?? '0') * 1_000_000,
         completionPerMillion: parseFloat(raw.pricing?.completion ?? '0') * 1_000_000,

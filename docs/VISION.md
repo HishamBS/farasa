@@ -19,7 +19,7 @@ This is the definitive, locked specification for the AI Chat System project. Eve
 | Deployment Target | GCP Cloud Run (`me-central1` — Dammam, Saudi Arabia) |
 | Database Host     | Neon Postgres (serverless)                           |
 | AI Gateway        | OpenRouter (unified access to all models)            |
-| Protocol Version  | A2UI v0.8 (stable) for agent-generated UIs           |
+| Protocol Version  | A2UI v0.4 for agent-generated UIs                    |
 
 ---
 
@@ -33,9 +33,9 @@ This is the definitive, locked specification for the AI Chat System project. Eve
 | Client State       | TanStack Query                             | v5 (via tRPC React) | Caching, optimistic updates, automatic invalidation              |
 | AI Gateway         | OpenRouter                                 | latest              | Unified OpenAI-compatible API for all model providers            |
 | AI SDK             | `@openrouter/sdk`                          | pinned              | Native OpenRouter SDK — typed reasoning, provider routing, tools |
-| Agent UI           | `@a2ui-sdk/react`                          | v0.8                | Official React renderer for Google A2UI protocol                 |
-| A2UI Types         | `@a2ui-sdk/types`                          | v0.8                | TypeScript types for A2UI protocol messages                      |
-| A2UI Utils         | `@a2ui-sdk/utils`                          | v0.8                | Utility functions for A2UI value resolution                      |
+| Agent UI           | `@a2ui-sdk/react`                          | v0.4                | Official React renderer for Google A2UI protocol                 |
+| A2UI Types         | `@a2ui-sdk/types`                          | v0.4                | TypeScript types for A2UI protocol messages                      |
+| A2UI Utils         | `@a2ui-sdk/utils`                          | v0.4                | Utility functions for A2UI value resolution                      |
 | Validation         | Zod                                        | latest              | SSOT — schemas define runtime validation and TypeScript types    |
 | Auth               | Auth.js (NextAuth)                         | v5                  | Google OAuth, middleware-level route protection                  |
 | ORM                | Drizzle ORM                                | latest              | Type-safe, no codegen, SQL-transparent, schema-as-code           |
@@ -134,7 +134,19 @@ These principles apply to every file, every function, every line of code in the 
 - No `// @ts-ignore` or `// @ts-expect-error` without a justification comment
 - No `any` type anywhere in the codebase
 
-### 3.9 Zero Dead Air — The UX Principle
+### 3.9 Backend Authority (Non-Negotiable)
+
+The server is the single authority for all business logic, rules, and decisions. Frontend components are dumb UI — they render state and delegate actions, never compute outcomes.
+
+- All model routing decisions happen in `server/routers/chat.ts`
+- All conversation management rules are enforced in tRPC procedures
+- All rate limiting, ownership validation, and security checks are server-side only
+- Frontend hooks (`use-chat-stream`, `use-chat-input`) manage UI state; they never embed business rules
+- Components call tRPC mutations/subscriptions and render results — nothing more
+- If logic could affect data integrity or security, it belongs exclusively on the server
+- The client state machine (`useChatStream`) is a renderer for server-emitted stream chunks, not a decision-maker
+
+### 3.10 Zero Dead Air — The UX Principle
 
 **The user must never stare at a static screen for more than ~500ms without visible feedback.** Every phase of every operation is surfaced to the user in real-time:
 
@@ -723,7 +735,25 @@ Native `@openrouter/sdk`. Dynamic registry from `/api/v1/models`, cached. Fallba
 
 ### F4. LLM-Powered Auto Model Router
 
-Fast cheap model (constant `ROUTER_MODEL`) classifies prompt intent. System prompt in `config/prompts.ts`. Returns `ModelSelectionSchema` (category, reasoning, selectedModel) via `response_format: json_object`. Fallback to default model on failure. Results emitted as `model_selected` chunk. Routing happens while UI shows status phase — zero dead air.
+**Router model:** `google/gemini-3-flash-preview` — purpose-built for fast structured-output classification. Sub-second JSON responses, multimodal awareness (can reason about image-containing requests), and excellent instruction following. Configured via `runtimeConfig.models.routerModel` in `src/schemas/runtime-config.ts`.
+
+**Capability-aware selection:** The registry fetcher (`src/lib/ai/registry.ts`) runs `inferCapabilities(model)` on every OpenRouter model, assigning multi-label capability tags (`code`, `analysis`, `vision`, `fast`, `general`) from pattern matching on model ID/name and API-reported parameters (`reasoning`, image modality). Patterns are defined in `ROUTER_CAPABILITY_PATTERNS` in `src/config/constants.ts` (R01 SSOT).
+
+**Enriched router prompt:** `buildRouterPrompt(models: ReadonlyArray<ModelConfig>)` formats each model as a structured row:
+
+```
+{id} | {name} | caps:{capabilities} | ctx:{context_k}k | vision:{y/n} | think:{y/n} | tools:{y/n}
+```
+
+The system prompt includes capability-first selection rules: vision tasks → require `vision:y`; complex analysis → prefer `think:y`; real-time data → require `tools:y`; simple lookups → prefer `fast` caps. Returns `ModelSelectionSchema` (category, reasoning, selectedModel) via `response_format: json_object`. Results emitted as `model_selected` chunk.
+
+**Live routing decision UI (`RoutingPanel`):** Three animated states in the titlebar:
+
+1. **Routing** — animated pulse pill "Selecting model…" while the router LLM runs
+2. **Decision revealed** — expanded card showing model name, provider dot, category badge, capability pills (Thinking/Vision/Tools), context size, and one-sentence router reasoning
+3. **Collapsed** — compact `• {provider} {modelName}` pill once text starts streaming; persists until stream resets
+
+**Reactive mode toggle:** When the main model calls the web search tool, `detectedSearchMode` is set in stream state and the Chat/Search toggle updates to Search in real time — accurately reflecting what the model is doing.
 
 ### F5. Search Mode
 
@@ -735,7 +765,14 @@ react-markdown + remark-gfm + rehype-sanitize + rehype-katex. Shiki for code: VS
 
 ### F7. Chat History & Conversation Management
 
-**DB Tables**: users, conversations, messages, attachments — all with proper FKs and cascade deletes. Indexes on (userId, updatedAt) and (conversationId, createdAt).
+**DB Tables** (9 total, all FKs with `onDelete: 'cascade'`, all timestamps with timezone):
+
+- `users`, `accounts`, `sessions`, `verificationTokens` — Auth.js adapter tables (standard NextAuth schema)
+- `conversations` — (userId FK, title, model, isPinned, timestamps). Index: (userId, updatedAt)
+- `messages` — (conversationId FK, role, content, metadata JSONB, clientRequestId, streamSequenceMax, tokenCount). Indexes: (conversationId, createdAt), unique(conversationId, role, clientRequestId)
+- `runtimeConfigs` — (scope enum[system|tenant|user], scopeKey, payload JSONB). Stores runtime config overrides resolved in precedence order: user → tenant → system → `RUNTIME_CONFIG_JSON` env var
+- `userPreferences` — (userId PK FK, theme, sidebarExpanded, defaultModel). Per-user UI settings persisted to DB and served via `user-preferences` tRPC router
+- `attachments` — (userId FK, messageId FK, fileName, fileType, fileSize, storageUrl, confirmedAt). Indexes: userId, messageId
 
 **Message Metadata** (JSONB): modelUsed, routerReasoning, thinkingContent, thinkingDurationMs, toolCalls, a2uiMessages, searchResults, usage. Enables full phase reconstruction when loading history — thinking blocks expandable, model badges visible, tool calls shown.
 
@@ -767,9 +804,11 @@ Docker multi-stage with Bun. Cloud Run `me-central1`. Health check `/api/health`
 
 Dark default. Toggle in sidebar/menu. System preference detection. CSS custom properties switch. No flash on load. Shiki theme switches.
 
-### F14. TTS/STT (Stretch)
+### F14. TTS/STT
 
-Web Speech API for both. Mic button with waveform. TTS play button on messages.
+Server-side STT via `openai/whisper` on OpenRouter — browser records audio via `MediaRecorder`, POSTs the blob to `/api/voice/transcribe`, server forwards to OpenRouter and returns the transcript. Server-side TTS via `qwen/qwen3-tts` on OpenRouter — text POSTed to `/api/voice/synthesize`, server returns an audio blob played via `<audio>` element. Markdown is stripped from text before TTS synthesis. Browser `Web Speech API` / `speechSynthesis` used as fallback if server route is unavailable.
+
+Mic button in chat input. TTS play button on assistant messages. Constants: `VOICE.STT_MODEL` (`openai/whisper`), `VOICE.TTS_MODEL` (`qwen/qwen3-tts`), `VOICE.TTS_MAX_CHARS` (4096), `VOICE.MAX_AUDIO_BYTES` (25MB). Routes: `POST /api/voice/transcribe`, `POST /api/voice/synthesize`. Hooks: `use-speech-to-text.ts`, `use-text-to-speech.ts` in `src/features/voice/hooks/`.
 
 ---
 
@@ -798,6 +837,8 @@ ROUTER_MODEL, DEFAULT_MODEL.
 UX: STATUS_MIN_DISPLAY_MS (500), THINKING_COLLAPSE_DEFAULT (true), STREAM_BUFFER_FLUSH_MS (16), AUTO_SCROLL_THRESHOLD (100), COPY_FEEDBACK_DURATION_MS (2000).
 
 MOTION: DURATION_FAST (0.15), DURATION_NORMAL (0.2), DURATION_MEDIUM (0.25), DURATION_SLOW (0.3), STAGGER_CHILDREN (0.05), SPRING_STIFFNESS (400), SPRING_DAMPING (25), EASING [0.4, 0, 0.2, 1].
+
+**Separation note**: `constants.ts` contains compile-time static values only (measurements, provider colors, stream event names, markdown sanitization rules, motion durations). Runtime business behavior — limits, timeouts, prompts, retry policy, feature flags — lives in `src/schemas/runtime-config.ts` (Zod schema) and is resolved at runtime via `src/lib/runtime-config/service.ts` from the `runtimeConfigs` DB table.
 
 ### 6.3 Routes (`src/config/routes.ts`)
 

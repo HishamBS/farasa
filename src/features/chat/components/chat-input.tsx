@@ -85,16 +85,12 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
 
   const handleSubmit = useCallback(() => {
     if (!content.trim() || isStreaming || isTooLong) return
-    const inlineAttachments = [...uploadStates.values()]
-      .filter((s) => s.inlineDataUrl && !s.isUploading && !s.error)
-      .map((s) => ({ dataUrl: s.inlineDataUrl!, fileName: s.fileName, fileType: s.fileType }))
     onSend({
       content: content.trim(),
       mode,
       model: selectedModel,
       conversationId,
       attachmentIds,
-      inlineAttachments,
     })
     clear()
   }, [
@@ -104,7 +100,6 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     selectedModel,
     conversationId,
     attachmentIds,
-    uploadStates,
     isStreaming,
     onSend,
     clear,
@@ -125,7 +120,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           const uploaded = await uploadFile(file)
           if (uploaded) addAttachment(uploaded.attachmentId)
         } else {
-          await uploadFileInline(file)
+          const uploaded = await uploadFileInline(file)
+          if (uploaded) addAttachment(uploaded.attachmentId)
         }
       }
     },

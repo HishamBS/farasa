@@ -18,6 +18,7 @@ type MessageListProps = {
   messages: MessageWithAttachments[]
   streamState: StreamState
   isStreaming: boolean
+  pendingUserMessage?: string | null
   onSuggestionSelect?: (text: string) => void
 }
 
@@ -25,12 +26,18 @@ export function MessageList({
   messages,
   streamState,
   isStreaming,
+  pendingUserMessage,
   onSuggestionSelect,
 }: MessageListProps) {
   const shouldReduce = useReducedMotion()
   const parentRef = useRef<HTMLDivElement>(null)
 
-  const isEmpty = messages.length === 0 && streamState.phase === CHAT_STREAM_STATUS.IDLE
+  const isEmpty =
+    messages.length === 0 && streamState.phase === CHAT_STREAM_STATUS.IDLE && !pendingUserMessage
+
+  const lastUserMessageContent =
+    messages.length > 0 ? messages.findLast((m) => m.role === MESSAGE_ROLES.USER)?.content : null
+  const showPendingBubble = !!pendingUserMessage && pendingUserMessage !== lastUserMessageContent
 
   const hasStreamedContent =
     !!streamState.textContent || !!streamState.thinking || streamState.toolExecutions.length > 0
@@ -83,6 +90,13 @@ export function MessageList({
             {messages.map((message) => (
               <MessageBubble key={message.id} message={message} />
             ))}
+            {showPendingBubble && (
+              <div className="flex justify-end">
+                <div className="max-w-[80%] rounded-2xl bg-(--bg-surface-active) px-4 py-2.5 text-sm text-(--text-primary)">
+                  {pendingUserMessage}
+                </div>
+              </div>
+            )}
             {showStreaming && <AssistantMessage streamState={streamState} />}
           </div>
 

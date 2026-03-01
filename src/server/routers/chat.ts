@@ -246,6 +246,7 @@ export const chatRouter = router({
           .values({
             userId: ctx.userId,
             model: input.model,
+            searchMode: input.mode,
           })
           .returning({ id: conversations.id })
         if (!created) {
@@ -332,20 +333,6 @@ export const chatRouter = router({
         }
       }
 
-      if (input.inlineAttachments.length > 0 && userMessageId) {
-        await ctx.db.insert(attachments).values(
-          input.inlineAttachments.map((inline) => ({
-            userId: ctx.userId,
-            messageId: userMessageId,
-            fileName: inline.fileName,
-            fileType: inline.fileType,
-            fileSize: Math.round((inline.dataUrl.length * 3) / 4),
-            storageUrl: inline.dataUrl,
-            confirmedAt: new Date(),
-          })),
-        )
-      }
-
       let selectedModel = input.model
       let routerReasoning: string | undefined
       const { getModelRegistry } = await import('@/lib/ai/registry')
@@ -412,9 +399,8 @@ export const chatRouter = router({
 
       const wrappedContent = `${runtimeConfig.prompts.wrappers.userRequestOpen}\n${input.content}\n${runtimeConfig.prompts.wrappers.userRequestClose}`
       let userContent: string | ChatMessageContentItem[] = wrappedContent
-      const hasGcsAttachments = input.attachmentIds.length > 0
-      const hasInlineAttachments = input.inlineAttachments.length > 0
-      if (hasGcsAttachments || hasInlineAttachments) {
+      const hasAttachments = input.attachmentIds.length > 0
+      if (hasAttachments) {
         yield emit({
           type: STREAM_EVENTS.STATUS,
           phase: STREAM_PHASES.READING_FILES,
@@ -425,42 +411,26 @@ export const chatRouter = router({
           { type: ChatMessageContentItemTextType.Text, text: wrappedContent },
         ]
 
-        if (hasGcsAttachments) {
-          const attachmentRows = await ctx.db
-            .select()
-            .from(attachments)
-            .where(
-              and(
-                inArray(attachments.id, input.attachmentIds),
-                eq(attachments.userId, ctx.userId),
-                isNotNull(attachments.confirmedAt),
-              ),
-            )
-          for (const attachment of attachmentRows) {
-            if (attachment.fileType.startsWith('image/')) {
-              blocks.push({
-                type: ChatMessageContentItemImageType.ImageUrl,
-                imageUrl: { url: attachment.storageUrl },
-              })
-            } else {
-              blocks.push({
-                type: ChatMessageContentItemTextType.Text,
-                text: `[Attachment: ${escapeXmlForPrompt(attachment.fileName)} — ${escapeXmlForPrompt(attachment.fileType)}]`,
-              })
-            }
-          }
-        }
-
-        for (const inline of input.inlineAttachments) {
-          if (inline.fileType.startsWith('image/')) {
+        const attachmentRows = await ctx.db
+          .select()
+          .from(attachments)
+          .where(
+            and(
+              inArray(attachments.id, input.attachmentIds),
+              eq(attachments.userId, ctx.userId),
+              isNotNull(attachments.confirmedAt),
+            ),
+          )
+        for (const attachment of attachmentRows) {
+          if (attachment.fileType.startsWith('image/')) {
             blocks.push({
               type: ChatMessageContentItemImageType.ImageUrl,
-              imageUrl: { url: inline.dataUrl },
+              imageUrl: { url: attachment.storageUrl },
             })
           } else {
             blocks.push({
               type: ChatMessageContentItemTextType.Text,
-              text: `[Attachment: ${escapeXmlForPrompt(inline.fileName)} — ${escapeXmlForPrompt(inline.fileType)}]`,
+              text: `[Attachment: ${escapeXmlForPrompt(attachment.fileName)} — ${escapeXmlForPrompt(attachment.fileType)}]`,
             })
           }
         }

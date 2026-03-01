@@ -42,19 +42,23 @@ export function useChatStream() {
 
   const runStreamAttempt = useCallback(
     (input: ChatInput) => {
-      resolvedConversationIdRef.current = input.conversationId
+      const effectiveConversationId = input.conversationId ?? resolvedConversationIdRef.current
+      resolvedConversationIdRef.current = effectiveConversationId
 
       const activeConversationId = activeSessionRef.current?.conversationId
-      if (activeConversationId && activeConversationId === input.conversationId) {
+      if (activeConversationId && activeConversationId === effectiveConversationId) {
         clearActiveSession()
       }
 
-      dispatch({ type: STREAM_ACTIONS.SAVE_INPUT, input })
+      dispatch({
+        type: STREAM_ACTIONS.SAVE_INPUT,
+        input: { ...input, conversationId: effectiveConversationId },
+      })
       reset()
 
       const sessionId = crypto.randomUUID()
       const session: ActiveStreamSession = {
-        conversationId: input.conversationId,
+        conversationId: effectiveConversationId,
         sessionId,
         unsubscribe: () => {},
         isSettled: false,
@@ -86,113 +90,116 @@ export function useChatStream() {
         if (convId) void utils.conversation.messages.invalidate({ conversationId: convId })
       }
 
-      const subscription = trpcClient.chat.stream.subscribe(input, {
-        onData(chunk: StreamChunk) {
-          const active = activeSessionRef.current
-          if (!active || active.sessionId !== sessionId) return
+      const subscription = trpcClient.chat.stream.subscribe(
+        { ...input, conversationId: effectiveConversationId },
+        {
+          onData(chunk: StreamChunk) {
+            const active = activeSessionRef.current
+            if (!active || active.sessionId !== sessionId) return
 
-          switch (chunk.type) {
-            case STREAM_EVENTS.CONVERSATION_CREATED:
-              resolvedConversationIdRef.current = chunk.conversationId
-              if (active) active.conversationId = chunk.conversationId
-              router.replace(ROUTES.CHAT_BY_ID(chunk.conversationId))
-              break
-            case STREAM_EVENTS.USER_MESSAGE_SAVED: {
-              const convId = resolvedConversationIdRef.current
-              if (convId) void utils.conversation.messages.invalidate({ conversationId: convId })
-              break
-            }
-            case STREAM_EVENTS.STATUS:
-              dispatch({
-                type: STREAM_ACTIONS.STATUS,
-                phase: chunk.phase,
-                message: chunk.message,
-              })
-              if (chunk.phase === STREAM_PHASES.GENERATING_TITLE) {
+            switch (chunk.type) {
+              case STREAM_EVENTS.CONVERSATION_CREATED:
+                resolvedConversationIdRef.current = chunk.conversationId
+                if (active) active.conversationId = chunk.conversationId
+                router.replace(ROUTES.CHAT_BY_ID(chunk.conversationId))
+                break
+              case STREAM_EVENTS.USER_MESSAGE_SAVED: {
                 const convId = resolvedConversationIdRef.current
-                void utils.conversation.list.invalidate()
-                if (convId) void utils.conversation.getById.invalidate({ id: convId })
+                if (convId) void utils.conversation.messages.invalidate({ conversationId: convId })
+                break
               }
-              break
-            case STREAM_EVENTS.MODEL_SELECTED:
-              dispatch({
-                type: STREAM_ACTIONS.MODEL_SELECTED,
-                model: chunk.model,
-                reasoning: chunk.reasoning,
-              })
-              break
-            case STREAM_EVENTS.THINKING:
-              dispatch({
-                type: STREAM_ACTIONS.THINKING_CHUNK,
-                content: chunk.content,
-                isComplete: chunk.isComplete,
-              })
-              break
-            case STREAM_EVENTS.TOOL_START:
-              dispatch({
-                type: STREAM_ACTIONS.TOOL_START,
-                name: chunk.toolName,
-                input: chunk.input,
-              })
-              break
-            case STREAM_EVENTS.TOOL_RESULT:
-              dispatch({
-                type: STREAM_ACTIONS.TOOL_RESULT,
-                name: chunk.toolName,
-                result: chunk.result,
-              })
-              break
-            case STREAM_EVENTS.TEXT:
-              dispatch({ type: STREAM_ACTIONS.TEXT_CHUNK, content: chunk.content })
-              break
-            case STREAM_EVENTS.A2UI:
-              try {
-                const parsed: unknown = JSON.parse(chunk.jsonl)
-                if (isA2UIMessage(parsed)) {
-                  dispatch({ type: STREAM_ACTIONS.A2UI_MESSAGE, message: parsed })
+              case STREAM_EVENTS.STATUS:
+                dispatch({
+                  type: STREAM_ACTIONS.STATUS,
+                  phase: chunk.phase,
+                  message: chunk.message,
+                })
+                if (chunk.phase === STREAM_PHASES.GENERATING_TITLE) {
+                  const convId = resolvedConversationIdRef.current
+                  void utils.conversation.list.invalidate()
+                  if (convId) void utils.conversation.getById.invalidate({ id: convId })
                 }
-              } catch {
-                // malformed A2UI lines are ignored without failing the stream
+                break
+              case STREAM_EVENTS.MODEL_SELECTED:
+                dispatch({
+                  type: STREAM_ACTIONS.MODEL_SELECTED,
+                  model: chunk.model,
+                  reasoning: chunk.reasoning,
+                })
+                break
+              case STREAM_EVENTS.THINKING:
+                dispatch({
+                  type: STREAM_ACTIONS.THINKING_CHUNK,
+                  content: chunk.content,
+                  isComplete: chunk.isComplete,
+                })
+                break
+              case STREAM_EVENTS.TOOL_START:
+                dispatch({
+                  type: STREAM_ACTIONS.TOOL_START,
+                  name: chunk.toolName,
+                  input: chunk.input,
+                })
+                break
+              case STREAM_EVENTS.TOOL_RESULT:
+                dispatch({
+                  type: STREAM_ACTIONS.TOOL_RESULT,
+                  name: chunk.toolName,
+                  result: chunk.result,
+                })
+                break
+              case STREAM_EVENTS.TEXT:
+                dispatch({ type: STREAM_ACTIONS.TEXT_CHUNK, content: chunk.content })
+                break
+              case STREAM_EVENTS.A2UI:
+                try {
+                  const parsed: unknown = JSON.parse(chunk.jsonl)
+                  if (isA2UIMessage(parsed)) {
+                    dispatch({ type: STREAM_ACTIONS.A2UI_MESSAGE, message: parsed })
+                  }
+                } catch {
+                  // malformed A2UI lines are ignored without failing the stream
+                }
+                break
+              case STREAM_EVENTS.ERROR:
+                settleWithError({
+                  message: chunk.message,
+                  code: chunk.code,
+                  reasonCode: chunk.reasonCode,
+                  recoverable: chunk.recoverable,
+                  attempt: chunk.attempt,
+                })
+                break
+              case STREAM_EVENTS.DONE: {
+                if (active.isSettled) return
+                active.isSettled = true
+                dispatch({ type: STREAM_ACTIONS.DONE })
+                const convId = resolvedConversationIdRef.current
+                if (convId) {
+                  void utils.conversation.messages.invalidate({ conversationId: convId })
+                  void utils.conversation.getById.invalidate({ id: convId })
+                }
+                void utils.conversation.list.invalidate()
+                break
               }
-              break
-            case STREAM_EVENTS.ERROR:
-              settleWithError({
-                message: chunk.message,
-                code: chunk.code,
-                reasonCode: chunk.reasonCode,
-                recoverable: chunk.recoverable,
-                attempt: chunk.attempt,
-              })
-              break
-            case STREAM_EVENTS.DONE: {
-              if (active.isSettled) return
-              active.isSettled = true
-              dispatch({ type: STREAM_ACTIONS.DONE })
-              const convId = resolvedConversationIdRef.current
-              if (convId) {
-                void utils.conversation.messages.invalidate({ conversationId: convId })
-                void utils.conversation.getById.invalidate({ id: convId })
-              }
-              void utils.conversation.list.invalidate()
-              break
             }
-          }
+          },
+          onError(error: Error) {
+            settleWithError({
+              message: error.message || 'Connection error.',
+              reasonCode: 'transient_network',
+              recoverable: false,
+              code: error.name,
+              attempt: 0,
+            })
+          },
+          onComplete() {
+            const active = activeSessionRef.current
+            if (!active || active.sessionId !== sessionId) return
+            activeSessionRef.current = null
+          },
         },
-        onError(error: Error) {
-          settleWithError({
-            message: error.message || 'Connection error.',
-            reasonCode: 'transient_network',
-            recoverable: false,
-            code: error.name,
-            attempt: 0,
-          })
-        },
-        onComplete() {
-          const active = activeSessionRef.current
-          if (!active || active.sessionId !== sessionId) return
-          activeSessionRef.current = null
-        },
-      })
+      )
 
       session.unsubscribe = () => subscription.unsubscribe()
     },

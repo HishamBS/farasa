@@ -20,19 +20,13 @@ type UploadResult = {
   attachmentId: string
 }
 
-type InlineUploadResult = {
-  token: string
-  dataUrl: string
-  fileName: string
-  fileType: string
-}
-
 export function useFileUpload() {
   const [uploadStates, setUploadStates] = useState<Map<string, UploadState>>(new Map())
   const runtimeConfigQuery = trpc.runtimeConfig.get.useQuery()
   const uploadConfigQuery = trpc.upload.config.useQuery(undefined, { staleTime: Infinity })
   const presignedUrlMutation = trpc.upload.presignedUrl.useMutation()
   const confirmMutation = trpc.upload.confirmUpload.useMutation()
+  const storeInlineMutation = trpc.upload.storeInline.useMutation()
 
   const gcsEnabled = uploadConfigQuery.data?.gcsEnabled ?? false
 
@@ -54,7 +48,7 @@ export function useFileUpload() {
   )
 
   const uploadFileInline = useCallback(
-    async (file: File): Promise<InlineUploadResult | null> => {
+    async (file: File): Promise<UploadResult | null> => {
       const token = crypto.randomUUID()
       const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null
 
@@ -78,24 +72,12 @@ export function useFileUpload() {
           reader.readAsDataURL(file)
         })
 
-        upsertState(token, (previous) => ({
-          ...(previous ?? {
-            token,
-            fileName: file.name,
-            attachmentId: null,
-            error: null,
-            isUploading: false,
-            previewUrl,
-            fileType: file.type,
-          }),
-          progress: 100,
-          isUploading: false,
-          error: null,
-          inlineDataUrl: dataUrl,
-        }))
-        return { token, dataUrl, fileName: file.name, fileType: file.type }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to read file'
+        const { attachmentId } = await storeInlineMutation.mutateAsync({
+          dataUrl,
+          fileName: file.name,
+          fileType: file.type,
+        })
+
         upsertState(token, (previous) => ({
           ...(previous ?? {
             token,
@@ -106,15 +88,35 @@ export function useFileUpload() {
             isUploading: false,
             previewUrl,
             fileType: file.type,
+            inlineDataUrl: null,
+          }),
+          progress: 100,
+          attachmentId,
+          isUploading: false,
+          error: null,
+        }))
+        return { token, attachmentId }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to upload file'
+        upsertState(token, (previous) => ({
+          ...(previous ?? {
+            token,
+            fileName: file.name,
+            progress: 0,
+            attachmentId: null,
+            error: null,
+            isUploading: false,
+            previewUrl,
+            fileType: file.type,
+            inlineDataUrl: null,
           }),
           isUploading: false,
           error: message,
-          inlineDataUrl: null,
         }))
         return null
       }
     },
-    [upsertState],
+    [storeInlineMutation, upsertState],
   )
 
   const uploadFile = useCallback(

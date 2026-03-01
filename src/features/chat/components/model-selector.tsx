@@ -11,6 +11,7 @@ import {
 } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { ChevronDown, Sparkles, Search } from 'lucide-react'
+import Fuse from 'fuse.js'
 import { trpc } from '@/trpc/provider'
 import { fadeInDown, chevronSpin } from '@/lib/utils/motion'
 import { LIMITS, PROVIDER_DOT_CLASSES } from '@/config/constants'
@@ -49,16 +50,24 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
       staleTime: runtimeConfigQuery.data?.models.registry.cacheTtlMs ?? 0,
     })
 
-    const filteredModels = useMemo(
+    const fuse = useMemo(
       () =>
-        searchQuery
-          ? models.filter(
-              (m) =>
-                m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                m.provider.toLowerCase().includes(searchQuery.toLowerCase()),
-            )
-          : models,
-      [models, searchQuery],
+        new Fuse(models, {
+          keys: [
+            { name: 'name', weight: 0.6 },
+            { name: 'id', weight: 0.3 },
+            { name: 'provider', weight: 0.1 },
+          ],
+          threshold: 0.4,
+          includeScore: false,
+          ignoreLocation: true,
+        }),
+      [models],
+    )
+
+    const filteredModels = useMemo(
+      () => (searchQuery ? fuse.search(searchQuery).map((r) => r.item) : models),
+      [fuse, models, searchQuery],
     )
 
     // Flat ordered list for keyboard navigation: Auto at index 0, then all filtered models
@@ -294,34 +303,28 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
                             value === m.id && 'bg-(--accent-muted) text-accent',
                           )}
                         >
-                          <div className="flex w-full items-center gap-2">
-                            <span className="flex-1 truncate font-mono">{m.name}</span>
-                            <span className="shrink-0 text-(--text-ghost)">
-                              {Math.round(m.contextWindow / LIMITS.TOKENS_PER_K)}k
-                            </span>
-                            <span className="shrink-0 text-(--text-ghost)">
-                              ${m.pricing.promptPerMillion}/M
+                          <span className="flex-1 truncate font-mono">{m.name}</span>
+                          <div className="flex flex-wrap items-center gap-1">
+                            {m.supportsThinking && (
+                              <span className="rounded-full bg-(--thinking)/10 px-1.5 py-0.5 text-[0.625rem] text-(--thinking)">
+                                Thinking
+                              </span>
+                            )}
+                            {m.supportsVision && (
+                              <span className="rounded-full bg-(--accent-muted) px-1.5 py-0.5 text-[0.625rem] text-accent">
+                                Vision
+                              </span>
+                            )}
+                            {m.supportsTools && (
+                              <span className="rounded-full bg-(--bg-surface-active) px-1.5 py-0.5 text-[0.625rem] text-(--text-muted)">
+                                Tools
+                              </span>
+                            )}
+                            <span className="text-(--text-secondary)">
+                              {Math.round(m.contextWindow / LIMITS.TOKENS_PER_K)}k · $
+                              {m.pricing.promptPerMillion}/M
                             </span>
                           </div>
-                          {(m.supportsThinking || m.supportsVision || m.supportsTools) && (
-                            <div className="flex flex-wrap gap-1">
-                              {m.supportsThinking && (
-                                <span className="rounded-full bg-(--thinking)/10 px-1.5 py-0.5 text-[0.625rem] text-(--thinking)">
-                                  Thinking
-                                </span>
-                              )}
-                              {m.supportsVision && (
-                                <span className="rounded-full bg-(--accent-muted) px-1.5 py-0.5 text-[0.625rem] text-accent">
-                                  Vision
-                                </span>
-                              )}
-                              {m.supportsTools && (
-                                <span className="rounded-full bg-(--bg-surface-active) px-1.5 py-0.5 text-[0.625rem] text-(--text-muted)">
-                                  Tools
-                                </span>
-                              )}
-                            </div>
-                          )}
                         </button>
                       )
                     })}

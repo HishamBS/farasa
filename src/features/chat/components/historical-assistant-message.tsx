@@ -86,10 +86,14 @@ export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessa
     metadata?.usage?.totalTokens && metadata.usage.totalTokens > 0
       ? `${metadata.usage.totalTokens.toLocaleString()} tokens`
       : null
+  const costLabel =
+    metadata?.usage?.cost && metadata.usage.cost > 0
+      ? `~$${metadata.usage.cost < 0.001 ? metadata.usage.cost.toExponential(2) : metadata.usage.cost.toFixed(4)}`
+      : null
 
   return (
     <motion.div {...(shouldReduce ? {} : fadeInUp)}>
-      <AssistantFrame modelLabel={modelLabel} tokenLabel={tokenLabel}>
+      <AssistantFrame modelLabel={modelLabel} tokenLabel={tokenLabel} costLabel={costLabel}>
         <div className="space-y-3">
           {thinking && <ThinkingBlock thinking={thinking} />}
 

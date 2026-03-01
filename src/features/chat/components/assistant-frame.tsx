@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils/cn'
 type AssistantFrameProps = {
   modelLabel: string | null
   tokenLabel: string | null
+  costLabel?: string | null
   isStreaming?: boolean
   children: ReactNode
 }
@@ -13,10 +14,11 @@ type AssistantFrameProps = {
 export function AssistantFrame({
   modelLabel,
   tokenLabel,
+  costLabel,
   isStreaming = false,
   children,
 }: AssistantFrameProps) {
-  const hasMeta = Boolean(modelLabel || tokenLabel)
+  const hasMeta = Boolean(modelLabel || tokenLabel || costLabel)
 
   return (
     <article className="mb-0.5 flex flex-col pt-2">
@@ -33,6 +35,8 @@ export function AssistantFrame({
           <span className={cn(isStreaming && 'animate-pulse')}>{modelLabel}</span>
           {modelLabel && tokenLabel ? ' · ' : null}
           <span>{tokenLabel}</span>
+          {tokenLabel && costLabel ? ' · ' : null}
+          <span>{costLabel}</span>
         </div>
       )}
 

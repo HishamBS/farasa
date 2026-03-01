@@ -829,6 +829,15 @@ export const chatRouter = router({
         }
       }
 
+      const modelEntry = selectedModel ? registry.find((m) => m.id === selectedModel) : undefined
+      const estimatedCost =
+        modelEntry && usage
+          ? (usage.promptTokens * modelEntry.pricing.promptPerMillion +
+              usage.completionTokens * modelEntry.pricing.completionPerMillion) /
+            1_000_000
+          : undefined
+      const usageWithCost = usage ? { ...usage, cost: estimatedCost } : undefined
+
       const metadata = MessageMetadataSchema.parse({
         streamRequestId: input.streamRequestId,
         recoveryAttemptCount: input.attempt,
@@ -841,7 +850,7 @@ export const chatRouter = router({
         searchResults: searchResults.length > 0 ? searchResults : undefined,
         searchImages: searchImages.length > 0 ? searchImages : undefined,
         a2uiMessages: a2uiLines.length > 0 ? a2uiLines : undefined,
-        usage,
+        usage: usageWithCost,
       })
 
       const [existingAssistantMessage] = await ctx.db

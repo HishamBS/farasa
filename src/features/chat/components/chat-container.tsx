@@ -5,9 +5,15 @@ import { trpc } from '@/trpc/provider'
 import { useChatStream } from '../hooks/use-chat-stream'
 import { MessageList } from './message-list'
 import { ChatInput } from './chat-input'
-import { PhaseIndicator } from './phase-indicator'
 import type { ChatInputHandle } from './chat-input'
-import { CHAT_STREAM_STATUS, SESSION_KEYS, UX, CHAT_MODES, MESSAGE_ROLES } from '@/config/constants'
+import {
+  CHAT_STREAM_STATUS,
+  SESSION_KEYS,
+  UX,
+  CHAT_MODES,
+  MESSAGE_ROLES,
+  LIMITS,
+} from '@/config/constants'
 import { ChatInputSchema } from '@/schemas/message'
 import type { TitlebarPhase } from '@/types/stream'
 import { useStreamPhase } from '../context/stream-phase-context'
@@ -75,6 +81,8 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
     if (messages.length === 0) return
     const lastMessage = messages[messages.length - 1]
     if (!lastMessage || lastMessage.role !== MESSAGE_ROLES.USER) return
+    const messageAgeMs = Date.now() - new Date(lastMessage.createdAt).getTime()
+    if (messageAgeMs > LIMITS.RESTREAM_WINDOW_MS) return
     streamStartedRef.current = true
     const inferredRequestId = lastMessage.clientRequestId ?? crypto.randomUUID()
     sendMessage({
@@ -99,7 +107,6 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <PhaseIndicator streamState={streamState} model={conversation?.model ?? undefined} />
       <MessageList
         messages={messages}
         streamState={streamState}

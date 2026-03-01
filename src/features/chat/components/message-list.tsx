@@ -1,14 +1,14 @@
 'use client'
 
 import { useRef, useCallback, useMemo } from 'react'
-import { motion, useReducedMotion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ChevronDown } from 'lucide-react'
 import { fadeIn } from '@/lib/utils/motion'
 import { MessageBubble } from './message-bubble'
 import { AssistantMessage } from './assistant-message'
 import { EmptyState } from './empty-state'
 import { useAutoScroll } from '../hooks/use-auto-scroll'
-import { CHAT_STREAM_STATUS, UI_TEXT } from '@/config/constants'
+import { CHAT_STREAM_STATUS, MOTION, UI_TEXT } from '@/config/constants'
 import type { StreamState } from '@/types/stream'
 import type { MessageWithAttachments } from '@/schemas/conversation'
 
@@ -30,7 +30,12 @@ export function MessageList({
 
   const isEmpty = messages.length === 0 && streamState.phase === CHAT_STREAM_STATUS.IDLE
 
-  const showStreaming = isStreaming && streamState.phase !== CHAT_STREAM_STATUS.IDLE
+  const hasStreamedContent =
+    !!streamState.textContent || !!streamState.thinking || streamState.toolExecutions.length > 0
+
+  const showStreaming =
+    (isStreaming && streamState.phase !== CHAT_STREAM_STATUS.IDLE) ||
+    (streamState.phase === CHAT_STREAM_STATUS.COMPLETE && hasStreamedContent)
 
   const dividerLabel = useMemo(() => {
     if (messages.length === 0) return null
@@ -75,18 +80,21 @@ export function MessageList({
         </div>
       )}
 
-      {isPaused && isStreaming && (
-        <motion.button
-          type="button"
-          onClick={resume}
-          className="fixed bottom-24 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-(--border-default) bg-(--bg-shell-strong) px-4 py-2 text-sm text-(--text-secondary) shadow-lg hover:bg-(--bg-surface-hover)"
-          {...(shouldReduce ? {} : fadeIn)}
-          aria-label="Scroll to latest message"
-        >
-          <ChevronDown size={14} />
-          {UI_TEXT.NEW_MESSAGES_LABEL}
-        </motion.button>
-      )}
+      <AnimatePresence>
+        {isPaused && isStreaming && (
+          <motion.button
+            type="button"
+            onClick={resume}
+            className="fixed bottom-24 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-(--border-default) bg-(--bg-shell-strong) px-4 py-2 text-sm text-(--text-secondary) shadow-lg hover:bg-(--bg-surface-hover)"
+            {...(shouldReduce ? {} : fadeIn)}
+            exit={{ opacity: 0, y: 8, transition: { duration: MOTION.DURATION_FAST } }}
+            aria-label="Scroll to latest message"
+          >
+            <ChevronDown size={14} />
+            {UI_TEXT.NEW_MESSAGES_LABEL}
+          </motion.button>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

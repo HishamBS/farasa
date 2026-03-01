@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { env } from '@/config/env'
 import { db } from '@/lib/db/client'
 import { runtimeConfigs } from '@/lib/db/schema'
+import { LIMITS } from '@/config/constants'
 import {
   RuntimeConfigSchema,
   RuntimeConfigOverrideSchema,
@@ -41,7 +42,7 @@ class RuntimeConfigError extends Error {
 }
 
 function getCacheTtlMs(): number {
-  return env.RUNTIME_CONFIG_CACHE_TTL_MS ?? 5_000
+  return env.RUNTIME_CONFIG_CACHE_TTL_MS ?? LIMITS.RUNTIME_CONFIG_CACHE_TTL_MS
 }
 
 function getCacheKey(options: RuntimeConfigOptions): string {

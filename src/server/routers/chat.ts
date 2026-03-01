@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNotNull, or, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure, rateLimitedChatProcedure } from '../trpc'
@@ -13,6 +13,7 @@ import {
   TRPC_CODES,
   NEW_CHAT_TITLE,
   AI_MARKUP,
+  LIMITS,
 } from '@/config/constants'
 import { AppError } from '@/lib/utils/errors'
 import type { StreamChunk } from '@/schemas/message'
@@ -128,13 +129,16 @@ function classifyTerminalError(
     }
     if (error.code === TRPC_CODES.BAD_REQUEST) {
       const invalidModel = error.message === AppError.INVALID_MODEL
+      const routerFailed = error.message === AppError.ROUTER_FAILED
       return {
-        message: invalidModel
-          ? runtimeConfig.chat.errors.invalidModel
-          : runtimeConfig.chat.errors.processing,
+        message: routerFailed
+          ? AppError.ROUTER_FAILED
+          : invalidModel
+            ? runtimeConfig.chat.errors.invalidModel
+            : runtimeConfig.chat.errors.processing,
         code: error.code,
-        reasonCode: 'validation_rejected',
-        recoverable: false,
+        reasonCode: routerFailed ? 'router_failed' : 'validation_rejected',
+        recoverable: routerFailed,
       }
     }
     return {
@@ -340,7 +344,15 @@ export const chatRouter = router({
         })
 
         const { routeModel } = await import('@/lib/ai/router')
-        const selection = await routeModel(input.content, registry, runtimeConfig)
+        let selection: Awaited<ReturnType<typeof routeModel>>
+        try {
+          selection = await routeModel(input.content, registry, runtimeConfig)
+        } catch {
+          throw new TRPCError({
+            code: TRPC_CODES.BAD_REQUEST,
+            message: AppError.ROUTER_FAILED,
+          })
+        }
 
         if (!registry.some((model) => model.id === selection.selectedModel)) {
           throw new TRPCError({
@@ -414,7 +426,7 @@ export const chatRouter = router({
           } else {
             blocks.push({
               type: ChatMessageContentItemTextType.Text,
-              text: `[Attachment: ${attachment.fileName} — ${attachment.fileType}]`,
+              text: `[Attachment: ${escapeXmlForPrompt(attachment.fileName)} — ${escapeXmlForPrompt(attachment.fileType)}]`,
             })
           }
         }
@@ -493,8 +505,26 @@ export const chatRouter = router({
         systemSections.push(searchContext)
       }
 
+      const historyRows = await ctx.db
+        .select({ role: messages.role, content: messages.content })
+        .from(messages)
+        .where(
+          and(
+            eq(messages.conversationId, conversationId),
+            or(eq(messages.role, MESSAGE_ROLES.USER), eq(messages.role, MESSAGE_ROLES.ASSISTANT)),
+          ),
+        )
+        .orderBy(asc(messages.createdAt))
+        .limit(LIMITS.CONVERSATION_HISTORY_LIMIT)
+
+      const historyMessages: Message[] = historyRows.map((row) => ({
+        role: row.role,
+        content: row.content,
+      }))
+
       const sdkMessages: Message[] = [
         { role: MESSAGE_ROLES.SYSTEM, content: systemSections.join('\n\n') },
+        ...historyMessages,
         { role: MESSAGE_ROLES.USER, content: userContent },
       ]
 

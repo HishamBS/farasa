@@ -269,11 +269,13 @@ export function useChatStream() {
               if (active.isSettled) return
               active.isSettled = true
               dispatch({ type: STREAM_ACTIONS.DONE })
-              invalidateConversationViews(
-                input.conversationId,
-                runtimeConfig.chat.completion.invalidateOnDone,
-                false,
-              )
+              void utils.conversation.list.invalidate()
+              void utils.conversation.getById.invalidate({ id: input.conversationId! })
+              if (runtimeConfig.chat.completion.invalidateOnDone) {
+                void utils.conversation.messages.invalidate({
+                  conversationId: input.conversationId!,
+                })
+              }
               break
           }
         },
@@ -308,15 +310,39 @@ export function useChatStream() {
 
   const sendMessage = useCallback(
     (input: ChatInput) => {
+      if (!input.skipUserInsert && input.conversationId) {
+        utils.conversation.messages.setData({ conversationId: input.conversationId }, (old) => {
+          if (!old) return old
+          return [
+            ...old,
+            {
+              id: crypto.randomUUID(),
+              conversationId: input.conversationId!,
+              role: MESSAGE_ROLES.USER,
+              content: input.content,
+              metadata: {
+                streamRequestId: input.streamRequestId,
+              },
+              clientRequestId: input.streamRequestId,
+              streamSequenceMax: null,
+              tokenCount: null,
+              createdAt: new Date(),
+              attachments: [],
+            },
+          ]
+        })
+      }
+
       runStreamAttempt(
         {
           ...input,
           attempt: input.attempt ?? 0,
+          skipUserInsert: true,
         },
         false,
       )
     },
-    [runStreamAttempt],
+    [runStreamAttempt, utils],
   )
 
   const abort = useCallback(() => {

@@ -11,6 +11,7 @@ export const AppError = {
   INVALID_MODEL: 'Invalid model selection.',
   ATTACHMENT_ACCESS_DENIED: 'Attachment not found or access denied.',
   MISSING_CONVERSATION_ID: 'Missing conversation id for title generation.',
+  ROUTER_FAILED: 'Auto-routing failed. Please select a model manually.',
 } as const
 
 export type AppErrorCode = keyof typeof AppError

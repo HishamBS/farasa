@@ -14,13 +14,19 @@ type ImageGalleryProps = {
 export function ImageGallery({ images }: ImageGalleryProps) {
   const shouldReduce = useReducedMotion()
   const [selected, setSelected] = useState<SearchImage | null>(null)
+  const [brokenUrls, setBrokenUrls] = useState<Set<string>>(new Set())
 
   const handleOpen = useCallback((img: SearchImage) => setSelected(img), [])
   const handleClose = useCallback((open: boolean) => {
     if (!open) setSelected(null)
   }, [])
+  const handleImageError = useCallback((url: string) => {
+    setBrokenUrls((prev) => new Set(prev).add(url))
+  }, [])
 
-  if (images.length === 0) return null
+  const visibleImages = images.filter((img) => !brokenUrls.has(img.url))
+
+  if (visibleImages.length === 0) return null
 
   return (
     <>
@@ -28,7 +34,7 @@ export function ImageGallery({ images }: ImageGalleryProps) {
         className="grid grid-cols-3 gap-2 sm:grid-cols-4"
         {...(shouldReduce ? {} : staggerContainer)}
       >
-        {images.map((img, i) => (
+        {visibleImages.map((img, i) => (
           <motion.button
             key={i}
             type="button"
@@ -40,6 +46,7 @@ export function ImageGallery({ images }: ImageGalleryProps) {
             <img
               src={img.url}
               alt={img.description ?? ''}
+              onError={() => handleImageError(img.url)}
               className={cn(
                 'size-full object-cover',
                 !shouldReduce && 'transition-transform duration-200 hover:scale-105',

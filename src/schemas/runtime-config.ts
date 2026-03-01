@@ -67,7 +67,7 @@ export const RuntimeConfigSchema = z.object({
     }),
   }),
   models: z.object({
-    routerModel: z.string().min(1),
+    routerModel: z.string().min(1).default('meta-llama/llama-3.1-8b-instruct'),
     failurePolicy: z.enum(['retry_then_fail']),
     strictValidation: z.boolean(),
     registry: z.object({

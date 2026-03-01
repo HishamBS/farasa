@@ -33,7 +33,7 @@ export function ImageGallery({ images }: ImageGalleryProps) {
             key={i}
             type="button"
             onClick={() => handleOpen(img)}
-            className="relative aspect-square min-h-11 min-w-11 overflow-hidden rounded-xl border border-[--border-subtle] bg-[--bg-surface]"
+            className="relative aspect-square min-h-11 min-w-11 overflow-hidden rounded-xl border border-(--border-subtle) bg-(--bg-surface)"
             {...(shouldReduce ? {} : fadeInUp)}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -50,7 +50,7 @@ export function ImageGallery({ images }: ImageGalleryProps) {
       </motion.div>
 
       <Dialog open={selected !== null} onOpenChange={handleClose}>
-        <DialogContent className="max-w-3xl border-[--border-default] bg-[--bg-surface] p-2">
+        <DialogContent className="max-w-3xl border-(--border-default) bg-(--bg-surface) p-2">
           {selected && (
             <motion.img
               src={selected.url}

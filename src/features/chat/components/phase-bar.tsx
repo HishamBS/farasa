@@ -35,7 +35,7 @@ export function PhaseBar({ model }: { model?: string }) {
           transition={{ duration: MOTION.DURATION_FAST, ease: MOTION.EASING_IN_OUT }}
           className="shrink-0 overflow-hidden"
         >
-          <div className="flex items-center gap-3 border-b border-[--border-subtle] bg-linear-to-r from-[--accent-muted] to-transparent px-5 py-2.5">
+          <div className="flex items-center gap-3 border-b border-(--border-subtle) bg-linear-to-r from-(--accent-muted) to-transparent px-5 py-2.5">
             <div className="flex items-center gap-2 flex-1">
               {PHASE_ORDER.map((p, idx) => {
                 const label = STREAM_PROGRESS.LABELS[p]
@@ -48,19 +48,19 @@ export function PhaseBar({ model }: { model?: string }) {
                     key={p}
                     className={cn(
                       'flex items-center gap-1.5 text-xs transition-colors duration-300',
-                      isPassed && 'text-[--success]',
-                      isCurrent && !isThinking && 'text-[--text-primary] font-medium',
-                      isThinking && 'text-[--thinking]',
-                      !isPassed && !isCurrent && 'text-[--text-ghost]',
+                      isPassed && 'text-(--success)',
+                      isCurrent && !isThinking && 'text-(--text-primary) font-medium',
+                      isThinking && 'text-(--thinking)',
+                      !isPassed && !isCurrent && 'text-(--text-ghost)',
                     )}
                   >
                     <span
                       className={cn(
                         'size-1.5 shrink-0 rounded-full transition-all duration-300',
-                        isPassed && 'bg-[--success]',
-                        isCurrent && !isThinking && 'bg-[--accent] animate-pulse',
-                        isThinking && 'bg-[--thinking] animate-pulse',
-                        !isPassed && !isCurrent && 'bg-[--text-ghost]/40',
+                        isPassed && 'bg-(--success)',
+                        isCurrent && !isThinking && 'bg-(--accent) animate-pulse',
+                        isThinking && 'bg-(--thinking) animate-pulse',
+                        !isPassed && !isCurrent && 'bg-(--text-ghost)/40',
                       )}
                     />
                     <span>{label}</span>
@@ -69,8 +69,8 @@ export function PhaseBar({ model }: { model?: string }) {
               })}
             </div>
             {model && (
-              <div className="ml-auto flex items-center gap-1.5 rounded-full bg-[--provider-anthropic-muted] border border-[--provider-anthropic-border] px-2.5 py-1 text-xs text-[--provider-anthropic]">
-                <span className="size-1.5 rounded-full bg-[--provider-anthropic]" />
+              <div className="ml-auto flex items-center gap-1.5 rounded-full bg-(--provider-anthropic-muted) border border-(--provider-anthropic-border) px-2.5 py-1 text-xs text-(--provider-anthropic)">
+                <span className="size-1.5 rounded-full bg-(--provider-anthropic)" />
                 {model}
               </div>
             )}

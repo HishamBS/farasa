@@ -15,7 +15,7 @@ export function StopButton({ onAbort }: StopButtonProps) {
     <motion.button
       type="button"
       onClick={onAbort}
-      className="flex min-h-8 min-w-8 items-center justify-center rounded-lg border border-[--error] text-[--error] hover:bg-[--error]/10"
+      className="flex min-h-8 min-w-8 items-center justify-center rounded-lg border border-(--error) text-(--error) hover:bg-(--error)/10"
       {...(shouldReduce ? {} : scaleIn)}
       aria-label="Stop generating"
     >

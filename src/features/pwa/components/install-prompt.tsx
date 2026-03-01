@@ -51,7 +51,7 @@ export function InstallPrompt() {
       <button
         type="button"
         onClick={handleInstall}
-        className="flex min-h-11 items-center gap-2 rounded-xl border border-[--border-default] bg-[--bg-glass] px-4 py-2 text-sm text-[--text-primary] backdrop-blur-lg transition-colors hover:bg-[--bg-surface-hover]"
+        className="flex min-h-11 items-center gap-2 rounded-xl border border-(--border-default) bg-(--bg-glass) px-4 py-2 text-sm text-(--text-primary) backdrop-blur-lg transition-colors hover:bg-(--bg-surface-hover)"
       >
         <Download className="size-4" />
         Install App

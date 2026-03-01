@@ -37,7 +37,7 @@ export function SidebarContainer({ children, isOpen, onClose, onOpen }: SidebarP
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            className="fixed inset-0 z-40 bg-[--overlay] backdrop-blur-sm lg:hidden"
+            className="fixed inset-0 z-40 bg-(--overlay) backdrop-blur-sm lg:hidden"
             initial={shouldReduce ? {} : { opacity: 0 }}
             animate={shouldReduce ? {} : { opacity: 1 }}
             exit={shouldReduce ? {} : { opacity: 0 }}
@@ -54,7 +54,7 @@ export function SidebarContainer({ children, isOpen, onClose, onOpen }: SidebarP
         transition={shouldReduce ? {} : { duration: MOTION.DURATION_SLOW, ease: MOTION.EASING }}
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex w-72 flex-col',
-          'bg-[--bg-glass] border-r border-[--border-subtle] backdrop-blur-xl saturate-150',
+          'bg-(--bg-glass) border-r border-(--border-subtle) backdrop-blur-xl saturate-150',
           'shadow-(--shadow-elevation-2) lg:shadow-none',
           'lg:static lg:translate-x-0',
         )}

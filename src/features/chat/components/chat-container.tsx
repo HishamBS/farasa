@@ -5,7 +5,7 @@ import { trpc } from '@/trpc/provider'
 import { useChatStream } from '../hooks/use-chat-stream'
 import { MessageList } from './message-list'
 import { ChatInput } from './chat-input'
-import { StreamProgress } from '@/features/stream-phases/components/stream-progress'
+import { PhaseIndicator } from './phase-indicator'
 import type { ChatInputHandle } from './chat-input'
 import { CHAT_STREAM_STATUS, SESSION_KEYS, UX, CHAT_MODES, MESSAGE_ROLES } from '@/config/constants'
 import { ChatInputSchema } from '@/schemas/message'
@@ -99,7 +99,7 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <StreamProgress streamState={streamState} />
+      <PhaseIndicator streamState={streamState} model={conversation?.model ?? undefined} />
       <MessageList
         messages={messages}
         streamState={streamState}
@@ -112,7 +112,7 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
         onAbort={abort}
         isStreaming={isStreaming}
         conversationId={conversationId}
-        initialModel={conversation?.model}
+        initialModel={conversation?.model ?? undefined}
       />
     </div>
   )

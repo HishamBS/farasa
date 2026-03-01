@@ -23,18 +23,18 @@ export function ModeToggle({ value, onChange }: ModeToggleProps) {
   const handleChange = useCallback((mode: SearchMode) => () => onChange(mode), [onChange])
 
   return (
-    <div className="flex items-center gap-1 rounded-xl border border-[--border-subtle] bg-[--bg-surface] p-1 shadow-inner shadow-black/10">
+    <div className="flex items-center gap-0.5 rounded-xl border border-(--border-subtle) bg-(--bg-surface) p-1">
       {MODES.map(({ value: modeValue, label }) => (
         <button
           key={modeValue}
           type="button"
           onClick={handleChange(modeValue)}
           className={cn(
-            'relative min-h-7 min-w-[72px] rounded-lg px-3 py-1 text-xs font-semibold transition-all',
+            'relative flex min-h-7 min-w-14 items-center justify-center rounded-md px-3 py-1 text-xs font-medium transition-all duration-200 ease-out',
             value === modeValue
-              ? 'text-white'
-              : 'text-[--text-muted] hover:text-[--text-secondary]',
-            shouldReduce && value === modeValue && 'bg-[--accent]',
+              ? 'text-white drop-shadow-sm'
+              : 'text-(--text-muted) hover:text-(--text-secondary)',
+            shouldReduce && value === modeValue && 'bg-accent shadow-md shadow-accent/20',
           )}
           aria-pressed={value === modeValue}
           aria-label={`${label} mode`}
@@ -42,7 +42,7 @@ export function ModeToggle({ value, onChange }: ModeToggleProps) {
           {value === modeValue && !shouldReduce && (
             <motion.span
               layoutId="mode-active-pill"
-              className="absolute inset-0 rounded-lg border border-[--accent] bg-[--accent] shadow-(--shadow-elevation-1)"
+              className="absolute inset-0 rounded-md bg-accent shadow-md shadow-accent/20"
               transition={springBounce}
             />
           )}

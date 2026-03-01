@@ -146,17 +146,17 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
   )
 
   return (
-    <div className="shrink-0 border-t border-[--border-subtle] bg-[--bg-root] pb-[env(safe-area-bottom)]">
-      <div className="mx-auto max-w-(--content-max-width) px-5 pb-4 pt-2.5 lg:px-6">
+    <div className="shrink-0 pb-4 xl:pb-6">
+      <div className="mx-auto w-full max-w-2xl px-5 lg:px-6">
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           className={cn(
-            'rounded-2xl border bg-[--bg-glass] px-3 py-2.5 shadow-(--shadow-elevation-2) backdrop-blur-[20px] saturate-140',
+            'rounded-2xl border bg-(--bg-glass) p-2.5 shadow-md backdrop-blur-xl saturate-150 transition-all duration-300',
             isDragging
-              ? 'border-[--accent] ring-4 ring-[--accent-muted]'
-              : 'border-[--border-default] focus-within:border-[--accent-focus]',
+              ? 'border-(--accent) ring-4 ring-(--accent)/20'
+              : 'border-(--border-default) focus-within:border-(--accent)/30 focus-within:ring-4 focus-within:ring-(--accent)/10 focus-within:shadow-xl',
           )}
         >
           {uploadStates.size > 0 && (
@@ -183,7 +183,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
               onKeyDown={handleKey}
               placeholder={APP_CONFIG.CHAT_PLACEHOLDER}
               rows={1}
-              className="min-h-6 max-h-30 w-full resize-none bg-transparent text-sm text-[--text-primary] placeholder:text-[--text-muted] outline-none"
+              className="min-h-6 max-h-30 w-full resize-none bg-transparent text-sm text-(--text-primary) placeholder:text-(--text-muted) outline-none"
               disabled={isStreaming}
             />
 
@@ -196,15 +196,6 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
                 className="hidden"
                 multiple
               />
-
-              <button
-                type="button"
-                onClick={handleAttachClick}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-secondary]"
-                aria-label="Attach file"
-              >
-                <Paperclip className="size-4" />
-              </button>
 
               <MicButton onTranscript={handleTranscript} />
 
@@ -226,10 +217,10 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
                     onClick={handleSubmit}
                     disabled={!canSend}
                     className={cn(
-                      'flex min-h-8 min-w-8 items-center justify-center rounded-lg transition-transform duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
+                      'flex size-8 items-center justify-center rounded-lg transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
                       canSend
-                        ? 'bg-[--accent] text-[--bg-root] hover:scale-[1.08] hover:bg-[--accent-hover]'
-                        : 'bg-[--bg-surface-hover] text-[--text-ghost]',
+                        ? 'bg-(--accent) text-(--bg-root) shadow-md shadow-(--accent)/20 hover:scale-110 hover:bg-(--accent-hover)'
+                        : 'bg-white/5 text-white/20',
                     )}
                     {...(shouldReduce ? {} : scaleIn)}
                     exit={
@@ -237,7 +228,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
                     }
                     aria-label="Send message"
                   >
-                    <Send size={14} />
+                    <Send size={15} className={canSend ? 'translate-x-px' : ''} />
                   </motion.button>
                 )}
               </AnimatePresence>
@@ -245,25 +236,25 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           </div>
         </div>
 
-        <div className="flex items-center gap-2 px-0.5 pt-1.5">
+        <div className="mt-2 flex items-center gap-2.5">
           <ModelSelector ref={modelSelectorRef} value={selectedModel} onChange={setSelectedModel} />
 
           <button
             type="button"
             onClick={handleAttachClick}
-            className="hidden items-center gap-1 rounded-md px-2 py-1 text-xs text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-secondary] sm:inline-flex"
+            className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-(--text-muted) transition-colors hover:bg-white/5 hover:text-(--text-secondary)"
           >
-            <Paperclip size={12} />
+            <Paperclip size={14} />
             Attach file
           </button>
 
-          <span className="ml-auto hidden text-[11.5px] text-[--text-ghost] sm:block">
+          <span className="ml-auto text-xs text-(--text-ghost) hidden sm:block">
             {UI_TEXT.CHAT_KEYBOARD_HINT}
           </span>
         </div>
 
         {mode === 'search' && (
-          <div className="mt-1 px-1 text-xs text-[--text-muted]">Search mode is active.</div>
+          <div className="mt-1 px-1 text-xs text-(--text-muted)">Search mode is active.</div>
         )}
       </div>
     </div>

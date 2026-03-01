@@ -22,12 +22,12 @@ export function InputAdapter({
   return (
     <div className="flex flex-col gap-1.5">
       {resolvedLabel && (
-        <label className="text-xs font-medium text-[--text-muted]">{resolvedLabel}</label>
+        <label className="text-xs font-medium text-(--text-muted)">{resolvedLabel}</label>
       )}
       <Input
         value={value}
         onChange={handleChange}
-        className="border-[--border-default] bg-[--bg-input] text-[--text-primary] placeholder:text-[--text-ghost]"
+        className="border-(--border-default) bg-(--bg-input) text-(--text-primary) placeholder:text-(--text-ghost)"
       />
     </div>
   )

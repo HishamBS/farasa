@@ -50,7 +50,7 @@ export function ConversationList({ search }: ConversationListProps) {
         {Array.from({ length: UX.SIDEBAR_SKELETON_COUNT }).map((_, i) => (
           <div
             key={`skeleton-${i}`}
-            className="h-11 animate-pulse rounded-lg bg-[--bg-surface-hover]"
+            className="h-11 animate-pulse rounded-lg bg-(--bg-surface-hover)"
           />
         ))}
       </div>
@@ -60,7 +60,7 @@ export function ConversationList({ search }: ConversationListProps) {
   if (!conversations.length) {
     return (
       <div className="px-4 py-8 text-center">
-        <p className="text-sm text-[--text-muted]">No conversations yet</p>
+        <p className="text-sm text-(--text-muted)">No conversations yet</p>
       </div>
     )
   }
@@ -68,7 +68,7 @@ export function ConversationList({ search }: ConversationListProps) {
   return (
     <div className="flex flex-col gap-0.5 px-1.5 pb-3">
       {!search.trim() && (
-        <p className="px-3.5 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-[--text-muted]">
+        <p className="px-3.5 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-(--text-muted)">
           Recent
         </p>
       )}
@@ -86,7 +86,7 @@ export function ConversationList({ search }: ConversationListProps) {
       <div ref={sentinelRef} className="h-1">
         {isFetchingNextPage && (
           <div className="flex justify-center py-2">
-            <span className="size-4 animate-spin rounded-full border-2 border-[--border-default] border-t-[--accent]" />
+            <span className="size-4 animate-spin rounded-full border-2 border-(--border-default) border-t-(--accent)" />
           </div>
         )}
       </div>

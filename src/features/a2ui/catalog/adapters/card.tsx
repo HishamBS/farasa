@@ -7,7 +7,7 @@ import type { CardComponentProps } from '@a2ui-sdk/types/0.8/standard-catalog'
 
 export function CardAdapter({ child, surfaceId }: BaseComponentProps & CardComponentProps) {
   return (
-    <Card className="border-[--border-subtle] bg-[--bg-surface]">
+    <Card className="border-(--border-subtle) bg-(--bg-surface)">
       <CardContent className="p-4">
         {child ? <ComponentRenderer surfaceId={surfaceId} componentId={child} /> : null}
       </CardContent>

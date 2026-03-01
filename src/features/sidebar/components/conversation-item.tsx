@@ -175,11 +175,9 @@ export function ConversationItem({
     <>
       <motion.div
         className={cn(
-          'group relative flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2',
-          'transition-all hover:bg-[--bg-surface-hover]',
-          isActive &&
-            'bg-[--bg-glass-strong] shadow-[0_2px_10px_rgba(0,0,0,0.1)] shadow-black/30 border border-[--border-subtle]',
-          !isActive && 'border border-transparent',
+          'group relative flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2.5 py-2',
+          'transition-colors duration-150 hover:bg-(white/5)',
+          isActive ? 'bg-(--bg-surface-active)' : 'bg-transparent',
         )}
         onClick={handleClick}
         onContextMenu={(e) => {
@@ -201,26 +199,33 @@ export function ConversationItem({
               onBlur={handleRenameCommit}
               onKeyDown={handleRenameKeyDown}
               onClick={(e) => e.stopPropagation()}
-              className="w-full bg-transparent text-sm text-[--text-primary] outline-none border-b border-[--accent]"
+              className="w-full bg-transparent text-sm text-(--text-primary) outline-none border-b border-(--accent)"
             />
           ) : (
             <p
               className={cn(
-                'truncate text-sm leading-tight',
-                isActive ? 'text-[--text-primary]' : 'text-[--text-secondary]',
+                'truncate text-sm leading-snug font-normal',
+                isActive ? 'text-(--text-primary)' : 'text-(--text-secondary)',
               )}
             >
               {title}
             </p>
           )}
-          <p className="mt-0.5 text-xs text-[--text-muted]">{formattedDate}</p>
+          <p className="mt-0.5 text-xs text-(--text-muted)">{formattedDate}</p>
         </div>
+
+        {isActive && (
+          <div
+            className="absolute right-2 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_8px_rgba(34,211,238,0.5)]"
+            aria-hidden="true"
+          />
+        )}
 
         {(isPinned || isActive) && (
           <span
             className={cn(
               'absolute right-2 top-1/2 -translate-y-1/2',
-              isPinned ? 'text-[--accent]' : 'text-[--text-ghost]',
+              isPinned ? 'text-accent' : 'text-(--text-ghost)',
             )}
             aria-hidden="true"
           >
@@ -237,7 +242,7 @@ export function ConversationItem({
           <button
             type="button"
             onClick={handleRenameStart}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:bg-[--bg-surface-hover] hover:text-[--text-primary]"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-primary)"
             aria-label="Rename"
           >
             <Pencil size={12} />
@@ -246,7 +251,7 @@ export function ConversationItem({
             type="button"
             onClick={handleExport}
             disabled={isExporting}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:bg-[--bg-surface-hover] hover:text-[--text-primary] disabled:opacity-50"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-primary) disabled:opacity-50"
             aria-label="Export as Markdown"
           >
             <Download size={12} />
@@ -254,7 +259,7 @@ export function ConversationItem({
           <button
             type="button"
             onClick={handlePin}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:bg-[--bg-surface-hover] hover:text-[--text-primary]"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-primary)"
             aria-label={isPinned ? 'Unpin' : 'Pin'}
           >
             {isPinned ? <PinOff size={12} /> : <Pin size={12} />}
@@ -262,7 +267,7 @@ export function ConversationItem({
           <button
             type="button"
             onClick={handleDeleteClick}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded text-[--text-muted] hover:bg-[--bg-surface-hover] hover:text-[--error]"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--error)"
             aria-label="Delete"
           >
             <Trash2 size={12} />
@@ -280,7 +285,7 @@ export function ConversationItem({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConfirmed}
-              className="bg-[--error] text-white hover:opacity-90"
+              className="bg-(--error) text-white hover:opacity-90"
             >
               {UI_TEXT.DELETE_CONFIRM_ACTION}
             </AlertDialogAction>

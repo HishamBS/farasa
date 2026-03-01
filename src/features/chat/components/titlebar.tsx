@@ -87,18 +87,18 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
   const getPillContent = () => {
     if (streamPhase === 'thinking') {
       return {
-        bg: 'bg-[--thinking-bg]',
-        border: 'border-[--thinking-border]',
-        text: 'text-[--thinking]',
+        bg: 'bg-(--thinking-bg)',
+        border: 'border-(--thinking-border)',
+        text: 'text-(--thinking)',
         label: 'Thinking',
         showDot: true,
       }
     }
     if (streamPhase === 'streaming') {
       return {
-        bg: 'bg-[--accent-muted]',
-        border: 'border-[--accent-glow]',
-        text: 'text-[--accent]',
+        bg: 'bg-(--accent-muted)',
+        border: 'border-(--accent-glow)',
+        text: 'text-(--accent)',
         label: 'Generating',
         showDot: true,
       }
@@ -107,7 +107,7 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
       return {
         bg: 'bg-emerald-400/10',
         border: 'border-emerald-400/20',
-        text: 'text-[--success]',
+        text: 'text-(--success)',
         label: 'Ready',
         showDot: false,
       }
@@ -122,47 +122,47 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
 
   return (
     <>
-      <header className="relative z-20 flex h-12 shrink-0 items-center gap-2.5 border-b border-[--border-subtle] bg-[--bg-root] px-4">
+      <header className="relative z-20 flex h-12 shrink-0 items-center gap-2.5 border-b border-(--border-subtle) bg-(--bg-root) px-4">
         <button
           type="button"
           onClick={onMenuClick}
-          className="flex h-7 w-7 items-center justify-center rounded-lg text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-secondary] lg:hidden"
+          className="flex h-7 w-7 items-center justify-center rounded-lg text-(--text-muted) transition-colors hover:bg-(white/5) hover:text-(--text-secondary) lg:hidden"
           aria-label={UI_TEXT.OPEN_SIDEBAR_ARIA}
         >
           <Menu size={16} />
         </button>
 
         <div className="flex items-center gap-3">
-          <div className="truncate max-w-[200px] md:max-w-xs">
+          <div className="truncate max-w-xs">
             {title ? (
-              <span className="text-sm font-medium text-[--text-secondary]">{title}</span>
+              <span className="text-sm font-medium text-(--text-secondary)">{title}</span>
             ) : (
-              <span className="text-sm font-medium text-[--text-muted]">New Chat</span>
+              <span className="text-sm font-medium text-(--text-muted)">New Chat</span>
             )}
           </div>
-
-          <AnimatePresence mode="wait">
-            {isPillVisible && pillInfo && (
-              <motion.div
-                key={pillInfo.label}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: MOTION.DURATION_NORMAL }}
-                className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-medium ${pillInfo.bg} ${pillInfo.border} ${pillInfo.text}`}
-              >
-                {pillInfo.showDot ? (
-                  <span className={`size-1.5 rounded-full animate-pulse bg-current`} />
-                ) : (
-                  <Check size={10} className="text-[--success]" />
-                )}
-                {pillInfo.label}
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
 
         <div className="flex-1" />
+
+        <AnimatePresence mode="wait">
+          {pillInfo && isPillVisible && (
+            <motion.div
+              key={pillInfo.label}
+              initial={{ opacity: 0, y: -4, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -4, scale: 0.98 }}
+              transition={{ duration: MOTION.DURATION_FAST }}
+              className={`mr-1 flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${pillInfo.bg} ${pillInfo.border} ${pillInfo.text}`}
+            >
+              {pillInfo.showDot ? (
+                <span className="size-1.5 rounded-full bg-current animate-pulse" />
+              ) : (
+                <Check size={12} />
+              )}
+              <span>{pillInfo.label}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <ModeToggle value={mode} onChange={setMode} />
 
@@ -171,7 +171,7 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-secondary]"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)"
                 aria-label="More options"
               >
                 <MoreHorizontal size={16} />
@@ -194,7 +194,7 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => setShowDeleteConfirm(true)}
-                className="text-[--error] focus:text-[--error]"
+                className="text-(--error) focus:text-(--error)"
               >
                 <Trash2 size={14} className="mr-2" />
                 Delete
@@ -206,7 +206,7 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
         {!(conversationId && conversation) && (
           <button
             type="button"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-secondary]"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)"
             aria-label="More options"
           >
             <MoreHorizontal size={16} />
@@ -224,7 +224,7 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConfirmed}
-              className="bg-[--error] text-white hover:opacity-90"
+              className="bg-(--error) text-white hover:opacity-90"
             >
               {UI_TEXT.DELETE_CONFIRM_ACTION}
             </AlertDialogAction>

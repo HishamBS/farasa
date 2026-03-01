@@ -171,21 +171,21 @@ export const PROVIDERS = {
 } as const
 
 export const PROVIDER_DOT_CLASSES: Record<string, string> = {
-  [PROVIDERS.ANTHROPIC]: 'bg-[--provider-anthropic]',
-  [PROVIDERS.OPENAI]: 'bg-[--provider-openai]',
-  [PROVIDERS.GOOGLE]: 'bg-[--provider-google]',
-  [PROVIDERS.META]: 'bg-[--provider-meta]',
-  [PROVIDERS.GROQ]: 'bg-[--provider-groq]',
-  [PROVIDERS.CEREBRAS]: 'bg-[--provider-cerebras]',
+  [PROVIDERS.ANTHROPIC]: 'bg-(--provider-anthropic)',
+  [PROVIDERS.OPENAI]: 'bg-(--provider-openai)',
+  [PROVIDERS.GOOGLE]: 'bg-(--provider-google)',
+  [PROVIDERS.META]: 'bg-(--provider-meta)',
+  [PROVIDERS.GROQ]: 'bg-(--provider-groq)',
+  [PROVIDERS.CEREBRAS]: 'bg-(--provider-cerebras)',
 }
 
 export const PROVIDER_TEXT_CLASSES: Record<string, string> = {
-  [PROVIDERS.ANTHROPIC]: 'text-[--provider-anthropic]',
-  [PROVIDERS.OPENAI]: 'text-[--provider-openai]',
-  [PROVIDERS.GOOGLE]: 'text-[--provider-google]',
-  [PROVIDERS.META]: 'text-[--provider-meta]',
-  [PROVIDERS.GROQ]: 'text-[--provider-groq]',
-  [PROVIDERS.CEREBRAS]: 'text-[--provider-cerebras]',
+  [PROVIDERS.ANTHROPIC]: 'text-(--provider-anthropic)',
+  [PROVIDERS.OPENAI]: 'text-(--provider-openai)',
+  [PROVIDERS.GOOGLE]: 'text-(--provider-google)',
+  [PROVIDERS.META]: 'text-(--provider-meta)',
+  [PROVIDERS.GROQ]: 'text-(--provider-groq)',
+  [PROVIDERS.CEREBRAS]: 'text-(--provider-cerebras)',
 }
 
 export const UX = {

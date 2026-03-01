@@ -31,7 +31,7 @@ export function OfflineBanner() {
         <motion.div
           role="status"
           aria-live="assertive"
-          className="fixed left-0 right-0 top-0 z-50 flex items-center justify-center gap-2 bg-[--warning] px-4 py-2 text-sm font-medium text-black"
+          className="fixed left-0 right-0 top-0 z-50 flex items-center justify-center gap-2 bg-(--warning) px-4 py-2 text-sm font-medium text-black"
           {...(shouldReduce ? {} : fadeInDown)}
         >
           <CloudOff className="size-4" />

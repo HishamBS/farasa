@@ -21,7 +21,7 @@ export function ModelBadge({ isRouting, modelSelection }: ModelBadgeProps) {
   const shouldReduce = useReducedMotion()
 
   const provider = modelSelection?.model.split('/')[0] ?? ''
-  const dotClass = PROVIDER_DOT_CLASSES[provider] ?? 'bg-[--text-ghost]'
+  const dotClass = PROVIDER_DOT_CLASSES[provider] ?? 'bg-(--text-ghost)'
 
   const badge = modelSelection ? (
     <motion.div
@@ -30,7 +30,7 @@ export function ModelBadge({ isRouting, modelSelection }: ModelBadgeProps) {
       {...(shouldReduce ? {} : fadeIn)}
     >
       <span className={cn('size-1.5 rounded-full', dotClass)} />
-      <span className="font-mono text-xs text-[--text-muted]">
+      <span className="font-mono text-xs text-(--text-muted)">
         {extractModelName(modelSelection.model)}
       </span>
     </motion.div>
@@ -45,16 +45,16 @@ export function ModelBadge({ isRouting, modelSelection }: ModelBadgeProps) {
           {...(shouldReduce ? {} : fadeIn)}
         >
           <span
-            className={cn('size-1.5 rounded-full bg-[--accent]', !shouldReduce && 'animate-pulse')}
+            className={cn('size-1.5 rounded-full bg-(--accent)', !shouldReduce && 'animate-pulse')}
           />
-          <span className="text-xs text-[--text-muted]">{STATUS_MESSAGES.ROUTING}</span>
+          <span className="text-xs text-(--text-muted)">{STATUS_MESSAGES.ROUTING}</span>
         </motion.div>
       ) : modelSelection?.reasoning ? (
         <Tooltip>
           <TooltipTrigger asChild>{badge}</TooltipTrigger>
           <TooltipContent className="max-w-xs text-xs" side="bottom">
-            <p className="font-medium text-[--text-secondary]">Router reasoning</p>
-            <p className="mt-1 text-[--text-muted]">{modelSelection.reasoning}</p>
+            <p className="font-medium text-(--text-secondary)">Router reasoning</p>
+            <p className="mt-1 text-(--text-muted)">{modelSelection.reasoning}</p>
           </TooltipContent>
         </Tooltip>
       ) : (

@@ -91,7 +91,7 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
       const prov = sel?.provider ?? ''
       return {
         selected: sel,
-        dotClass: PROVIDER_DOT_CLASSES[prov] ?? 'bg-[--text-ghost]',
+        dotClass: PROVIDER_DOT_CLASSES[prov] ?? 'bg-(--text-ghost)',
       }
     }, [models, value])
 
@@ -192,7 +192,7 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
           aria-haspopup="listbox"
           aria-expanded={open}
           aria-label={value ? `Model: ${selected?.name ?? value}` : 'Model: Auto'}
-          className="flex min-h-8 items-center gap-1.5 rounded-md px-2 py-1 text-xs text-[--text-muted] transition-colors hover:bg-[--bg-surface-hover] hover:text-[--text-secondary]"
+          className="flex min-h-8 items-center gap-1.5 rounded-md px-2 py-1 text-xs text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)"
         >
           {value ? (
             <>
@@ -219,19 +219,19 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
             <motion.div
               role="listbox"
               aria-label="Select model"
-              className="absolute bottom-full left-0 z-50 mb-1 flex max-h-80 w-88 flex-col overflow-hidden rounded-xl border border-[--border-subtle] bg-[--bg-glass-strong] shadow-xl shadow-black/30 backdrop-blur-3xl"
+              className="absolute bottom-full left-0 z-50 mb-1 flex max-h-80 w-88 flex-col overflow-hidden rounded-xl border border-(--border-subtle) bg-(--bg-glass-strong) shadow-xl shadow-black/30 backdrop-blur-3xl"
               {...(shouldReduce ? {} : fadeInDown)}
             >
-              <div className="border-b border-[--border-subtle] p-2">
+              <div className="border-b border-(--border-subtle) p-2">
                 <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-[--text-ghost]" />
+                  <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-(--text-ghost)" />
                   <input
                     ref={searchInputRef}
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search models..."
-                    className="w-full rounded-md bg-[--bg-surface] py-1.5 pl-8 pr-3 text-sm text-[--text-primary] placeholder:text-[--text-ghost] outline-none border border-transparent focus:border-[--border-default] focus:ring-1 focus:ring-[--accent-muted]"
+                    className="w-full rounded-md bg-(--bg-surface) py-1.5 pl-8 pr-3 text-sm text-(--text-primary) placeholder:text-(--text-ghost) outline-none border border-transparent focus:border-(--border-default) focus:ring-1 focus:ring-(--accent-muted)"
                     // Prevent closing on space bar when searching
                     onKeyDown={(e) => e.stopPropagation()}
                   />
@@ -250,17 +250,17 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
                     tabIndex={focusedIndex === 0 ? 0 : -1}
                     onClick={handleSelectAuto}
                     className={cn(
-                      'flex w-full min-h-10 items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[--bg-surface-hover]',
-                      !value && 'bg-[--accent-muted] text-[--accent]',
+                      'flex w-full min-h-10 items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-(--bg-surface-hover)',
+                      !value && 'bg-(--accent-muted) text-accent',
                     )}
                   >
                     <Sparkles className="size-3 shrink-0" />
                     <span className="font-medium">Auto</span>
-                    <span className="ml-auto text-[--text-ghost]">Router picks</span>
+                    <span className="ml-auto text-(--text-ghost)">Router picks</span>
                   </button>
                 )}
 
-                <div className="mx-1 border-t border-[--border-subtle]" />
+                <div className="mx-1 border-t border-(--border-subtle)" />
 
                 {Object.entries(grouped).map(([provider, providerModels]) => (
                   <div key={provider} className="p-1">
@@ -268,10 +268,10 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
                       <span
                         className={cn(
                           'size-1.5 rounded-full',
-                          PROVIDER_DOT_CLASSES[provider] ?? 'bg-[--text-ghost]',
+                          PROVIDER_DOT_CLASSES[provider] ?? 'bg-(--text-ghost)',
                         )}
                       />
-                      <span className="text-xs font-medium uppercase tracking-wider text-[--text-ghost]">
+                      <span className="text-xs font-medium uppercase tracking-wider text-(--text-ghost)">
                         {provider}
                       </span>
                     </div>
@@ -290,33 +290,33 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
                           tabIndex={focusedIndex === idx ? 0 : -1}
                           onClick={() => handleSelect(m.id)}
                           className={cn(
-                            'flex w-full min-h-10 flex-col gap-1 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[--bg-surface-hover]',
-                            value === m.id && 'bg-[--accent-muted] text-[--accent]',
+                            'flex w-full min-h-10 flex-col gap-1 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-(--bg-surface-hover)',
+                            value === m.id && 'bg-(--accent-muted) text-accent',
                           )}
                         >
                           <div className="flex w-full items-center gap-2">
                             <span className="flex-1 truncate font-mono">{m.name}</span>
-                            <span className="shrink-0 text-[--text-ghost]">
+                            <span className="shrink-0 text-(--text-ghost)">
                               {Math.round(m.contextWindow / LIMITS.TOKENS_PER_K)}k
                             </span>
-                            <span className="shrink-0 text-[--text-ghost]">
+                            <span className="shrink-0 text-(--text-ghost)">
                               ${m.pricing.promptPerMillion}/M
                             </span>
                           </div>
                           {(m.supportsThinking || m.supportsVision || m.supportsTools) && (
                             <div className="flex flex-wrap gap-1">
                               {m.supportsThinking && (
-                                <span className="rounded-full bg-[--thinking]/10 px-1.5 py-0.5 text-[10px] text-[--thinking]">
+                                <span className="rounded-full bg-(--thinking)/10 px-1.5 py-0.5 text-[0.625rem] text-(--thinking)">
                                   Thinking
                                 </span>
                               )}
                               {m.supportsVision && (
-                                <span className="rounded-full bg-[--accent-muted] px-1.5 py-0.5 text-[10px] text-[--accent]">
+                                <span className="rounded-full bg-(--accent-muted) px-1.5 py-0.5 text-[0.625rem] text-accent">
                                   Vision
                                 </span>
                               )}
                               {m.supportsTools && (
-                                <span className="rounded-full bg-[--bg-surface-active] px-1.5 py-0.5 text-[10px] text-[--text-muted]">
+                                <span className="rounded-full bg-(--bg-surface-active) px-1.5 py-0.5 text-[0.625rem] text-(--text-muted)">
                                   Tools
                                 </span>
                               )}
@@ -328,7 +328,7 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
                   </div>
                 ))}
                 {Object.keys(grouped).length === 0 && searchQuery && (
-                  <div className="px-4 py-8 text-center text-sm text-[--text-muted]">
+                  <div className="px-4 py-8 text-center text-sm text-(--text-muted)">
                     No models found for &quot;{searchQuery}&quot;
                   </div>
                 )}

@@ -25,7 +25,7 @@ export function EmptyState({ onSelect }: EmptyStateProps) {
       <motion.button
         type="button"
         onClick={handleSelect}
-        className="mt-8 rounded-2xl border border-[--border-default] bg-[--bg-shell] px-6 py-3 text-base text-[--text-secondary] backdrop-blur-xl transition-colors hover:text-[--text-primary] sm:mt-10"
+        className="mt-8 rounded-2xl border border-(--border-default) bg-(--bg-shell) px-6 py-3 text-base text-(--text-secondary) backdrop-blur-xl transition-colors hover:text-(--text-primary) sm:mt-10"
         {...(shouldReduce ? {} : fadeInUp)}
       >
         {previewSuggestion}

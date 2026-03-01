@@ -48,24 +48,23 @@ export function CodeBlock({ children, className }: CodeBlockProps) {
   }, [code, validLang, theme])
 
   return (
-    <div className="my-3.5 overflow-hidden rounded-xl border border-[--border-subtle] bg-white/5">
-      <div className="flex items-center justify-between border-b border-[--border-subtle] bg-black/20 px-3 py-2">
-        <span className="font-sans text-[11px] text-[--text-ghost]">{validLang}</span>
+    <div className="my-4 overflow-hidden rounded-lg border border-(--border-subtle) bg-(--bg-code-header) shadow-inner">
+      <div className="flex items-center justify-between border-b border-[#ffffff0a] px-4 py-2">
+        <span className="font-mono text-xs text-(--text-muted) uppercase tracking-wide">
+          {validLang}
+        </span>
         <CopyButton code={code} />
       </div>
 
-      <div
-        className="overflow-x-auto text-[0.8rem] leading-relaxed"
-        data-line-numbers={showLineNumbers}
-      >
+      <div className="overflow-x-auto text-sm leading-relaxed" data-line-numbers={showLineNumbers}>
         {html ? (
           <div
-            className="[&>pre]:bg-transparent! [&>pre]:p-3.5"
+            className="[&>pre]:bg-transparent! [&>pre]:p-4"
             dangerouslySetInnerHTML={{ __html: html }}
           />
         ) : (
           <pre className="p-4">
-            <code className="text-[--text-secondary]">{code}</code>
+            <code className="text-(--text-secondary)">{code}</code>
           </pre>
         )}
       </div>

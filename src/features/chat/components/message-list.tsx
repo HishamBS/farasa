@@ -57,16 +57,16 @@ export function MessageList({
       {isEmpty ? (
         <EmptyState onSelect={onSuggestionSelect} />
       ) : (
-        <div className="mx-auto flex w-full max-w-[var(--content-max-width)] flex-col px-5 lg:px-6">
+        <div className="mx-auto flex w-full max-w-2xl flex-col px-5 lg:px-6">
           {dividerLabel && (
-            <div className="mb-4 flex items-center gap-2.5 text-xs text-[--text-muted]">
-              <span className="h-px flex-1 bg-[--border-subtle]" />
+            <div className="mb-8 flex items-center gap-4 text-xs font-medium text-(--text-muted)">
+              <span className="h-px flex-1 bg-(--border-subtle)" />
               <span>{dividerLabel}</span>
-              <span className="h-px flex-1 bg-[--border-subtle]" />
+              <span className="h-px flex-1 bg-(--border-subtle)" />
             </div>
           )}
 
-          <div className="space-y-6">
+          <div className="flex flex-col gap-9">
             {messages.map((message) => (
               <MessageBubble key={message.id} message={message} />
             ))}
@@ -79,7 +79,7 @@ export function MessageList({
         <motion.button
           type="button"
           onClick={resume}
-          className="fixed bottom-24 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-[--border-default] bg-[--bg-shell-strong] px-4 py-2 text-sm text-[--text-secondary] shadow-lg hover:bg-[--bg-surface-hover]"
+          className="fixed bottom-24 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-(--border-default) bg-(--bg-shell-strong) px-4 py-2 text-sm text-(--text-secondary) shadow-lg hover:bg-(--bg-surface-hover)"
           {...(shouldReduce ? {} : fadeIn)}
           aria-label="Scroll to latest message"
         >

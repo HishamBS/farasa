@@ -26,7 +26,7 @@ export function A2UIMessage({ messages }: A2UIMessageProps) {
   if (!policy || safeMessages.length === 0) return null
 
   return (
-    <div className="rounded-xl border border-[--border-subtle] bg-[--bg-surface] p-3">
+    <div className="rounded-xl border border-(--border-subtle) bg-(--bg-surface) p-3">
       <A2UIPolicyProvider policy={policy}>
         <A2UIProvider messages={safeMessages} catalog={customCatalog}>
           <A2UIRenderer onAction={handleAction} />

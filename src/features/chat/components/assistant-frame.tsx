@@ -16,31 +16,27 @@ export function AssistantFrame({
   isStreaming = false,
   children,
 }: AssistantFrameProps) {
+  const hasMeta = Boolean(modelLabel || tokenLabel)
+
   return (
-    <article className="mb-4">
-      <div className="mb-2.5 flex items-center gap-2">
-        <div className="flex size-6 items-center justify-center rounded-lg bg-linear-to-br from-[--accent] to-[--thinking] text-[10px] font-bold text-[--bg-root]">
+    <article className="mb-0.5 flex flex-col pt-2">
+      <div className="mb-2 flex items-center gap-2.5">
+        <div className="flex size-6 items-center justify-center rounded-md bg-linear-to-br from-[#6366f1] to-(--thinking) text-xs font-bold text-(--bg-root) shadow-inner shadow-white/20">
           f
         </div>
-        <span className="text-sm font-medium text-[--text-secondary]">farasa</span>
-        <div
-          className={cn(
-            'ml-auto flex items-center gap-1.5 text-xs',
-            isStreaming ? 'text-[--accent]' : 'text-[--text-muted]',
-          )}
-        >
-          {!isStreaming && modelLabel && (
-            <>
-              <span className="size-1.5 rounded-full bg-[--provider-anthropic]" />
-              <span>{modelLabel}</span>
-            </>
-          )}
-          {isStreaming && <span>streaming…</span>}
-          {!isStreaming && tokenLabel && <span>· {tokenLabel}</span>}
-        </div>
+        <span className="text-sm font-medium text-(--text-primary)">farasa</span>
+        {isStreaming && <span className="size-1.5 animate-pulse rounded-full bg-(--thinking)" />}
       </div>
 
-      <div className="pl-8 text-sm lg:text-[0.9375rem] leading-[1.72] text-[--text-primary]">
+      {hasMeta && (
+        <div className="mb-2 pl-8 text-xs text-(--text-muted)">
+          <span className={cn(isStreaming && 'animate-pulse')}>{modelLabel}</span>
+          {modelLabel && tokenLabel ? ' · ' : null}
+          <span>{tokenLabel}</span>
+        </div>
+      )}
+
+      <div className="pl-8 text-sm lg:text-base leading-relaxed text-(--text-primary)">
         {children}
       </div>
     </article>

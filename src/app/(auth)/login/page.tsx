@@ -16,25 +16,25 @@ export default function LoginPage() {
   return (
     <div className="relative z-10 w-full max-w-sm px-4">
       <motion.div
-        className="rounded-2xl border border-[--border-default] bg-[--bg-shell] p-8 shadow-2xl shadow-black/30 backdrop-blur-2xl"
+        className="rounded-2xl border border-(--border-default) bg-(--bg-shell) p-8 shadow-2xl shadow-black/30 backdrop-blur-2xl"
         {...(shouldReduce ? {} : fadeInUp)}
       >
         <motion.div
           className="mb-8 flex flex-col items-center gap-2"
           {...(shouldReduce ? {} : scaleIn)}
         >
-          <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-xl bg-[--accent-muted]">
-            <span className="text-lg font-bold text-[--accent]">f</span>
+          <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-xl bg-(--accent-muted)">
+            <span className="text-lg font-bold text-(--accent)">f</span>
           </div>
 
-          <h1 className="text-2xl font-semibold tracking-tight text-[--text-primary]">farasa</h1>
-          <p className="text-sm text-[--text-muted]">Your intelligent AI workspace</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-(--text-primary)">farasa</h1>
+          <p className="text-sm text-(--text-muted)">Your intelligent AI workspace</p>
         </motion.div>
 
         <button
           type="button"
           onClick={handleGoogleSignIn}
-          className="flex min-h-11 w-full items-center justify-center gap-3 rounded-xl border border-[--border-default] bg-[--bg-surface] px-4 py-3 text-sm font-medium text-[--text-primary] transition-colors hover:border-[--accent-glow] hover:bg-[--bg-surface-hover]"
+          className="flex min-h-11 w-full items-center justify-center gap-3 rounded-xl border border-(--border-default) bg-(--bg-surface) px-4 py-3 text-sm font-medium text-(--text-primary) transition-colors hover:border-(--accent-glow) hover:bg-(--bg-surface-hover)"
         >
           <svg className="size-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
             <path
@@ -57,7 +57,7 @@ export default function LoginPage() {
           Continue with Google
         </button>
 
-        <p className="mt-6 text-center text-xs text-[--text-ghost]">
+        <p className="mt-6 text-center text-xs text-(--text-ghost)">
           By continuing, you agree to our terms of service
         </p>
       </motion.div>

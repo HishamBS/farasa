@@ -25,10 +25,13 @@ export function useChatInput(initialModel?: string | null) {
   }, [])
 
   const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>, onSubmit: () => void) => {
+    (e: React.KeyboardEvent<HTMLTextAreaElement>, onSubmit: () => void, onAbort?: () => void) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
         onSubmit()
+      } else if (e.key === 'Escape' && onAbort) {
+        e.preventDefault()
+        onAbort()
       }
     },
     [],

@@ -9,15 +9,11 @@ import { A2UIMessage } from '@/features/a2ui/components/a2ui-message'
 import { TTSControls } from '@/features/voice/components/tts-controls'
 import { CHAT_STREAM_STATUS } from '@/config/constants'
 import { AssistantFrame } from './assistant-frame'
+import { extractModelName } from '@/lib/utils/model'
 import type { StreamState } from '@/types/stream'
 
 type AssistantMessageProps = {
   streamState: StreamState
-}
-
-function extractModelName(modelId: string): string {
-  const parts = modelId.split('/')
-  return parts.length > 1 ? (parts.slice(1).join('/') ?? modelId) : modelId
 }
 
 export function AssistantMessage({ streamState }: AssistantMessageProps) {

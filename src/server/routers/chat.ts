@@ -346,7 +346,7 @@ export const chatRouter = router({
         const { routeModel } = await import('@/lib/ai/router')
         let selection: Awaited<ReturnType<typeof routeModel>>
         try {
-          selection = await routeModel(input.content, registry, runtimeConfig)
+          selection = await routeModel(input.content, registry, runtimeConfig, combinedSignal)
         } catch {
           throw new TRPCError({
             code: TRPC_CODES.BAD_REQUEST,
@@ -883,7 +883,7 @@ export const chatRouter = router({
         yield generatingTitleEvent
 
         const { generateTitle } = await import('@/lib/ai/title')
-        const generatedTitle = await generateTitle(input.content, runtimeConfig)
+        const generatedTitle = await generateTitle(input.content, runtimeConfig, combinedSignal)
         const boundedTitle = generatedTitle.slice(
           0,
           runtimeConfig.limits.conversationTitleMaxLength,

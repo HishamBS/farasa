@@ -39,7 +39,7 @@ export const conversationRouter = router({
       .select()
       .from(conversations)
       .where(and(...conditions))
-      .orderBy(desc(conversations.isPinned), desc(conversations.updatedAt))
+      .orderBy(desc(conversations.isPinned), desc(conversations.updatedAt), desc(conversations.id))
       .limit(fetchLimit)
 
     const hasMore = rows.length === fetchLimit
@@ -221,7 +221,10 @@ export const conversationRouter = router({
 
     const rows = await ctx.db.query.messages.findMany({
       where: and(...conditions),
-      orderBy: (_fields, operators) => [operators.desc(messages.createdAt)],
+      orderBy: (_fields, operators) => [
+        operators.desc(messages.createdAt),
+        operators.desc(messages.id),
+      ],
       limit: Math.min(
         input.limit ?? runtimeConfig.limits.paginationDefaultLimit,
         runtimeConfig.limits.paginationMaxLimit,

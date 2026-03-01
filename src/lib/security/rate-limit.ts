@@ -2,6 +2,8 @@ import { TRPCError } from '@trpc/server'
 
 type RateLimitEntry = { count: number; resetAt: number }
 
+// TODO(production): Replace with Redis-backed store for multi-instance Cloud Run.
+// In-memory store allows N_instances × rate_limit requests/min.
 const store = new Map<string, RateLimitEntry>()
 
 export function checkRateLimit(

@@ -11,6 +11,7 @@ import { TTSControls } from '@/features/voice/components/tts-controls'
 import { MessageMetadataSchema } from '@/schemas/message'
 import { TOOL_NAMES, AI_PARAMS } from '@/config/constants'
 import { AssistantFrame } from './assistant-frame'
+import { extractModelName } from '@/lib/utils/model'
 import type { Message, MessageMetadata } from '@/schemas/message'
 import type { ThinkingState, ToolExecutionState } from '@/types/stream'
 import type { v0_8 } from '@a2ui-sdk/types'
@@ -62,11 +63,6 @@ function buildToolExecutions(metadata: MessageMetadata): ToolExecutionState[] {
       completedAt: 1,
     },
   ]
-}
-
-function extractModelName(modelId: string): string {
-  const parts = modelId.split('/')
-  return parts.length > 1 ? (parts.slice(1).join('/') ?? modelId) : modelId
 }
 
 export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessageProps) {

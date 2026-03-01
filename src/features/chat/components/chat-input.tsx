@@ -92,9 +92,9 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
 
   const handleKey = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      handleKeyDown(e, handleSubmit)
+      handleKeyDown(e, handleSubmit, isStreaming ? onAbort : undefined)
     },
-    [handleKeyDown, handleSubmit],
+    [handleKeyDown, handleSubmit, isStreaming, onAbort],
   )
 
   const canSend = useMemo(() => content.trim().length > 0 && !isStreaming, [content, isStreaming])

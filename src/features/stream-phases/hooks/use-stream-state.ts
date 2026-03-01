@@ -99,11 +99,22 @@ function streamStateReducer(state: StreamState, action: StreamAction): StreamSta
         ...state,
         phase: CHAT_STREAM_STATUS.ERROR,
         error: action.error,
+        thinking:
+          state.thinking && !state.thinking.completedAt
+            ? { ...state.thinking, completedAt: Date.now() }
+            : state.thinking,
       }
     }
 
     case STREAM_ACTIONS.DONE: {
-      return { ...state, phase: CHAT_STREAM_STATUS.COMPLETE }
+      return {
+        ...state,
+        phase: CHAT_STREAM_STATUS.COMPLETE,
+        thinking:
+          state.thinking && !state.thinking.completedAt
+            ? { ...state.thinking, completedAt: Date.now() }
+            : state.thinking,
+      }
     }
 
     case STREAM_ACTIONS.SAVE_INPUT: {

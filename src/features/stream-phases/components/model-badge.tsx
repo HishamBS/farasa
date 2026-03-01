@@ -5,16 +5,12 @@ import { fadeIn } from '@/lib/utils/motion'
 import { cn } from '@/lib/utils/cn'
 import { STATUS_MESSAGES, STREAM_PROGRESS, PROVIDER_DOT_CLASSES } from '@/config/constants'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { extractModelName } from '@/lib/utils/model'
 import type { ModelSelectionState } from '@/types/stream'
 
 type ModelBadgeProps = {
   isRouting: boolean
   modelSelection: ModelSelectionState | null
-}
-
-function extractModelName(modelId: string): string {
-  const parts = modelId.split('/')
-  return parts.length > 1 ? (parts.slice(1).join('/') ?? modelId) : modelId
 }
 
 export function ModelBadge({ isRouting, modelSelection }: ModelBadgeProps) {

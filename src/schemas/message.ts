@@ -137,6 +137,11 @@ export const MessageSchema = z.object({
   createdAt: z.date(),
 })
 
+export const CancelStreamInputSchema = z.object({
+  conversationId: z.string().uuid(),
+  streamRequestId: z.string().uuid().optional(),
+})
+
 export type ChatMode = z.infer<typeof ChatModeSchema>
 export type MessageRole = z.infer<typeof MessageRoleSchema>
 export type Attachment = z.infer<typeof AttachmentSchema>
@@ -147,3 +152,4 @@ export type ChatInput = z.infer<typeof ChatInputSchema>
 export type ToolCall = z.infer<typeof ToolCallSchema>
 export type MessageMetadata = z.infer<typeof MessageMetadataSchema>
 export type Message = z.infer<typeof MessageSchema>
+export type CancelStreamInput = z.infer<typeof CancelStreamInputSchema>

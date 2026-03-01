@@ -1,8 +1,12 @@
 import { and, asc, eq, inArray, isNotNull, or, sql } from 'drizzle-orm'
-import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure, rateLimitedChatProcedure } from '../trpc'
-import { ChatInputSchema, MessageMetadataSchema, UsageSchema } from '@/schemas/message'
+import {
+  ChatInputSchema,
+  MessageMetadataSchema,
+  UsageSchema,
+  CancelStreamInputSchema,
+} from '@/schemas/message'
 import type { SearchImage, SearchResult } from '@/schemas/search'
 import { conversations, messages, attachments } from '@/lib/db/schema'
 import {
@@ -939,24 +943,17 @@ export const chatRouter = router({
     }
   }),
 
-  cancel: protectedProcedure
-    .input(
-      z.object({
-        conversationId: z.string().uuid(),
-        streamRequestId: z.string().uuid().optional(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      const key = getConversationStreamKey(ctx.userId, input.conversationId)
-      const active = activeStreamsByConversation.get(key)
-      if (!active) {
-        return { cancelled: false }
-      }
-      if (input.streamRequestId && active.streamRequestId !== input.streamRequestId) {
-        return { cancelled: false }
-      }
-      active.abortController.abort('cancelled_by_client')
-      endStreamSession(active)
-      return { cancelled: true }
-    }),
+  cancel: protectedProcedure.input(CancelStreamInputSchema).mutation(async ({ ctx, input }) => {
+    const key = getConversationStreamKey(ctx.userId, input.conversationId)
+    const active = activeStreamsByConversation.get(key)
+    if (!active) {
+      return { cancelled: false }
+    }
+    if (input.streamRequestId && active.streamRequestId !== input.streamRequestId) {
+      return { cancelled: false }
+    }
+    active.abortController.abort('cancelled_by_client')
+    endStreamSession(active)
+    return { cancelled: true }
+  }),
 })

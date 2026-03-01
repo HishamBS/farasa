@@ -125,6 +125,11 @@ export const RuntimeConfigSchema = z.object({
 
 export const RuntimeConfigOverrideSchema = RuntimeConfigSchema.deepPartial()
 
+export const InvalidateRuntimeConfigInputSchema = z
+  .object({ userScoped: z.boolean().default(false) })
+  .default({ userScoped: false })
+
 export type RuntimeConfig = z.infer<typeof RuntimeConfigSchema>
 export type RuntimeConfigOverride = z.infer<typeof RuntimeConfigOverrideSchema>
 export type RuntimeA2UIPolicy = RuntimeConfig['safety']['a2ui']
+export type InvalidateRuntimeConfigInput = z.infer<typeof InvalidateRuntimeConfigInputSchema>

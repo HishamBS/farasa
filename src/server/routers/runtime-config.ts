@@ -1,6 +1,6 @@
-import { z } from 'zod'
 import { router, protectedProcedure } from '../trpc'
 import { getRuntimeConfig, clearRuntimeConfigCache } from '@/lib/runtime-config/service'
+import { InvalidateRuntimeConfigInputSchema } from '@/schemas/runtime-config'
 
 export const runtimeConfigRouter = router({
   get: protectedProcedure.query(async ({ ctx }) => {
@@ -8,13 +8,7 @@ export const runtimeConfigRouter = router({
   }),
 
   invalidate: protectedProcedure
-    .input(
-      z
-        .object({
-          userScoped: z.boolean().default(false),
-        })
-        .default({ userScoped: false }),
-    )
+    .input(InvalidateRuntimeConfigInputSchema)
     .mutation(async ({ ctx, input }) => {
       if (input.userScoped) {
         clearRuntimeConfigCache({ userId: ctx.userId })

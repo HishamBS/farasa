@@ -308,6 +308,48 @@ export const EMPTY_STATE_SUGGESTIONS = [
     prompt: 'Summarize the latest AI research trends, focusing on LLMs and multimodal models.',
     icon: 'Sparkles',
   },
+  {
+    title: 'Draft an email',
+    label: 'to a potential client',
+    prompt:
+      'Draft a professional and engaging email to a potential client introducing our web development services.',
+    icon: 'Mail',
+  },
+  {
+    title: 'Help me debug',
+    label: 'a React hydration error',
+    prompt:
+      'I am getting a React hydration mismatch error in my Next.js app. What are the common causes and how do I fix it?',
+    icon: 'Bug',
+  },
+  {
+    title: 'Plan a learning roadmap',
+    label: 'for machine learning',
+    prompt:
+      'Create a 3-month learning roadmap for a beginner wanting to learn machine learning, including key topics and resources.',
+    icon: 'Map',
+  },
+  {
+    title: 'Brainstorm brand names',
+    label: 'for a tech startup',
+    prompt:
+      'Brainstorm 10 creative and modern brand names for a new AI-focused tech startup, including domain availability ideas.',
+    icon: 'Lightbulb',
+  },
+  {
+    title: 'Review my resume',
+    label: 'for a frontend role',
+    prompt:
+      'Acting as a senior engineering manager, please review my resume for a Senior Frontend Developer role and suggest improvements.',
+    icon: 'FileText',
+  },
+  {
+    title: 'Teach me how to use',
+    label: 'Docker containers',
+    prompt:
+      'Teach me the basics of Docker. What are containers, images, and volumes? Provide a simple example of a Dockerfile.',
+    icon: 'Box',
+  },
 ] as const
 
 export const UI_TEXT = {

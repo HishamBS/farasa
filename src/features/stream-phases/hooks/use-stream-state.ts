@@ -2,7 +2,7 @@ import { useReducer, useCallback } from 'react'
 import { CHAT_STREAM_STATUS, STREAM_ACTIONS, TOOL_NAMES } from '@/config/constants'
 import type { StreamState, StreamAction } from '@/types/stream'
 
-const initialState: StreamState = {
+export const initialStreamState: StreamState = {
   phase: CHAT_STREAM_STATUS.IDLE,
   statusMessages: [],
   thinking: null,
@@ -16,7 +16,7 @@ const initialState: StreamState = {
   pendingUserMessage: null,
 }
 
-function streamStateReducer(state: StreamState, action: StreamAction): StreamState {
+export function streamStateReducer(state: StreamState, action: StreamAction): StreamState {
   switch (action.type) {
     case STREAM_ACTIONS.STATUS: {
       const now = Date.now()
@@ -126,13 +126,13 @@ function streamStateReducer(state: StreamState, action: StreamAction): StreamSta
     }
 
     case STREAM_ACTIONS.RESET: {
-      return { ...initialState, lastInput: state.lastInput }
+      return { ...initialStreamState, lastInput: state.lastInput }
     }
   }
 }
 
 export function useStreamState() {
-  const [state, dispatch] = useReducer(streamStateReducer, initialState)
+  const [state, dispatch] = useReducer(streamStateReducer, initialStreamState)
   const reset = useCallback(() => dispatch({ type: STREAM_ACTIONS.RESET }), [])
   return { state, dispatch, reset }
 }

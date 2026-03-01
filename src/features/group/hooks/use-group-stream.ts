@@ -1,9 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { trpcClient } from '@/trpc/client'
-import { GROUP_EVENTS, STREAM_EVENTS } from '@/config/constants'
-import type { StreamState, StreamAction } from '@/types/stream'
+import { GROUP_EVENTS, STREAM_ACTIONS, STREAM_EVENTS, CHAT_STREAM_STATUS } from '@/config/constants'
+import {
+  streamStateReducer,
+  initialStreamState,
+} from '@/features/stream-phases/hooks/use-stream-state'
+import type { StreamState } from '@/types/stream'
 import type { GroupStreamInput, GroupOutputChunk } from '@/schemas/group'
 
 type GroupStreamPhase = 'idle' | 'active' | 'done' | 'error'
@@ -22,42 +26,6 @@ type UseGroupStreamOptions = {
   enabled: boolean
   input: GroupStreamInput | null
   onConversationCreated?: (conversationId: string) => void
-}
-
-const STREAM_ACTIONS_TEXT_CHUNK = 'TEXT_CHUNK' as const
-const STREAM_ACTIONS_ERROR = 'ERROR' as const
-const STREAM_ACTIONS_DONE = 'DONE' as const
-const STREAM_ACTIONS_RESET = 'RESET' as const
-
-function makeInitialStreamState(): StreamState {
-  return {
-    phase: 'idle',
-    statusMessages: [],
-    thinking: null,
-    modelSelection: null,
-    toolExecutions: [],
-    textContent: '',
-    a2uiMessages: [],
-    error: null,
-    lastInput: null,
-    detectedSearchMode: false,
-    pendingUserMessage: null,
-  }
-}
-
-function streamStateReducer(state: StreamState, action: StreamAction): StreamState {
-  switch (action.type) {
-    case STREAM_ACTIONS_TEXT_CHUNK:
-      return { ...state, phase: 'active', textContent: state.textContent + action.content }
-    case STREAM_ACTIONS_ERROR:
-      return { ...state, phase: 'error', error: action.error }
-    case STREAM_ACTIONS_DONE:
-      return { ...state, phase: 'complete' }
-    case STREAM_ACTIONS_RESET:
-      return makeInitialStreamState()
-    default:
-      return state
-  }
 }
 
 type ActiveSubscription = {
@@ -81,6 +49,23 @@ export function useGroupStream({
   const onConversationCreatedRef = useRef(onConversationCreated)
   onConversationCreatedRef.current = onConversationCreated
 
+  const inputRef = useRef(input)
+  useEffect(() => {
+    inputRef.current = input
+  }, [input])
+
+  const inputKey = useMemo(
+    () =>
+      input
+        ? JSON.stringify({
+            c: input.conversationId,
+            m: input.models,
+            content: input.content,
+          })
+        : null,
+    [input],
+  )
+
   const abort = useCallback(() => {
     const active = activeSubRef.current
     if (!active) return
@@ -90,14 +75,17 @@ export function useGroupStream({
   }, [])
 
   useEffect(() => {
-    if (!enabled || !input) return
+    if (!enabled || !inputKey) return
+
+    const currentInput = inputRef.current
+    if (!currentInput) return
 
     const sessionId = crypto.randomUUID()
 
     const initialStates = new Map<string, StreamState>()
     const initialOrder: string[] = []
-    for (const modelId of input.models) {
-      initialStates.set(modelId, makeInitialStreamState())
+    for (const modelId of currentInput.models) {
+      initialStates.set(modelId, initialStreamState)
       initialOrder.push(modelId)
     }
     setModelStates(new Map(initialStates))
@@ -107,7 +95,10 @@ export function useGroupStream({
     setGroupDone(false)
     setError(undefined)
 
-    const subscription = trpcClient.group.stream.subscribe(input, {
+    const newSub: ActiveSubscription = { sessionId, unsubscribe: () => {} }
+    activeSubRef.current = newSub
+
+    const subscription = trpcClient.group.stream.subscribe(currentInput, {
       onData(chunk: GroupOutputChunk) {
         const active = activeSubRef.current
         if (!active || active.sessionId !== sessionId) return
@@ -118,11 +109,11 @@ export function useGroupStream({
           if (streamChunk.type === STREAM_EVENTS.TEXT) {
             setModelStates((prev) => {
               const next = new Map(prev)
-              const current = next.get(modelId) ?? makeInitialStreamState()
+              const current = next.get(modelId) ?? { ...initialStreamState }
               next.set(
                 modelId,
                 streamStateReducer(current, {
-                  type: STREAM_ACTIONS_TEXT_CHUNK,
+                  type: STREAM_ACTIONS.TEXT_CHUNK,
                   content: streamChunk.content,
                 }),
               )
@@ -131,17 +122,16 @@ export function useGroupStream({
           } else if (streamChunk.type === STREAM_EVENTS.ERROR) {
             setModelStates((prev) => {
               const next = new Map(prev)
-              const current = next.get(modelId) ?? makeInitialStreamState()
+              const current = next.get(modelId) ?? { ...initialStreamState }
               next.set(
                 modelId,
                 streamStateReducer(current, {
-                  type: STREAM_ACTIONS_ERROR,
+                  type: STREAM_ACTIONS.ERROR,
                   error: {
                     message: streamChunk.message,
                     code: streamChunk.code,
                     reasonCode: streamChunk.reasonCode,
                     recoverable: streamChunk.recoverable,
-                    attempt: streamChunk.attempt,
                   },
                 }),
               )
@@ -150,8 +140,8 @@ export function useGroupStream({
           } else if (streamChunk.type === STREAM_EVENTS.DONE) {
             setModelStates((prev) => {
               const next = new Map(prev)
-              const current = next.get(modelId) ?? makeInitialStreamState()
-              next.set(modelId, streamStateReducer(current, { type: STREAM_ACTIONS_DONE }))
+              const current = next.get(modelId) ?? { ...initialStreamState }
+              next.set(modelId, streamStateReducer(current, { type: STREAM_ACTIONS.DONE }))
               return next
             })
           }
@@ -171,8 +161,11 @@ export function useGroupStream({
           setModelStates((prev) => {
             const next = new Map(prev)
             for (const [modelId, state] of next) {
-              if (state.phase !== 'error' && state.phase !== 'complete') {
-                next.set(modelId, streamStateReducer(state, { type: STREAM_ACTIONS_DONE }))
+              if (
+                state.phase !== CHAT_STREAM_STATUS.ERROR &&
+                state.phase !== CHAT_STREAM_STATUS.COMPLETE
+              ) {
+                next.set(modelId, streamStateReducer(state, { type: STREAM_ACTIONS.DONE }))
               }
             }
             return next
@@ -193,28 +186,15 @@ export function useGroupStream({
       },
     })
 
-    const sub: ActiveSubscription = {
-      sessionId,
-      unsubscribe: () => subscription.unsubscribe(),
-    }
-    activeSubRef.current = sub
+    newSub.unsubscribe = () => subscription.unsubscribe()
 
     return () => {
-      sub.unsubscribe()
+      newSub.unsubscribe()
       if (activeSubRef.current?.sessionId === sessionId) {
         activeSubRef.current = null
       }
     }
-  }, [enabled, input])
-
-  useEffect(() => {
-    return () => {
-      const active = activeSubRef.current
-      if (!active) return
-      active.unsubscribe()
-      activeSubRef.current = null
-    }
-  }, [])
+  }, [enabled, inputKey])
 
   return {
     modelStates,

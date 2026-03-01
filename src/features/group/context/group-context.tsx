@@ -15,6 +15,7 @@ const GroupModeContext = createContext<GroupModeContextValue | null>(null)
 export function GroupModeProvider({ children }: { children: ReactNode }) {
   const { data: prefs } = trpc.userPreferences.get.useQuery()
   const updatePrefs = trpc.userPreferences.update.useMutation()
+  const updatePrefsMutate = updatePrefs.mutate
 
   const [groupModels, setGroupModelsState] = useState<string[]>([])
   const [judgeModel, setJudgeModelState] = useState<string | undefined>(undefined)
@@ -39,17 +40,17 @@ export function GroupModeProvider({ children }: { children: ReactNode }) {
   const setGroupModels = useCallback(
     (models: string[]) => {
       setGroupModelsState(models)
-      updatePrefs.mutate({ groupModels: models })
+      updatePrefsMutate({ groupModels: models })
     },
-    [updatePrefs],
+    [updatePrefsMutate],
   )
 
   const setJudgeModel = useCallback(
     (model: string | undefined) => {
       setJudgeModelState(model)
-      updatePrefs.mutate({ groupJudgeModel: model ?? null })
+      updatePrefsMutate({ groupJudgeModel: model ?? null })
     },
-    [updatePrefs],
+    [updatePrefsMutate],
   )
 
   const value = useMemo(

@@ -234,7 +234,8 @@ export const groupRouter = router({
       .limit(1)
 
     const shouldGenerateTitle =
-      conversation.title === NEW_CHAT_TITLE && Number(messageCount?.value ?? 0) <= 2
+      conversation.title === NEW_CHAT_TITLE &&
+      Number(messageCount?.value ?? 0) <= 1 + input.models.length
 
     if (shouldGenerateTitle) {
       try {

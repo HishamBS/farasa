@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { STREAM_EVENTS, STREAM_PHASES, CHAT_MODES } from '@/config/constants'
+import { STREAM_EVENTS, STREAM_PHASES, CHAT_MODES, LIMITS } from '@/config/constants'
 import { SearchImageSchema, SearchModeSchema, SearchResultSchema } from './search'
 
 export const MessageRoleSchema = z.enum(['user', 'assistant', 'system'])
@@ -9,7 +9,7 @@ export const AttachmentSchema = z.object({
   fileName: z.string(),
   fileType: z.string(),
   fileSize: z.number().int().positive(),
-  storageUrl: z.string().url(),
+  storageUrl: z.string(),
 })
 
 export const UsageSchema = z.object({
@@ -91,7 +91,7 @@ export const StreamChunkSchema = z.discriminatedUnion('type', [
 ])
 
 export const InlineAttachmentSchema = z.object({
-  dataUrl: z.string(),
+  dataUrl: z.string().max(LIMITS.INLINE_ATTACHMENT_MAX_DATA_URL_LENGTH),
   fileName: z.string(),
   fileType: z.string(),
 })

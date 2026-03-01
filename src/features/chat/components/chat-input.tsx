@@ -77,8 +77,14 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     return () => document.removeEventListener('keydown', handler)
   }, [])
 
+  const isTooLong = content.length > LIMITS.MESSAGE_MAX_LENGTH
+  const canSend = useMemo(
+    () => content.trim().length > 0 && !isStreaming && !isTooLong,
+    [content, isStreaming, isTooLong],
+  )
+
   const handleSubmit = useCallback(() => {
-    if (!content.trim() || isStreaming) return
+    if (!content.trim() || isStreaming || isTooLong) return
     const inlineAttachments = [...uploadStates.values()]
       .filter((s) => s.inlineDataUrl && !s.isUploading && !s.error)
       .map((s) => ({ dataUrl: s.inlineDataUrl!, fileName: s.fileName, fileType: s.fileType }))
@@ -93,6 +99,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     clear()
   }, [
     content,
+    isTooLong,
     mode,
     selectedModel,
     conversationId,
@@ -108,12 +115,6 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
       handleKeyDown(e, handleSubmit, isStreaming ? onAbort : undefined)
     },
     [handleKeyDown, handleSubmit, isStreaming, onAbort],
-  )
-
-  const isTooLong = content.length > LIMITS.MESSAGE_MAX_LENGTH
-  const canSend = useMemo(
-    () => content.trim().length > 0 && !isStreaming && !isTooLong,
-    [content, isStreaming, isTooLong],
   )
 
   const handleFiles = useCallback(

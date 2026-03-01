@@ -15,7 +15,7 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { fadeInUp } from '@/lib/utils/motion'
-import { EMPTY_STATE_SUGGESTIONS, UI_TEXT, MOTION } from '@/config/constants'
+import { EMPTY_STATE_SUGGESTIONS, UI_TEXT, MOTION, LIMITS } from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
 
 type EmptyStateProps = {
@@ -35,12 +35,15 @@ const ICON_MAP = {
 } as const
 
 const getShuffledItems = (count: number) => {
-  const array = [
-    ...EMPTY_STATE_SUGGESTIONS,
-  ] as unknown as (typeof EMPTY_STATE_SUGGESTIONS)[number][]
+  const array = [...EMPTY_STATE_SUGGESTIONS]
   for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
-    ;[array[i], array[j]] = [array[j]!, array[i]!]
+    const tmp = array[i]
+    const src = array[j]
+    if (tmp !== undefined && src !== undefined) {
+      array[i] = src
+      array[j] = tmp
+    }
   }
   return array.slice(0, count)
 }
@@ -48,13 +51,13 @@ const getShuffledItems = (count: number) => {
 export function EmptyState({ onSelect }: EmptyStateProps) {
   const shouldReduce = useReducedMotion()
   const [currentSuggestions, setCurrentSuggestions] = useState(() =>
-    EMPTY_STATE_SUGGESTIONS.slice(0, 4),
+    EMPTY_STATE_SUGGESTIONS.slice(0, LIMITS.EMPTY_STATE_CHIP_COUNT),
   )
   const [isRefreshing, setIsRefreshing] = useState(false)
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    setCurrentSuggestions(getShuffledItems(3))
+    setCurrentSuggestions(getShuffledItems(LIMITS.EMPTY_STATE_CHIP_COUNT))
     return () => {
       if (refreshTimerRef.current !== null) clearTimeout(refreshTimerRef.current)
     }
@@ -63,7 +66,7 @@ export function EmptyState({ onSelect }: EmptyStateProps) {
   const handleExploreMore = useCallback(() => {
     setIsRefreshing(true)
     refreshTimerRef.current = setTimeout(() => {
-      setCurrentSuggestions(getShuffledItems(4))
+      setCurrentSuggestions(getShuffledItems(LIMITS.EMPTY_STATE_CHIP_COUNT))
       setIsRefreshing(false)
     }, 500)
   }, [])

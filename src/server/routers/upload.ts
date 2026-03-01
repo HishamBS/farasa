@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import { and, eq, isNull, lt } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure, rateLimitedUploadProcedure } from '../trpc'
@@ -8,10 +9,10 @@ import { env } from '@/config/env'
 
 export const uploadRouter = router({
   config: protectedProcedure.query(() => {
-    return {
-      gcsEnabled:
-        env.GOOGLE_APPLICATION_CREDENTIALS !== undefined && env.GCS_BUCKET_NAME !== undefined,
-    }
+    const credPath = env.GOOGLE_APPLICATION_CREDENTIALS
+    const gcsEnabled =
+      credPath !== undefined && env.GCS_BUCKET_NAME !== undefined && existsSync(credPath)
+    return { gcsEnabled }
   }),
 
   presignedUrl: rateLimitedUploadProcedure

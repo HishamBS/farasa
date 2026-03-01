@@ -20,10 +20,11 @@ export function ToolExecution({ execution }: ToolExecutionProps) {
   const isComplete = !!execution.completedAt
   const isSearch = execution.name === TOOL_NAMES.WEB_SEARCH
 
-  const query =
-    typeof execution.input === 'object' && execution.input !== null && 'query' in execution.input
-      ? String((execution.input as { query: string }).query)
-      : ''
+  const rawInput =
+    typeof execution.input === 'object' && execution.input !== null
+      ? (execution.input as Record<string, unknown>)
+      : null
+  const query = rawInput && 'query' in rawInput ? String(rawInput['query']) : ''
 
   const parsedSearchPayload = useMemo(() => {
     if (!execution.result || typeof execution.result !== 'object') {

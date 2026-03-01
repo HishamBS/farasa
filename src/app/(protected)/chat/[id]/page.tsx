@@ -1,4 +1,5 @@
 import { ChatContainer } from '@/features/chat/components/chat-container'
+import { ErrorBoundary } from '@/components/error-boundary'
 
 type PageProps = {
   params: Promise<{ id: string }>
@@ -6,5 +7,9 @@ type PageProps = {
 
 export default async function ChatByIdPage({ params }: PageProps) {
   const { id } = await params
-  return <ChatContainer conversationId={id} />
+  return (
+    <ErrorBoundary>
+      <ChatContainer conversationId={id} />
+    </ErrorBoundary>
+  )
 }

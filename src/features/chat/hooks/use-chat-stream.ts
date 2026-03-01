@@ -20,8 +20,10 @@ type ActiveStreamSession = {
 
 function isA2UIMessage(value: unknown): value is v0_8.A2UIMessage {
   if (value === null || typeof value !== 'object') return false
-  if (!('type' in value)) return false
-  return typeof value['type'] === 'string'
+  const obj = value as Record<string, unknown>
+  if (typeof obj['type'] !== 'string') return false
+  if (!('id' in obj) || typeof obj['id'] !== 'string') return false
+  return true
 }
 
 function classifyRecoverableReason(reasonCode?: string): boolean {

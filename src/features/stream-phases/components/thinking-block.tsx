@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { expand, collapse } from '@/lib/utils/motion'
-import { UX, STATUS_MESSAGES } from '@/config/constants'
+import { UX, STATUS_MESSAGES, MOTION } from '@/config/constants'
 import type { ThinkingState } from '@/types/stream'
 
 type ThinkingBlockProps = {
@@ -28,7 +28,7 @@ export function ThinkingBlock({ thinking }: ThinkingBlockProps) {
       <button
         type="button"
         onClick={toggle}
-        className="inline-flex cursor-pointer select-none items-center gap-1.5 rounded-xl border border-(--thinking-border) bg-(--thinking-bg) px-2.5 py-1.5 transition-all duration-200 hover:scale-105 hover:border-[#a78bfa4d] active:scale-95"
+        className="inline-flex cursor-pointer select-none items-center gap-1.5 rounded-xl border border-(--thinking-border) bg-(--thinking-bg) px-2.5 py-1.5 transition-all duration-200 hover:scale-105 hover:border-(--thinking-border) active:scale-95"
         aria-expanded={isExpanded}
       >
         <span className="text-sm font-medium text-(--thinking)">
@@ -43,10 +43,10 @@ export function ThinkingBlock({ thinking }: ThinkingBlockProps) {
               className="size-1 rounded-full bg-(--thinking)"
               animate={{ y: [0, -3, 0] }}
               transition={{
-                duration: 0.6,
-                ease: 'easeInOut',
-                repeat: Infinity,
-                delay: i * 0.15,
+                duration: MOTION.DURATION_LOOP,
+                ease: MOTION.EASING_IN_OUT,
+                repeat: MOTION.REPEAT_INFINITE,
+                delay: i * MOTION.STAGGER_CHILDREN,
               }}
             />
           ))}

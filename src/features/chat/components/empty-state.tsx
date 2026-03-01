@@ -15,7 +15,7 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { fadeInUp } from '@/lib/utils/motion'
-import { EMPTY_STATE_SUGGESTIONS } from '@/config/constants'
+import { EMPTY_STATE_SUGGESTIONS, UI_TEXT } from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
 
 type EmptyStateProps = {
@@ -67,11 +67,10 @@ export function EmptyState({ onSelect }: EmptyStateProps) {
         </div>
 
         <h2 className="text-2xl font-semibold tracking-tight text-(--text-primary) md:text-3xl">
-          Welcome to farasa
+          {UI_TEXT.WELCOME_HEADING}
         </h2>
         <p className="max-w-md text-sm text-(--text-secondary) md:text-base">
-          I&apos;m your AI assistant. Let&apos;s build something amazing together today. What&apos;s
-          on your mind?
+          {UI_TEXT.WELCOME_BODY}
         </p>
       </motion.div>
 
@@ -93,7 +92,7 @@ export function EmptyState({ onSelect }: EmptyStateProps) {
               isRefreshing && 'rotate-180',
             )}
           />
-          Explore more
+          {UI_TEXT.EXPLORE_MORE}
         </button>
       </motion.div>
 

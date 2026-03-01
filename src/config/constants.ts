@@ -362,6 +362,10 @@ export const UI_TEXT = {
   DELETE_CONFIRM_TITLE: 'Delete conversation?',
   DELETE_CONFIRM_BODY: 'This will permanently delete the conversation and all its messages.',
   DELETE_CONFIRM_ACTION: 'Delete',
+  WELCOME_HEADING: 'Welcome to farasa',
+  WELCOME_BODY:
+    "I'm your AI assistant. Let's build something amazing together today. What's on your mind?",
+  EXPLORE_MORE: 'Explore more',
 } as const
 
 export const MARKDOWN_SANITIZE = {

@@ -5,13 +5,14 @@ import { env } from '@/config/env'
 import { auth } from '@/lib/auth/config'
 import { db } from '@/lib/db/client'
 
-export type Context = {
-  session: Session | null
-  db: typeof db
+function buildContext(session: Session | null) {
+  return { session, db }
 }
 
+export type Context = ReturnType<typeof buildContext>
+
 export function createContextFromSession(session: Session | null): Context {
-  return { session, db }
+  return buildContext(session)
 }
 
 function sessionFromToken(token: JWT): Session {
@@ -39,13 +40,13 @@ export async function createContextFromRequest(req: Request): Promise<Context> {
   })
 
   if (!token?.sub) {
-    return { session: null, db }
+    return buildContext(null)
   }
 
-  return { session: sessionFromToken(token), db }
+  return buildContext(sessionFromToken(token))
 }
 
 export async function createContext(): Promise<Context> {
   const session = await auth()
-  return { session, db }
+  return buildContext(session)
 }

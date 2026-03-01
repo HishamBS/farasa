@@ -20,7 +20,7 @@ export function CopyButton({ code }: CopyButtonProps) {
     <button
       type="button"
       onClick={handleCopy}
-      className="text-xs text-(--text-muted) transition-colors hover:text-(--text-secondary)"
+      className="rounded-md px-1.5 py-0.5 text-xs text-(--text-muted) transition-colors hover:bg-white/10 hover:text-(--text-primary)"
       aria-label={copied ? 'Copied' : 'Copy code'}
     >
       {copied ? 'Copied' : 'Copy'}

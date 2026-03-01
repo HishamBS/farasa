@@ -172,10 +172,10 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           className={cn(
-            'rounded-2xl border bg-(--bg-glass) p-2.5 shadow-md backdrop-blur-xl saturate-150 transition-all duration-300',
+            'rounded-[16px] border bg-(--bg-glass) p-2.5 shadow-md backdrop-blur-xl saturate-150 transition-all duration-300',
             isDragging
-              ? 'border-(--accent) ring-4 ring-(--accent)/20'
-              : 'border-(--border-default) focus-within:border-(--accent)/30 focus-within:ring-4 focus-within:ring-(--accent)/10 focus-within:shadow-xl',
+              ? 'border-accent ring-4 ring-accent/20'
+              : 'border-(--border-default) focus-within:border-accent/30 focus-within:ring-4 focus-within:ring-accent/10 focus-within:shadow-xl',
           )}
         >
           {uploadStates.size > 0 && (
@@ -206,7 +206,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
               disabled={isStreaming}
             />
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-end gap-1 mb-0.5">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -244,8 +244,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
                     className={cn(
                       'flex size-8 items-center justify-center rounded-lg transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
                       canSend
-                        ? 'bg-(--accent) text-(--bg-root) shadow-md shadow-(--accent)/20 hover:scale-110 hover:bg-(--accent-hover)'
-                        : 'bg-(--accent)/50 text-(--bg-root)/60 cursor-not-allowed',
+                        ? 'bg-accent text-(--bg-root) shadow-md shadow-accent/20 hover:scale-[1.08] hover:bg-accent'
+                        : 'bg-(--bg-surface-active) text-(--text-ghost) cursor-not-allowed',
                     )}
                     {...(shouldReduce ? {} : scaleIn)}
                     exit={
@@ -259,7 +259,11 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
                     }
                     aria-label="Send message"
                   >
-                    <Send size={15} className={canSend ? 'translate-x-px' : ''} />
+                    <Send
+                      size={15}
+                      strokeWidth={2.5}
+                      className={canSend ? 'translate-x-[0.5px] translate-y-[-0.5px]' : ''}
+                    />
                   </motion.button>
                 )}
               </AnimatePresence>
@@ -267,19 +271,19 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           </div>
         </div>
 
-        <div className="mt-2 flex items-center gap-2.5">
+        <div className="mt-1.5 flex items-center gap-2.5">
           <ModelSelector ref={modelSelectorRef} value={selectedModel} onChange={setSelectedModel} />
 
           <button
             type="button"
             onClick={handleAttachClick}
-            className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-(--text-muted) transition-colors hover:bg-white/5 hover:text-(--text-secondary)"
+            className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)"
           >
             <Paperclip size={14} />
             Attach file
           </button>
 
-          <span className="ml-auto text-xs text-(--text-muted) hidden sm:block">
+          <span className="ml-auto text-[11.5px] text-(--text-muted) hidden sm:block tracking-wide">
             {UI_TEXT.CHAT_KEYBOARD_HINT}
           </span>
         </div>

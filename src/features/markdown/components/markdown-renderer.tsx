@@ -14,7 +14,17 @@ type MarkdownRendererProps = {
 }
 
 const components: Components = {
-  code: ({ className, children }) => <CodeBlock className={className}>{children}</CodeBlock>,
+  code: ({ className, children }) => {
+    const isInline = !className?.startsWith('language-')
+    if (isInline) {
+      return (
+        <code className="rounded-md bg-(--bg-surface-active) px-1.5 py-0.5 font-mono text-xs text-accent">
+          {children}
+        </code>
+      )
+    }
+    return <CodeBlock className={className}>{children}</CodeBlock>
+  },
   a: ({ href, children }) => {
     const safeHref = href && /^(https?:|mailto:|\/)/i.test(href) ? href : undefined
     return (
@@ -22,7 +32,7 @@ const components: Components = {
         href={safeHref}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-(--accent) underline underline-offset-2 hover:text-(--accent-hover)"
+        className="text-accent underline underline-offset-2 hover:text-(--accent-hover)"
       >
         {children}
       </a>

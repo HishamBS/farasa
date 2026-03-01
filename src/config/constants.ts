@@ -46,6 +46,7 @@ export const MODEL_CATEGORIES = {
 export const MODEL_IDS = {
   LLAMA_31_8B: 'meta-llama/llama-3.1-8b-instruct',
   GEMINI_FLASH_LITE: 'google/gemini-2.0-flash-lite-001',
+  QWEN_35_A3B: 'qwen/qwen3.5-35b-a3b',
 } as const
 
 export const VOICE = {

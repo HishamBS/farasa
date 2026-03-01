@@ -48,9 +48,9 @@ export function CodeBlock({ children, className }: CodeBlockProps) {
   }, [code, validLang, theme])
 
   return (
-    <div className="my-4 overflow-hidden rounded-lg border border-(--border-subtle) bg-(--bg-code-header) shadow-inner">
-      <div className="flex items-center justify-between border-b border-(--code-block-border) px-4 py-2">
-        <span className="font-mono text-xs text-(--text-muted) uppercase tracking-wide">
+    <div className="my-4 overflow-hidden rounded-xl border border-(--border-subtle) bg-(--bg-code-header) shadow-lg">
+      <div className="flex items-center justify-between border-b border-(--code-block-border) bg-white/[0.02] px-3.5 py-1.5">
+        <span className="font-mono text-[11px] text-(--text-muted) tracking-[0.04em] lowercase">
           {validLang}
         </span>
         <CopyButton code={code} />

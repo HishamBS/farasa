@@ -253,7 +253,7 @@ export const chatRouter = router({
           throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
         }
         conversationId = created.id
-        emit({ type: STREAM_EVENTS.CONVERSATION_CREATED, conversationId: created.id })
+        yield emit({ type: STREAM_EVENTS.CONVERSATION_CREATED, conversationId: created.id })
       }
 
       const [conversation] = await ctx.db

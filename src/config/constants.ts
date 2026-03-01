@@ -21,6 +21,7 @@ export const RATE_LIMITS = {
   CHAT_PER_MINUTE: 20,
   UPLOAD_PER_MINUTE: 30,
   WINDOW_MS: 60_000,
+  ERROR_MESSAGE: 'Too many requests. Please slow down.',
 } as const
 
 export const SUPPORTED_FILE_TYPES = [

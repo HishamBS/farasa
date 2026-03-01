@@ -3,7 +3,7 @@ import { initTRPC, TRPCError } from '@trpc/server'
 import superjson from 'superjson'
 import type { Context } from './context'
 import { checkRateLimit } from '@/lib/security/rate-limit'
-import { TRPC_CODES } from '@/config/constants'
+import { TRPC_CODES, RATE_LIMITS } from '@/config/constants'
 import { getRuntimeConfig } from '@/lib/runtime-config/service'
 import { users } from '@/lib/db/schema'
 import { AppError } from '@/lib/utils/errors'
@@ -48,13 +48,13 @@ export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
 })
 
 export const rateLimitedChatProcedure = protectedProcedure.use(async ({ ctx, next }) => {
-  const runtimeConfig = await getRuntimeConfig({ userId: ctx.userId })
   checkRateLimit(
     `chat:${ctx.userId}`,
-    runtimeConfig.limits.rateLimit.chatPerMinute,
-    runtimeConfig.limits.rateLimit.windowMs,
-    runtimeConfig.chat.errors.rateLimited,
+    RATE_LIMITS.CHAT_PER_MINUTE,
+    RATE_LIMITS.WINDOW_MS,
+    RATE_LIMITS.ERROR_MESSAGE,
   )
+  const runtimeConfig = await getRuntimeConfig({ userId: ctx.userId })
   return next({
     ctx: {
       ...ctx,
@@ -64,13 +64,13 @@ export const rateLimitedChatProcedure = protectedProcedure.use(async ({ ctx, nex
 })
 
 export const rateLimitedUploadProcedure = protectedProcedure.use(async ({ ctx, next }) => {
-  const runtimeConfig = await getRuntimeConfig({ userId: ctx.userId })
   checkRateLimit(
     `upload:${ctx.userId}`,
-    runtimeConfig.limits.rateLimit.uploadPerMinute,
-    runtimeConfig.limits.rateLimit.windowMs,
-    runtimeConfig.chat.errors.rateLimited,
+    RATE_LIMITS.UPLOAD_PER_MINUTE,
+    RATE_LIMITS.WINDOW_MS,
+    RATE_LIMITS.ERROR_MESSAGE,
   )
+  const runtimeConfig = await getRuntimeConfig({ userId: ctx.userId })
   return next({
     ctx: {
       ...ctx,

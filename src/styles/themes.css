@@ -58,6 +58,7 @@
   --conversation-item-glow: rgba(34, 211, 238, 0.5);
 
   --sidebar-width: 18rem;
+  --sidebar-transition-duration: 200ms;
   --content-max-width: 42.5rem;
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;

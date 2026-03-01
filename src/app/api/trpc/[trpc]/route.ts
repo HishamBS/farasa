@@ -3,7 +3,7 @@ import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
 export const dynamic = 'force-dynamic'
 
 import { appRouter } from '@/server/routers/_app'
-import { createContext } from '@/server/context'
+import { createContextFromRequest } from '@/server/context'
 import { ROUTES } from '@/config/routes'
 
 const handler = (req: Request) =>
@@ -11,7 +11,7 @@ const handler = (req: Request) =>
     endpoint: ROUTES.API.TRPC,
     req,
     router: appRouter,
-    createContext,
+    createContext: () => createContextFromRequest(req),
     onError:
       process.env['NODE_ENV'] === 'development'
         ? ({ path, error }) => {

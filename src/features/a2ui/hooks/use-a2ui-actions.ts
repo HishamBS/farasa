@@ -2,9 +2,11 @@
 
 import { useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { signOut } from 'next-auth/react'
 import { trpc } from '@/trpc/provider'
 import { ROUTES } from '@/config/routes'
 import type { ActionPayload } from '@a2ui-sdk/types/0.8'
+import { isTrpcUnauthorizedError } from '@/lib/utils/trpc-errors'
 
 export function useA2UIActions() {
   const router = useRouter()
@@ -21,10 +23,17 @@ export function useA2UIActions() {
       const name = action.name.toLowerCase()
       switch (name) {
         case 'newchat': {
-          void createConversation.mutateAsync({}).then((conv) => {
-            void utils.conversation.list.invalidate()
-            router.push(ROUTES.CHAT_BY_ID(conv.id))
-          })
+          void createConversation
+            .mutateAsync({})
+            .then((conv) => {
+              void utils.conversation.list.invalidate()
+              router.push(ROUTES.CHAT_BY_ID(conv.id))
+            })
+            .catch((error: unknown) => {
+              if (isTrpcUnauthorizedError(error)) {
+                void signOut({ callbackUrl: ROUTES.LOGIN })
+              }
+            })
           return
         }
         case 'rename': {

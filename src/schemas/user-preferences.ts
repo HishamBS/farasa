@@ -1,11 +1,16 @@
 import { z } from 'zod'
+import { GROUP_LIMITS } from '@/config/constants'
 
 export const UserPreferencesUpdateSchema = z
   .object({
     theme: z.string(),
     sidebarExpanded: z.boolean(),
     defaultModel: z.string().nullable(),
-    groupModels: z.array(z.string()).min(2).max(3).optional(),
+    groupModels: z
+      .array(z.string())
+      .min(GROUP_LIMITS.MIN_MODELS)
+      .max(GROUP_LIMITS.MAX_MODELS)
+      .optional(),
     groupJudgeModel: z.string().nullable().optional(),
   })
   .partial()

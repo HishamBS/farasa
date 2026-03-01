@@ -2,6 +2,8 @@ import { z } from 'zod'
 import { STREAM_EVENTS, STREAM_PHASES, CHAT_MODES } from '@/config/constants'
 import { SearchImageSchema, SearchModeSchema, SearchResultSchema } from './search'
 
+export const ChatModeSchema = z.enum([CHAT_MODES.CHAT, CHAT_MODES.SEARCH, CHAT_MODES.GROUP])
+
 export const MessageRoleSchema = z.enum(['user', 'assistant', 'system'])
 
 export const AttachmentSchema = z.object({
@@ -135,6 +137,7 @@ export const MessageSchema = z.object({
   createdAt: z.date(),
 })
 
+export type ChatMode = z.infer<typeof ChatModeSchema>
 export type MessageRole = z.infer<typeof MessageRoleSchema>
 export type Attachment = z.infer<typeof AttachmentSchema>
 export type Usage = z.infer<typeof UsageSchema>

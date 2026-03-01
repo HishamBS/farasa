@@ -29,11 +29,8 @@ export const SearchResponseSchema = z.object({
 
 export const SearchModeSchema = z.enum([CHAT_MODES.CHAT, CHAT_MODES.SEARCH])
 
-export const ChatModeSchema = z.enum([CHAT_MODES.CHAT, CHAT_MODES.SEARCH, CHAT_MODES.GROUP])
-
 export type SearchQuery = z.infer<typeof SearchQuerySchema>
 export type SearchImage = z.infer<typeof SearchImageSchema>
 export type SearchResult = z.infer<typeof SearchResultSchema>
 export type SearchResponse = z.infer<typeof SearchResponseSchema>
 export type SearchMode = z.infer<typeof SearchModeSchema>
-export type ChatMode = z.infer<typeof ChatModeSchema>

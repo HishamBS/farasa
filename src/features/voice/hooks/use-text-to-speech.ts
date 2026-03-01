@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
+import { VOICE } from '@/config/constants'
 
 // Strip markdown before speaking so the TTS output is clean prose
 const MARKDOWN_RE = /(\*\*|__|\*|_|~~|`{1,3}|#{1,6}\s|!\[.*?\]\(.*?\)|\[([^\]]+)\]\(.*?\))/g
@@ -9,28 +10,95 @@ function stripMarkdown(text: string): string {
   return text.replace(MARKDOWN_RE, '$2').trim()
 }
 
+function speakFallback(text: string, onEnd: () => void): void {
+  if (!('speechSynthesis' in window)) {
+    onEnd()
+    return
+  }
+  window.speechSynthesis.cancel()
+  const utterance = new SpeechSynthesisUtterance(text)
+  utterance.onend = onEnd
+  utterance.onerror = onEnd
+  window.speechSynthesis.speak(utterance)
+}
+
 export function useTextToSpeech() {
   const [isSpeaking, setIsSpeaking] = useState(false)
-  const [isSupported, setIsSupported] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
   useEffect(() => {
-    setIsSupported(typeof window !== 'undefined' && 'speechSynthesis' in window)
+    return () => {
+      audioRef.current?.pause()
+    }
   }, [])
 
-  const speak = useCallback((text: string) => {
-    if (!('speechSynthesis' in window)) return
-    window.speechSynthesis.cancel()
-    const utterance = new SpeechSynthesisUtterance(stripMarkdown(text))
-    utterance.onstart = () => setIsSpeaking(true)
-    utterance.onend = () => setIsSpeaking(false)
-    utterance.onerror = () => setIsSpeaking(false)
-    window.speechSynthesis.speak(utterance)
-  }, [])
-
-  const stop = useCallback(() => {
+  const stopAudio = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.src = ''
+      audioRef.current = null
+    }
     if ('speechSynthesis' in window) window.speechSynthesis.cancel()
     setIsSpeaking(false)
+    setIsLoading(false)
   }, [])
 
-  return { speak, stop, isSpeaking, isSupported }
+  const speak = useCallback(
+    async (text: string) => {
+      stopAudio()
+      const clean = stripMarkdown(text).slice(0, VOICE.TTS_MAX_CHARS)
+      if (!clean) return
+
+      setIsLoading(true)
+
+      try {
+        const res = await fetch('/api/voice/synthesize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: clean }),
+        })
+
+        if (res.ok) {
+          const blob = await res.blob()
+          const url = URL.createObjectURL(blob)
+          const audio = new Audio(url)
+          audioRef.current = audio
+
+          audio.oncanplaythrough = () => {
+            setIsLoading(false)
+            setIsSpeaking(true)
+          }
+          audio.onended = () => {
+            URL.revokeObjectURL(url)
+            setIsSpeaking(false)
+            audioRef.current = null
+          }
+          audio.onerror = () => {
+            URL.revokeObjectURL(url)
+            setIsLoading(false)
+            setIsSpeaking(false)
+            audioRef.current = null
+            speakFallback(clean, () => setIsSpeaking(false))
+          }
+
+          void audio.play()
+          return
+        }
+      } catch {
+        // Server unavailable — fall through to browser TTS
+      }
+
+      setIsLoading(false)
+      setIsSpeaking(true)
+      speakFallback(clean, () => setIsSpeaking(false))
+    },
+    [stopAudio],
+  )
+
+  const stop = useCallback(() => {
+    stopAudio()
+  }, [stopAudio])
+
+  return { speak, stop, isSpeaking, isLoading, isSupported: true }
 }

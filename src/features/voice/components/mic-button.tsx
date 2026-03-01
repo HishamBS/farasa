@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect } from 'react'
-import { Mic, MicOff } from 'lucide-react'
+import { Mic, MicOff, Loader2 } from 'lucide-react'
 import { useSpeechToText } from '../hooks/use-speech-to-text'
 import { cn } from '@/lib/utils/cn'
 
@@ -12,44 +12,53 @@ type MicButtonProps = {
 export function MicButton({ onTranscript }: MicButtonProps) {
   const {
     isListening,
-    transcript,
-    interimTranscript,
+    isTranscribing,
     isSupported,
+    transcript,
     startListening,
     stopListening,
     resetTranscript,
   } = useSpeechToText()
 
   useEffect(() => {
-    const combined = transcript + interimTranscript
-    if (combined) onTranscript(combined)
-  }, [transcript, interimTranscript, onTranscript])
+    if (transcript) {
+      onTranscript(transcript)
+      resetTranscript()
+    }
+  }, [transcript, onTranscript, resetTranscript])
 
-  const handleClick = useCallback(() => {
+  const handleClick = useCallback(async () => {
+    if (isTranscribing) return
     if (isListening) {
       stopListening()
-      resetTranscript()
     } else {
-      startListening()
+      await startListening()
     }
-  }, [isListening, startListening, stopListening, resetTranscript])
+  }, [isListening, isTranscribing, startListening, stopListening])
 
   if (!isSupported) return null
 
   return (
     <button
       type="button"
-      onClick={handleClick}
+      onClick={() => void handleClick()}
+      disabled={isTranscribing}
       className={cn(
         'flex size-8 items-center justify-center rounded-lg transition-colors',
         isListening
           ? 'text-(--error) hover:bg-(--bg-surface-hover)'
-          : 'text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)',
+          : isTranscribing
+            ? 'cursor-wait text-(--text-ghost)'
+            : 'text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)',
       )}
-      aria-label={isListening ? 'Stop recording' : 'Start voice input'}
+      aria-label={
+        isListening ? 'Stop recording' : isTranscribing ? 'Transcribing…' : 'Start voice input'
+      }
       aria-pressed={isListening}
     >
-      {isListening ? (
+      {isTranscribing ? (
+        <Loader2 className="size-4 animate-spin" />
+      ) : isListening ? (
         <span className="relative flex items-center justify-center">
           <MicOff className="size-4" />
           <span className="absolute -bottom-1 flex items-end gap-0.5">

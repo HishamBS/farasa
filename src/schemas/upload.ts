@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+const BASE64_DATA_URL = /^data:[a-z]+\/[a-z0-9.+\-]+;base64,[A-Za-z0-9+/=]+$/
+
 export const UploadRequestSchema = z.object({
   fileName: z.string().min(1),
   fileType: z.string().min(1),
@@ -18,7 +20,7 @@ export const ConfirmUploadSchema = z.object({
 })
 
 export const StoreInlineSchema = z.object({
-  dataUrl: z.string().min(1),
+  dataUrl: z.string().min(1).regex(BASE64_DATA_URL, 'Must be a valid base64 data URL'),
   fileName: z.string().min(1),
   fileType: z.string().min(1),
 })

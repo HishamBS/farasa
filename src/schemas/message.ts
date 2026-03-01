@@ -82,12 +82,19 @@ export const StreamChunkSchema = z.discriminatedUnion('type', [
   }),
 ])
 
+export const InlineAttachmentSchema = z.object({
+  dataUrl: z.string(),
+  fileName: z.string(),
+  fileType: z.string(),
+})
+
 export const ChatInputSchema = z.object({
   conversationId: z.string().uuid().optional(),
   content: z.string().min(1),
   mode: SearchModeSchema.default(CHAT_MODES.CHAT),
   model: z.string().optional(),
   attachmentIds: z.array(z.string().uuid()).default([]),
+  inlineAttachments: z.array(InlineAttachmentSchema).default([]),
   streamRequestId: z.string().uuid(),
   attempt: z.number().int().nonnegative(),
   skipUserInsert: z.boolean().optional(),
@@ -128,6 +135,7 @@ export const MessageSchema = z.object({
   createdAt: z.date(),
 })
 
+export type InlineAttachment = z.infer<typeof InlineAttachmentSchema>
 export type MessageRole = z.infer<typeof MessageRoleSchema>
 export type Attachment = z.infer<typeof AttachmentSchema>
 export type Usage = z.infer<typeof UsageSchema>

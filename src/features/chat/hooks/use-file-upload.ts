@@ -12,12 +12,22 @@ export type UploadState = {
   isUploading: boolean
   previewUrl: string | null
   fileType: string
+  inlineDataUrl: string | null
 }
 
 type UploadResult = {
   token: string
   attachmentId: string
 }
+
+type InlineUploadResult = {
+  token: string
+  dataUrl: string
+  fileName: string
+  fileType: string
+}
+
+const gcsEnabled = process.env.NEXT_PUBLIC_GCS_ENABLED !== 'false'
 
 export function useFileUpload() {
   const [uploadStates, setUploadStates] = useState<Map<string, UploadState>>(new Map())
@@ -42,8 +52,8 @@ export function useFileUpload() {
     [],
   )
 
-  const uploadFile = useCallback(
-    async (file: File): Promise<UploadResult | null> => {
+  const uploadFileInline = useCallback(
+    async (file: File): Promise<InlineUploadResult | null> => {
       const token = crypto.randomUUID()
       const runtimeConfig = runtimeConfigQuery.data
       if (!runtimeConfig) {
@@ -56,6 +66,7 @@ export function useFileUpload() {
           isUploading: false,
           previewUrl: null,
           fileType: file.type,
+          inlineDataUrl: null,
         }))
         return null
       }
@@ -70,6 +81,7 @@ export function useFileUpload() {
           isUploading: false,
           previewUrl: null,
           fileType: file.type,
+          inlineDataUrl: null,
         }))
         return null
       }
@@ -85,6 +97,7 @@ export function useFileUpload() {
           isUploading: false,
           previewUrl: null,
           fileType: file.type,
+          inlineDataUrl: null,
         }))
         return null
       }
@@ -100,6 +113,118 @@ export function useFileUpload() {
         isUploading: true,
         previewUrl,
         fileType: file.type,
+        inlineDataUrl: null,
+      }))
+
+      try {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result as string)
+          reader.onerror = () => reject(new Error('Failed to read file'))
+          reader.readAsDataURL(file)
+        })
+
+        upsertState(token, (previous) => ({
+          ...(previous ?? {
+            token,
+            fileName: file.name,
+            attachmentId: null,
+            error: null,
+            isUploading: false,
+            previewUrl,
+            fileType: file.type,
+          }),
+          progress: 100,
+          isUploading: false,
+          error: null,
+          inlineDataUrl: dataUrl,
+        }))
+        return { token, dataUrl, fileName: file.name, fileType: file.type }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to read file'
+        upsertState(token, (previous) => ({
+          ...(previous ?? {
+            token,
+            fileName: file.name,
+            progress: 0,
+            attachmentId: null,
+            error: null,
+            isUploading: false,
+            previewUrl,
+            fileType: file.type,
+          }),
+          isUploading: false,
+          error: message,
+          inlineDataUrl: null,
+        }))
+        return null
+      }
+    },
+    [runtimeConfigQuery.data, upsertState],
+  )
+
+  const uploadFile = useCallback(
+    async (file: File): Promise<UploadResult | null> => {
+      const token = crypto.randomUUID()
+      const runtimeConfig = runtimeConfigQuery.data
+      if (!runtimeConfig) {
+        upsertState(token, () => ({
+          token,
+          fileName: file.name,
+          progress: 0,
+          attachmentId: null,
+          error: 'Upload configuration unavailable.',
+          isUploading: false,
+          previewUrl: null,
+          fileType: file.type,
+          inlineDataUrl: null,
+        }))
+        return null
+      }
+
+      if (!runtimeConfig.limits.supportedFileTypes.includes(file.type)) {
+        upsertState(token, () => ({
+          token,
+          fileName: file.name,
+          progress: 0,
+          attachmentId: null,
+          error: `Unsupported type: ${file.type}`,
+          isUploading: false,
+          previewUrl: null,
+          fileType: file.type,
+          inlineDataUrl: null,
+        }))
+        return null
+      }
+
+      if (file.size > runtimeConfig.limits.fileMaxSizeBytes) {
+        const maxSizeMb = runtimeConfig.limits.fileMaxSizeBytes / 1024 / 1024
+        upsertState(token, () => ({
+          token,
+          fileName: file.name,
+          progress: 0,
+          attachmentId: null,
+          error: `File exceeds ${maxSizeMb}MB limit`,
+          isUploading: false,
+          previewUrl: null,
+          fileType: file.type,
+          inlineDataUrl: null,
+        }))
+        return null
+      }
+
+      const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null
+
+      upsertState(token, () => ({
+        token,
+        fileName: file.name,
+        progress: 0,
+        attachmentId: null,
+        error: null,
+        isUploading: true,
+        previewUrl,
+        fileType: file.type,
+        inlineDataUrl: null,
       }))
 
       try {
@@ -125,6 +250,7 @@ export function useFileUpload() {
                 isUploading: true,
                 previewUrl,
                 fileType: file.type,
+                inlineDataUrl: null,
               }),
               progress,
             }))
@@ -147,6 +273,7 @@ export function useFileUpload() {
             isUploading: false,
             previewUrl,
             fileType: file.type,
+            inlineDataUrl: null,
           }),
           progress: 100,
           attachmentId,
@@ -166,6 +293,7 @@ export function useFileUpload() {
             isUploading: false,
             previewUrl,
             fileType: file.type,
+            inlineDataUrl: null,
           }),
           isUploading: false,
           error: message,
@@ -201,5 +329,5 @@ export function useFileUpload() {
     }
   }, [])
 
-  return { uploadFile, uploadStates, removeFile, supportedFileTypes }
+  return { uploadFile, uploadFileInline, gcsEnabled, uploadStates, removeFile, supportedFileTypes }
 }

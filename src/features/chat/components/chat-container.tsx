@@ -91,6 +91,7 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
       mode: CHAT_MODES.CHAT,
       model: undefined,
       attachmentIds: [],
+      inlineAttachments: [],
       streamRequestId: inferredRequestId,
       attempt: 0,
       skipUserInsert: true,

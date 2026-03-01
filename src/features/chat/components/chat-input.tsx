@@ -61,7 +61,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
 
   const { mode } = useChatMode()
 
-  const { uploadFile, uploadStates, removeFile, supportedFileTypes } = useFileUpload()
+  const { uploadFile, uploadFileInline, gcsEnabled, uploadStates, removeFile, supportedFileTypes } =
+    useFileUpload()
 
   useImperativeHandle(ref, () => ({ setContent: setExternalContent }))
 
@@ -78,17 +79,31 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
 
   const handleSubmit = useCallback(() => {
     if (!content.trim() || isStreaming) return
+    const inlineAttachments = [...uploadStates.values()]
+      .filter((s) => s.inlineDataUrl && !s.isUploading && !s.error)
+      .map((s) => ({ dataUrl: s.inlineDataUrl!, fileName: s.fileName, fileType: s.fileType }))
     onSend({
       content: content.trim(),
       mode,
       model: selectedModel,
       conversationId,
       attachmentIds,
+      inlineAttachments,
       streamRequestId: crypto.randomUUID(),
       attempt: 0,
     })
     clear()
-  }, [content, mode, selectedModel, conversationId, attachmentIds, isStreaming, onSend, clear])
+  }, [
+    content,
+    mode,
+    selectedModel,
+    conversationId,
+    attachmentIds,
+    uploadStates,
+    isStreaming,
+    onSend,
+    clear,
+  ])
 
   const handleKey = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -103,11 +118,15 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     async (files: FileList | null) => {
       if (!files) return
       for (const file of Array.from(files)) {
-        const uploaded = await uploadFile(file)
-        if (uploaded) addAttachment(uploaded.attachmentId)
+        if (gcsEnabled) {
+          const uploaded = await uploadFile(file)
+          if (uploaded) addAttachment(uploaded.attachmentId)
+        } else {
+          await uploadFileInline(file)
+        }
       }
     },
-    [uploadFile, addAttachment],
+    [gcsEnabled, uploadFile, uploadFileInline, addAttachment],
   )
 
   const handleFileInput = useCallback(

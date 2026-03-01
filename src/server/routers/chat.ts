@@ -397,7 +397,9 @@ export const chatRouter = router({
 
       const wrappedContent = `${runtimeConfig.prompts.wrappers.userRequestOpen}\n${input.content}\n${runtimeConfig.prompts.wrappers.userRequestClose}`
       let userContent: string | ChatMessageContentItem[] = wrappedContent
-      if (input.attachmentIds.length > 0) {
+      const hasGcsAttachments = input.attachmentIds.length > 0
+      const hasInlineAttachments = input.inlineAttachments.length > 0
+      if (hasGcsAttachments || hasInlineAttachments) {
         yield emit({
           type: STREAM_EVENTS.STATUS,
           phase: STREAM_PHASES.READING_FILES,
@@ -407,29 +409,47 @@ export const chatRouter = router({
         const blocks: ChatMessageContentItem[] = [
           { type: ChatMessageContentItemTextType.Text, text: wrappedContent },
         ]
-        const attachmentRows = await ctx.db
-          .select()
-          .from(attachments)
-          .where(
-            and(
-              inArray(attachments.id, input.attachmentIds),
-              eq(attachments.userId, ctx.userId),
-              isNotNull(attachments.confirmedAt),
-            ),
-          )
-        for (const attachment of attachmentRows) {
-          if (attachment.fileType.startsWith('image/')) {
+
+        if (hasGcsAttachments) {
+          const attachmentRows = await ctx.db
+            .select()
+            .from(attachments)
+            .where(
+              and(
+                inArray(attachments.id, input.attachmentIds),
+                eq(attachments.userId, ctx.userId),
+                isNotNull(attachments.confirmedAt),
+              ),
+            )
+          for (const attachment of attachmentRows) {
+            if (attachment.fileType.startsWith('image/')) {
+              blocks.push({
+                type: ChatMessageContentItemImageType.ImageUrl,
+                imageUrl: { url: attachment.storageUrl },
+              })
+            } else {
+              blocks.push({
+                type: ChatMessageContentItemTextType.Text,
+                text: `[Attachment: ${escapeXmlForPrompt(attachment.fileName)} — ${escapeXmlForPrompt(attachment.fileType)}]`,
+              })
+            }
+          }
+        }
+
+        for (const inline of input.inlineAttachments) {
+          if (inline.fileType.startsWith('image/')) {
             blocks.push({
               type: ChatMessageContentItemImageType.ImageUrl,
-              imageUrl: { url: attachment.storageUrl },
+              imageUrl: { url: inline.dataUrl },
             })
           } else {
             blocks.push({
               type: ChatMessageContentItemTextType.Text,
-              text: `[Attachment: ${escapeXmlForPrompt(attachment.fileName)} — ${escapeXmlForPrompt(attachment.fileType)}]`,
+              text: `[Attachment: ${escapeXmlForPrompt(inline.fileName)} — ${escapeXmlForPrompt(inline.fileType)}]`,
             })
           }
         }
+
         userContent = blocks
       }
 

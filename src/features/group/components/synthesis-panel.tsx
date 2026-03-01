@@ -70,8 +70,9 @@ export function SynthesisPanel({
 }: SynthesisPanelProps) {
   const { judgeModel, setJudgeModel } = useGroupMode()
   const modelSelectorRef = useRef<ModelSelectorHandle>(null)
+  const { trigger, isSynthesizing, synthesisText, error: synthesisError } = synthesis
 
-  const canSynthesize = groupDone && !!judgeModel && !synthesis.isSynthesizing
+  const canSynthesize = groupDone && !!judgeModel && !isSynthesizing
 
   const handleSelectJudge = useCallback(
     (modelId: string) => {
@@ -93,8 +94,8 @@ export function SynthesisPanel({
 
   const handleSynthesize = useCallback(() => {
     if (!canSynthesize || !judgeModel) return
-    synthesis.trigger({ groupId, conversationId, judgeModel })
-  }, [canSynthesize, judgeModel, synthesis, groupId, conversationId])
+    trigger({ groupId, conversationId, judgeModel })
+  }, [canSynthesize, judgeModel, trigger, groupId, conversationId])
 
   const selectedJudgeLabel = useMemo(() => {
     if (!judgeModel) return null
@@ -149,14 +150,14 @@ export function SynthesisPanel({
               : 'cursor-not-allowed bg-(--bg-surface-active) text-(--text-ghost)',
           )}
         >
-          {synthesis.isSynthesizing && <Loader2 className="size-3 animate-spin" />}
+          {isSynthesizing && <Loader2 className="size-3 animate-spin" />}
           Synthesize
         </button>
 
-        {synthesis.error && <p className="text-xs text-red-400">{synthesis.error}</p>}
+        {synthesisError && <p className="text-xs text-red-400">{synthesisError}</p>}
       </div>
 
-      {synthesis.synthesisText && (
+      {synthesisText && (
         <div className="rounded-xl border border-(--border-subtle) bg-(--bg-surface) p-4">
           <p className="mb-3 text-xs font-medium text-(--text-muted)">
             Synthesis
@@ -165,7 +166,7 @@ export function SynthesisPanel({
             )}
           </p>
           <div className="text-[0.90625rem] leading-[1.72] text-(--text-primary)">
-            <MarkdownRenderer content={synthesis.synthesisText} />
+            <MarkdownRenderer content={synthesisText} />
           </div>
         </div>
       )}

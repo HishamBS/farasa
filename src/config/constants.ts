@@ -397,6 +397,10 @@ export const GROUP_STATUS_MESSAGES = {
   STARTING: 'Starting group comparison...',
 } as const
 
+export const GROUP_TAB_VALUES = {
+  SYNTHESIS: 'synthesis',
+} as const
+
 export const MARKDOWN_SANITIZE = {
   TAG_NAMES: [
     'math',

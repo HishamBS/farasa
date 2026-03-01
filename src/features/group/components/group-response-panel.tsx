@@ -11,14 +11,12 @@ import { cn } from '@/lib/utils/cn'
 import type { StreamState } from '@/types/stream'
 
 type GroupResponsePanelProps = {
-  modelId: string
   modelLabel: string
   providerKey: string
   streamState: StreamState
 }
 
 export function GroupResponsePanel({
-  modelId: _modelId,
   modelLabel,
   providerKey,
   streamState,

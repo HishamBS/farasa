@@ -4,19 +4,12 @@ import { useMemo } from 'react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { GroupResponsePanel } from './group-response-panel'
 import { SynthesisPanel } from './synthesis-panel'
-import { CHAT_STREAM_STATUS, PROVIDER_DOT_CLASSES } from '@/config/constants'
+import { CHAT_STREAM_STATUS, GROUP_TAB_VALUES, PROVIDER_DOT_CLASSES } from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
 import { extractProviderKey, extractModelName } from '@/lib/utils/model'
 import type { StreamState } from '@/types/stream'
 import type { UseSynthesisReturn } from '@/features/group/hooks/use-group-synthesis'
-
-const SYNTHESIS_TAB_VALUE = 'synthesis'
-
-type ModelMeta = {
-  id: string
-  name: string
-  provider?: string
-}
+import type { ModelMeta } from '@/features/group/types'
 
 type GroupTabsProps = {
   modelStates: Map<string, StreamState>
@@ -29,27 +22,19 @@ type GroupTabsProps = {
 }
 
 type ModelTabTriggerProps = {
-  modelId: string
-  modelMeta: ModelMeta | undefined
-  streamState: StreamState | undefined
+  providerKey: string
+  label: string
+  isStreaming: boolean
 }
 
-function ModelTabTrigger({ modelId, modelMeta, streamState }: ModelTabTriggerProps) {
-  const providerKey = useMemo(
-    () => modelMeta?.provider ?? extractProviderKey(modelId),
-    [modelMeta, modelId],
-  )
-  const label = useMemo(
-    () => (modelMeta?.name ?? extractModelName(modelId)).split(/[\s-]/)[0] ?? modelId,
-    [modelMeta, modelId],
-  )
+function ModelTabTrigger({ providerKey, label, isStreaming }: ModelTabTriggerProps) {
+  const shortLabel = label.split(/[\s-]/)[0] ?? label
   const dotClass = PROVIDER_DOT_CLASSES[providerKey] ?? 'bg-(--text-ghost)'
-  const isStreaming = streamState?.phase === CHAT_STREAM_STATUS.ACTIVE
 
   return (
     <>
       <span className={cn('size-1.5 shrink-0 rounded-full', dotClass)} />
-      <span className="max-w-20 truncate">{label}</span>
+      <span className="max-w-20 truncate">{shortLabel}</span>
       {isStreaming && <span className="size-1.5 animate-pulse rounded-full bg-(--accent)" />}
     </>
   )
@@ -72,38 +57,50 @@ export function GroupTabs({
     return map
   }, [models])
 
-  const defaultTab = modelOrder[0] ?? SYNTHESIS_TAB_VALUE
+  const resolvedMetaMap = useMemo(() => {
+    const map = new Map<string, { providerKey: string; label: string }>()
+    for (const modelId of modelOrder) {
+      const meta = modelMetaMap.get(modelId)
+      map.set(modelId, {
+        providerKey: meta?.provider ?? extractProviderKey(modelId),
+        label: meta?.name ?? extractModelName(modelId),
+      })
+    }
+    return map
+  }, [modelMetaMap, modelOrder])
+
+  const defaultTab = modelOrder[0] ?? GROUP_TAB_VALUES.SYNTHESIS
 
   return (
     <Tabs defaultValue={defaultTab} className="w-full">
       <TabsList className="flex-wrap">
-        {modelOrder.map((modelId) => (
-          <TabsTrigger key={modelId} value={modelId}>
-            <ModelTabTrigger
-              modelId={modelId}
-              modelMeta={modelMetaMap.get(modelId)}
-              streamState={modelStates.get(modelId)}
-            />
-          </TabsTrigger>
-        ))}
-        <TabsTrigger value={SYNTHESIS_TAB_VALUE} disabled={!groupDone}>
+        {modelOrder.map((modelId) => {
+          const resolved = resolvedMetaMap.get(modelId)
+          const streamState = modelStates.get(modelId)
+          return (
+            <TabsTrigger key={modelId} value={modelId}>
+              <ModelTabTrigger
+                providerKey={resolved?.providerKey ?? ''}
+                label={resolved?.label ?? modelId}
+                isStreaming={streamState?.phase === CHAT_STREAM_STATUS.ACTIVE}
+              />
+            </TabsTrigger>
+          )
+        })}
+        <TabsTrigger value={GROUP_TAB_VALUES.SYNTHESIS} disabled={!groupDone}>
           Synthesis
         </TabsTrigger>
       </TabsList>
 
       {modelOrder.map((modelId) => {
-        const modelMeta = modelMetaMap.get(modelId)
+        const resolved = resolvedMetaMap.get(modelId)
         const streamState = modelStates.get(modelId)
-        const providerKey = modelMeta?.provider ?? extractProviderKey(modelId)
-        const modelLabel = modelMeta?.name ?? extractModelName(modelId)
-
         return (
           <TabsContent key={modelId} value={modelId}>
             {streamState && (
               <GroupResponsePanel
-                modelId={modelId}
-                modelLabel={modelLabel}
-                providerKey={providerKey}
+                modelLabel={resolved?.label ?? modelId}
+                providerKey={resolved?.providerKey ?? ''}
                 streamState={streamState}
               />
             )}
@@ -111,7 +108,7 @@ export function GroupTabs({
         )
       })}
 
-      <TabsContent value={SYNTHESIS_TAB_VALUE}>
+      <TabsContent value={GROUP_TAB_VALUES.SYNTHESIS}>
         {groupDone && groupId && (
           <SynthesisPanel
             comparisonModelIds={modelOrder}

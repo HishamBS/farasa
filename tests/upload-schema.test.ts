@@ -42,7 +42,33 @@ describe('StoreInlineSchema', () => {
     ).toBe(true)
   })
 
-  it('StoreInlineSchema is exported', () => {
-    expect(StoreInlineSchema).toBeDefined()
+  it('rejects data: prefix with no MIME type', () => {
+    expect(
+      StoreInlineSchema.safeParse({
+        dataUrl: 'data:',
+        fileName: 'test.png',
+        fileType: 'image/png',
+      }).success,
+    ).toBe(false)
+  })
+
+  it('rejects base64 payload with invalid characters', () => {
+    expect(
+      StoreInlineSchema.safeParse({
+        dataUrl: 'data:image/png;base64,@@@invalid@@@',
+        fileName: 'test.png',
+        fileType: 'image/png',
+      }).success,
+    ).toBe(false)
+  })
+
+  it('rejects base64 payload with spaces', () => {
+    expect(
+      StoreInlineSchema.safeParse({
+        dataUrl: 'data:image/png;base64, abc=',
+        fileName: 'test.png',
+        fileType: 'image/png',
+      }).success,
+    ).toBe(false)
   })
 })

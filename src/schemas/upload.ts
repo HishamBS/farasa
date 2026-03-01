@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-const BASE64_DATA_URL = /^data:[a-z]+\/[a-z0-9.+\-]+;base64,[A-Za-z0-9+/=]+$/
+const BASE64_DATA_URL = /^data:[a-z]+\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]+$/
 
 export const UploadRequestSchema = z.object({
   fileName: z.string().min(1),

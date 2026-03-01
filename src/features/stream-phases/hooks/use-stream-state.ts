@@ -126,7 +126,11 @@ export function streamStateReducer(state: StreamState, action: StreamAction): St
     }
 
     case STREAM_ACTIONS.RESET: {
-      return { ...initialStreamState, lastInput: state.lastInput }
+      return {
+        ...initialStreamState,
+        lastInput: state.lastInput,
+        pendingUserMessage: state.pendingUserMessage,
+      }
     }
   }
 }

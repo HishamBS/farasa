@@ -7,7 +7,13 @@ import { useChatStream } from '../hooks/use-chat-stream'
 import { MessageList } from './message-list'
 import { ChatInput } from './chat-input'
 import type { ChatInputHandle } from './chat-input'
-import { CHAT_MODES, CHAT_STREAM_STATUS, GROUP_LIMITS, UX } from '@/config/constants'
+import {
+  CHAT_MODES,
+  CHAT_STREAM_STATUS,
+  GROUP_LIMITS,
+  GROUP_STREAM_PHASES,
+  UX,
+} from '@/config/constants'
 import { ROUTES } from '@/config/routes'
 import type { TitlebarPhase } from '@/types/stream'
 import { useStreamPhase } from '../context/stream-phase-context'
@@ -17,7 +23,7 @@ import { useGroupStream } from '@/features/group/hooks/use-group-stream'
 import { useGroupSynthesis } from '@/features/group/hooks/use-group-synthesis'
 import { useGroupMode } from '@/features/group/context/group-context'
 import type { GroupStreamInput } from '@/schemas/group'
-import type { ModelMeta } from '@/features/group/types'
+import type { LiveGroupData, ModelMeta } from '@/features/group/types'
 
 type ChatContainerProps = {
   conversationId?: string
@@ -70,7 +76,10 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   useEffect(() => {
     if (groupDone) {
       const convId = groupConversationIdRef.current
-      if (convId) void utils.conversation.messages.invalidate({ conversationId: convId })
+      if (convId) {
+        void utils.conversation.messages.invalidate({ conversationId: convId })
+        void utils.conversation.getById.invalidate({ id: convId })
+      }
     }
   }, [groupDone, utils])
 
@@ -161,19 +170,31 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     chatInputRef.current?.setContent(streamState.lastInput.content)
   }, [streamState.phase, streamState.lastInput])
 
-  const isGroupActive = (groupPhase === 'active' || groupPhase === 'done') && !messagesHaveGroup
-
-  const liveGroup = isGroupActive
-    ? {
-        modelStates,
-        modelOrder,
-        groupDone,
-        groupId,
-        conversationId: groupConversationIdRef.current ?? conversationId ?? '',
-        synthesis,
-        models: activeGroupModels,
-      }
-    : null
+  const liveGroup = useMemo((): LiveGroupData | null => {
+    const isGroupActive =
+      (groupPhase === GROUP_STREAM_PHASES.ACTIVE || groupPhase === GROUP_STREAM_PHASES.DONE) &&
+      !messagesHaveGroup
+    if (!isGroupActive) return null
+    return {
+      modelStates,
+      modelOrder,
+      groupDone,
+      groupId,
+      conversationId: groupConversationIdRef.current ?? conversationId ?? '',
+      synthesis,
+      models: activeGroupModels,
+    }
+  }, [
+    groupPhase,
+    messagesHaveGroup,
+    modelStates,
+    modelOrder,
+    groupDone,
+    groupId,
+    conversationId,
+    synthesis,
+    activeGroupModels,
+  ])
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -181,7 +202,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
         <MessageList
           messages={messages}
           streamState={streamState}
-          isStreaming={isStreaming}
+          isChatStreaming={isStreaming}
           pendingUserMessage={streamState.pendingUserMessage ?? groupPendingUserMessage}
           onSuggestionSelect={handleSuggestionSelect}
           conversationId={conversationId}
@@ -191,8 +212,8 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
       <ChatInput
         ref={chatInputRef}
         onSend={sendMessage}
-        onAbort={groupPhase === 'active' ? abortGroup : abort}
-        isStreaming={isStreaming || groupPhase === 'active'}
+        onAbort={groupPhase === GROUP_STREAM_PHASES.ACTIVE ? abortGroup : abort}
+        isStreaming={isStreaming || groupPhase === GROUP_STREAM_PHASES.ACTIVE}
         conversationId={conversationId}
         initialModel={conversation?.model ?? undefined}
         onGroupSubmit={handleGroupSubmit}

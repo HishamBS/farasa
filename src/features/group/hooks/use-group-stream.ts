@@ -9,8 +9,7 @@ import {
 } from '@/features/stream-phases/hooks/use-stream-state'
 import type { StreamState } from '@/types/stream'
 import type { GroupStreamInput, GroupOutputChunk } from '@/schemas/group'
-
-type GroupStreamPhase = 'idle' | 'active' | 'done' | 'error'
+import type { GroupStreamPhase } from '@/features/group/types'
 
 type UseGroupStreamReturn = {
   modelStates: Map<string, StreamState>

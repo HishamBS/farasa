@@ -401,6 +401,13 @@ export const GROUP_TAB_VALUES = {
   SYNTHESIS: 'synthesis',
 } as const
 
+export const GROUP_STREAM_PHASES = {
+  IDLE: 'idle',
+  ACTIVE: 'active',
+  DONE: 'done',
+  ERROR: 'error',
+} as const
+
 export const MARKDOWN_SANITIZE = {
   TAG_NAMES: [
     'math',

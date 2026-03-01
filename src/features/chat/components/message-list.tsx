@@ -14,23 +14,12 @@ import { useConversationCost } from '../context/conversation-cost-context'
 import { formatCost, formatTokenCount } from '@/lib/utils/format'
 import type { StreamState } from '@/types/stream'
 import type { MessageWithAttachments } from '@/schemas/conversation'
-import type { UseSynthesisReturn } from '@/features/group/hooks/use-group-synthesis'
-import type { ModelMeta } from '@/features/group/types'
-
-type LiveGroupData = {
-  modelStates: Map<string, StreamState>
-  modelOrder: string[]
-  groupDone: boolean
-  groupId: string | undefined
-  conversationId: string
-  synthesis: UseSynthesisReturn
-  models: ModelMeta[]
-}
+import type { LiveGroupData } from '@/features/group/types'
 
 type MessageListProps = {
   messages: MessageWithAttachments[]
   streamState: StreamState
-  isStreaming: boolean
+  isChatStreaming: boolean
   pendingUserMessage?: string | null
   onSuggestionSelect?: (text: string) => void
   conversationId?: string
@@ -44,7 +33,7 @@ type RenderItem =
 export function MessageList({
   messages,
   streamState,
-  isStreaming,
+  isChatStreaming,
   pendingUserMessage,
   onSuggestionSelect,
   conversationId,
@@ -70,7 +59,7 @@ export function MessageList({
     messages.length > 0 && messages[messages.length - 1]?.role === MESSAGE_ROLES.ASSISTANT
 
   const showStreaming =
-    (isStreaming && streamState.phase !== CHAT_STREAM_STATUS.IDLE) ||
+    (isChatStreaming && streamState.phase !== CHAT_STREAM_STATUS.IDLE) ||
     (streamState.phase === CHAT_STREAM_STATUS.COMPLETE &&
       hasStreamedContent &&
       !lastMessageIsAssistant)
@@ -124,7 +113,7 @@ export function MessageList({
     })
   }, [shouldReduce])
 
-  const isAnyStreaming = isStreaming || (!!liveGroup && !liveGroup.groupDone)
+  const isAnyStreaming = isChatStreaming || (!!liveGroup && !liveGroup.groupDone)
   const { isPaused, resume } = useAutoScroll(isAnyStreaming, parentRef, scrollToBottom)
   const { totalCostUsd, totalTokens } = useConversationCost()
 

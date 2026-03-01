@@ -91,7 +91,7 @@ export const conversationRouter = router({
           conversationId: conversation.id,
           role: MESSAGE_ROLES.USER,
           content: input.firstMessage.slice(0, runtimeConfig.limits.messageMaxLength),
-          clientRequestId: input.streamRequestId ?? crypto.randomUUID(),
+          clientRequestId: crypto.randomUUID(),
         })
       }
 

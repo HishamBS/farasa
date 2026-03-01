@@ -5,7 +5,6 @@ export const CreateConversationSchema = z.object({
   title: z.string().min(1).optional(),
   model: z.string().optional(),
   firstMessage: z.string().min(1).optional(),
-  streamRequestId: z.string().uuid().optional(),
 })
 
 export const UpdateConversationSchema = z.object({

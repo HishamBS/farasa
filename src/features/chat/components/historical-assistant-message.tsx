@@ -10,6 +10,7 @@ import { A2UIMessage } from '@/features/a2ui/components/a2ui-message'
 import { TTSControls } from '@/features/voice/components/tts-controls'
 import { MessageMetadataSchema } from '@/schemas/message'
 import { TOOL_NAMES, AI_PARAMS } from '@/config/constants'
+import { formatCost } from '@/lib/utils/format'
 import { AssistantFrame } from './assistant-frame'
 import { extractModelName } from '@/lib/utils/model'
 import type { Message, MessageMetadata } from '@/schemas/message'
@@ -87,9 +88,7 @@ export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessa
       ? `${metadata.usage.totalTokens.toLocaleString()} tokens`
       : null
   const costLabel =
-    metadata?.usage?.cost && metadata.usage.cost > 0
-      ? `~$${metadata.usage.cost < 0.001 ? metadata.usage.cost.toExponential(2) : metadata.usage.cost.toFixed(4)}`
-      : null
+    metadata?.usage?.cost && metadata.usage.cost > 0 ? formatCost(metadata.usage.cost) : null
 
   return (
     <motion.div {...(shouldReduce ? {} : fadeInUp)}>

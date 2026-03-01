@@ -9,6 +9,8 @@ import { AssistantMessage } from './assistant-message'
 import { EmptyState } from './empty-state'
 import { useAutoScroll } from '../hooks/use-auto-scroll'
 import { CHAT_STREAM_STATUS, MESSAGE_ROLES, MOTION, UI_TEXT } from '@/config/constants'
+import { useConversationCost } from '../context/conversation-cost-context'
+import { formatCost, formatTokenCount } from '@/lib/utils/format'
 import type { StreamState } from '@/types/stream'
 import type { MessageWithAttachments } from '@/schemas/conversation'
 
@@ -61,6 +63,7 @@ export function MessageList({
   }, [shouldReduce])
 
   const { isPaused, resume } = useAutoScroll(isStreaming, parentRef, scrollToBottom)
+  const { totalCostUsd, totalTokens } = useConversationCost()
 
   return (
     <div ref={parentRef} className="flex-1 overflow-y-auto px-0 py-6">
@@ -82,6 +85,14 @@ export function MessageList({
             ))}
             {showStreaming && <AssistantMessage streamState={streamState} />}
           </div>
+
+          {totalCostUsd > 0 && (
+            <div className="mt-6 flex items-center justify-center gap-1.5 text-xs text-(--text-ghost)">
+              <span>{formatTokenCount(totalTokens)} tokens</span>
+              <span>·</span>
+              <span>{formatCost(totalCostUsd)} total</span>
+            </div>
+          )}
         </div>
       )}
 

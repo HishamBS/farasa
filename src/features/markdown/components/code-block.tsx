@@ -9,7 +9,7 @@ import {
   SHIKI_DARK_THEME,
   SHIKI_LIGHT_THEME,
 } from '@/config/constants'
-import { useTheme } from '@/lib/utils/use-theme'
+import { useTheme } from 'next-themes'
 import { CopyButton } from './copy-button'
 
 type CodeBlockProps = {
@@ -28,12 +28,12 @@ export function CodeBlock({ children, className }: CodeBlockProps) {
   const lines = code.split('\n')
   const showLineNumbers = lines.length > LIMITS.CODE_BLOCK_LINE_NUMBER_THRESHOLD
 
-  const { theme } = useTheme()
+  const { resolvedTheme } = useTheme()
   const [html, setHtml] = useState<string>('')
 
   useEffect(() => {
     let cancelled = false
-    const shikiTheme = theme === 'light' ? SHIKI_LIGHT_THEME : SHIKI_DARK_THEME
+    const shikiTheme = resolvedTheme === 'light' ? SHIKI_LIGHT_THEME : SHIKI_DARK_THEME
     void (async () => {
       try {
         const rendered = await codeToHtml(code, { lang: validLang, theme: shikiTheme })
@@ -45,7 +45,7 @@ export function CodeBlock({ children, className }: CodeBlockProps) {
     return () => {
       cancelled = true
     }
-  }, [code, validLang, theme])
+  }, [code, validLang, resolvedTheme])
 
   return (
     <div className="my-4 overflow-hidden rounded-xl border border-(--border-subtle) bg-(--bg-surface) shadow-lg">

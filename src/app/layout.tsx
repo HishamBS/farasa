@@ -8,6 +8,7 @@ import { AuthSessionProvider } from '@/components/session-provider'
 import { OfflineBanner } from '@/features/pwa/components/offline-banner'
 import { InstallPrompt } from '@/features/pwa/components/install-prompt'
 import { DevServiceWorkerReset } from '@/features/pwa/components/dev-sw-reset'
+import { ThemeProvider } from '@/components/theme-provider'
 import './globals.css'
 import 'katex/dist/katex.min.css'
 
@@ -25,20 +26,20 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `try{const t=localStorage.getItem('theme')??'${APP_CONFIG.DEFAULT_THEME}';document.documentElement.setAttribute('data-theme',t);document.documentElement.classList.toggle('dark',t==='dark')}catch(e){}`,
-          }}
-        />
-      </head>
       <body className={`${GeistSans.variable} ${GeistMono.variable} font-sans antialiased`}>
-        <DevServiceWorkerReset />
-        <OfflineBanner />
-        <InstallPrompt />
-        <AuthSessionProvider>
-          <TRPCProvider>{children}</TRPCProvider>
-        </AuthSessionProvider>
+        <ThemeProvider
+          attribute="data-theme"
+          defaultTheme={APP_CONFIG.DEFAULT_THEME}
+          enableSystem
+          disableTransitionOnChange
+        >
+          <DevServiceWorkerReset />
+          <OfflineBanner />
+          <InstallPrompt />
+          <AuthSessionProvider>
+            <TRPCProvider>{children}</TRPCProvider>
+          </AuthSessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

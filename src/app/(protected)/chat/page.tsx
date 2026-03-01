@@ -20,7 +20,6 @@ export default function ChatPage() {
         .mutateAsync({
           model: input.model,
           firstMessage: input.content,
-          streamRequestId: input.streamRequestId,
         })
         .then((conversation) => {
           router.push(ROUTES.CHAT_BY_ID(conversation.id))

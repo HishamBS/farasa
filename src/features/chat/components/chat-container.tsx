@@ -6,17 +6,10 @@ import { useChatStream } from '../hooks/use-chat-stream'
 import { MessageList } from './message-list'
 import { ChatInput } from './chat-input'
 import type { ChatInputHandle } from './chat-input'
-import {
-  CHAT_STREAM_STATUS,
-  SESSION_KEYS,
-  UX,
-  CHAT_MODES,
-  MESSAGE_ROLES,
-  LIMITS,
-} from '@/config/constants'
-import { ChatInputSchema } from '@/schemas/message'
+import { CHAT_STREAM_STATUS, UX } from '@/config/constants'
 import type { TitlebarPhase } from '@/types/stream'
 import { useStreamPhase } from '../context/stream-phase-context'
+import { ConversationCostProvider } from '../context/conversation-cost-context'
 
 type ChatContainerProps = {
   conversationId: string
@@ -26,8 +19,6 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
   const { streamState, sendMessage, abort } = useChatStream()
   const isStreaming = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
   const chatInputRef = useRef<ChatInputHandle>(null)
-  const streamStartedRef = useRef(false)
-  const restoredDraftRef = useRef<string | null>(null)
   const { setPhase } = useStreamPhase()
 
   const titlebarPhase = useMemo((): TitlebarPhase => {
@@ -63,57 +54,21 @@ export function ChatContainer({ conversationId }: ChatContainerProps) {
   }, [])
 
   useEffect(() => {
-    const storageKey = `${SESSION_KEYS.PENDING_CHAT_INPUT_PREFIX}${conversationId}`
-    const raw = sessionStorage.getItem(storageKey)
-    if (!raw) return
-    streamStartedRef.current = true
-    try {
-      const parsed = ChatInputSchema.safeParse(JSON.parse(raw))
-      if (parsed.success) sendMessage(parsed.data)
-    } finally {
-      sessionStorage.removeItem(storageKey)
-    }
-  }, [conversationId, sendMessage])
-
-  useEffect(() => {
-    if (streamStartedRef.current) return
-    if (streamState.phase !== CHAT_STREAM_STATUS.IDLE) return
-    if (messages.length === 0) return
-    const lastMessage = messages[messages.length - 1]
-    if (!lastMessage || lastMessage.role !== MESSAGE_ROLES.USER) return
-    const messageAgeMs = Date.now() - new Date(lastMessage.createdAt).getTime()
-    if (messageAgeMs > LIMITS.RESTREAM_WINDOW_MS) return
-    streamStartedRef.current = true
-    const inferredRequestId = lastMessage.clientRequestId ?? crypto.randomUUID()
-    sendMessage({
-      conversationId,
-      content: lastMessage.content,
-      mode: CHAT_MODES.CHAT,
-      model: undefined,
-      attachmentIds: [],
-      inlineAttachments: [],
-      streamRequestId: inferredRequestId,
-      attempt: 0,
-      skipUserInsert: true,
-    })
-  }, [messages, streamState.phase, conversationId, sendMessage])
-
-  useEffect(() => {
     if (streamState.phase !== CHAT_STREAM_STATUS.ERROR) return
     if (!streamState.lastInput?.content) return
-    if (restoredDraftRef.current === streamState.lastInput.streamRequestId) return
-    restoredDraftRef.current = streamState.lastInput.streamRequestId
     chatInputRef.current?.setContent(streamState.lastInput.content)
   }, [streamState.phase, streamState.lastInput])
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <MessageList
-        messages={messages}
-        streamState={streamState}
-        isStreaming={isStreaming}
-        onSuggestionSelect={handleSuggestionSelect}
-      />
+      <ConversationCostProvider messages={messages}>
+        <MessageList
+          messages={messages}
+          streamState={streamState}
+          isStreaming={isStreaming}
+          onSuggestionSelect={handleSuggestionSelect}
+        />
+      </ConversationCostProvider>
       <ChatInput
         ref={chatInputRef}
         onSend={sendMessage}

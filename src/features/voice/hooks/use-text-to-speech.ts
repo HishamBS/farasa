@@ -3,13 +3,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { VOICE } from '@/config/constants'
 
-// Strip markdown before speaking so the TTS output is clean prose
-const MARKDOWN_RE = /(\*\*|__|\*|_|~~|`{1,3}|#{1,6}\s|!\[.*?\]\(.*?\)|\[([^\]]+)\]\(.*?\))/g
-
-function stripMarkdown(text: string): string {
-  return text.replace(MARKDOWN_RE, '$2').trim()
-}
-
 function speakFallback(text: string, onEnd: () => void): void {
   if (!('speechSynthesis' in window)) {
     onEnd()
@@ -47,8 +40,8 @@ export function useTextToSpeech() {
   const speak = useCallback(
     async (text: string) => {
       stopAudio()
-      const clean = stripMarkdown(text).slice(0, VOICE.TTS_MAX_CHARS)
-      if (!clean) return
+      const trimmed = text.slice(0, VOICE.TTS_MAX_CHARS)
+      if (!trimmed) return
 
       setIsLoading(true)
 
@@ -56,7 +49,7 @@ export function useTextToSpeech() {
         const res = await fetch('/api/voice/synthesize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: clean }),
+          body: JSON.stringify({ text: trimmed }),
         })
 
         if (res.ok) {
@@ -79,7 +72,7 @@ export function useTextToSpeech() {
             setIsLoading(false)
             setIsSpeaking(false)
             audioRef.current = null
-            speakFallback(clean, () => setIsSpeaking(false))
+            speakFallback(trimmed, () => setIsSpeaking(false))
           }
 
           void audio.play()
@@ -91,7 +84,7 @@ export function useTextToSpeech() {
 
       setIsLoading(false)
       setIsSpeaking(true)
-      speakFallback(clean, () => setIsSpeaking(false))
+      speakFallback(trimmed, () => setIsSpeaking(false))
     },
     [stopAudio],
   )

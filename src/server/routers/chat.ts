@@ -228,11 +228,8 @@ export const chatRouter = router({
     signal,
   }) {
     const runtimeConfig = ctx.runtimeConfig
-    const emit = createChunkEmitter(
-      input.streamRequestId,
-      input.attempt,
-      runtimeConfig.chat.stream.enforceSequence,
-    )
+    const streamRequestId = crypto.randomUUID()
+    const emit = createChunkEmitter(streamRequestId, 0, runtimeConfig.chat.stream.enforceSequence)
 
     let conversationId = input.conversationId
     let userMessageId: string | null = null
@@ -269,7 +266,7 @@ export const chatRouter = router({
       streamSession = beginStreamSession({
         userId: ctx.userId,
         conversationId,
-        streamRequestId: input.streamRequestId,
+        streamRequestId,
       })
       const combinedSignal = buildCombinedAbortSignal(
         signal
@@ -278,37 +275,40 @@ export const chatRouter = router({
         runtimeConfig.chat.stream.timeoutMs,
       )
 
-      if (!input.skipUserInsert) {
-        const [existingUserMessage] = await ctx.db
-          .select({ id: messages.id })
-          .from(messages)
-          .where(
-            and(
-              eq(messages.conversationId, conversationId),
-              eq(messages.role, MESSAGE_ROLES.USER),
-              eq(messages.clientRequestId, input.streamRequestId),
-            ),
-          )
-          .limit(1)
+      const [existingUserMessage] = await ctx.db
+        .select({ id: messages.id })
+        .from(messages)
+        .where(
+          and(
+            eq(messages.conversationId, conversationId),
+            eq(messages.role, MESSAGE_ROLES.USER),
+            eq(messages.clientRequestId, streamRequestId),
+          ),
+        )
+        .limit(1)
 
-        if (existingUserMessage) {
-          userMessageId = existingUserMessage.id
-        } else {
-          const [createdUserMessage] = await ctx.db
-            .insert(messages)
-            .values({
-              conversationId,
-              role: MESSAGE_ROLES.USER,
-              content: input.content,
-              clientRequestId: input.streamRequestId,
-            })
-            .returning({ id: messages.id })
-          if (!createdUserMessage) {
-            throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
-          }
-          userMessageId = createdUserMessage.id
+      if (existingUserMessage) {
+        userMessageId = existingUserMessage.id
+      } else {
+        const [createdUserMessage] = await ctx.db
+          .insert(messages)
+          .values({
+            conversationId,
+            role: MESSAGE_ROLES.USER,
+            content: input.content,
+            clientRequestId: streamRequestId,
+          })
+          .returning({ id: messages.id })
+        if (!createdUserMessage) {
+          throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
         }
+        userMessageId = createdUserMessage.id
       }
+
+      yield emit({
+        type: STREAM_EVENTS.USER_MESSAGE_SAVED,
+        messageId: userMessageId,
+      })
 
       if (input.attachmentIds.length > 0 && userMessageId) {
         const linked = await ctx.db
@@ -839,8 +839,7 @@ export const chatRouter = router({
       const usageWithCost = usage ? { ...usage, cost: estimatedCost } : undefined
 
       const metadata = MessageMetadataSchema.parse({
-        streamRequestId: input.streamRequestId,
-        recoveryAttemptCount: input.attempt,
+        streamRequestId,
         modelUsed: selectedModel,
         routerReasoning,
         thinkingContent: thinkingContent || undefined,
@@ -860,7 +859,7 @@ export const chatRouter = router({
           and(
             eq(messages.conversationId, conversationId),
             eq(messages.role, MESSAGE_ROLES.ASSISTANT),
-            eq(messages.clientRequestId, input.streamRequestId),
+            eq(messages.clientRequestId, streamRequestId),
           ),
         )
         .limit(1)
@@ -881,7 +880,7 @@ export const chatRouter = router({
           role: MESSAGE_ROLES.ASSISTANT,
           content: fullText,
           metadata,
-          clientRequestId: input.streamRequestId,
+          clientRequestId: streamRequestId,
           streamSequenceMax,
           tokenCount: usage?.totalTokens ?? null,
         })
@@ -926,7 +925,7 @@ export const chatRouter = router({
       const doneEvent = emit({
         type: STREAM_EVENTS.DONE,
         usage,
-        terminalReason: input.attempt > 0 ? 'transient_recovered' : 'done',
+        terminalReason: 'done',
       })
       if (typeof doneEvent.sequence === 'number') {
         streamSequenceMax = Math.max(streamSequenceMax, doneEvent.sequence)

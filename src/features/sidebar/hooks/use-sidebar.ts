@@ -1,26 +1,38 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { trpc } from '@/trpc/provider'
 import { UX } from '@/config/constants'
 
 export function useSidebar() {
-  const [isOpen, setIsOpen] = useState(false)
+  const [isOpen, setIsOpenState] = useState(true)
   const touchStartX = useRef<number | null>(null)
+  const prefsInitializedRef = useRef(false)
 
-  const open = useCallback(() => setIsOpen(true), [])
-  const close = useCallback(() => setIsOpen(false), [])
-  const toggle = useCallback(() => setIsOpen((prev) => !prev), [])
+  const prefsQuery = trpc.userPreferences.get.useQuery(undefined, {
+    staleTime: UX.QUERY_STALE_TIME_FOREVER,
+  })
+  const updatePrefsMutation = trpc.userPreferences.update.useMutation()
 
-  // Sidebar is always open on desktop (lg+). Framer Motion needs JS state to match.
+  // Initialize from DB preferences
   useEffect(() => {
-    const mq = window.matchMedia('(min-width: 1024px)')
-    if (mq.matches) setIsOpen(true)
-    const handler = (e: MediaQueryListEvent) => {
-      if (e.matches) setIsOpen(true)
-    }
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
-  }, [])
+    if (prefsInitializedRef.current) return
+    if (!prefsQuery.data) return
+    prefsInitializedRef.current = true
+    setIsOpenState(prefsQuery.data.sidebarExpanded)
+  }, [prefsQuery.data])
+
+  const setIsOpen = useCallback(
+    (value: boolean) => {
+      setIsOpenState(value)
+      updatePrefsMutation.mutate({ sidebarExpanded: value })
+    },
+    [updatePrefsMutation],
+  )
+
+  const open = useCallback(() => setIsOpen(true), [setIsOpen])
+  const close = useCallback(() => setIsOpen(false), [setIsOpen])
+  const toggle = useCallback(() => setIsOpen(!isOpen), [setIsOpen, isOpen])
 
   useEffect(() => {
     function onTouchStart(e: TouchEvent) {
@@ -45,7 +57,7 @@ export function useSidebar() {
       document.removeEventListener('touchstart', onTouchStart)
       document.removeEventListener('touchend', onTouchEnd)
     }
-  }, [])
+  }, [setIsOpen])
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {

@@ -27,13 +27,14 @@ type InlineUploadResult = {
   fileType: string
 }
 
-const gcsEnabled = process.env.NEXT_PUBLIC_GCS_ENABLED !== 'false'
-
 export function useFileUpload() {
   const [uploadStates, setUploadStates] = useState<Map<string, UploadState>>(new Map())
   const runtimeConfigQuery = trpc.runtimeConfig.get.useQuery()
+  const uploadConfigQuery = trpc.upload.config.useQuery(undefined, { staleTime: Infinity })
   const presignedUrlMutation = trpc.upload.presignedUrl.useMutation()
   const confirmMutation = trpc.upload.confirmUpload.useMutation()
+
+  const gcsEnabled = uploadConfigQuery.data?.gcsEnabled ?? false
 
   const supportedFileTypes = useMemo(
     () => runtimeConfigQuery.data?.limits.supportedFileTypes ?? [],
@@ -55,53 +56,6 @@ export function useFileUpload() {
   const uploadFileInline = useCallback(
     async (file: File): Promise<InlineUploadResult | null> => {
       const token = crypto.randomUUID()
-      const runtimeConfig = runtimeConfigQuery.data
-      if (!runtimeConfig) {
-        upsertState(token, () => ({
-          token,
-          fileName: file.name,
-          progress: 0,
-          attachmentId: null,
-          error: 'Upload configuration unavailable.',
-          isUploading: false,
-          previewUrl: null,
-          fileType: file.type,
-          inlineDataUrl: null,
-        }))
-        return null
-      }
-
-      if (!runtimeConfig.limits.supportedFileTypes.includes(file.type)) {
-        upsertState(token, () => ({
-          token,
-          fileName: file.name,
-          progress: 0,
-          attachmentId: null,
-          error: `Unsupported type: ${file.type}`,
-          isUploading: false,
-          previewUrl: null,
-          fileType: file.type,
-          inlineDataUrl: null,
-        }))
-        return null
-      }
-
-      if (file.size > runtimeConfig.limits.fileMaxSizeBytes) {
-        const maxSizeMb = runtimeConfig.limits.fileMaxSizeBytes / 1024 / 1024
-        upsertState(token, () => ({
-          token,
-          fileName: file.name,
-          progress: 0,
-          attachmentId: null,
-          error: `File exceeds ${maxSizeMb}MB limit`,
-          isUploading: false,
-          previewUrl: null,
-          fileType: file.type,
-          inlineDataUrl: null,
-        }))
-        return null
-      }
-
       const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null
 
       upsertState(token, () => ({
@@ -160,59 +114,12 @@ export function useFileUpload() {
         return null
       }
     },
-    [runtimeConfigQuery.data, upsertState],
+    [upsertState],
   )
 
   const uploadFile = useCallback(
     async (file: File): Promise<UploadResult | null> => {
       const token = crypto.randomUUID()
-      const runtimeConfig = runtimeConfigQuery.data
-      if (!runtimeConfig) {
-        upsertState(token, () => ({
-          token,
-          fileName: file.name,
-          progress: 0,
-          attachmentId: null,
-          error: 'Upload configuration unavailable.',
-          isUploading: false,
-          previewUrl: null,
-          fileType: file.type,
-          inlineDataUrl: null,
-        }))
-        return null
-      }
-
-      if (!runtimeConfig.limits.supportedFileTypes.includes(file.type)) {
-        upsertState(token, () => ({
-          token,
-          fileName: file.name,
-          progress: 0,
-          attachmentId: null,
-          error: `Unsupported type: ${file.type}`,
-          isUploading: false,
-          previewUrl: null,
-          fileType: file.type,
-          inlineDataUrl: null,
-        }))
-        return null
-      }
-
-      if (file.size > runtimeConfig.limits.fileMaxSizeBytes) {
-        const maxSizeMb = runtimeConfig.limits.fileMaxSizeBytes / 1024 / 1024
-        upsertState(token, () => ({
-          token,
-          fileName: file.name,
-          progress: 0,
-          attachmentId: null,
-          error: `File exceeds ${maxSizeMb}MB limit`,
-          isUploading: false,
-          previewUrl: null,
-          fileType: file.type,
-          inlineDataUrl: null,
-        }))
-        return null
-      }
-
       const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null
 
       upsertState(token, () => ({
@@ -301,7 +208,7 @@ export function useFileUpload() {
         return null
       }
     },
-    [confirmMutation, presignedUrlMutation, runtimeConfigQuery.data, upsertState],
+    [confirmMutation, presignedUrlMutation, upsertState],
   )
 
   const removeFile = useCallback((token: string) => {

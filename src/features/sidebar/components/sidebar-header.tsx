@@ -44,7 +44,7 @@ export function SidebarHeader({
         <button
           type="button"
           onClick={onClose}
-          className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-(--text-muted) transition-colors hover:bg-(white/5) hover:text-(--text-secondary) lg:hidden"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-(--text-muted) transition-colors hover:bg-(white/5) hover:text-(--text-secondary)"
           aria-label="Close sidebar"
         >
           <X size={15} />

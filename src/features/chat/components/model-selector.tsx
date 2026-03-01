@@ -10,7 +10,7 @@ import {
   useImperativeHandle,
 } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { ChevronDown, Sparkles, Search } from 'lucide-react'
+import { ChevronDown, Sparkles, Search, Check } from 'lucide-react'
 import Fuse from 'fuse.js'
 import { trpc } from '@/trpc/provider'
 import { fadeInDown, chevronSpin } from '@/lib/utils/motion'
@@ -36,6 +36,7 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
     const searchInputRef = useRef<HTMLInputElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
     const itemRefs = useRef<Array<HTMLButtonElement | null>>([])
+    const selectedItemRef = useRef<HTMLButtonElement | null>(null)
     const runtimeConfigQuery = trpc.runtimeConfig.get.useQuery()
 
     useImperativeHandle(ref, () => ({
@@ -65,10 +66,13 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
       [models],
     )
 
-    const filteredModels = useMemo(
-      () => (searchQuery ? fuse.search(searchQuery).map((r) => r.item) : models),
-      [fuse, models, searchQuery],
-    )
+    const filteredModels = useMemo(() => {
+      const base = searchQuery ? fuse.search(searchQuery).map((r) => r.item) : models
+      if (!value || searchQuery) return base
+      const idx = base.findIndex((m) => m.id === value)
+      if (idx <= 0) return base
+      return [base[idx]!, ...base.slice(0, idx), ...base.slice(idx + 1)]
+    }, [fuse, models, searchQuery, value])
 
     // Flat ordered list for keyboard navigation: Auto at index 0, then all filtered models
     const flatItems = useMemo(
@@ -177,6 +181,14 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
         itemRefs.current[focusedIndex]?.focus()
       }
     }, [focusedIndex])
+
+    // Scroll to selected model when dropdown opens
+    useEffect(() => {
+      if (!open) return
+      requestAnimationFrame(() => {
+        selectedItemRef.current?.scrollIntoView({ block: 'nearest' })
+      })
+    }, [open])
 
     // Close on outside click
     useEffect(() => {
@@ -287,23 +299,28 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
                     {providerModels.map((m) => {
                       const idx = modelIndexMap.get(m.id)
                       if (idx === undefined) return null
+                      const isSelected = value === m.id
                       return (
                         <button
                           key={m.id}
                           ref={(el) => {
                             itemRefs.current[idx] = el
+                            if (isSelected) selectedItemRef.current = el
                           }}
                           type="button"
                           role="option"
-                          aria-selected={value === m.id}
+                          aria-selected={isSelected}
                           tabIndex={focusedIndex === idx ? 0 : -1}
                           onClick={() => handleSelect(m.id)}
                           className={cn(
                             'flex w-full min-h-10 flex-col gap-1 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-(--bg-surface-hover)',
-                            value === m.id && 'bg-(--accent-muted) text-accent',
+                            isSelected && 'bg-(--accent-muted) text-accent',
                           )}
                         >
-                          <span className="flex-1 truncate font-mono">{m.name}</span>
+                          <div className="flex items-center gap-1">
+                            <span className="flex-1 truncate font-mono">{m.name}</span>
+                            {isSelected && <Check size={12} className="shrink-0 text-(--accent)" />}
+                          </div>
                           <div className="flex flex-wrap items-center gap-1">
                             {m.supportsThinking && (
                               <span className="rounded-full bg-(--thinking)/10 px-1.5 py-0.5 text-[0.625rem] text-(--thinking)">

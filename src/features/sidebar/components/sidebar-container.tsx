@@ -34,6 +34,7 @@ export function SidebarContainer({ children, isOpen, onClose, onOpen }: SidebarP
         />
       )}
 
+      {/* Mobile backdrop */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -48,15 +49,15 @@ export function SidebarContainer({ children, isOpen, onClose, onOpen }: SidebarP
         )}
       </AnimatePresence>
 
+      {/* Mobile sidebar: fixed flyout */}
       <motion.aside
         initial={false}
         animate={shouldReduce ? {} : { x: isOpen ? 0 : '-100%' }}
         transition={shouldReduce ? {} : { duration: MOTION.DURATION_SLOW, ease: MOTION.EASING }}
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-72 flex-col',
+          'fixed inset-y-0 left-0 z-50 flex w-72 flex-col lg:hidden',
           'bg-(--bg-glass) border-r border-(--border-subtle) backdrop-blur-xl saturate-150',
-          'shadow-(--shadow-elevation-2) lg:shadow-none',
-          'lg:static lg:translate-x-0',
+          'shadow-(--shadow-elevation-2)',
         )}
         aria-label="Sidebar"
       >
@@ -64,6 +65,19 @@ export function SidebarContainer({ children, isOpen, onClose, onOpen }: SidebarP
           {children}
         </motion.div>
       </motion.aside>
+
+      {/* Desktop sidebar: static, width-based toggle */}
+      <aside
+        className={cn(
+          'hidden lg:flex flex-col shrink-0 overflow-hidden',
+          'bg-(--bg-glass) border-r border-(--border-subtle) backdrop-blur-xl saturate-150',
+          'transition-[width] duration-200',
+          isOpen ? 'w-72' : 'w-0',
+        )}
+        aria-label="Sidebar"
+      >
+        <div className="flex h-full flex-col w-72">{children}</div>
+      </aside>
     </>
   )
 }

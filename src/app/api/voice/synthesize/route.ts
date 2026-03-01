@@ -5,6 +5,12 @@ import { VOICE, APP_CONFIG } from '@/config/constants'
 
 export const dynamic = 'force-dynamic'
 
+const MARKDOWN_RE = /(\*\*|__|\*|_|~~|`{1,3}|#{1,6}\s|!\[.*?\]\(.*?\)|\[([^\]]+)\]\(.*?\))/g
+
+function stripMarkdown(text: string): string {
+  return text.replace(MARKDOWN_RE, '$2').trim()
+}
+
 export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session?.user) {
@@ -17,7 +23,7 @@ export async function POST(req: NextRequest) {
     if (typeof body.text !== 'string' || body.text.length === 0) {
       return NextResponse.json({ error: 'Missing text field' }, { status: 400 })
     }
-    text = body.text.slice(0, VOICE.TTS_MAX_CHARS)
+    text = stripMarkdown(body.text).slice(0, VOICE.TTS_MAX_CHARS)
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }

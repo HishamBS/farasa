@@ -1,11 +1,19 @@
 import { and, eq, isNull, lt } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
-import { router, rateLimitedUploadProcedure } from '../trpc'
+import { router, protectedProcedure, rateLimitedUploadProcedure } from '../trpc'
 import { UploadRequestSchema, ConfirmUploadSchema } from '@/schemas/upload'
 import { attachments } from '@/lib/db/schema'
 import { TRPC_CODES } from '@/config/constants'
+import { env } from '@/config/env'
 
 export const uploadRouter = router({
+  config: protectedProcedure.query(() => {
+    return {
+      gcsEnabled:
+        env.GOOGLE_APPLICATION_CREDENTIALS !== undefined && env.GCS_BUCKET_NAME !== undefined,
+    }
+  }),
+
   presignedUrl: rateLimitedUploadProcedure
     .input(UploadRequestSchema)
     .mutation(async ({ ctx, input }) => {

@@ -78,8 +78,8 @@ export const shimmer = {
 }
 
 export const hoverPress = {
-  whileHover: { scale: 1.01 },
-  whileTap: { scale: 0.99 },
+  whileHover: { scale: MOTION.SCALE_HOVER_MICRO },
+  whileTap: { scale: MOTION.SCALE_TAP_MICRO },
 }
 
 export const chevronSpin: Transition = {

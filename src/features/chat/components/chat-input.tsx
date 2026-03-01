@@ -89,8 +89,6 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
       conversationId,
       attachmentIds,
       inlineAttachments,
-      streamRequestId: crypto.randomUUID(),
-      attempt: 0,
     })
     clear()
   }, [

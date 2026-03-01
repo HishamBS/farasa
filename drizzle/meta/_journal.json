@@ -8,6 +8,13 @@
       "when": 1772354457040,
       "tag": "0000_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1772377479341,
+      "tag": "0001_clean_hannibal_king",
+      "breakpoints": true
     }
   ]
 }

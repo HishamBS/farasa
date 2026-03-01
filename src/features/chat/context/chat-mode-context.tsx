@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useContext, useState, useMemo, type ReactNode } from 'react'
 import { CHAT_MODES } from '@/config/constants'
 import type { SearchMode } from '@/schemas/search'
 
@@ -13,7 +13,8 @@ const ChatModeContext = createContext<ChatModeContextValue | null>(null)
 
 export function ChatModeProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<SearchMode>(CHAT_MODES.CHAT)
-  return <ChatModeContext.Provider value={{ mode, setMode }}>{children}</ChatModeContext.Provider>
+  const value = useMemo(() => ({ mode, setMode }), [mode])
+  return <ChatModeContext.Provider value={value}>{children}</ChatModeContext.Provider>
 }
 
 export function useChatMode(): ChatModeContextValue {

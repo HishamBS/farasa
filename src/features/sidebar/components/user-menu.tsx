@@ -1,16 +1,32 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import Image from 'next/image'
 import { signOut, useSession } from 'next-auth/react'
 import { LogOut, Sun, Moon } from 'lucide-react'
-import { useTheme } from '@/lib/utils/use-theme'
+import { useTheme } from 'next-themes'
+import { trpc } from '@/trpc/provider'
 import { ROUTES } from '@/config/routes'
-import { UI } from '@/config/constants'
+import { UI, UX } from '@/config/constants'
 
 export function UserMenu() {
   const { data: session } = useSession()
-  const { theme, toggleTheme } = useTheme()
+  const { resolvedTheme, setTheme } = useTheme()
+  const currentTheme = resolvedTheme ?? 'dark'
+  const updatePrefsMutation = trpc.userPreferences.update.useMutation()
+  const prefsQuery = trpc.userPreferences.get.useQuery(undefined, {
+    staleTime: UX.QUERY_STALE_TIME_FOREVER,
+  })
+
+  // Sync DB theme to next-themes on initial load
+  useEffect(() => {
+    if (!prefsQuery.data) return
+    const { theme } = prefsQuery.data
+    if ((theme === 'dark' || theme === 'light') && theme !== resolvedTheme) {
+      setTheme(theme)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefsQuery.data])
 
   const handleSignOut = useCallback(() => {
     void signOut({ callbackUrl: ROUTES.HOME })
@@ -41,11 +57,15 @@ export function UserMenu() {
 
       <button
         type="button"
-        onClick={toggleTheme}
+        onClick={() => {
+          const next = currentTheme === 'dark' ? 'light' : 'dark'
+          setTheme(next)
+          updatePrefsMutation.mutate({ theme: next })
+        }}
         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-(--text-muted) transition-colors hover:bg-(white/5) hover:text-(--text-secondary)"
-        aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+        aria-label={`Switch to ${currentTheme === 'dark' ? 'light' : 'dark'} mode`}
       >
-        {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+        {currentTheme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
       </button>
 
       <button

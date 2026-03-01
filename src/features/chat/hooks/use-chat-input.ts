@@ -1,21 +1,48 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { trpc } from '@/trpc/provider'
 import { UX } from '@/config/constants'
 
 export function useChatInput(initialModel?: string | null) {
   const [content, setContent] = useState('')
   const [attachmentIds, setAttachmentIds] = useState<string[]>([])
-  const [selectedModel, setSelectedModel] = useState<string | undefined>(initialModel ?? undefined)
+  const [selectedModel, setSelectedModelState] = useState<string | undefined>(
+    initialModel ?? undefined,
+  )
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const prefsInitializedRef = useRef(false)
+
+  const prefsQuery = trpc.userPreferences.get.useQuery(undefined, {
+    staleTime: UX.QUERY_STALE_TIME_FOREVER,
+  })
+  const updatePrefsMutation = trpc.userPreferences.update.useMutation()
+
+  // Initialize selectedModel from DB preferences on first load (if no conversation-specific model)
+  useEffect(() => {
+    if (prefsInitializedRef.current) return
+    if (!prefsQuery.data) return
+    prefsInitializedRef.current = true
+    // Only use DB default if no conversation-specific model was passed
+    if (initialModel === undefined || initialModel === null) {
+      setSelectedModelState(prefsQuery.data.defaultModel ?? undefined)
+    }
+  }, [prefsQuery.data, initialModel])
 
   // Sync selectedModel when navigating to a different conversation.
-  // undefined = still loading; null = loaded with no model set; string = specific model
   useEffect(() => {
     if (initialModel !== undefined) {
-      setSelectedModel(initialModel ?? undefined)
+      setSelectedModelState(initialModel ?? undefined)
     }
   }, [initialModel])
+
+  const setSelectedModel = useCallback(
+    (modelId: string | undefined) => {
+      setSelectedModelState(modelId)
+      updatePrefsMutation.mutate({ defaultModel: modelId ?? null })
+    },
+    [updatePrefsMutation],
+  )
 
   const handleContentChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setContent(e.target.value)

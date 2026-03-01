@@ -216,7 +216,7 @@ export function ConversationItem({
 
         {isActive && (
           <div
-            className="absolute right-2 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_8px_rgba(34,211,238,0.5)]"
+            className="absolute right-2 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_8px_var(--conversation-item-glow)]"
             aria-hidden="true"
           />
         )}

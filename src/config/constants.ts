@@ -13,7 +13,6 @@ export const LIMITS = {
   SEARCH_MAX_RESULTS: 10,
   CODE_BLOCK_LINE_NUMBER_THRESHOLD: 5,
   TOKENS_PER_K: 1_000,
-  RESTREAM_WINDOW_MS: 30_000,
   CONVERSATION_HISTORY_LIMIT: 20,
   RUNTIME_CONFIG_CACHE_TTL_MS: 5_000,
 } as const
@@ -249,6 +248,8 @@ export const MOTION = {
   PILL_SCALE: 0.98,
   SCALE_EXIT: 0.8,
   SCALE_SUBTLE_EXIT: 0.95,
+  SCALE_HOVER_MICRO: 1.01,
+  SCALE_TAP_MICRO: 0.99,
 } as const
 
 export const AI_PARAMS = {
@@ -303,10 +304,6 @@ export const UI_TEXT = {
   DELETE_CONFIRM_TITLE: 'Delete conversation?',
   DELETE_CONFIRM_BODY: 'This will permanently delete the conversation and all its messages.',
   DELETE_CONFIRM_ACTION: 'Delete',
-} as const
-
-export const SESSION_KEYS = {
-  PENDING_CHAT_INPUT_PREFIX: 'pending-chat-input:',
 } as const
 
 export const MARKDOWN_SANITIZE = {

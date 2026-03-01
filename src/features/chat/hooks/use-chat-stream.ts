@@ -3,18 +3,15 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { trpcClient } from '@/trpc/client'
 import { trpc } from '@/trpc/provider'
-import { STREAM_EVENTS, STREAM_PHASES, STREAM_ACTIONS, MESSAGE_ROLES } from '@/config/constants'
+import { STREAM_EVENTS, STREAM_PHASES, STREAM_ACTIONS } from '@/config/constants'
 import { useStreamState } from '@/features/stream-phases/hooks/use-stream-state'
 import type { ChatInput, StreamChunk } from '@/schemas/message'
 import type { v0_8 } from '@a2ui-sdk/types'
 
 type ActiveStreamSession = {
   conversationId: string
-  streamRequestId: string
-  lastSequence: number
-  attempt: number
+  sessionId: string
   unsubscribe: () => void
-  retryTimer: number | null
   isSettled: boolean
 }
 
@@ -26,68 +23,21 @@ function isA2UIMessage(value: unknown): value is v0_8.A2UIMessage {
   return true
 }
 
-function classifyRecoverableReason(reasonCode?: string): boolean {
-  if (!reasonCode) return false
-  return reasonCode === 'provider_unavailable' || reasonCode === 'transient_network'
-}
-
-function computeRetryDelay(
-  attempt: number,
-  config: {
-    baseDelayMs: number
-    maxDelayMs: number
-    jitterMs: number
-  },
-): number {
-  const exponential = Math.min(
-    config.baseDelayMs * 2 ** Math.max(attempt - 1, 0),
-    config.maxDelayMs,
-  )
-  const jitter = config.jitterMs > 0 ? Math.floor(Math.random() * config.jitterMs) : 0
-  return Math.min(exponential + jitter, config.maxDelayMs)
-}
-
 export function useChatStream() {
   const { state: streamState, dispatch, reset } = useStreamState()
   const utils = trpc.useUtils()
-  const runtimeConfigQuery = trpc.runtimeConfig.get.useQuery()
   const cancelStreamMutation = trpc.chat.cancel.useMutation()
   const activeSessionRef = useRef<ActiveStreamSession | null>(null)
-  const pendingInputRef = useRef<ChatInput | null>(null)
 
   const clearActiveSession = useCallback(() => {
     const active = activeSessionRef.current
     if (!active) return
-    if (active.retryTimer !== null) {
-      window.clearTimeout(active.retryTimer)
-    }
     active.unsubscribe()
     activeSessionRef.current = null
   }, [])
 
-  const invalidateConversationViews = useCallback(
-    (conversationId: string | undefined, invalidateOnDone: boolean, invalidateOnError: boolean) => {
-      if (!conversationId) return
-      if (invalidateOnDone) {
-        void utils.conversation.messages.invalidate({ conversationId })
-        void utils.conversation.list.invalidate()
-        void utils.conversation.getById.invalidate({ id: conversationId })
-      }
-      if (invalidateOnError) {
-        void utils.conversation.messages.invalidate({ conversationId })
-      }
-    },
-    [utils],
-  )
-
   const runStreamAttempt = useCallback(
-    (input: ChatInput, isRetry: boolean) => {
-      const runtimeConfig = runtimeConfigQuery.data
-      if (!runtimeConfig) {
-        pendingInputRef.current = input
-        return
-      }
-
+    (input: ChatInput) => {
       if (!input.conversationId) {
         dispatch({
           type: STREAM_ACTIONS.ERROR,
@@ -95,7 +45,7 @@ export function useChatStream() {
             message: 'Conversation context is required before streaming.',
             reasonCode: 'validation_rejected',
             recoverable: false,
-            attempt: input.attempt,
+            attempt: 0,
           },
         })
         return
@@ -106,45 +56,17 @@ export function useChatStream() {
         clearActiveSession()
       }
 
-      if (!isRetry) {
-        dispatch({ type: STREAM_ACTIONS.SAVE_INPUT, input })
-        reset()
+      dispatch({ type: STREAM_ACTIONS.SAVE_INPUT, input })
+      reset()
 
-        if (!input.skipUserInsert) {
-          utils.conversation.messages.setData({ conversationId: input.conversationId }, (old) => {
-            if (!old) return old
-            return [
-              ...old,
-              {
-                id: crypto.randomUUID(),
-                conversationId: input.conversationId!,
-                role: MESSAGE_ROLES.USER,
-                content: input.content,
-                metadata: {
-                  streamRequestId: input.streamRequestId,
-                },
-                clientRequestId: input.streamRequestId,
-                streamSequenceMax: null,
-                tokenCount: null,
-                createdAt: new Date(),
-                attachments: [],
-              },
-            ]
-          })
-        }
-      }
-
+      const sessionId = crypto.randomUUID()
       const session: ActiveStreamSession = {
         conversationId: input.conversationId,
-        streamRequestId: input.streamRequestId,
-        lastSequence: -1,
-        attempt: input.attempt,
+        sessionId,
         unsubscribe: () => {},
-        retryTimer: null,
         isSettled: false,
       }
       activeSessionRef.current = session
-      pendingInputRef.current = null
 
       const settleWithError = (chunk: {
         message: string
@@ -154,58 +76,33 @@ export function useChatStream() {
         attempt?: number
       }) => {
         const active = activeSessionRef.current
-        if (!active || active.streamRequestId !== input.streamRequestId || active.isSettled) {
-          return
-        }
+        if (!active || active.sessionId !== sessionId || active.isSettled) return
         active.isSettled = true
-
-        const maxAttempts = runtimeConfig.chat.stream.retry.maxAttempts
-        const nextAttempt = input.attempt + 1
-        const recoverable = chunk.recoverable ?? classifyRecoverableReason(chunk.reasonCode)
-        if (recoverable && nextAttempt <= maxAttempts) {
-          const delayMs = computeRetryDelay(nextAttempt, runtimeConfig.chat.stream.retry)
-          active.retryTimer = window.setTimeout(() => {
-            runStreamAttempt(
-              {
-                ...input,
-                attempt: nextAttempt,
-                skipUserInsert: true,
-              },
-              true,
-            )
-          }, delayMs)
-          return
-        }
 
         dispatch({
           type: STREAM_ACTIONS.ERROR,
           error: {
             message: chunk.message,
             code: chunk.code,
-            reasonCode:
-              chunk.reasonCode ?? (recoverable ? 'transient_exhausted' : 'provider_unavailable'),
+            reasonCode: chunk.reasonCode ?? 'provider_unavailable',
             recoverable: false,
-            attempt: input.attempt,
+            attempt: 0,
           },
         })
-        invalidateConversationViews(
-          input.conversationId,
-          false,
-          runtimeConfig.chat.completion.invalidateOnError,
-        )
+        void utils.conversation.messages.invalidate({ conversationId: input.conversationId! })
       }
 
       const subscription = trpcClient.chat.stream.subscribe(input, {
         onData(chunk: StreamChunk) {
           const active = activeSessionRef.current
-          if (!active || active.streamRequestId !== input.streamRequestId) return
-          if (chunk.streamRequestId !== input.streamRequestId) return
-          if (runtimeConfig.chat.stream.enforceSequence && typeof chunk.sequence === 'number') {
-            if (chunk.sequence <= active.lastSequence) return
-            active.lastSequence = chunk.sequence
-          }
+          if (!active || active.sessionId !== sessionId) return
 
           switch (chunk.type) {
+            case STREAM_EVENTS.USER_MESSAGE_SAVED:
+              void utils.conversation.messages.invalidate({
+                conversationId: input.conversationId!,
+              })
+              break
             case STREAM_EVENTS.STATUS:
               dispatch({
                 type: STREAM_ACTIONS.STATUS,
@@ -271,113 +168,58 @@ export function useChatStream() {
               if (active.isSettled) return
               active.isSettled = true
               dispatch({ type: STREAM_ACTIONS.DONE })
+              void utils.conversation.messages.invalidate({
+                conversationId: input.conversationId!,
+              })
               void utils.conversation.list.invalidate()
               void utils.conversation.getById.invalidate({ id: input.conversationId! })
-              if (runtimeConfig.chat.completion.invalidateOnDone) {
-                void utils.conversation.messages.invalidate({
-                  conversationId: input.conversationId!,
-                })
-              }
               break
           }
         },
         onError(error: Error) {
           settleWithError({
-            message: runtimeConfig.chat.errors.connection,
+            message: error.message || 'Connection error.',
             reasonCode: 'transient_network',
-            recoverable: true,
+            recoverable: false,
             code: error.name,
-            attempt: input.attempt,
+            attempt: 0,
           })
         },
         onComplete() {
           const active = activeSessionRef.current
-          if (!active || active.streamRequestId !== input.streamRequestId) return
-          if (active.retryTimer !== null) return
+          if (!active || active.sessionId !== sessionId) return
           activeSessionRef.current = null
         },
       })
 
       session.unsubscribe = () => subscription.unsubscribe()
     },
-    [
-      clearActiveSession,
-      dispatch,
-      invalidateConversationViews,
-      reset,
-      runtimeConfigQuery.data,
-      utils,
-    ],
+    [clearActiveSession, dispatch, reset, utils],
   )
 
   const sendMessage = useCallback(
     (input: ChatInput) => {
-      if (!input.skipUserInsert && input.conversationId) {
-        utils.conversation.messages.setData({ conversationId: input.conversationId }, (old) => {
-          if (!old) return old
-          return [
-            ...old,
-            {
-              id: crypto.randomUUID(),
-              conversationId: input.conversationId!,
-              role: MESSAGE_ROLES.USER,
-              content: input.content,
-              metadata: {
-                streamRequestId: input.streamRequestId,
-              },
-              clientRequestId: input.streamRequestId,
-              streamSequenceMax: null,
-              tokenCount: null,
-              createdAt: new Date(),
-              attachments: [],
-            },
-          ]
-        })
-      }
-
-      runStreamAttempt(
-        {
-          ...input,
-          attempt: input.attempt ?? 0,
-          skipUserInsert: true,
-        },
-        false,
-      )
+      runStreamAttempt(input)
     },
-    [runStreamAttempt, utils],
+    [runStreamAttempt],
   )
 
   const abort = useCallback(() => {
     const active = activeSessionRef.current
     if (!active) return
 
-    if (active.retryTimer !== null) {
-      window.clearTimeout(active.retryTimer)
-    }
     active.unsubscribe()
     activeSessionRef.current = null
 
     void cancelStreamMutation.mutateAsync({
       conversationId: active.conversationId,
-      streamRequestId: active.streamRequestId,
     })
   }, [cancelStreamMutation])
-
-  useEffect(() => {
-    if (!runtimeConfigQuery.data) return
-    const pending = pendingInputRef.current
-    if (!pending) return
-    if (activeSessionRef.current) return
-    runStreamAttempt(pending, false)
-  }, [runStreamAttempt, runtimeConfigQuery.data])
 
   useEffect(() => {
     return () => {
       const active = activeSessionRef.current
       if (!active) return
-      if (active.retryTimer !== null) {
-        window.clearTimeout(active.retryTimer)
-      }
       active.unsubscribe()
       activeSessionRef.current = null
     }

@@ -80,6 +80,10 @@ export const StreamChunkSchema = z.discriminatedUnion('type', [
     usage: UsageSchema.optional(),
     terminalReason: z.string().optional(),
   }),
+  StreamEventMetaSchema.extend({
+    type: z.literal(STREAM_EVENTS.USER_MESSAGE_SAVED),
+    messageId: z.string(),
+  }),
 ])
 
 export const InlineAttachmentSchema = z.object({
@@ -95,9 +99,6 @@ export const ChatInputSchema = z.object({
   model: z.string().optional(),
   attachmentIds: z.array(z.string().uuid()).default([]),
   inlineAttachments: z.array(InlineAttachmentSchema).default([]),
-  streamRequestId: z.string().uuid(),
-  attempt: z.number().int().nonnegative(),
-  skipUserInsert: z.boolean().optional(),
 })
 
 export const ToolCallSchema = z.object({

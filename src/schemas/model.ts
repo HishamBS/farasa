@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { MODEL_CATEGORIES, PROVIDERS } from '@/config/constants'
+import { MODEL_CATEGORIES, PROVIDERS, PROVIDER_ALIASES } from '@/config/constants'
 
 export const ModelCapabilitySchema = z.enum([
   MODEL_CATEGORIES.CODE,
@@ -24,17 +24,21 @@ export const ModelPricingSchema = z.object({
   completionPerMillion: z.number().nonnegative(),
 })
 
-export const ModelConfigSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  provider: z.string(),
-  capabilities: z.array(ModelCapabilitySchema),
-  contextWindow: z.number().int().positive(),
-  supportsVision: z.boolean(),
-  supportsTools: z.boolean(),
-  supportsThinking: z.boolean().default(false),
-  pricing: ModelPricingSchema,
-})
+export const ModelConfigSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    capabilities: z.array(ModelCapabilitySchema),
+    contextWindow: z.number().int().positive(),
+    supportsVision: z.boolean(),
+    supportsTools: z.boolean(),
+    supportsThinking: z.boolean().default(false),
+    pricing: ModelPricingSchema,
+  })
+  .transform((raw) => {
+    const rawProvider = raw.id.split('/')[0] ?? raw.id
+    return { ...raw, provider: PROVIDER_ALIASES[rawProvider] ?? rawProvider }
+  })
 
 export const ModelSelectionSchema = z.object({
   category: z.string(),

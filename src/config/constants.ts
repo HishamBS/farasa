@@ -199,6 +199,10 @@ export const PROVIDERS = {
   CEREBRAS: 'cerebras',
 } as const
 
+export const PROVIDER_ALIASES: Record<string, string> = {
+  'meta-llama': PROVIDERS.META,
+}
+
 export const PROVIDER_DOT_CLASSES: Record<string, string> = {
   [PROVIDERS.ANTHROPIC]: 'bg-(--provider-anthropic)',
   [PROVIDERS.OPENAI]: 'bg-(--provider-openai)',

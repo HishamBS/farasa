@@ -4,7 +4,6 @@ import {
   MODEL_CATEGORIES,
   MODEL_REGISTRY_CACHE_KEY,
   EXTERNAL_URLS,
-  PROVIDERS,
   ROUTER_CAPABILITY_PATTERNS,
 } from '@/config/constants'
 import { ModelConfigSchema } from '@/schemas/model'
@@ -67,11 +66,6 @@ type ModelRegistryOptions = {
 
 const cache = new Map<string, CacheEntry>()
 
-function normalizeProvider(rawProvider: string): string {
-  if (rawProvider === 'meta-llama') return PROVIDERS.META
-  return rawProvider
-}
-
 async function fetchFromOpenRouter(runtimeConfig: RuntimeConfig): Promise<ModelConfig[]> {
   const response = await fetch(EXTERNAL_URLS.OPENROUTER_MODELS, {
     headers: { Authorization: `Bearer ${env.OPENROUTER_API_KEY}` },
@@ -86,8 +80,6 @@ async function fetchFromOpenRouter(runtimeConfig: RuntimeConfig): Promise<ModelC
 
   const models: ModelConfig[] = []
   for (const raw of json.data) {
-    const providerId = raw.id.split('/')[0] ?? ''
-    const provider = normalizeProvider(providerId)
     const params = raw.supported_parameters ?? []
 
     const supportsVision = raw.architecture?.modality?.includes('image') ?? false
@@ -95,7 +87,6 @@ async function fetchFromOpenRouter(runtimeConfig: RuntimeConfig): Promise<ModelC
     const parsed = ModelConfigSchema.safeParse({
       id: raw.id,
       name: raw.name,
-      provider,
       capabilities: inferCapabilities(raw),
       contextWindow: raw.context_length ?? 0,
       supportsVision,

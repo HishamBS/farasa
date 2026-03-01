@@ -33,11 +33,16 @@ function sessionFromToken(token: JWT): Session {
 }
 
 export async function createContextFromRequest(req: Request): Promise<Context> {
-  const token = await getToken({
-    req,
-    secret: env.AUTH_SECRET,
-    secureCookie: env.NODE_ENV === 'production',
-  })
+  let token: JWT | null = null
+  try {
+    token = await getToken({
+      req,
+      secret: env.AUTH_SECRET,
+      secureCookie: env.NODE_ENV === 'production',
+    })
+  } catch (error) {
+    console.warn('[auth] Failed to parse session token in tRPC context', error)
+  }
 
   if (!token?.sub) {
     return buildContext(null)

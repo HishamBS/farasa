@@ -1,20 +1,10 @@
 import type { NextAuthConfig } from 'next-auth'
-import Google from 'next-auth/providers/google'
-import { env } from '@/config/env'
-import { ROUTES } from '@/config/routes'
+import { authSharedConfig } from '@/lib/auth/shared-config'
 
 export const edgeAuthConfig: NextAuthConfig = {
-  trustHost: true,
-  providers: [
-    Google({
-      clientId: env.AUTH_GOOGLE_ID,
-      clientSecret: env.AUTH_GOOGLE_SECRET,
-    }),
-  ],
-  pages: {
-    signIn: ROUTES.LOGIN,
-  },
+  ...authSharedConfig,
   callbacks: {
+    ...authSharedConfig.callbacks,
     authorized({ auth }) {
       return !!auth?.user
     },

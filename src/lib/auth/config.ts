@@ -1,13 +1,11 @@
 import NextAuth, { type DefaultSession } from 'next-auth'
-import type { NextAuthConfig } from 'next-auth'
 import type { Adapter, AdapterAccount } from '@auth/core/adapters'
-import Google from 'next-auth/providers/google'
 import { DrizzleAdapter } from '@auth/drizzle-adapter'
 import { env } from '@/config/env'
-import { ROUTES } from '@/config/routes'
 import { db } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
 import { encryptToken, decryptToken } from '@/lib/security/token-crypto'
+import { authSharedConfig } from '@/lib/auth/shared-config'
 
 declare module 'next-auth' {
   interface Session {
@@ -70,8 +68,8 @@ function withEncryptedTokens(adapter: Adapter): Adapter {
   }
 }
 
-const authConfig: NextAuthConfig = {
-  trustHost: true,
+const authConfig = {
+  ...authSharedConfig,
   adapter: withEncryptedTokens(
     DrizzleAdapter(db, {
       usersTable: schema.users,
@@ -80,22 +78,6 @@ const authConfig: NextAuthConfig = {
       verificationTokensTable: schema.verificationTokens,
     }),
   ),
-  providers: [
-    Google({
-      clientId: env.AUTH_GOOGLE_ID,
-      clientSecret: env.AUTH_GOOGLE_SECRET,
-    }),
-  ],
-  session: { strategy: 'database' },
-  callbacks: {
-    session({ session, user }) {
-      if (user?.id) session.user.id = user.id
-      return session
-    },
-  },
-  pages: {
-    signIn: ROUTES.LOGIN,
-  },
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth(authConfig)

@@ -51,6 +51,7 @@ export function ConversationItem({
   const [editValue, setEditValue] = useState(title)
   const inputRef = useRef<HTMLInputElement>(null)
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const dropdownTriggerRef = useRef<HTMLButtonElement>(null)
 
   const utils = trpc.useUtils()
 
@@ -80,7 +81,7 @@ export function ConversationItem({
 
   const handleTouchStart = useCallback(() => {
     longPressTimerRef.current = setTimeout(() => {
-      // long press handled by dropdown trigger on mobile
+      dropdownTriggerRef.current?.click()
     }, UX.LONG_PRESS_DELAY_MS)
   }, [])
 
@@ -216,6 +217,7 @@ export function ConversationItem({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
+              ref={dropdownTriggerRef}
               type="button"
               onClick={(e) => e.stopPropagation()}
               className={cn(

@@ -66,7 +66,7 @@ export const groupRouter = router({
             type: STREAM_EVENTS.CONVERSATION_CREATED,
             streamRequestId,
             conversationId: created.id,
-          } as StreamChunk,
+          } satisfies StreamChunk,
         }
       }
 
@@ -118,7 +118,7 @@ export const groupRouter = router({
           type: STREAM_EVENTS.USER_MESSAGE_SAVED,
           streamRequestId,
           messageId: userMessageId,
-        } as StreamChunk,
+        } satisfies StreamChunk,
       }
 
       const groupId = crypto.randomUUID()
@@ -208,7 +208,7 @@ export const groupRouter = router({
               streamRequestId: crypto.randomUUID(),
               message: 'Model stream failed',
               recoverable: false,
-            } as StreamChunk,
+            } satisfies StreamChunk,
           })
         }
         push({ done: true, modelId })
@@ -308,7 +308,7 @@ export const groupRouter = router({
           streamRequestId,
           message,
           recoverable: false,
-        } as StreamChunk,
+        } satisfies StreamChunk,
       }
     }
   }),

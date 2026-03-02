@@ -50,16 +50,13 @@ export function CodeBlock({ children, className }: CodeBlockProps) {
   return (
     <div className="my-4 overflow-hidden rounded-xl border border-(--border-subtle) bg-(--bg-surface) shadow-lg">
       <div className="flex items-center justify-between border-b border-(--code-block-border) bg-(--bg-code-header) px-3.5 py-1.5">
-        <span className="font-mono text-[11px] text-(--text-muted) tracking-[0.04em] lowercase">
+        <span className="font-mono text-xs text-(--text-muted) tracking-[0.04em] lowercase">
           {validLang}
         </span>
         <CopyButton code={code} />
       </div>
 
-      <div
-        className="overflow-x-auto text-[0.78125rem] leading-[1.65]"
-        data-line-numbers={showLineNumbers}
-      >
+      <div className="overflow-x-auto text-xs leading-[1.65]" data-line-numbers={showLineNumbers}>
         {html ? (
           <div
             className="[&>pre]:bg-transparent! [&>pre]:p-4"

@@ -138,7 +138,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     { conversationId: conversationId ?? '' },
     { staleTime: UX.QUERY_STALE_TIME_FOREVER, enabled: !!conversationId },
   )
-  const messages = useMemo(() => messagesData?.messages ?? [], [messagesData?.messages])
+  const messages = useMemo(() => messagesData?.messages ?? [], [messagesData])
 
   const messagesHaveGroup = useMemo(() => {
     if (!groupId) return false

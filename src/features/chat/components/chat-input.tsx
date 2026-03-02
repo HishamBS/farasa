@@ -191,7 +191,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           className={cn(
-            'rounded-[16px] border bg-(--bg-glass) p-2.5 shadow-md backdrop-blur-xl saturate-150 transition-all duration-300',
+            'rounded-2xl border bg-(--bg-glass) p-2.5 shadow-md backdrop-blur-xl saturate-150 transition-all duration-300',
             isDragging
               ? 'border-accent ring-4 ring-accent/20'
               : 'border-(--border-default) focus-within:border-accent/30 focus-within:ring-4 focus-within:ring-accent/10 focus-within:shadow-xl',

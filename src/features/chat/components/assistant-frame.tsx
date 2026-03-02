@@ -21,7 +21,7 @@ export function AssistantFrame({
   return (
     <article className="mb-0.5 flex flex-col pt-2">
       <div className="mb-2 flex items-center gap-2.5">
-        <div className="flex size-6 items-center justify-center rounded-md bg-linear-to-br from-(--assistant-avatar-from) to-(--thinking) text-[10px] font-bold text-(--bg-root) shadow-inner shadow-white/20">
+        <div className="flex size-6 items-center justify-center rounded-md bg-linear-to-br from-(--assistant-avatar-from) to-(--thinking) text-xs font-bold text-(--bg-root) shadow-inner shadow-white/20">
           f
         </div>
         <span className="text-sm font-medium text-(--text-secondary)">farasa</span>

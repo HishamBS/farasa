@@ -122,7 +122,7 @@ export function MessageList({
       {isEmpty ? (
         <EmptyState onSelect={onSuggestionSelect} />
       ) : (
-        <div className="mx-auto flex w-full max-w-170 flex-col px-5">
+        <div className="mx-auto flex w-full max-w-240 flex-col px-4">
           {dividerLabel && (
             <div className="mb-8 flex items-center gap-4 text-xs font-medium text-(--text-muted)">
               <span className="h-px flex-1 bg-(--border-subtle)" />

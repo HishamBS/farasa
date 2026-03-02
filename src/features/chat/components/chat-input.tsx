@@ -185,7 +185,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
 
   return (
     <div className="shrink-0 pb-[max(1rem,_env(safe-area-inset-bottom))] xl:pb-6">
-      <div className="mx-auto w-full max-w-170 px-5">
+      <div className="mx-auto w-full max-w-240 px-4">
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}

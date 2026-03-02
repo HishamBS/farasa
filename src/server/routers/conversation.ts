@@ -10,6 +10,7 @@ import {
   ExportConversationSchema,
   GenerateTitleSchema,
   MessageListInputSchema,
+  MessageListOutputSchema,
   UpdateConversationSchema,
 } from '@/schemas/conversation'
 import { NEW_CHAT_TITLE, TRPC_CODES, MESSAGE_ROLES } from '@/config/constants'
@@ -202,44 +203,51 @@ export const conversationRouter = router({
       return { markdown: lines.join('\n'), title: conversation.title }
     }),
 
-  messages: protectedProcedure.input(MessageListInputSchema).query(async ({ ctx, input }) => {
-    const runtimeConfig = await getRuntimeConfig({ userId: ctx.userId })
-    const [conversation] = await ctx.db
-      .select({ id: conversations.id })
-      .from(conversations)
-      .where(and(eq(conversations.id, input.conversationId), eq(conversations.userId, ctx.userId)))
-      .limit(1)
+  messages: protectedProcedure
+    .input(MessageListInputSchema)
+    .output(MessageListOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const runtimeConfig = await getRuntimeConfig({ userId: ctx.userId })
+      const [conversation] = await ctx.db
+        .select({ id: conversations.id })
+        .from(conversations)
+        .where(
+          and(eq(conversations.id, input.conversationId), eq(conversations.userId, ctx.userId)),
+        )
+        .limit(1)
 
-    if (!conversation) {
-      throw new TRPCError({ code: TRPC_CODES.NOT_FOUND })
-    }
+      if (!conversation) {
+        throw new TRPCError({ code: TRPC_CODES.NOT_FOUND })
+      }
 
-    const conditions = [eq(messages.conversationId, input.conversationId)]
-    if (input.cursor) {
-      conditions.push(lt(messages.createdAt, new Date(input.cursor)))
-    }
+      const conditions = [eq(messages.conversationId, input.conversationId)]
+      if (input.cursor) {
+        conditions.push(lt(messages.createdAt, new Date(input.cursor)))
+      }
 
-    const fetchLimit = Math.min(
-      input.limit ?? runtimeConfig.limits.paginationDefaultLimit,
-      runtimeConfig.limits.paginationMaxLimit,
-    )
+      const resolvedLimit = Math.min(
+        input.limit ?? runtimeConfig.limits.paginationDefaultLimit,
+        runtimeConfig.limits.paginationMaxLimit,
+      )
+      const fetchLimit = resolvedLimit + 1
 
-    const rows = await ctx.db.query.messages.findMany({
-      where: and(...conditions),
-      orderBy: (_fields, operators) => [
-        operators.desc(messages.createdAt),
-        operators.desc(messages.id),
-      ],
-      limit: fetchLimit,
-      with: {
-        attachments: true,
-      },
-    })
+      const rows = await ctx.db.query.messages.findMany({
+        where: and(...conditions),
+        orderBy: (_fields, operators) => [
+          operators.desc(messages.createdAt),
+          operators.desc(messages.id),
+        ],
+        limit: fetchLimit,
+        with: {
+          attachments: true,
+        },
+      })
 
-    const reversed = rows.reverse()
-    const hasMore = rows.length === fetchLimit
-    const nextCursor = hasMore && reversed[0] ? reversed[0].createdAt.toISOString() : null
+      const hasMore = rows.length === fetchLimit
+      const trimmed = hasMore ? rows.slice(0, resolvedLimit) : rows
+      const reversed = trimmed.reverse()
+      const nextCursor = hasMore && reversed[0] ? reversed[0].createdAt.toISOString() : null
 
-    return { messages: reversed, nextCursor }
-  }),
+      return { messages: reversed, nextCursor }
+    }),
 })

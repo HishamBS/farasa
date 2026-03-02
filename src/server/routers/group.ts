@@ -1,4 +1,4 @@
-import { and, asc, eq, or } from 'drizzle-orm'
+import { and, asc, eq, or, sql } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure, rateLimitedChatProcedure } from '../trpc'
 import { GroupStreamInputSchema, GroupSynthesizeInputSchema } from '@/schemas/group'
@@ -330,24 +330,18 @@ export const groupRouter = router({
       throw new TRPCError({ code: TRPC_CODES.NOT_FOUND })
     }
 
-    const groupMessages = await ctx.db
+    const filteredGroupMessages = await ctx.db
       .select({ role: messages.role, content: messages.content, metadata: messages.metadata })
       .from(messages)
       .where(
         and(
           eq(messages.conversationId, input.conversationId),
           eq(messages.role, MESSAGE_ROLES.ASSISTANT),
+          sql`${messages.metadata}->>'groupId' = ${input.groupId}`,
+          sql`(${messages.metadata}->>'isGroupSynthesis') IS DISTINCT FROM 'true'`,
         ),
       )
       .orderBy(asc(messages.createdAt))
-
-    const filteredGroupMessages = groupMessages.filter(
-      (m) =>
-        m.metadata !== null &&
-        m.metadata !== undefined &&
-        m.metadata.groupId === input.groupId &&
-        m.metadata.isGroupSynthesis !== true,
-    )
 
     if (filteredGroupMessages.length === 0) {
       throw new TRPCError({

@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { trpc } from '@/trpc/provider'
 import { useChatStream } from '../hooks/use-chat-stream'
 import { MessageList } from './message-list'
@@ -31,8 +31,10 @@ type ChatContainerProps = {
 
 export function ChatContainer({ conversationId: conversationIdProp }: ChatContainerProps) {
   const router = useRouter()
-  const conversationId = conversationIdProp
-  const { streamState, sendMessage, abort } = useChatStream()
+  const params = useParams<{ id?: string[] }>()
+  const conversationIdFromRoute = Array.isArray(params.id) ? params.id[0] : undefined
+  const conversationId = conversationIdFromRoute ?? conversationIdProp
+  const { streamState, sendMessage, abort } = useChatStream(conversationId)
   const effectiveConversationId = streamState.resolvedConversationId ?? conversationId
   const isStreaming = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
   const chatInputRef = useRef<ChatInputHandle>(null)

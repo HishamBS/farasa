@@ -50,7 +50,7 @@ function HistoricalTabs({ messages }: HistoricalTabsProps) {
         return {
           modelId: msg.modelId,
           providerKey,
-          label: (msg.modelLabel ?? extractModelName(msg.modelId)).split(/[\s-]/)[0] ?? msg.modelId,
+          label: msg.modelLabel ?? extractModelName(msg.modelId),
           dotClass: PROVIDER_DOT_CLASSES[providerKey] ?? 'bg-(--text-ghost)',
           content: msg.content,
         }
@@ -64,7 +64,7 @@ function HistoricalTabs({ messages }: HistoricalTabsProps) {
         {tabMetas.map(({ modelId, label, dotClass }) => (
           <TabsTrigger key={modelId} value={modelId}>
             <span className={cn('size-1.5 shrink-0 rounded-full', dotClass)} />
-            <span className="max-w-20 truncate">{label}</span>
+            <span className="max-w-40 truncate">{label}</span>
           </TabsTrigger>
         ))}
       </TabsList>

@@ -7,26 +7,16 @@ import { UX } from '@/config/constants'
 export function useSidebar() {
   const [isOpen, setIsOpenState] = useState(true)
   const touchStartX = useRef<number | null>(null)
-  const prefsInitializedRef = useRef(false)
 
   const prefsQuery = trpc.userPreferences.get.useQuery(undefined, {
     staleTime: UX.QUERY_STALE_TIME_FOREVER,
   })
   const updatePrefsMutation = trpc.userPreferences.update.useMutation()
 
-  // Initialize from DB preferences; seed DB on first load when no record exists
   useEffect(() => {
-    if (prefsInitializedRef.current) return
     if (!prefsQuery.data) return
-    prefsInitializedRef.current = true
-    if ('userId' in prefsQuery.data) {
-      // Real DB row exists — apply persisted value
-      setIsOpenState(prefsQuery.data.sidebarExpanded)
-    } else {
-      // No DB row yet (server returned fallback defaults) — seed with current default
-      updatePrefsMutation.mutate({ sidebarExpanded: isOpen })
-    }
-  }, [prefsQuery.data, isOpen, updatePrefsMutation])
+    setIsOpenState(prefsQuery.data.sidebarExpanded)
+  }, [prefsQuery.data])
 
   const setIsOpen = useCallback(
     (value: boolean) => {
@@ -72,6 +62,40 @@ export function useSidebar() {
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [isOpen, close])
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    let idleTimer: ReturnType<typeof setTimeout> | null = null
+
+    const schedule = () => {
+      if (idleTimer) clearTimeout(idleTimer)
+      idleTimer = setTimeout(() => {
+        setIsOpen(false)
+      }, UX.SIDEBAR_IDLE_AUTO_MINIMIZE_MS)
+    }
+
+    const pointerEvents: Array<keyof DocumentEventMap> = ['mousemove', 'touchstart', 'pointerdown']
+    const keyboardEvents: Array<keyof DocumentEventMap> = ['keydown']
+
+    schedule()
+    for (const event of pointerEvents) {
+      document.addEventListener(event, schedule, { passive: true })
+    }
+    for (const event of keyboardEvents) {
+      document.addEventListener(event, schedule)
+    }
+
+    return () => {
+      if (idleTimer) clearTimeout(idleTimer)
+      for (const event of pointerEvents) {
+        document.removeEventListener(event, schedule)
+      }
+      for (const event of keyboardEvents) {
+        document.removeEventListener(event, schedule)
+      }
+    }
+  }, [isOpen, setIsOpen])
 
   return { isOpen, open, close, toggle }
 }

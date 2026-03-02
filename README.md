@@ -122,8 +122,8 @@ platform distinct.
 | **Real-time streaming** | 7-phase SSE stream: routing → thinking → tools → text → A2UI                                                                                                                                                                   |
 | **Web search**          | Tavily — structured result cards with source attribution and image gallery                                                                                                                                                     |
 | **File attachments**    | Multi-modal uploads via GCS presigned URLs (images, PDFs, text)                                                                                                                                                                |
-| **Voice I/O**           | Server-side STT via OpenRouter Whisper + TTS via Qwen; browser Web Speech API as fallback                                                                                                                                      |
-| **Group Mode**          | Compare 2–3 models simultaneously; real-time tabbed streaming per model; AI synthesis via user-selected judge model                                                                                                            |
+| **Voice I/O**           | Server-side STT via OpenRouter Whisper + TTS via Qwen; explicit typed errors when unsupported/unavailable (no silent client fallback)                                                                                          |
+| **Group Mode**          | Compare 2–5 models simultaneously; real-time tabbed streaming per model; AI synthesis via user-selected judge model                                                                                                            |
 | **Agent UI (A2UI)**     | AI generates interactive React components via `@a2ui-sdk`                                                                                                                                                                      |
 | **Conversation mgmt**   | Full CRUD, sidebar navigation, pinning, Markdown export                                                                                                                                                                        |
 | **Auth & security**     | Google OAuth, per-user DB isolation, sliding-window rate limiting, AES-GCM token crypto                                                                                                                                        |
@@ -365,7 +365,7 @@ conversation.exportMarkdown({ id })               // Markdown string
 group.stream({              // SSE subscription — rate-limited
   conversationId?: string,
   content: string,
-  models: string[],         // 2–3 model IDs validated against registry
+  models: string[],         // 2–5 model IDs validated against registry
   attachmentIds?: string[],
 })
 // Emits (in order): group_stream_event (conversation_created, user_message_saved)
@@ -448,7 +448,10 @@ bun run db:studio    # Drizzle Studio on :4983
 ## Docker
 
 ```bash
-docker build --build-arg NEXT_PUBLIC_APP_URL=http://localhost:3010 -t farasa .
+docker build \
+  --build-arg NEXT_PUBLIC_APP_URL=http://localhost:3010 \
+  --build-arg DATABASE_URL=postgresql://farasa_user:farasa_password@localhost:5433/farasa_db \
+  -t farasa .
 
 ./start.sh                                        # interactive menu
 docker compose -f docker/docker-compose.yml up    # direct

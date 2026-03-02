@@ -790,13 +790,13 @@ Upload: attachment button or drag-drop -> validate -> tRPC presigned URL -> clie
 
 ### F9b. Multi-Model Group Mode
 
-Send a single prompt to 2–3 models simultaneously and compare responses side by side in real-time tabs. After all models complete, a user-selected judge model synthesizes the best elements into a unified answer.
+Send a single prompt to 2–5 models simultaneously and compare responses side by side in real-time tabs. After all models complete, a user-selected judge model synthesizes the best elements into a unified answer.
 
 **Group stream** (`group.stream`): validates model IDs against registry, creates conversation if needed, saves user message (idempotent via `clientRequestId`), generates a `groupId` UUID, fetches shared history, spawns N parallel OpenRouter streams via a shared in-memory queue (producer-consumer), saves N assistant messages with `metadata.groupId`, `metadata.modelUsed`, `metadata.userMessageId`, then yields `group_done`. Rate-limited via `rateLimitedChatProcedure` — one slot for the entire group request regardless of N.
 
 **Synthesis** (`group.synthesize`): SQL JSONB filter fetches only the N messages for `groupId` (excluding prior syntheses via `IS DISTINCT FROM 'true'`), builds XML-delimited multi-model prompt, streams response via judge model, saves synthesis message with `isGroupSynthesis: true`.
 
-**Client**: `GroupModelPicker` (chip-based multi-select, 2–3 models), `GroupTabs` (shadcn Tabs), `GroupResponsePanel` (per-model streaming, reuses `ThinkingBlock`/`MarkdownRenderer`/`ToolExecution`), `SynthesisPanel` (judge picker + Synthesize button + streaming result), `GroupMessageGroup` (live + historical container). `useGroupStream` manages `Map<modelId, StreamState>`; `useGroupSynthesis` accumulates synthesis text. Selected models and judge persisted to `userPreferences.groupModels` / `userPreferences.groupJudgeModel`.
+**Client**: `GroupModelPicker` (multi-select dialog, 2–5 models), `GroupTabs` (shadcn Tabs), `GroupResponsePanel` (per-model streaming, reuses `ThinkingBlock`/`MarkdownRenderer`/`ToolExecution`), `SynthesisPanel` (judge picker + Synthesize button + streaming result), `GroupMessageGroup` (live + historical container). `useGroupStream` manages `Map<modelId, StreamState>`; `useGroupSynthesis` accumulates synthesis text. Selected models and judge persisted to `userPreferences.groupModels` / `userPreferences.groupJudgeModel`.
 
 ### F10. Mobile-First Responsive UI
 
@@ -816,7 +816,7 @@ Dark default. Toggle in sidebar/menu. System preference detection. CSS custom pr
 
 ### F14. TTS/STT
 
-Server-side STT via `openai/whisper` on OpenRouter — browser records audio via `MediaRecorder`, POSTs the blob to `/api/voice/transcribe`, server forwards to OpenRouter and returns the transcript. Server-side TTS via `qwen/qwen3-tts` on OpenRouter — text POSTed to `/api/voice/synthesize`, server returns an audio blob played via `<audio>` element. Markdown is stripped from text before TTS synthesis. Browser `Web Speech API` / `speechSynthesis` used as fallback if server route is unavailable.
+Server-side STT via `openai/whisper` on OpenRouter — browser records audio via `MediaRecorder`, POSTs the blob to `/api/voice/transcribe`, server forwards to OpenRouter and returns the transcript. Server-side TTS via `qwen/qwen3-tts` on OpenRouter — text POSTed to `/api/voice/synthesize`, server returns an audio blob played via `<audio>` element. Markdown is stripped from text before TTS synthesis. Unsupported or unavailable voice paths fail explicitly with typed UI errors.
 
 Mic button in chat input. TTS play button on assistant messages. Constants: `VOICE.STT_MODEL` (`openai/whisper`), `VOICE.TTS_MODEL` (`qwen/qwen3-tts`), `VOICE.TTS_MAX_CHARS` (4096), `VOICE.MAX_AUDIO_BYTES` (25MB). Routes: `POST /api/voice/transcribe`, `POST /api/voice/synthesize`. Hooks: `use-speech-to-text.ts`, `use-text-to-speech.ts` in `src/features/voice/hooks/`.
 
@@ -898,7 +898,7 @@ SessionUserSchema. Derived type.
 
 ### group.ts
 
-`GroupStreamInputSchema` (conversationId?, content, models string[2-3], attachmentIds?), `GroupOutputChunkSchema` (discriminated union: `group_model_chunk` | `group_stream_event` | `group_done`), `GroupSynthesizeInputSchema` (groupId, conversationId, judgeModel), `GroupSynthesisOutputChunkSchema` (discriminated union: `group_synthesis_chunk` | `group_synthesis_done`).
+`GroupStreamInputSchema` (conversationId?, content, models string[2-5], attachmentIds?), `GroupOutputChunkSchema` (discriminated union: `group_model_chunk` | `group_stream_event` | `group_done`), `GroupSynthesizeInputSchema` (groupId, conversationId, judgeModel), `GroupSynthesisOutputChunkSchema` (discriminated union: `group_synthesis_chunk` | `group_synthesis_done`).
 
 ### index.ts
 

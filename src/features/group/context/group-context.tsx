@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useMemo, useCallback, type ReactNode } from 'react'
 import { trpc } from '@/trpc/provider'
+import { GROUP_LIMITS } from '@/config/constants'
 
 type GroupModeContextValue = {
   groupModels: string[]
@@ -20,17 +21,13 @@ export function GroupModeProvider({ children }: { children: ReactNode }) {
   const [groupModels, setGroupModelsState] = useState<string[]>([])
   const [judgeModel, setJudgeModelState] = useState<string | undefined>(undefined)
 
-  const prefsGroupModels =
-    prefs !== undefined && 'groupModels' in prefs ? (prefs.groupModels ?? undefined) : undefined
-  const prefsJudgeModel =
-    prefs !== undefined && 'groupJudgeModel' in prefs
-      ? (prefs.groupJudgeModel ?? undefined)
-      : undefined
+  const prefsGroupModels = prefs?.groupModels ?? undefined
+  const prefsJudgeModel = prefs?.groupJudgeModel ?? undefined
 
-  const resolvedGroupModels = useMemo(
-    () => (groupModels.length > 0 ? groupModels : (prefsGroupModels ?? [])),
-    [groupModels, prefsGroupModels],
-  )
+  const resolvedGroupModels = useMemo(() => {
+    const source = groupModels.length > 0 ? groupModels : (prefsGroupModels ?? [])
+    return source.slice(0, GROUP_LIMITS.MAX_MODELS)
+  }, [groupModels, prefsGroupModels])
 
   const resolvedJudgeModel = judgeModel ?? prefsJudgeModel ?? undefined
 

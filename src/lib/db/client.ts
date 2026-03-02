@@ -10,12 +10,11 @@ import { isNeonUrl } from './utils'
 
 const fullSchema = { ...schema, ...relations }
 
-// During build (SKIP_ENV_VALIDATION=1), use a syntactically valid placeholder.
-// No actual connection is made at init time.
-const dbUrl =
-  process.env.SKIP_ENV_VALIDATION === '1'
-    ? 'postgresql://build:build@localhost:5432/build'
-    : env.DATABASE_URL
+const dbUrl = process.env.DATABASE_URL ?? env.DATABASE_URL
+
+if (!dbUrl) {
+  throw new Error('DATABASE_URL is required')
+}
 
 function createDb(): PgDatabase<PgQueryResultHKT, typeof fullSchema> {
   if (isNeonUrl(dbUrl)) {

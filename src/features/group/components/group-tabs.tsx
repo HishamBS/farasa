@@ -28,13 +28,12 @@ type ModelTabTriggerProps = {
 }
 
 function ModelTabTrigger({ providerKey, label, isStreaming }: ModelTabTriggerProps) {
-  const shortLabel = label.split(/[\s-]/)[0] ?? label
   const dotClass = PROVIDER_DOT_CLASSES[providerKey] ?? 'bg-(--text-ghost)'
 
   return (
     <>
       <span className={cn('size-1.5 shrink-0 rounded-full', dotClass)} />
-      <span className="max-w-20 truncate">{shortLabel}</span>
+      <span className="max-w-40 truncate">{label}</span>
       {isStreaming && <span className="size-1.5 animate-pulse rounded-full bg-(--accent)" />}
     </>
   )

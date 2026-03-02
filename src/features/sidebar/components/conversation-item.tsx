@@ -272,10 +272,7 @@ export function ConversationItem({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteConfirmed}
-              className="bg-(--error) text-white hover:opacity-90"
-            >
+            <AlertDialogAction variant="destructive" onClick={handleDeleteConfirmed}>
               {UI_TEXT.DELETE_CONFIRM_ACTION}
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -7,7 +7,7 @@ import { ToolExecution } from '@/features/stream-phases/components/tool-executio
 import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
 import { A2UIMessage } from '@/features/a2ui/components/a2ui-message'
 import { TTSControls } from '@/features/voice/components/tts-controls'
-import { CHAT_STREAM_STATUS } from '@/config/constants'
+import { CHAT_STREAM_STATUS, STATUS_MESSAGES } from '@/config/constants'
 import { AssistantFrame } from './assistant-frame'
 import { extractModelName } from '@/lib/utils/model'
 import type { StreamState } from '@/types/stream'
@@ -28,6 +28,24 @@ export function AssistantMessage({ streamState }: AssistantMessageProps) {
     <motion.div {...(shouldReduce ? {} : fadeInUp)}>
       <AssistantFrame modelLabel={modelLabel} tokenLabel={null} isStreaming={isStreaming}>
         <div className="space-y-3">
+          {isStreaming && !streamState.modelSelection && (
+            <div className="rounded-xl border border-(--border-subtle) bg-(--bg-surface) px-3 py-2 text-xs text-(--text-muted)">
+              <div className="flex items-center gap-2">
+                <span className="size-1.5 animate-pulse rounded-full bg-(--accent)" />
+                <span>{STATUS_MESSAGES.ROUTING}</span>
+              </div>
+            </div>
+          )}
+
+          {streamState.modelSelection && (
+            <div className="rounded-xl border border-(--border-subtle) bg-(--bg-surface) px-3 py-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-(--text-secondary)">{modelLabel}</span>
+              </div>
+              <p className="mt-1 text-(--text-muted)">{streamState.modelSelection.reasoning}</p>
+            </div>
+          )}
+
           {streamState.thinking && <ThinkingBlock thinking={streamState.thinking} />}
 
           {streamState.toolExecutions.length > 0 && (

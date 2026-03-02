@@ -79,6 +79,98 @@ export function useGroupStream({
     setPhase(GROUP_STREAM_PHASES.IDLE)
   }, [])
 
+  const applyChunkToModelState = useCallback(
+    (prev: Map<string, StreamState>, chunk: GroupOutputChunk) => {
+      if (chunk.type !== GROUP_EVENTS.MODEL_CHUNK) return prev
+
+      const { modelId, chunk: streamChunk } = chunk
+      const next = new Map(prev)
+      const current = next.get(modelId) ?? { ...initialStreamState }
+
+      switch (streamChunk.type) {
+        case STREAM_EVENTS.STATUS:
+          next.set(
+            modelId,
+            streamStateReducer(current, {
+              type: STREAM_ACTIONS.STATUS,
+              phase: streamChunk.phase,
+              message: streamChunk.message,
+            }),
+          )
+          break
+        case STREAM_EVENTS.MODEL_SELECTED:
+          next.set(
+            modelId,
+            streamStateReducer(current, {
+              type: STREAM_ACTIONS.MODEL_SELECTED,
+              model: streamChunk.model,
+              reasoning: streamChunk.reasoning,
+            }),
+          )
+          break
+        case STREAM_EVENTS.THINKING:
+          next.set(
+            modelId,
+            streamStateReducer(current, {
+              type: STREAM_ACTIONS.THINKING_CHUNK,
+              content: streamChunk.content,
+              isComplete: streamChunk.isComplete,
+            }),
+          )
+          break
+        case STREAM_EVENTS.TOOL_START:
+          next.set(
+            modelId,
+            streamStateReducer(current, {
+              type: STREAM_ACTIONS.TOOL_START,
+              name: streamChunk.toolName,
+              input: streamChunk.input,
+            }),
+          )
+          break
+        case STREAM_EVENTS.TOOL_RESULT:
+          next.set(
+            modelId,
+            streamStateReducer(current, {
+              type: STREAM_ACTIONS.TOOL_RESULT,
+              name: streamChunk.toolName,
+              result: streamChunk.result,
+            }),
+          )
+          break
+        case STREAM_EVENTS.TEXT:
+          next.set(
+            modelId,
+            streamStateReducer(current, {
+              type: STREAM_ACTIONS.TEXT_CHUNK,
+              content: streamChunk.content,
+            }),
+          )
+          break
+        case STREAM_EVENTS.ERROR:
+          next.set(
+            modelId,
+            streamStateReducer(current, {
+              type: STREAM_ACTIONS.ERROR,
+              error: {
+                message: streamChunk.message,
+                code: streamChunk.code,
+                reasonCode: streamChunk.reasonCode,
+                recoverable: streamChunk.recoverable,
+              },
+            }),
+          )
+          break
+        case STREAM_EVENTS.DONE:
+          next.set(modelId, streamStateReducer(current, { type: STREAM_ACTIONS.DONE }))
+          break
+      }
+
+      return next
+    },
+    [],
+  )
+
   useEffect(() => {
     if (!enabled || !inputKey) return
 
@@ -109,47 +201,7 @@ export function useGroupStream({
         if (!active || active.sessionId !== sessionId) return
 
         if (chunk.type === GROUP_EVENTS.MODEL_CHUNK) {
-          const { modelId, chunk: streamChunk } = chunk
-
-          if (streamChunk.type === STREAM_EVENTS.TEXT) {
-            setModelStates((prev) => {
-              const next = new Map(prev)
-              const current = next.get(modelId) ?? { ...initialStreamState }
-              next.set(
-                modelId,
-                streamStateReducer(current, {
-                  type: STREAM_ACTIONS.TEXT_CHUNK,
-                  content: streamChunk.content,
-                }),
-              )
-              return next
-            })
-          } else if (streamChunk.type === STREAM_EVENTS.ERROR) {
-            setModelStates((prev) => {
-              const next = new Map(prev)
-              const current = next.get(modelId) ?? { ...initialStreamState }
-              next.set(
-                modelId,
-                streamStateReducer(current, {
-                  type: STREAM_ACTIONS.ERROR,
-                  error: {
-                    message: streamChunk.message,
-                    code: streamChunk.code,
-                    reasonCode: streamChunk.reasonCode,
-                    recoverable: streamChunk.recoverable,
-                  },
-                }),
-              )
-              return next
-            })
-          } else if (streamChunk.type === STREAM_EVENTS.DONE) {
-            setModelStates((prev) => {
-              const next = new Map(prev)
-              const current = next.get(modelId) ?? { ...initialStreamState }
-              next.set(modelId, streamStateReducer(current, { type: STREAM_ACTIONS.DONE }))
-              return next
-            })
-          }
+          setModelStates((prev) => applyChunkToModelState(prev, chunk))
         } else if (chunk.type === GROUP_EVENTS.STREAM_EVENT) {
           const eventChunk = chunk.chunk
 
@@ -199,7 +251,7 @@ export function useGroupStream({
         activeSubRef.current = null
       }
     }
-  }, [enabled, inputKey])
+  }, [enabled, inputKey, applyChunkToModelState])
 
   return {
     modelStates,

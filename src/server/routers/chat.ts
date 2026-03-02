@@ -17,6 +17,7 @@ import {
   TRPC_CODES,
   NEW_CHAT_TITLE,
   AI_MARKUP,
+  AI_REASONING,
   LIMITS,
 } from '@/config/constants'
 import { AppError, getErrorMessage } from '@/lib/utils/errors'
@@ -350,10 +351,28 @@ export const chatRouter = router({
         })
 
         const { routeModel } = await import('@/lib/ai/router')
-        let selection: Awaited<ReturnType<typeof routeModel>>
-        try {
-          selection = await routeModel(input.content, registry, runtimeConfig, combinedSignal)
-        } catch {
+        let selection: Awaited<ReturnType<typeof routeModel>> | null = null
+        const maxRoutingAttempts = Math.max(1, runtimeConfig.chat.stream.retry.maxAttempts + 1)
+        let routingError: unknown
+
+        for (let attempt = 0; attempt < maxRoutingAttempts; attempt++) {
+          try {
+            selection = await routeModel(input.content, registry, runtimeConfig, combinedSignal)
+            routingError = undefined
+            break
+          } catch (error) {
+            routingError = error
+          }
+        }
+
+        if (routingError) {
+          throw new TRPCError({
+            code: TRPC_CODES.BAD_REQUEST,
+            message: AppError.ROUTER_FAILED,
+          })
+        }
+
+        if (!selection) {
           throw new TRPCError({
             code: TRPC_CODES.BAD_REQUEST,
             message: AppError.ROUTER_FAILED,
@@ -374,7 +393,7 @@ export const chatRouter = router({
           model: selectedModel,
           reasoning: selection.reasoning,
         })
-      } else if (runtimeConfig.models.strictValidation) {
+      } else {
         if (!registry.some((model) => model.id === selectedModel)) {
           throw new TRPCError({
             code: TRPC_CODES.BAD_REQUEST,
@@ -385,7 +404,7 @@ export const chatRouter = router({
         yield emit({
           type: STREAM_EVENTS.MODEL_SELECTED,
           model: selectedModel,
-          reasoning: 'Model explicitly selected.',
+          reasoning: AI_REASONING.MODEL_EXPLICIT,
         })
       }
 
@@ -546,7 +565,7 @@ export const chatRouter = router({
             messages: sdkMessages,
             stream: true,
             maxTokens: runtimeConfig.ai.chatMaxTokens,
-            ...(input.mode === CHAT_MODES.CHAT
+            ...(input.mode === CHAT_MODES.SEARCH
               ? { tools: ALL_TOOLS, toolChoice: ToolChoiceOptionAuto.Auto }
               : {}),
           },
@@ -901,7 +920,7 @@ export const chatRouter = router({
 
         try {
           const { generateTitle } = await import('@/lib/ai/title')
-          const generatedTitle = await generateTitle(input.content, runtimeConfig, combinedSignal)
+          const generatedTitle = await generateTitle(input.content, runtimeConfig)
           const safeTitle = generatedTitle
             .trim()
             .slice(0, runtimeConfig.limits.conversationTitleMaxLength)

@@ -222,6 +222,17 @@ export function useFileUpload() {
     })
   }, [])
 
+  const clearFiles = useCallback(() => {
+    setUploadStates((prev) => {
+      for (const state of prev.values()) {
+        if (state.previewUrl) {
+          URL.revokeObjectURL(state.previewUrl)
+        }
+      }
+      return new Map()
+    })
+  }, [])
+
   useEffect(() => {
     return () => {
       setUploadStates((prev) => {
@@ -235,5 +246,13 @@ export function useFileUpload() {
     }
   }, [])
 
-  return { uploadFile, uploadFileInline, gcsEnabled, uploadStates, removeFile, supportedFileTypes }
+  return {
+    uploadFile,
+    uploadFileInline,
+    gcsEnabled,
+    uploadStates,
+    removeFile,
+    clearFiles,
+    supportedFileTypes,
+  }
 }

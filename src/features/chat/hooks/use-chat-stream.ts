@@ -1,9 +1,16 @@
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { trpcClient } from '@/trpc/client'
 import { trpc } from '@/trpc/provider'
-import { STREAM_EVENTS, STREAM_PHASES, STREAM_ACTIONS } from '@/config/constants'
+import {
+  STREAM_EVENTS,
+  STREAM_PHASES,
+  STREAM_ACTIONS,
+  STATUS_MESSAGES,
+  BROWSER_EVENTS,
+} from '@/config/constants'
 import { useStreamState } from '@/features/stream-phases/hooks/use-stream-state'
 import type { ChatInput, StreamChunk } from '@/schemas/message'
 import type { v0_8 } from '@a2ui-sdk/types'
@@ -24,12 +31,23 @@ function isA2UIMessage(value: unknown): value is v0_8.A2UIMessage {
   return true
 }
 
-export function useChatStream() {
+export function useChatStream(conversationId?: string) {
+  const router = useRouter()
   const { state: streamState, dispatch, reset } = useStreamState()
   const utils = trpc.useUtils()
   const cancelStreamMutation = trpc.chat.cancel.useMutation()
   const activeSessionRef = useRef<ActiveStreamSession | null>(null)
   const resolvedConversationIdRef = useRef<string | undefined>(undefined)
+
+  useEffect(() => {
+    resolvedConversationIdRef.current = conversationId
+    if (conversationId) {
+      dispatch({
+        type: STREAM_ACTIONS.SET_CONVERSATION_ID,
+        conversationId,
+      })
+    }
+  }, [conversationId, dispatch])
 
   const clearActiveSession = useCallback(() => {
     const active = activeSessionRef.current
@@ -57,6 +75,11 @@ export function useChatStream() {
         input: { ...input, conversationId: effectiveConversationId },
       })
       reset()
+      dispatch({
+        type: STREAM_ACTIONS.STATUS,
+        phase: !input.model ? STREAM_PHASES.ROUTING : STREAM_PHASES.THINKING,
+        message: !input.model ? STATUS_MESSAGES.ROUTING : STATUS_MESSAGES.THINKING,
+      })
 
       const sessionId = crypto.randomUUID()
       const session: ActiveStreamSession = {
@@ -84,8 +107,8 @@ export function useChatStream() {
             message: chunk.message,
             code: chunk.code,
             reasonCode: chunk.reasonCode ?? 'provider_unavailable',
-            recoverable: false,
-            attempt: 0,
+            recoverable: chunk.recoverable ?? false,
+            attempt: chunk.attempt ?? 0,
           },
         })
         const convId = resolvedConversationIdRef.current
@@ -107,7 +130,7 @@ export function useChatStream() {
                   type: STREAM_ACTIONS.SET_CONVERSATION_ID,
                   conversationId: chunk.conversationId,
                 })
-                window.history.replaceState(null, '', ROUTES.CHAT_BY_ID(chunk.conversationId))
+                router.replace(ROUTES.CHAT_BY_ID(chunk.conversationId))
                 break
               case STREAM_EVENTS.USER_MESSAGE_SAVED: {
                 const convId = resolvedConversationIdRef.current
@@ -209,7 +232,7 @@ export function useChatStream() {
 
       session.unsubscribe = () => subscription.unsubscribe()
     },
-    [clearActiveSession, dispatch, reset, utils],
+    [clearActiveSession, dispatch, reset, router, utils],
   )
 
   const sendMessage = useCallback(
@@ -240,6 +263,18 @@ export function useChatStream() {
       activeSessionRef.current = null
     }
   }, [])
+
+  useEffect(() => {
+    const handleNewChatRequested = () => {
+      clearActiveSession()
+      resolvedConversationIdRef.current = undefined
+      dispatch({ type: STREAM_ACTIONS.RESET })
+    }
+    window.addEventListener(BROWSER_EVENTS.NEW_CHAT_REQUESTED, handleNewChatRequested)
+    return () => {
+      window.removeEventListener(BROWSER_EVENTS.NEW_CHAT_REQUESTED, handleNewChatRequested)
+    }
+  }, [clearActiveSession, dispatch])
 
   return { streamState, sendMessage, abort }
 }

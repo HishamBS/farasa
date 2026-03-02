@@ -10,7 +10,20 @@ export const userPreferencesRouter = router({
       .from(userPreferences)
       .where(eq(userPreferences.userId, ctx.userId))
       .limit(1)
-    return prefs ?? { theme: 'dark', sidebarExpanded: true, defaultModel: null }
+    if (prefs) {
+      return prefs
+    }
+
+    const [created] = await ctx.db
+      .insert(userPreferences)
+      .values({ userId: ctx.userId })
+      .returning()
+
+    if (!created) {
+      throw new Error('Failed to initialize user preferences')
+    }
+
+    return created
   }),
 
   update: protectedProcedure.input(UserPreferencesUpdateSchema).mutation(async ({ ctx, input }) => {

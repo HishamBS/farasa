@@ -13,8 +13,10 @@ import {
   TRPC_CODES,
   LIMITS,
   STREAM_EVENTS,
+  STREAM_PHASES,
   CHAT_MODES,
   AI_PARAMS,
+  AI_REASONING,
 } from '@/config/constants'
 import type { Message } from '@openrouter/sdk/models'
 import { getErrorMessage } from '@/lib/utils/errors'
@@ -173,6 +175,28 @@ export const groupRouter = router({
       const spawnModelStream = async (modelId: string, modelIndex: number): Promise<void> => {
         try {
           const modelStreamRequestId = crypto.randomUUID()
+          push({
+            done: false,
+            modelId,
+            modelIndex,
+            chunk: {
+              type: STREAM_EVENTS.MODEL_SELECTED,
+              streamRequestId: modelStreamRequestId,
+              model: modelId,
+              reasoning: AI_REASONING.MODEL_EXPLICIT,
+            } satisfies StreamChunk,
+          })
+          push({
+            done: false,
+            modelId,
+            modelIndex,
+            chunk: {
+              type: STREAM_EVENTS.STATUS,
+              streamRequestId: modelStreamRequestId,
+              phase: STREAM_PHASES.THINKING,
+              message: runtimeConfig.chat.statusMessages.thinking,
+            } satisfies StreamChunk,
+          })
           const stream = await openrouter.chat.send(
             {
               chatGenerationParams: {
@@ -188,17 +212,61 @@ export const groupRouter = router({
           let fullText = ''
           for await (const streamChunk of stream) {
             const delta = streamChunk.choices[0]?.delta
-            if (!delta?.content) continue
-            fullText += delta.content
-            const chunk: StreamChunk = {
-              type: STREAM_EVENTS.TEXT,
-              content: delta.content,
-              streamRequestId: modelStreamRequestId,
-              attempt: 0,
+            if (!delta) continue
+
+            if (delta.reasoning) {
+              push({
+                done: false,
+                modelId,
+                modelIndex,
+                chunk: {
+                  type: STREAM_EVENTS.THINKING,
+                  streamRequestId: modelStreamRequestId,
+                  content: delta.reasoning,
+                  isComplete: false,
+                } satisfies StreamChunk,
+              })
             }
-            push({ done: false, modelId, modelIndex, chunk })
+
+            if (delta.content) {
+              fullText += delta.content
+              push({
+                done: false,
+                modelId,
+                modelIndex,
+                chunk: {
+                  type: STREAM_EVENTS.TEXT,
+                  content: delta.content,
+                  streamRequestId: modelStreamRequestId,
+                  attempt: 0,
+                } satisfies StreamChunk,
+              })
+            }
           }
-          modelTexts.set(modelId, fullText)
+
+          push({
+            done: false,
+            modelId,
+            modelIndex,
+            chunk: {
+              type: STREAM_EVENTS.THINKING,
+              streamRequestId: modelStreamRequestId,
+              content: '',
+              isComplete: true,
+            } satisfies StreamChunk,
+          })
+          push({
+            done: false,
+            modelId,
+            modelIndex,
+            chunk: {
+              type: STREAM_EVENTS.DONE,
+              streamRequestId: modelStreamRequestId,
+            } satisfies StreamChunk,
+          })
+          if (!modelTexts.has(modelId)) {
+            modelTexts.set(modelId, fullText)
+          }
         } catch {
           push({
             done: false,

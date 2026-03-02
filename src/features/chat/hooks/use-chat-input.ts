@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { trpc } from '@/trpc/provider'
 import { UX } from '@/config/constants'
 
-export function useChatInput(initialModel?: string | null) {
+export function useChatInput(initialModel?: string | null, conversationId?: string) {
   const [content, setContent] = useState('')
   const [attachmentIds, setAttachmentIds] = useState<string[]>([])
   const [selectedModel, setSelectedModelState] = useState<string | undefined>(
@@ -29,16 +29,23 @@ export function useChatInput(initialModel?: string | null) {
     }
   }, [prefsQuery.data, initialModel])
 
-  // Sync selectedModel when navigating to a different conversation.
+  // Sync selectedModel when navigating to a different conversation or starting a fresh chat.
   useEffect(() => {
     if (initialModel !== undefined) {
       setSelectedModelState(initialModel ?? undefined)
+      return
     }
-  }, [initialModel])
+    if (conversationId === undefined) {
+      setSelectedModelState(prefsQuery.data?.defaultModel ?? undefined)
+    }
+  }, [initialModel, conversationId, prefsQuery.data?.defaultModel])
 
-  const setSelectedModel = useCallback(
+  const setSelectedModel = useCallback((modelId: string | undefined) => {
+    setSelectedModelState(modelId)
+  }, [])
+
+  const setDefaultModel = useCallback(
     (modelId: string | undefined) => {
-      setSelectedModelState(modelId)
       updatePrefsMutation.mutate({ defaultModel: modelId ?? null })
     },
     [updatePrefsMutation],
@@ -98,8 +105,11 @@ export function useChatInput(initialModel?: string | null) {
     content,
     attachmentIds,
     selectedModel,
+    defaultModel: prefsQuery.data?.defaultModel ?? undefined,
+    isSavingDefaultModel: updatePrefsMutation.isPending,
     textareaRef,
     setSelectedModel,
+    setDefaultModel,
     handleContentChange,
     handleKeyDown,
     clear,

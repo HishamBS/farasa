@@ -242,6 +242,7 @@ export const UX = {
   DONE_NOTIFICATION_DURATION_MS: 2_000,
   SIDEBAR_DRAG_ELASTIC: 0.3,
   ROUTING_MIN_DISPLAY_MS: 800,
+  SIDEBAR_IDLE_AUTO_MINIMIZE_MS: 6_000,
 } as const
 
 export const MOTION = {
@@ -384,10 +385,24 @@ export const UI_TEXT = {
     "I'm your AI assistant. Let's build something amazing together today. What's on your mind?",
   EXPLORE_MORE: 'Explore more',
   MORE_OPTIONS_ARIA: 'More options',
+  SET_DEFAULT_MODEL: 'Set default',
+  DEFAULT_MODEL_SET: 'Default',
+  GROUP_MODEL_HINT: 'Select 2–5 models to compare',
+  GROUP_MODEL_PICKER_OPEN_ARIA: 'Select group models',
+  GROUP_MODEL_PICKER_TITLE: 'Select comparison models',
+  GROUP_MODEL_PICKER_DONE: 'Done',
+  GROUP_MODEL_SEARCH_PLACEHOLDER: 'Search models...',
+  GROUP_MODEL_REMOVE_ARIA_PREFIX: 'Remove',
+  GROUP_JUDGE_SELECT_ARIA_PREFIX: 'Select judge',
+  STT_TRANSCRIPTION_FAILED: 'Transcription failed. Please try again.',
+  STT_PERMISSION_DENIED:
+    'Microphone access was denied. Please allow microphone in your browser settings.',
+  STT_UNSUPPORTED: 'Voice input is not supported in this browser.',
+  TTS_UNAVAILABLE: 'Text-to-speech is currently unavailable.',
 } as const
 
 export const GROUP_LIMITS = {
-  MAX_MODELS: 3,
+  MAX_MODELS: 5,
   MIN_MODELS: 2,
 } as const
 
@@ -413,6 +428,10 @@ export const GROUP_STREAM_PHASES = {
   ACTIVE: 'active',
   DONE: 'done',
   ERROR: 'error',
+} as const
+
+export const BROWSER_EVENTS = {
+  NEW_CHAT_REQUESTED: 'farasa:new-chat-requested',
 } as const
 
 export const MARKDOWN_SANITIZE = {

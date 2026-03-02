@@ -4,7 +4,7 @@ import { useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Search, X } from 'lucide-react'
 import { ROUTES } from '@/config/routes'
-import { UI_TEXT } from '@/config/constants'
+import { UI_TEXT, BROWSER_EVENTS } from '@/config/constants'
 
 type SidebarHeaderProps = {
   isSearchOpen: boolean
@@ -24,7 +24,9 @@ export function SidebarHeader({
   const router = useRouter()
 
   const handleNewChat = useCallback(() => {
-    router.push(ROUTES.CHAT)
+    router.replace(ROUTES.CHAT)
+    router.refresh()
+    window.dispatchEvent(new Event(BROWSER_EVENTS.NEW_CHAT_REQUESTED))
   }, [router])
 
   return (

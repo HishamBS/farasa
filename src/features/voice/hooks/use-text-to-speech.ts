@@ -1,23 +1,12 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { VOICE } from '@/config/constants'
-
-function speakFallback(text: string, onEnd: () => void): void {
-  if (!('speechSynthesis' in window)) {
-    onEnd()
-    return
-  }
-  window.speechSynthesis.cancel()
-  const utterance = new SpeechSynthesisUtterance(text)
-  utterance.onend = onEnd
-  utterance.onerror = onEnd
-  window.speechSynthesis.speak(utterance)
-}
+import { VOICE, UI_TEXT } from '@/config/constants'
 
 export function useTextToSpeech() {
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   useEffect(() => {
@@ -32,7 +21,6 @@ export function useTextToSpeech() {
       audioRef.current.src = ''
       audioRef.current = null
     }
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel()
     setIsSpeaking(false)
     setIsLoading(false)
   }, [])
@@ -43,48 +31,51 @@ export function useTextToSpeech() {
       const trimmed = text.slice(0, VOICE.TTS_MAX_CHARS)
       if (!trimmed) return
 
+      setError(null)
       setIsLoading(true)
 
       try {
-        const res = await fetch('/api/voice/synthesize', {
+        const response = await fetch('/api/voice/synthesize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: trimmed }),
         })
 
-        if (res.ok) {
-          const blob = await res.blob()
-          const url = URL.createObjectURL(blob)
-          const audio = new Audio(url)
-          audioRef.current = audio
-
-          audio.oncanplaythrough = () => {
-            setIsLoading(false)
-            setIsSpeaking(true)
-          }
-          audio.onended = () => {
-            URL.revokeObjectURL(url)
-            setIsSpeaking(false)
-            audioRef.current = null
-          }
-          audio.onerror = () => {
-            URL.revokeObjectURL(url)
-            setIsLoading(false)
-            setIsSpeaking(false)
-            audioRef.current = null
-            speakFallback(trimmed, () => setIsSpeaking(false))
-          }
-
-          void audio.play()
+        if (!response.ok) {
+          setIsLoading(false)
+          setIsSpeaking(false)
+          setError(UI_TEXT.TTS_UNAVAILABLE)
           return
         }
-      } catch {
-        // Server unavailable — fall through to browser TTS
-      }
 
-      setIsLoading(false)
-      setIsSpeaking(true)
-      speakFallback(trimmed, () => setIsSpeaking(false))
+        const blob = await response.blob()
+        const url = URL.createObjectURL(blob)
+        const audio = new Audio(url)
+        audioRef.current = audio
+
+        audio.oncanplaythrough = () => {
+          setIsLoading(false)
+          setIsSpeaking(true)
+        }
+        audio.onended = () => {
+          URL.revokeObjectURL(url)
+          setIsSpeaking(false)
+          audioRef.current = null
+        }
+        audio.onerror = () => {
+          URL.revokeObjectURL(url)
+          setIsLoading(false)
+          setIsSpeaking(false)
+          audioRef.current = null
+          setError(UI_TEXT.TTS_UNAVAILABLE)
+        }
+
+        await audio.play()
+      } catch {
+        setIsLoading(false)
+        setIsSpeaking(false)
+        setError(UI_TEXT.TTS_UNAVAILABLE)
+      }
     },
     [stopAudio],
   )
@@ -93,5 +84,5 @@ export function useTextToSpeech() {
     stopAudio()
   }, [stopAudio])
 
-  return { speak, stop, isSpeaking, isLoading, isSupported: true }
+  return { speak, stop, isSpeaking, isLoading, error, isSupported: true }
 }

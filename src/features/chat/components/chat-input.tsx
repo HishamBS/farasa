@@ -53,21 +53,31 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     content,
     attachmentIds,
     selectedModel,
+    defaultModel,
+    isSavingDefaultModel,
     textareaRef,
     setSelectedModel,
+    setDefaultModel,
     handleContentChange,
     handleKeyDown,
     clear,
     addAttachment,
     removeAttachment,
     setExternalContent,
-  } = useChatInput(initialModel)
+  } = useChatInput(initialModel, conversationId)
 
   const { mode } = useChatMode()
   const { groupModels } = useGroupMode()
 
-  const { uploadFile, uploadFileInline, gcsEnabled, uploadStates, removeFile, supportedFileTypes } =
-    useFileUpload()
+  const {
+    uploadFile,
+    uploadFileInline,
+    gcsEnabled,
+    uploadStates,
+    removeFile,
+    clearFiles,
+    supportedFileTypes,
+  } = useFileUpload()
 
   useImperativeHandle(ref, () => ({ setContent: setExternalContent }))
 
@@ -100,6 +110,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           attachmentIds,
         })
         clear()
+        clearFiles()
       }
       return
     }
@@ -111,6 +122,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
       attachmentIds,
     })
     clear()
+    clearFiles()
   }, [
     content,
     isTooLong,
@@ -123,6 +135,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     onSend,
     onGroupSubmit,
     clear,
+    clearFiles,
   ])
 
   const handleKey = useCallback(
@@ -303,11 +316,32 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           {mode === CHAT_MODES.GROUP ? (
             <GroupModelPicker />
           ) : (
-            <ModelSelector
-              ref={modelSelectorRef}
-              value={selectedModel}
-              onChange={setSelectedModel}
-            />
+            <>
+              <ModelSelector
+                ref={modelSelectorRef}
+                value={selectedModel}
+                onChange={setSelectedModel}
+              />
+              <button
+                type="button"
+                disabled={
+                  isSavingDefaultModel ||
+                  (selectedModel ?? undefined) === (defaultModel ?? undefined)
+                }
+                onClick={() => setDefaultModel(selectedModel)}
+                className={cn(
+                  'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors',
+                  isSavingDefaultModel ||
+                    (selectedModel ?? undefined) === (defaultModel ?? undefined)
+                    ? 'cursor-not-allowed text-(--text-ghost)'
+                    : 'text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)',
+                )}
+              >
+                {(selectedModel ?? undefined) === (defaultModel ?? undefined)
+                  ? UI_TEXT.DEFAULT_MODEL_SET
+                  : UI_TEXT.SET_DEFAULT_MODEL}
+              </button>
+            </>
           )}
 
           <button

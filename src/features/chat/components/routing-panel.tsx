@@ -42,8 +42,8 @@ type RoutingPanelProps = {
 export function RoutingPanel({ modelSelection, streamPhase, hasText, models }: RoutingPanelProps) {
   const isActive = streamPhase !== 'idle'
   const hasDecision = modelSelection !== null
-  const isCollapsed = hasDecision && (hasText || streamPhase === 'done')
-  const isExpanded = hasDecision && !isCollapsed
+  const isCollapsed = hasDecision && (isActive || hasText)
+  const isExpanded = false
 
   const [routingMinVisible, setRoutingMinVisible] = useState(false)
   const routingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)

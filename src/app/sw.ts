@@ -4,8 +4,7 @@
 
 import { defaultCache } from '@serwist/next/worker'
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist'
-import { NetworkOnly, Serwist } from 'serwist'
-import { ROUTES } from '@/config/routes'
+import { Serwist } from 'serwist'
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -23,17 +22,7 @@ const serwist = new Serwist({
   precacheOptions: {
     cleanupOutdatedCaches: true,
   },
-  runtimeCaching: [
-    {
-      matcher: ({ url }) => url.pathname.startsWith(ROUTES.API.AUTH),
-      handler: new NetworkOnly(),
-    },
-    {
-      matcher: ({ url }) => url.pathname.startsWith(ROUTES.API.TRPC),
-      handler: new NetworkOnly(),
-    },
-    ...defaultCache,
-  ],
+  runtimeCaching: [...defaultCache],
   fallbacks: {
     entries: [
       {

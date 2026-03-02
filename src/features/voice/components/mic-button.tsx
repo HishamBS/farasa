@@ -4,6 +4,7 @@ import { useCallback, useEffect } from 'react'
 import { Mic, MicOff, Loader2 } from 'lucide-react'
 import { useSpeechToText } from '../hooks/use-speech-to-text'
 import { cn } from '@/lib/utils/cn'
+import { UI_TEXT } from '@/config/constants'
 
 type MicButtonProps = {
   onTranscript: (text: string) => void
@@ -13,6 +14,7 @@ export function MicButton({ onTranscript }: MicButtonProps) {
   const {
     isListening,
     isTranscribing,
+    isRequestingPermission,
     isSupported,
     transcript,
     permissionError,
@@ -38,19 +40,31 @@ export function MicButton({ onTranscript }: MicButtonProps) {
     }
   }, [isListening, isTranscribing, startListening, stopListening])
 
-  if (!isSupported) return null
+  if (!isSupported) {
+    return (
+      <button
+        type="button"
+        disabled
+        title={UI_TEXT.STT_UNSUPPORTED}
+        className="flex size-8 cursor-not-allowed items-center justify-center rounded-lg text-(--text-ghost)"
+        aria-label={UI_TEXT.STT_UNSUPPORTED}
+      >
+        <Mic className="size-4" />
+      </button>
+    )
+  }
 
   return (
     <button
       type="button"
       onClick={() => void handleClick()}
-      disabled={isTranscribing}
+      disabled={isTranscribing || isRequestingPermission}
       title={permissionError ?? transcriptionError ?? undefined}
       className={cn(
         'flex size-8 items-center justify-center rounded-lg transition-colors',
         isListening
           ? 'text-(--error) hover:bg-(--bg-surface-hover)'
-          : isTranscribing
+          : isTranscribing || isRequestingPermission
             ? 'cursor-wait text-(--text-ghost)'
             : permissionError || transcriptionError
               ? 'text-(--error) hover:bg-(--bg-surface-hover)'
@@ -63,13 +77,13 @@ export function MicButton({ onTranscript }: MicButtonProps) {
             ? transcriptionError
             : isListening
               ? 'Stop recording'
-              : isTranscribing
+              : isTranscribing || isRequestingPermission
                 ? 'Transcribing…'
                 : 'Start voice input'
       }
       aria-pressed={isListening}
     >
-      {isTranscribing ? (
+      {isTranscribing || isRequestingPermission ? (
         <Loader2 className="size-4 animate-spin" />
       ) : isListening ? (
         <span className="relative flex items-center justify-center">

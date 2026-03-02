@@ -4,9 +4,11 @@ import { useEffect } from 'react'
 
 export function DevServiceWorkerReset() {
   useEffect(() => {
-    if (process.env.NODE_ENV === 'production') return
     if (typeof window === 'undefined') return
     if (!('serviceWorker' in navigator) || !('caches' in window)) return
+    const hostname = window.location.hostname
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+    if (process.env.NODE_ENV === 'production' && !isLocalhost) return
 
     void navigator.serviceWorker
       .getRegistrations()

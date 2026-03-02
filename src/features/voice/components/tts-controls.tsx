@@ -10,7 +10,7 @@ type TTSControlsProps = {
 }
 
 export function TTSControls({ content }: TTSControlsProps) {
-  const { speak, stop, isSpeaking, isLoading } = useTextToSpeech()
+  const { speak, stop, isSpeaking, isLoading, error } = useTextToSpeech()
 
   const handleClick = useCallback(async () => {
     if (isLoading) return
@@ -30,8 +30,11 @@ export function TTSControls({ content }: TTSControlsProps) {
         'flex min-h-8 min-w-8 items-center justify-center rounded-md transition-colors',
         isLoading
           ? 'cursor-wait text-(--text-ghost)'
-          : 'text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)',
+          : error
+            ? 'text-(--error) hover:bg-(--bg-surface-hover)'
+            : 'text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)',
       )}
+      title={error ?? undefined}
       aria-label={isSpeaking ? 'Stop reading' : isLoading ? 'Loading audio…' : 'Read aloud'}
     >
       {isLoading ? (

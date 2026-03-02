@@ -1064,7 +1064,7 @@ Lightweight per-user settings (theme, sidebar state, etc.) that are simpler than
 
 Two columns were added to support Group Mode preference persistence:
 
-- `groupModels: jsonb('group_models').$type<string[]>()` — nullable. Stores the last 2–3 model IDs the user selected for Group Mode. `NULL` for users who have never entered Group Mode.
+- `groupModels: jsonb('group_models').$type<string[]>()` — nullable. Stores the last 2–5 model IDs the user selected for Group Mode. `NULL` for users who have never entered Group Mode.
 - `groupJudgeModel: text('group_judge_model')` — nullable. Stores the last judge model ID chosen for synthesis.
 
 Both are updated via the existing `userPreferences.update` mutation whenever the user changes their Group Mode selections.
@@ -1109,14 +1109,7 @@ function createDbClient(databaseUrl: string) {
 
 **postgres-js:** Traditional PostgreSQL driver using a persistent TCP connection pool. Used for standard Postgres URLs (local development with `docker-compose`, non-Neon deployments). Connection pooling means the first query after a cold start is slower (TCP handshake) but subsequent queries are fast (reuse existing connection).
 
-**Build-time placeholder URL:** During Docker `bun run build`, `SKIP_ENV_VALIDATION=1` is set so `env.ts` doesn't throw. But `client.ts` might still be imported (Next.js does module analysis at build time). The code uses a fallback:
-
-```typescript
-const databaseUrl =
-  process.env.DATABASE_URL ?? 'postgresql://placeholder:placeholder@localhost/placeholder'
-```
-
-This prevents `createDbClient` from throwing during build when DATABASE_URL isn't set. The placeholder URL is never used in production because the real DATABASE_URL is injected at runtime.
+**Build-time DB contract:** During Docker `bun run build`, `SKIP_ENV_VALIDATION=1` is set for full env-schema checks, and `DATABASE_URL` is passed explicitly as a Docker build arg/env so `db/client.ts` does not rely on placeholder URLs.
 
 ### 4.3 Drizzle ORM
 
@@ -2500,7 +2493,7 @@ const ModelSelectionSchema = z.object({
 })
 ```
 
-If the router model returns unexpected keys or wrong types, Zod throws a parse error — caught by the caller and handled with a fallback to `defaultModel`.
+If the router model returns unexpected keys or wrong types, Zod throws a parse error and the request fails with an explicit typed error (no hidden model fallback).
 
 ### 8.4 Tools (`src/lib/ai/tools.ts`)
 
@@ -2785,8 +2778,8 @@ OpenRouter Whisper:
 - Server-side processing keeps audio on our infrastructure.
 - The same API key works regardless of user's browser.
 
-**Browser Web Speech API as fallback:**
-If the server STT call fails (Whisper quota exceeded, network error), the hook falls back to `window.SpeechRecognition` if available. Degraded experience (Chrome-only) but better than no voice input at all.
+**No browser STT fallback path:**
+If the server STT call fails (Whisper quota exceeded, network error), the UI surfaces an explicit error state. The recording/transcription lifecycle is deterministic and does not silently switch engines.
 
 **Audio size limit:**
 
@@ -2825,8 +2818,8 @@ A single regex replaces all markdown formatting tokens in one pass — bold (`**
 
 **`VOICE.TTS_MAX_CHARS = 4_096`:** TTS APIs have character limits. Long responses are truncated before synthesis. A notification tells the user the response was truncated.
 
-**Browser `speechSynthesis` fallback:**
-If the server TTS call fails, fall back to `window.speechSynthesis.speak()`. Built into all modern browsers. Lower quality (robotic voice) but universally available.
+**No browser TTS fallback path:**
+If the server TTS call fails, the UI surfaces an explicit unavailable/error state instead of silently switching to browser speech synthesis.
 
 ---
 
@@ -3448,7 +3441,7 @@ A: A synchronous inline `<script>` in `<head>` reads `localStorage` for the them
 
 ### What Group Mode Does
 
-Group Mode is a parallel-query feature that sends a single user prompt to 2–3 AI models simultaneously, streams each response in real time under a dedicated tab, and optionally synthesizes the best-of-all answer via a user-selected judge model. It adds a second submission path alongside `chat.stream` with zero impact on the existing single-model flow.
+Group Mode is a parallel-query feature that sends a single user prompt to 2–5 AI models simultaneously, streams each response in real time under a dedicated tab, and optionally synthesizes the best-of-all answer via a user-selected judge model. It adds a second submission path alongside `chat.stream` with zero impact on the existing single-model flow.
 
 The feature is composed of two tRPC subscriptions (`group.stream` and `group.synthesize`), a set of React components and hooks under `src/features/group/`, and two new nullable columns on the `userPreferences` table.
 

@@ -33,12 +33,12 @@ export function MicButton({ onTranscript }: MicButtonProps) {
 
   const handleClick = useCallback(async () => {
     if (isTranscribing) return
-    if (isListening) {
+    if (isListening || isRequestingPermission) {
       stopListening()
     } else {
       await startListening()
     }
-  }, [isListening, isTranscribing, startListening, stopListening])
+  }, [isListening, isRequestingPermission, isTranscribing, startListening, stopListening])
 
   if (!isSupported) {
     return (
@@ -54,33 +54,38 @@ export function MicButton({ onTranscript }: MicButtonProps) {
     )
   }
 
+  const disabled = isTranscribing
+  const title = permissionError ?? transcriptionError ?? undefined
+
+  let ariaLabel: string = UI_TEXT.STT_START
+  if (permissionError) ariaLabel = permissionError
+  if (transcriptionError) ariaLabel = transcriptionError
+  if (isRequestingPermission) ariaLabel = UI_TEXT.STT_REQUESTING_PERMISSION
+  if (isTranscribing) ariaLabel = UI_TEXT.STT_TRANSCRIBING
+  if (isListening) ariaLabel = UI_TEXT.STT_STOP
+
+  let toneClass = 'text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)'
+  if (isListening) {
+    toneClass = 'text-(--error) hover:bg-(--bg-surface-hover)'
+  } else if (isTranscribing) {
+    toneClass = 'cursor-wait text-(--text-ghost)'
+  } else if (isRequestingPermission) {
+    toneClass = 'text-(--text-muted) hover:bg-(--bg-surface-hover)'
+  } else if (permissionError || transcriptionError) {
+    toneClass = 'text-(--error) hover:bg-(--bg-surface-hover)'
+  }
+
   return (
     <button
       type="button"
       onClick={() => void handleClick()}
-      disabled={isTranscribing || isRequestingPermission}
-      title={permissionError ?? transcriptionError ?? undefined}
+      disabled={disabled}
+      title={title}
       className={cn(
         'flex size-8 items-center justify-center rounded-lg transition-colors',
-        isListening
-          ? 'text-(--error) hover:bg-(--bg-surface-hover)'
-          : isTranscribing || isRequestingPermission
-            ? 'cursor-wait text-(--text-ghost)'
-            : permissionError || transcriptionError
-              ? 'text-(--error) hover:bg-(--bg-surface-hover)'
-              : 'text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)',
+        toneClass,
       )}
-      aria-label={
-        permissionError
-          ? permissionError
-          : transcriptionError
-            ? transcriptionError
-            : isListening
-              ? 'Stop recording'
-              : isTranscribing || isRequestingPermission
-                ? 'Transcribing…'
-                : 'Start voice input'
-      }
+      aria-label={ariaLabel}
       aria-pressed={isListening}
     >
       {isTranscribing || isRequestingPermission ? (

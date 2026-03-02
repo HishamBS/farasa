@@ -14,7 +14,7 @@ export function ThinkingBlock({ thinking }: ThinkingBlockProps) {
   const shouldReduce = useReducedMotion()
   const [isExpanded, setIsExpanded] = useState(!UX.THINKING_COLLAPSE_DEFAULT)
 
-  const isComplete = !!thinking.completedAt
+  const isComplete = thinking.completedAt !== undefined
   const completedAt = thinking.completedAt
   const durationDisplay =
     isComplete && completedAt !== undefined
@@ -36,21 +36,23 @@ export function ThinkingBlock({ thinking }: ThinkingBlockProps) {
             ? `${STATUS_MESSAGES.THOUGHT_FOR_LABEL} ${durationDisplay ?? 1}${STATUS_MESSAGES.THOUGHT_DURATION_UNIT}`
             : STATUS_MESSAGES.THINKING}
         </span>
-        <div className="flex items-center gap-0.5">
-          {[0, 1, 2].map((i) => (
-            <motion.span
-              key={i}
-              className="size-1 rounded-full bg-(--thinking)"
-              animate={{ y: [0, -MOTION.THINKING_PULSE_Y, 0] }}
-              transition={{
-                duration: MOTION.DURATION_LOOP,
-                ease: MOTION.EASING_IN_OUT,
-                repeat: MOTION.REPEAT_INFINITE,
-                delay: i * MOTION.STAGGER_CHILDREN,
-              }}
-            />
-          ))}
-        </div>
+        {!isComplete && (
+          <div className="flex items-center gap-0.5">
+            {[0, 1, 2].map((i) => (
+              <motion.span
+                key={i}
+                className="size-1 rounded-full bg-(--thinking)"
+                animate={{ y: [0, -MOTION.THINKING_PULSE_Y, 0], opacity: [1, 0.7, 1] }}
+                transition={{
+                  duration: MOTION.DURATION_LOOP,
+                  ease: MOTION.EASING_IN_OUT,
+                  repeat: MOTION.REPEAT_INFINITE,
+                  delay: i * MOTION.STAGGER_CHILDREN,
+                }}
+              />
+            ))}
+          </div>
+        )}
       </button>
 
       <AnimatePresence initial={false}>

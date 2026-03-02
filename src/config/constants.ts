@@ -61,7 +61,11 @@ export const VOICE = {
   TTS_MODEL: 'qwen/qwen3-tts',
   STT_LANG: 'en-US',
   TTS_MAX_CHARS: 4_096,
+  TTS_RATE: 1,
+  TTS_PITCH: 1,
+  TTS_VOICE_LOAD_TIMEOUT_MS: 1_500,
   MAX_AUDIO_BYTES: 25 * 1024 * 1024,
+  STT_TRANSCRIBE_TIMEOUT_MS: 20_000,
 } as const
 
 export const UI = {
@@ -398,7 +402,14 @@ export const UI_TEXT = {
   STT_PERMISSION_DENIED:
     'Microphone access was denied. Please allow microphone in your browser settings.',
   STT_UNSUPPORTED: 'Voice input is not supported in this browser.',
+  STT_START: 'Start voice input',
+  STT_STOP: 'Stop recording',
+  STT_REQUESTING_PERMISSION: 'Requesting microphone permission...',
+  STT_TRANSCRIBING: 'Transcribing...',
   TTS_UNAVAILABLE: 'Text-to-speech is currently unavailable.',
+  TTS_READ_ALOUD: 'Read aloud',
+  TTS_STOP: 'Stop reading',
+  TTS_LOADING: 'Loading audio...',
 } as const
 
 export const GROUP_LIMITS = {

@@ -35,6 +35,7 @@ export function useSpeechToText() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
+  const startRequestSeqRef = useRef(0)
 
   useEffect(() => {
     setState((prev) => ({ ...prev, isSupported: hasMediaDevices() }))
@@ -46,7 +47,11 @@ export function useSpeechToText() {
     try {
       const formData = new FormData()
       formData.append('audio', blob, 'audio.webm')
-      const res = await fetch('/api/voice/transcribe', { method: 'POST', body: formData })
+      const res = await fetch('/api/voice/transcribe', {
+        method: 'POST',
+        body: formData,
+        signal: AbortSignal.timeout(VOICE.STT_TRANSCRIBE_TIMEOUT_MS),
+      })
       if (!res.ok) return null
       const data = (await res.json()) as { transcript?: string }
       return data.transcript ?? null
@@ -63,6 +68,14 @@ export function useSpeechToText() {
     mediaRecorderRef.current = null
   }, [])
 
+  const setIdle = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      isListening: false,
+      isRequestingPermission: false,
+    }))
+  }, [])
+
   const startListening = useCallback(async () => {
     if (
       state.isListening ||
@@ -72,6 +85,8 @@ export function useSpeechToText() {
     ) {
       return
     }
+    const requestSeq = startRequestSeqRef.current + 1
+    startRequestSeqRef.current = requestSeq
 
     setState((prev) => ({
       ...prev,
@@ -82,6 +97,11 @@ export function useSpeechToText() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      if (requestSeq !== startRequestSeqRef.current) {
+        stream.getTracks().forEach((track) => track.stop())
+        return
+      }
+
       streamRef.current = stream
       chunksRef.current = []
 
@@ -89,6 +109,7 @@ export function useSpeechToText() {
       mediaRecorderRef.current = recorder
 
       recorder.onstart = () => {
+        if (requestSeq !== startRequestSeqRef.current) return
         setState((prev) => ({
           ...prev,
           isListening: true,
@@ -104,6 +125,7 @@ export function useSpeechToText() {
       }
 
       recorder.onerror = () => {
+        if (requestSeq !== startRequestSeqRef.current) return
         cleanupStream()
         setState((prev) => ({
           ...prev,
@@ -114,6 +136,7 @@ export function useSpeechToText() {
       }
 
       recorder.onstop = async () => {
+        if (requestSeq !== startRequestSeqRef.current) return
         cleanupStream()
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
         chunksRef.current = []
@@ -127,6 +150,7 @@ export function useSpeechToText() {
         }))
 
         const transcript = await transcribeViaServer(blob)
+        if (requestSeq !== startRequestSeqRef.current) return
 
         if (transcript) {
           setState((prev) => ({
@@ -146,7 +170,15 @@ export function useSpeechToText() {
       }
 
       recorder.start()
+      setState((prev) => ({
+        ...prev,
+        isListening: true,
+        isRequestingPermission: false,
+        permissionError: null,
+        transcriptionError: null,
+      }))
     } catch (error) {
+      if (requestSeq !== startRequestSeqRef.current) return
       cleanupStream()
       if (error instanceof DOMException && error.name === 'NotAllowedError') {
         setState((prev) => ({
@@ -173,15 +205,17 @@ export function useSpeechToText() {
 
   const stopListening = useCallback(() => {
     const recorder = mediaRecorderRef.current
-    if (!recorder || recorder.state === 'inactive') {
-      setState((prev) => ({
-        ...prev,
-        isListening: false,
-      }))
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.stop()
       return
     }
-    recorder.stop()
-  }, [])
+    startRequestSeqRef.current += 1
+    if (!recorder || recorder.state === 'inactive') {
+      cleanupStream()
+      setIdle()
+      return
+    }
+  }, [cleanupStream, setIdle])
 
   const resetTranscript = useCallback(() => {
     setState((prev) => ({ ...prev, transcript: '' }))
@@ -189,6 +223,7 @@ export function useSpeechToText() {
 
   useEffect(() => {
     return () => {
+      startRequestSeqRef.current += 1
       cleanupStream()
     }
   }, [cleanupStream])

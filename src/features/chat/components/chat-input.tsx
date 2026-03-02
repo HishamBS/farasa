@@ -344,15 +344,6 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
             </>
           )}
 
-          <button
-            type="button"
-            onClick={handleAttachClick}
-            className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)"
-          >
-            <Paperclip size={14} />
-            Attach file
-          </button>
-
           <span className="ml-auto text-[11.5px] text-(--text-muted) hidden sm:block tracking-wide">
             {isTooLong ? (
               <span className="text-(--error)">

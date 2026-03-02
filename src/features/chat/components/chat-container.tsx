@@ -12,6 +12,7 @@ import {
   CHAT_STREAM_STATUS,
   GROUP_LIMITS,
   GROUP_STREAM_PHASES,
+  TITLEBAR_PHASE,
   UX,
 } from '@/config/constants'
 import { ROUTES } from '@/config/routes'
@@ -100,17 +101,17 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   }, [groupStreamInput, modelList])
 
   const titlebarPhase = useMemo((): TitlebarPhase => {
-    if (streamState.phase === CHAT_STREAM_STATUS.COMPLETE) return 'done'
+    if (streamState.phase === CHAT_STREAM_STATUS.COMPLETE) return TITLEBAR_PHASE.DONE
     if (streamState.phase === CHAT_STREAM_STATUS.ACTIVE) {
       if (
         streamState.thinking !== null &&
         streamState.thinking !== undefined &&
         !streamState.thinking.completedAt
       )
-        return 'thinking'
-      return 'streaming'
+        return TITLEBAR_PHASE.THINKING
+      return TITLEBAR_PHASE.STREAMING
     }
-    return 'idle'
+    return TITLEBAR_PHASE.IDLE
   }, [streamState.phase, streamState.thinking])
 
   useEffect(() => {

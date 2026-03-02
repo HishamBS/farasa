@@ -68,6 +68,22 @@ export const VOICE = {
   STT_TRANSCRIBE_TIMEOUT_MS: 20_000,
 } as const
 
+export const VOICE_TTS_STATES = {
+  IDLE: 'idle',
+  LOADING: 'loading',
+  SPEAKING: 'speaking',
+  ERROR: 'error',
+  UNAVAILABLE: 'unavailable',
+} as const
+
+export const VOICE_STT_STATES = {
+  IDLE: 'idle',
+  REQUESTING_PERMISSION: 'requesting_permission',
+  LISTENING: 'listening',
+  TRANSCRIBING: 'transcribing',
+  ERROR: 'error',
+} as const
+
 export const UI = {
   IMAGE_PREVIEW_WIDTH: 400,
   IMAGE_PREVIEW_HEIGHT: 300,
@@ -293,6 +309,9 @@ export const SHIKI_LIGHT_THEME = 'github-light' as const
 
 export const AI_REASONING = {
   MODEL_EXPLICIT: 'Model explicitly specified by user.',
+  MODEL_CONVERSATION_DEFAULT: 'Using the model configured for this conversation.',
+  MODEL_USER_DEFAULT: 'Using your default model preference.',
+  MODEL_AUTO_ROUTER: 'Model selected by the auto router.',
 } as const
 
 export const EXTERNAL_URLS = {

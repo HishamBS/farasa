@@ -184,6 +184,15 @@ export const groupRouter = router({
               streamRequestId: modelStreamRequestId,
               model: modelId,
               reasoning: AI_REASONING.MODEL_EXPLICIT,
+              source: 'explicit_request',
+              confidence: 1,
+              factors: [
+                {
+                  key: 'selection_source',
+                  label: 'Selection Source',
+                  value: 'explicit_request',
+                },
+              ],
             } satisfies StreamChunk,
           })
           push({

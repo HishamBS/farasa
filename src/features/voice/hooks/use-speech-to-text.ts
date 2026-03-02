@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { VOICE, UI_TEXT } from '@/config/constants'
+import { VOICE, VOICE_STT_STATES, UI_TEXT } from '@/config/constants'
+
+type SttStatus = (typeof VOICE_STT_STATES)[keyof typeof VOICE_STT_STATES]
 
 type STTState = {
-  isListening: boolean
-  isTranscribing: boolean
-  isRequestingPermission: boolean
+  status: SttStatus
   transcript: string
   isSupported: boolean
   permissionError: string | null
@@ -23,9 +23,7 @@ function hasMediaDevices(): boolean {
 
 export function useSpeechToText() {
   const [state, setState] = useState<STTState>({
-    isListening: false,
-    isTranscribing: false,
-    isRequestingPermission: false,
+    status: VOICE_STT_STATES.IDLE,
     transcript: '',
     isSupported: false,
     permissionError: null,
@@ -35,29 +33,10 @@ export function useSpeechToText() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
-  const startRequestSeqRef = useRef(0)
+  const requestSeqRef = useRef(0)
 
   useEffect(() => {
     setState((prev) => ({ ...prev, isSupported: hasMediaDevices() }))
-  }, [])
-
-  const transcribeViaServer = useCallback(async (blob: Blob): Promise<string | null> => {
-    if (blob.size === 0 || blob.size > VOICE.MAX_AUDIO_BYTES) return null
-
-    try {
-      const formData = new FormData()
-      formData.append('audio', blob, 'audio.webm')
-      const res = await fetch('/api/voice/transcribe', {
-        method: 'POST',
-        body: formData,
-        signal: AbortSignal.timeout(VOICE.STT_TRANSCRIBE_TIMEOUT_MS),
-      })
-      if (!res.ok) return null
-      const data = (await res.json()) as { transcript?: string }
-      return data.transcript ?? null
-    } catch {
-      return null
-    }
   }, [])
 
   const cleanupStream = useCallback(() => {
@@ -68,36 +47,44 @@ export function useSpeechToText() {
     mediaRecorderRef.current = null
   }, [])
 
-  const setIdle = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      isListening: false,
-      isRequestingPermission: false,
-    }))
+  const transcribeViaServer = useCallback(async (blob: Blob): Promise<string | null> => {
+    if (blob.size === 0 || blob.size > VOICE.MAX_AUDIO_BYTES) return null
+
+    try {
+      const formData = new FormData()
+      formData.append('audio', blob, 'audio.webm')
+      const response = await fetch('/api/voice/transcribe', {
+        method: 'POST',
+        body: formData,
+        signal: AbortSignal.timeout(VOICE.STT_TRANSCRIBE_TIMEOUT_MS),
+      })
+      if (!response.ok) return null
+      const data = (await response.json()) as { transcript?: string }
+      return data.transcript ?? null
+    } catch {
+      return null
+    }
   }, [])
 
   const startListening = useCallback(async () => {
-    if (
-      state.isListening ||
-      state.isTranscribing ||
-      state.isRequestingPermission ||
-      !hasMediaDevices()
-    ) {
-      return
-    }
-    const requestSeq = startRequestSeqRef.current + 1
-    startRequestSeqRef.current = requestSeq
+    if (!hasMediaDevices()) return
+    if (state.status === VOICE_STT_STATES.REQUESTING_PERMISSION) return
+    if (state.status === VOICE_STT_STATES.LISTENING) return
+    if (state.status === VOICE_STT_STATES.TRANSCRIBING) return
+
+    const requestSeq = requestSeqRef.current + 1
+    requestSeqRef.current = requestSeq
 
     setState((prev) => ({
       ...prev,
+      status: VOICE_STT_STATES.REQUESTING_PERMISSION,
       permissionError: null,
       transcriptionError: null,
-      isRequestingPermission: true,
     }))
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      if (requestSeq !== startRequestSeqRef.current) {
+      if (requestSeq !== requestSeqRef.current) {
         stream.getTracks().forEach((track) => track.stop())
         return
       }
@@ -109,12 +96,12 @@ export function useSpeechToText() {
       mediaRecorderRef.current = recorder
 
       recorder.onstart = () => {
-        if (requestSeq !== startRequestSeqRef.current) return
+        if (requestSeq !== requestSeqRef.current) return
         setState((prev) => ({
           ...prev,
-          isListening: true,
-          isRequestingPermission: false,
+          status: VOICE_STT_STATES.LISTENING,
           permissionError: null,
+          transcriptionError: null,
         }))
       }
 
@@ -125,38 +112,36 @@ export function useSpeechToText() {
       }
 
       recorder.onerror = () => {
-        if (requestSeq !== startRequestSeqRef.current) return
+        if (requestSeq !== requestSeqRef.current) return
         cleanupStream()
         setState((prev) => ({
           ...prev,
-          isListening: false,
-          isRequestingPermission: false,
+          status: VOICE_STT_STATES.ERROR,
           transcriptionError: UI_TEXT.STT_TRANSCRIPTION_FAILED,
         }))
       }
 
       recorder.onstop = async () => {
-        if (requestSeq !== startRequestSeqRef.current) return
+        if (requestSeq !== requestSeqRef.current) return
+
         cleanupStream()
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
         chunksRef.current = []
 
         setState((prev) => ({
           ...prev,
-          isListening: false,
-          isTranscribing: true,
-          isRequestingPermission: false,
+          status: VOICE_STT_STATES.TRANSCRIBING,
           transcriptionError: null,
         }))
 
         const transcript = await transcribeViaServer(blob)
-        if (requestSeq !== startRequestSeqRef.current) return
+        if (requestSeq !== requestSeqRef.current) return
 
         if (transcript) {
           setState((prev) => ({
             ...prev,
+            status: VOICE_STT_STATES.IDLE,
             transcript,
-            isTranscribing: false,
             transcriptionError: null,
           }))
           return
@@ -164,26 +149,19 @@ export function useSpeechToText() {
 
         setState((prev) => ({
           ...prev,
-          isTranscribing: false,
+          status: VOICE_STT_STATES.ERROR,
           transcriptionError: UI_TEXT.STT_TRANSCRIPTION_FAILED,
         }))
       }
 
       recorder.start()
-      setState((prev) => ({
-        ...prev,
-        isListening: true,
-        isRequestingPermission: false,
-        permissionError: null,
-        transcriptionError: null,
-      }))
     } catch (error) {
-      if (requestSeq !== startRequestSeqRef.current) return
+      if (requestSeq !== requestSeqRef.current) return
       cleanupStream()
       if (error instanceof DOMException && error.name === 'NotAllowedError') {
         setState((prev) => ({
           ...prev,
-          isRequestingPermission: false,
+          status: VOICE_STT_STATES.ERROR,
           permissionError: UI_TEXT.STT_PERMISSION_DENIED,
         }))
         return
@@ -191,42 +169,57 @@ export function useSpeechToText() {
 
       setState((prev) => ({
         ...prev,
-        isRequestingPermission: false,
+        status: VOICE_STT_STATES.ERROR,
         transcriptionError: UI_TEXT.STT_TRANSCRIPTION_FAILED,
       }))
     }
-  }, [
-    cleanupStream,
-    state.isListening,
-    state.isRequestingPermission,
-    state.isTranscribing,
-    transcribeViaServer,
-  ])
+  }, [cleanupStream, state.status, transcribeViaServer])
 
   const stopListening = useCallback(() => {
     const recorder = mediaRecorderRef.current
+
     if (recorder && recorder.state !== 'inactive') {
       recorder.stop()
       return
     }
-    startRequestSeqRef.current += 1
-    if (!recorder || recorder.state === 'inactive') {
-      cleanupStream()
-      setIdle()
-      return
-    }
-  }, [cleanupStream, setIdle])
+
+    requestSeqRef.current += 1
+    cleanupStream()
+    setState((prev) => ({
+      ...prev,
+      status: VOICE_STT_STATES.IDLE,
+    }))
+  }, [cleanupStream])
 
   const resetTranscript = useCallback(() => {
-    setState((prev) => ({ ...prev, transcript: '' }))
+    setState((prev) => ({
+      ...prev,
+      transcript: '',
+      status: prev.status === VOICE_STT_STATES.ERROR ? VOICE_STT_STATES.IDLE : prev.status,
+    }))
   }, [])
 
   useEffect(() => {
     return () => {
-      startRequestSeqRef.current += 1
+      requestSeqRef.current += 1
       cleanupStream()
     }
   }, [cleanupStream])
 
-  return { ...state, startListening, stopListening, resetTranscript }
+  const isListening = state.status === VOICE_STT_STATES.LISTENING
+  const isTranscribing = state.status === VOICE_STT_STATES.TRANSCRIBING
+  const isRequestingPermission = state.status === VOICE_STT_STATES.REQUESTING_PERMISSION
+
+  return {
+    isListening,
+    isTranscribing,
+    isRequestingPermission,
+    transcript: state.transcript,
+    isSupported: state.isSupported,
+    permissionError: state.permissionError,
+    transcriptionError: state.transcriptionError,
+    startListening,
+    stopListening,
+    resetTranscript,
+  }
 }

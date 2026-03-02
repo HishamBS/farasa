@@ -17,13 +17,13 @@ import {
   TRPC_CODES,
   NEW_CHAT_TITLE,
   AI_MARKUP,
-  AI_REASONING,
   LIMITS,
 } from '@/config/constants'
 import { AppError, getErrorMessage } from '@/lib/utils/errors'
 import type { StreamChunk } from '@/schemas/message'
 import type { ToolCall, Usage } from '@/schemas/message'
 import type { RuntimeConfig } from '@/schemas/runtime-config'
+import type { ModelCapability, ModelSelectionSource } from '@/schemas/model'
 import type { Message, ToolResponseMessage, ChatMessageContentItem } from '@openrouter/sdk/models'
 import {
   ToolChoiceOptionAuto,
@@ -32,6 +32,7 @@ import {
   ChatMessageContentItemTextType,
 } from '@openrouter/sdk/models'
 import { escapeXmlForPrompt, sanitizeA2UIJsonLine } from '@/lib/security/runtime-safety'
+import { resolveModelDecision } from '@/server/services/model-resolution-service'
 
 type StreamSession = {
   key: string
@@ -338,75 +339,61 @@ export const chatRouter = router({
         }
       }
 
-      let selectedModel = input.model
+      let selectedModel: string | undefined
+      let effectiveMode = input.mode
       let routerReasoning: string | undefined
+      let routerSource: ModelSelectionSource | undefined
+      let routerCategory: ModelCapability | undefined
+      let routerConfidence: number | undefined
+      let routerFactors:
+        | Array<{
+            key: string
+            label: string
+            value: string
+          }>
+        | undefined
+      let requiresSearch = input.mode === CHAT_MODES.SEARCH
       const { getModelRegistry } = await import('@/lib/ai/registry')
       const registry = await getModelRegistry({ runtimeConfig })
 
-      if (!selectedModel) {
+      if (!input.model) {
         yield emit({
           type: STREAM_EVENTS.STATUS,
           phase: STREAM_PHASES.ROUTING,
           message: runtimeConfig.chat.statusMessages.routing,
         })
-
-        const { routeModel } = await import('@/lib/ai/router')
-        let selection: Awaited<ReturnType<typeof routeModel>> | null = null
-        const maxRoutingAttempts = Math.max(1, runtimeConfig.chat.stream.retry.maxAttempts + 1)
-        let routingError: unknown
-
-        for (let attempt = 0; attempt < maxRoutingAttempts; attempt++) {
-          try {
-            selection = await routeModel(input.content, registry, runtimeConfig, combinedSignal)
-            routingError = undefined
-            break
-          } catch (error) {
-            routingError = error
-          }
-        }
-
-        if (routingError) {
-          throw new TRPCError({
-            code: TRPC_CODES.BAD_REQUEST,
-            message: AppError.ROUTER_FAILED,
-          })
-        }
-
-        if (!selection) {
-          throw new TRPCError({
-            code: TRPC_CODES.BAD_REQUEST,
-            message: AppError.ROUTER_FAILED,
-          })
-        }
-
-        if (!registry.some((model) => model.id === selection.selectedModel)) {
-          throw new TRPCError({
-            code: TRPC_CODES.BAD_REQUEST,
-            message: AppError.INVALID_MODEL,
-          })
-        }
-
-        selectedModel = selection.selectedModel
-        routerReasoning = selection.reasoning
-        yield emit({
-          type: STREAM_EVENTS.MODEL_SELECTED,
-          model: selectedModel,
-          reasoning: selection.reasoning,
-        })
-      } else {
-        if (!registry.some((model) => model.id === selectedModel)) {
-          throw new TRPCError({
-            code: TRPC_CODES.BAD_REQUEST,
-            message: AppError.INVALID_MODEL,
-          })
-        }
-
-        yield emit({
-          type: STREAM_EVENTS.MODEL_SELECTED,
-          model: selectedModel,
-          reasoning: AI_REASONING.MODEL_EXPLICIT,
-        })
       }
+
+      const resolvedDecision = await resolveModelDecision({
+        dbClient: ctx.db,
+        userId: ctx.userId,
+        conversationId,
+        requestedModel: input.model,
+        requestedMode: input.mode,
+        prompt: input.content,
+        registry,
+        runtimeConfig,
+        signal: combinedSignal,
+      })
+
+      selectedModel = resolvedDecision.selectedModel
+      effectiveMode = resolvedDecision.effectiveMode
+      routerReasoning = resolvedDecision.reasoning
+      routerSource = resolvedDecision.source
+      routerCategory = resolvedDecision.category
+      routerConfidence = resolvedDecision.confidence
+      routerFactors = resolvedDecision.factors
+      requiresSearch = resolvedDecision.requiresSearch
+
+      yield emit({
+        type: STREAM_EVENTS.MODEL_SELECTED,
+        model: selectedModel,
+        reasoning: resolvedDecision.reasoning,
+        source: resolvedDecision.source,
+        category: resolvedDecision.category,
+        confidence: resolvedDecision.confidence,
+        factors: resolvedDecision.factors,
+      })
 
       if (!selectedModel) {
         throw new TRPCError({
@@ -417,7 +404,7 @@ export const chatRouter = router({
 
       await ctx.db
         .update(conversations)
-        .set({ model: selectedModel, updatedAt: new Date() })
+        .set({ model: selectedModel, searchMode: effectiveMode, updatedAt: new Date() })
         .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
 
       const wrappedContent = `${runtimeConfig.prompts.wrappers.userRequestOpen}\n${input.content}\n${runtimeConfig.prompts.wrappers.userRequestClose}`
@@ -467,7 +454,7 @@ export const chatRouter = router({
       let searchResults: SearchResult[] = []
       let searchImages: SearchImage[] = []
 
-      if (input.mode === CHAT_MODES.SEARCH) {
+      if (effectiveMode === CHAT_MODES.SEARCH) {
         if (!runtimeConfig.features.searchEnabled) {
           throw new TRPCError({
             code: TRPC_CODES.BAD_REQUEST,
@@ -565,7 +552,7 @@ export const chatRouter = router({
             messages: sdkMessages,
             stream: true,
             maxTokens: runtimeConfig.ai.chatMaxTokens,
-            ...(input.mode === CHAT_MODES.SEARCH
+            ...(effectiveMode === CHAT_MODES.SEARCH
               ? { tools: ALL_TOOLS, toolChoice: ToolChoiceOptionAuto.Auto }
               : {}),
           },
@@ -713,7 +700,7 @@ export const chatRouter = router({
         yield thinkingCompleteEvent
       }
 
-      if (toolCallArgBuffers.size > 0 && input.mode === CHAT_MODES.CHAT) {
+      if (toolCallArgBuffers.size > 0 && effectiveMode === CHAT_MODES.CHAT) {
         const assistantToolCallMessage: Message = {
           role: MESSAGE_ROLES.ASSISTANT,
           content: fullText || '',
@@ -850,10 +837,15 @@ export const chatRouter = router({
         streamRequestId,
         modelUsed: selectedModel,
         routerReasoning,
+        routerSource,
+        routerCategory,
+        routerConfidence,
+        routerFactors,
+        requiresSearch,
         thinkingContent: thinkingContent || undefined,
         thinkingDurationMs,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-        searchQuery: input.mode === CHAT_MODES.SEARCH ? input.content : undefined,
+        searchQuery: effectiveMode === CHAT_MODES.SEARCH ? input.content : undefined,
         searchResults: searchResults.length > 0 ? searchResults : undefined,
         searchImages: searchImages.length > 0 ? searchImages : undefined,
         a2uiMessages: a2uiLines.length > 0 ? a2uiLines : undefined,

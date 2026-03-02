@@ -1,134 +1,120 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect } from 'react'
-import { VOICE, UI_TEXT } from '@/config/constants'
+import { useCallback, useRef, useState } from 'react'
+import { VOICE, VOICE_TTS_STATES, UI_TEXT } from '@/config/constants'
 
-function isSpeechSynthesisSupported(): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    typeof window.speechSynthesis !== 'undefined' &&
-    typeof window.SpeechSynthesisUtterance !== 'undefined'
-  )
+type TtsStatus = (typeof VOICE_TTS_STATES)[keyof typeof VOICE_TTS_STATES]
+
+type TtsState = {
+  status: TtsStatus
+  error: string | null
+}
+
+function isAudioElementSupported(): boolean {
+  return typeof Audio !== 'undefined'
 }
 
 export function useTextToSpeech() {
-  const [isSpeaking, setIsSpeaking] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [isSupported, setIsSupported] = useState(() => isSpeechSynthesisSupported())
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null)
+  const [state, setState] = useState<TtsState>({
+    status: isAudioElementSupported() ? VOICE_TTS_STATES.IDLE : VOICE_TTS_STATES.UNAVAILABLE,
+    error: null,
+  })
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const objectUrlRef = useRef<string | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
-  const waitForVoices = useCallback(async (): Promise<void> => {
-    if (!isSpeechSynthesisSupported()) return
-    if (window.speechSynthesis.getVoices().length > 0) return
-
-    await new Promise<void>((resolve) => {
-      let settled = false
-      const finish = () => {
-        if (settled) return
-        settled = true
-        window.speechSynthesis.removeEventListener('voiceschanged', finish)
-        clearTimeout(timer)
-        resolve()
-      }
-      const timer = window.setTimeout(finish, VOICE.TTS_VOICE_LOAD_TIMEOUT_MS)
-      window.speechSynthesis.addEventListener('voiceschanged', finish)
-    })
-  }, [])
-
-  const selectVoice = useCallback((): SpeechSynthesisVoice | null => {
-    if (!isSpeechSynthesisSupported()) return null
-    const voices = window.speechSynthesis.getVoices()
-    if (!voices.length) return null
-    const preferred = voices.find((voice) =>
-      voice.lang.toLowerCase().startsWith(VOICE.STT_LANG.toLowerCase().split('-')[0] ?? ''),
-    )
-    return preferred ?? voices[0] ?? null
-  }, [])
-
-  useEffect(() => {
-    const syncSupport = () => {
-      setIsSupported(isSpeechSynthesisSupported())
+  const cleanupAudio = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.src = ''
+      audioRef.current = null
     }
-    syncSupport()
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.addEventListener('voiceschanged', syncSupport)
-    }
-    return () => {
-      if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.removeEventListener('voiceschanged', syncSupport)
-      }
-      if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel()
-      }
-      utteranceRef.current = null
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current)
+      objectUrlRef.current = null
     }
   }, [])
 
-  const stopAudio = useCallback(() => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel()
-    }
-    utteranceRef.current = null
-    setIsSpeaking(false)
-    setIsLoading(false)
-  }, [])
+  const stop = useCallback(() => {
+    abortControllerRef.current?.abort()
+    abortControllerRef.current = null
+    cleanupAudio()
+    setState((prev) => ({
+      ...prev,
+      status: isAudioElementSupported() ? VOICE_TTS_STATES.IDLE : VOICE_TTS_STATES.UNAVAILABLE,
+    }))
+  }, [cleanupAudio])
 
   const speak = useCallback(
     async (text: string) => {
-      stopAudio()
-      const trimmed = text.slice(0, VOICE.TTS_MAX_CHARS)
-      if (!trimmed) return
-      if (!isSpeechSynthesisSupported()) {
-        setError(UI_TEXT.TTS_UNAVAILABLE)
+      stop()
+
+      if (!isAudioElementSupported()) {
+        setState({
+          status: VOICE_TTS_STATES.UNAVAILABLE,
+          error: UI_TEXT.TTS_UNAVAILABLE,
+        })
         return
       }
 
-      setError(null)
-      setIsLoading(true)
+      const trimmed = text.slice(0, VOICE.TTS_MAX_CHARS).trim()
+      if (!trimmed) return
+
+      const controller = new AbortController()
+      abortControllerRef.current = controller
+      setState({ status: VOICE_TTS_STATES.LOADING, error: null })
 
       try {
-        await waitForVoices()
-        const utterance = new SpeechSynthesisUtterance(trimmed)
-        utterance.lang = VOICE.STT_LANG
-        utterance.rate = VOICE.TTS_RATE
-        utterance.pitch = VOICE.TTS_PITCH
-        const voice = selectVoice()
-        if (voice) {
-          utterance.voice = voice
-          utterance.lang = voice.lang
+        const response = await fetch('/api/voice/synthesize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: trimmed }),
+          signal: controller.signal,
+        })
+
+        if (!response.ok) {
+          setState({
+            status: VOICE_TTS_STATES.ERROR,
+            error: UI_TEXT.TTS_UNAVAILABLE,
+          })
+          return
         }
 
-        utterance.onstart = () => {
-          setIsLoading(false)
-          setIsSpeaking(true)
-        }
-        utterance.onend = () => {
-          setIsSpeaking(false)
-          setIsLoading(false)
-          utteranceRef.current = null
-        }
-        utterance.onerror = () => {
-          setIsLoading(false)
-          setIsSpeaking(false)
-          utteranceRef.current = null
-          setError(UI_TEXT.TTS_UNAVAILABLE)
+        const audioBlob = await response.blob()
+        if (controller.signal.aborted) return
+
+        const objectUrl = URL.createObjectURL(audioBlob)
+        objectUrlRef.current = objectUrl
+        const audio = new Audio(objectUrl)
+        audioRef.current = audio
+
+        audio.onended = () => {
+          cleanupAudio()
+          setState({ status: VOICE_TTS_STATES.IDLE, error: null })
         }
 
-        utteranceRef.current = utterance
-        window.speechSynthesis.speak(utterance)
+        audio.onerror = () => {
+          cleanupAudio()
+          setState({ status: VOICE_TTS_STATES.ERROR, error: UI_TEXT.TTS_UNAVAILABLE })
+        }
+
+        await audio.play()
+        setState({ status: VOICE_TTS_STATES.SPEAKING, error: null })
       } catch {
-        setIsLoading(false)
-        setIsSpeaking(false)
-        setError(UI_TEXT.TTS_UNAVAILABLE)
+        if (controller.signal.aborted) return
+        setState({
+          status: VOICE_TTS_STATES.ERROR,
+          error: UI_TEXT.TTS_UNAVAILABLE,
+        })
       }
     },
-    [selectVoice, stopAudio, waitForVoices],
+    [cleanupAudio, stop],
   )
 
-  const stop = useCallback(() => {
-    stopAudio()
-  }, [stopAudio])
-
-  return { speak, stop, isSpeaking, isLoading, error, isSupported }
+  return {
+    speak,
+    stop,
+    status: state.status,
+    error: state.error,
+  }
 }

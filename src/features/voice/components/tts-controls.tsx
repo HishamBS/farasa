@@ -4,56 +4,89 @@ import { useCallback } from 'react'
 import { Volume2, VolumeX, Loader2 } from 'lucide-react'
 import { useTextToSpeech } from '../hooks/use-text-to-speech'
 import { cn } from '@/lib/utils/cn'
-import { UI_TEXT } from '@/config/constants'
+import { UI_TEXT, VOICE_TTS_STATES } from '@/config/constants'
 
 type TTSControlsProps = {
   content: string
 }
 
 export function TTSControls({ content }: TTSControlsProps) {
-  const { speak, stop, isSpeaking, isLoading, error, isSupported } = useTextToSpeech()
+  const { speak, stop, status, error } = useTextToSpeech()
 
   const handleClick = useCallback(async () => {
-    if (isLoading) return
-    if (isSpeaking) {
+    if (status === VOICE_TTS_STATES.LOADING) return
+    if (status === VOICE_TTS_STATES.SPEAKING) {
       stop()
     } else {
       await speak(content)
     }
-  }, [isLoading, isSpeaking, speak, stop, content])
+  }, [status, speak, stop, content])
 
-  const unavailable = !isSupported
-  const disabled = isLoading || unavailable
-  const title = error ?? (unavailable ? UI_TEXT.TTS_UNAVAILABLE : undefined)
-
-  let ariaLabel: string = UI_TEXT.TTS_READ_ALOUD
-  if (unavailable) ariaLabel = UI_TEXT.TTS_UNAVAILABLE
-  if (isLoading) ariaLabel = UI_TEXT.TTS_LOADING
-  if (isSpeaking) ariaLabel = UI_TEXT.TTS_STOP
-
-  let toneClass = 'text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)'
-  if (disabled) {
-    toneClass = 'cursor-wait text-(--text-ghost)'
-  } else if (error) {
-    toneClass = 'text-(--error) hover:bg-(--bg-surface-hover)'
+  type TtsControlPresentation = {
+    ariaLabel: string
+    disabled: boolean
+    toneClass: string
+    icon: typeof Volume2
+    iconClassName: string
   }
 
-  const Icon = isLoading ? Loader2 : isSpeaking ? VolumeX : Volume2
-  const iconClassName = isLoading ? 'size-3.5 animate-spin' : 'size-3.5'
+  const presentationByStatus: Record<
+    (typeof VOICE_TTS_STATES)[keyof typeof VOICE_TTS_STATES],
+    TtsControlPresentation
+  > = {
+    [VOICE_TTS_STATES.IDLE]: {
+      ariaLabel: UI_TEXT.TTS_READ_ALOUD,
+      disabled: false,
+      toneClass: 'text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)',
+      icon: Volume2,
+      iconClassName: 'size-3.5',
+    },
+    [VOICE_TTS_STATES.LOADING]: {
+      ariaLabel: UI_TEXT.TTS_LOADING,
+      disabled: true,
+      toneClass: 'cursor-wait text-(--text-ghost)',
+      icon: Loader2,
+      iconClassName: 'size-3.5 animate-spin',
+    },
+    [VOICE_TTS_STATES.SPEAKING]: {
+      ariaLabel: UI_TEXT.TTS_STOP,
+      disabled: false,
+      toneClass: 'text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)',
+      icon: VolumeX,
+      iconClassName: 'size-3.5',
+    },
+    [VOICE_TTS_STATES.ERROR]: {
+      ariaLabel: error ?? UI_TEXT.TTS_UNAVAILABLE,
+      disabled: false,
+      toneClass: 'text-(--error) hover:bg-(--bg-surface-hover)',
+      icon: Volume2,
+      iconClassName: 'size-3.5',
+    },
+    [VOICE_TTS_STATES.UNAVAILABLE]: {
+      ariaLabel: UI_TEXT.TTS_UNAVAILABLE,
+      disabled: true,
+      toneClass: 'cursor-not-allowed text-(--text-ghost)',
+      icon: Volume2,
+      iconClassName: 'size-3.5',
+    },
+  }
+
+  const presentation = presentationByStatus[status]
+  const Icon = presentation.icon
 
   return (
     <button
       type="button"
       onClick={() => void handleClick()}
-      disabled={disabled}
+      disabled={presentation.disabled}
       className={cn(
         'flex min-h-8 min-w-8 items-center justify-center rounded-md transition-colors',
-        toneClass,
+        presentation.toneClass,
       )}
-      title={title}
-      aria-label={ariaLabel}
+      title={error ?? undefined}
+      aria-label={presentation.ariaLabel}
     >
-      <Icon className={iconClassName} />
+      <Icon className={presentation.iconClassName} />
     </button>
   )
 }

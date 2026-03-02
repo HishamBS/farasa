@@ -6,7 +6,6 @@ import {
   MODEL_CATEGORIES,
   MOTION,
   PROVIDER_DOT_CLASSES,
-  LIMITS,
   STREAM_PHASES,
   UX,
 } from '@/config/constants'
@@ -23,14 +22,12 @@ const CATEGORY_LABELS: Record<string, string> = {
   [MODEL_CATEGORIES.FAST]: 'Fast',
 }
 
-const CATEGORY_PRIORITY = [
-  MODEL_CATEGORIES.CODE,
-  MODEL_CATEGORIES.VISION,
-  MODEL_CATEGORIES.ANALYSIS,
-  MODEL_CATEGORIES.FAST,
-  MODEL_CATEGORIES.CREATIVE,
-  MODEL_CATEGORIES.GENERAL,
-] as const
+const SOURCE_LABELS: Record<string, string> = {
+  explicit_request: 'Manual selection',
+  conversation_default: 'Conversation default',
+  user_default: 'User default',
+  auto_router: 'Auto router',
+}
 
 type RoutingPanelProps = {
   modelSelection: ModelSelectionState | null
@@ -42,8 +39,8 @@ type RoutingPanelProps = {
 export function RoutingPanel({ modelSelection, streamPhase, hasText, models }: RoutingPanelProps) {
   const isActive = streamPhase !== 'idle'
   const hasDecision = modelSelection !== null
-  const isCollapsed = hasDecision && (isActive || hasText)
-  const isExpanded = false
+  const isExpanded = hasDecision && isActive
+  const isCollapsed = hasDecision && !isExpanded && hasText
 
   const [routingMinVisible, setRoutingMinVisible] = useState(false)
   const routingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -71,13 +68,7 @@ export function RoutingPanel({ modelSelection, streamPhase, hasText, models }: R
     [modelSelection, models],
   )
 
-  const primaryCategory = useMemo(() => {
-    if (!modelConfig) return null
-    return (
-      CATEGORY_PRIORITY.find((cat) => modelConfig.capabilities.includes(cat)) ??
-      MODEL_CATEGORIES.GENERAL
-    )
-  }, [modelConfig])
+  const primaryCategory = modelSelection?.category ?? MODEL_CATEGORIES.GENERAL
 
   const dotClass = modelConfig
     ? (PROVIDER_DOT_CLASSES[modelConfig.provider] ?? 'bg-(--text-ghost)')
@@ -125,26 +116,25 @@ export function RoutingPanel({ modelSelection, streamPhase, hasText, models }: R
             )}
           </div>
 
-          {modelConfig && (
-            <div className="flex flex-wrap items-center gap-1">
-              {modelConfig.supportsThinking && (
-                <span className="rounded-full bg-(--thinking)/10 px-1.5 py-0.5 text-[0.625rem] text-(--thinking)">
-                  Thinking
-                </span>
-              )}
-              {modelConfig.supportsVision && (
-                <span className="rounded-full bg-(--accent-muted) px-1.5 py-0.5 text-[0.625rem] text-accent">
-                  Vision
-                </span>
-              )}
-              {modelConfig.supportsTools && (
-                <span className="rounded-full bg-(--bg-surface-active) px-1.5 py-0.5 text-[0.625rem] text-(--text-muted)">
-                  Tools
-                </span>
-              )}
-              <span className="text-(--text-ghost)">
-                {Math.round(modelConfig.contextWindow / LIMITS.TOKENS_PER_K)}k
+          {modelSelection && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="rounded-full bg-(--bg-surface-active) px-2 py-0.5 text-[0.625rem] text-(--text-muted)">
+                {SOURCE_LABELS[modelSelection.source] ?? modelSelection.source}
               </span>
+              {typeof modelSelection.confidence === 'number' && (
+                <span className="rounded-full bg-(--bg-surface-active) px-2 py-0.5 text-[0.625rem] text-(--text-muted)">
+                  {Math.round(modelSelection.confidence * 100)}% confidence
+                </span>
+              )}
+              {modelSelection.factors?.map((factor) => (
+                <span
+                  key={factor.key}
+                  className="rounded-full bg-(--bg-surface-active) px-2 py-0.5 text-[0.625rem] text-(--text-muted)"
+                  title={`${factor.label}: ${factor.value}`}
+                >
+                  {factor.label}
+                </span>
+              ))}
             </div>
           )}
 

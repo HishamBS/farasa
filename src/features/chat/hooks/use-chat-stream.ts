@@ -70,11 +70,11 @@ export function useChatStream(conversationId?: string) {
         clearActiveSession()
       }
 
+      reset()
       dispatch({
         type: STREAM_ACTIONS.SAVE_INPUT,
         input: { ...input, conversationId: effectiveConversationId },
       })
-      reset()
       dispatch({
         type: STREAM_ACTIONS.STATUS,
         phase: !input.model ? STREAM_PHASES.ROUTING : STREAM_PHASES.THINKING,
@@ -154,6 +154,10 @@ export function useChatStream(conversationId?: string) {
                   type: STREAM_ACTIONS.MODEL_SELECTED,
                   model: chunk.model,
                   reasoning: chunk.reasoning,
+                  source: chunk.source,
+                  category: chunk.category,
+                  confidence: chunk.confidence,
+                  factors: chunk.factors,
                 })
                 break
               case STREAM_EVENTS.THINKING:

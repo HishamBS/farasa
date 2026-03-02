@@ -105,6 +105,10 @@ export function useGroupStream({
               type: STREAM_ACTIONS.MODEL_SELECTED,
               model: streamChunk.model,
               reasoning: streamChunk.reasoning,
+              source: streamChunk.source,
+              category: streamChunk.category,
+              confidence: streamChunk.confidence,
+              factors: streamChunk.factors,
             }),
           )
           break

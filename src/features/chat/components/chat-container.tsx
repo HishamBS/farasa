@@ -39,7 +39,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   const isStreaming = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
   const chatInputRef = useRef<ChatInputHandle>(null)
   const { setPhase, setModelSelection, setHasText } = useStreamPhase()
-  const { mode, setMode } = useChatMode()
+  const { mode } = useChatMode()
   const utils = trpc.useUtils()
 
   const [groupStreamInput, setGroupStreamInput] = useState<GroupStreamInput | null>(null)
@@ -123,10 +123,6 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     setHasText(streamState.textContent.length > 0)
   }, [streamState.textContent, setHasText])
 
-  useEffect(() => {
-    if (streamState.detectedSearchMode) setMode(CHAT_MODES.SEARCH)
-  }, [streamState.detectedSearchMode, setMode])
-
   const { data: conversation } = trpc.conversation.getById.useQuery(
     { id: effectiveConversationId ?? '' },
     { staleTime: UX.QUERY_STALE_TIME_FOREVER, enabled: !!effectiveConversationId },
@@ -194,7 +190,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
           isChatStreaming={isStreaming}
           pendingUserMessage={streamState.pendingUserMessage ?? groupStreamInput?.content ?? null}
           onSuggestionSelect={handleSuggestionSelect}
-          conversationId={conversationId}
+          conversationId={effectiveConversationId}
           liveGroup={liveGroup}
         />
       </ConversationCostProvider>
@@ -203,7 +199,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
         onSend={sendMessage}
         onAbort={groupPhase === GROUP_STREAM_PHASES.ACTIVE ? abortGroup : abort}
         isStreaming={isStreaming || groupPhase === GROUP_STREAM_PHASES.ACTIVE}
-        conversationId={conversationId}
+        conversationId={effectiveConversationId}
         initialModel={conversation?.model ?? undefined}
         onGroupSubmit={handleGroupSubmit}
       />

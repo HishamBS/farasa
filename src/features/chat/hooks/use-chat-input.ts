@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { trpc } from '@/trpc/provider'
 import { UX } from '@/config/constants'
 
@@ -11,34 +11,16 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
     initialModel ?? undefined,
   )
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const prefsInitializedRef = useRef(false)
 
   const prefsQuery = trpc.userPreferences.get.useQuery(undefined, {
     staleTime: UX.QUERY_STALE_TIME_FOREVER,
   })
   const updatePrefsMutation = trpc.userPreferences.update.useMutation()
 
-  // Initialize selectedModel from DB preferences on first load (if no conversation-specific model)
-  useEffect(() => {
-    if (prefsInitializedRef.current) return
-    if (!prefsQuery.data) return
-    prefsInitializedRef.current = true
-    // Only use DB default if no conversation-specific model was passed
-    if (initialModel === undefined || initialModel === null) {
-      setSelectedModelState(prefsQuery.data.defaultModel ?? undefined)
-    }
-  }, [prefsQuery.data, initialModel])
-
   // Sync selectedModel when navigating to a different conversation or starting a fresh chat.
   useEffect(() => {
-    if (initialModel !== undefined) {
-      setSelectedModelState(initialModel ?? undefined)
-      return
-    }
-    if (conversationId === undefined) {
-      setSelectedModelState(prefsQuery.data?.defaultModel ?? undefined)
-    }
-  }, [initialModel, conversationId, prefsQuery.data?.defaultModel])
+    setSelectedModelState(initialModel ?? undefined)
+  }, [conversationId, initialModel])
 
   const setSelectedModel = useCallback((modelId: string | undefined) => {
     setSelectedModelState(modelId)

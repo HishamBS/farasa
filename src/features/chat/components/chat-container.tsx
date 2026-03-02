@@ -134,10 +134,11 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     { staleTime: UX.QUERY_STALE_TIME_FOREVER, enabled: !!conversationId },
   )
 
-  const { data: messages = [] } = trpc.conversation.messages.useQuery(
+  const { data: messagesData } = trpc.conversation.messages.useQuery(
     { conversationId: conversationId ?? '' },
     { staleTime: UX.QUERY_STALE_TIME_FOREVER, enabled: !!conversationId },
   )
+  const messages = useMemo(() => messagesData?.messages ?? [], [messagesData?.messages])
 
   const messagesHaveGroup = useMemo(() => {
     if (!groupId) return false

@@ -59,7 +59,13 @@ export const MessageWithAttachmentsSchema = MessageSchema.extend({
   attachments: z.array(AttachmentSchema).default([]),
 })
 
+export const MessageListOutputSchema = z.object({
+  messages: z.array(MessageWithAttachmentsSchema),
+  nextCursor: z.string().datetime().nullable(),
+})
+
 export type MessageWithAttachments = z.infer<typeof MessageWithAttachmentsSchema>
+export type MessageListOutput = z.infer<typeof MessageListOutputSchema>
 
 export type CreateConversation = z.infer<typeof CreateConversationSchema>
 export type UpdateConversation = z.infer<typeof UpdateConversationSchema>

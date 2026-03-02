@@ -219,21 +219,27 @@ export const conversationRouter = router({
       conditions.push(lt(messages.createdAt, new Date(input.cursor)))
     }
 
+    const fetchLimit = Math.min(
+      input.limit ?? runtimeConfig.limits.paginationDefaultLimit,
+      runtimeConfig.limits.paginationMaxLimit,
+    )
+
     const rows = await ctx.db.query.messages.findMany({
       where: and(...conditions),
       orderBy: (_fields, operators) => [
         operators.desc(messages.createdAt),
         operators.desc(messages.id),
       ],
-      limit: Math.min(
-        input.limit ?? runtimeConfig.limits.paginationDefaultLimit,
-        runtimeConfig.limits.paginationMaxLimit,
-      ),
+      limit: fetchLimit,
       with: {
         attachments: true,
       },
     })
 
-    return rows.reverse()
+    const reversed = rows.reverse()
+    const hasMore = rows.length === fetchLimit
+    const nextCursor = hasMore && reversed[0] ? reversed[0].createdAt.toISOString() : null
+
+    return { messages: reversed, nextCursor }
   }),
 })

@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { MODEL_IDS } from '@/config/constants'
 
 const StreamRetryPolicySchema = z.object({
   maxAttempts: z.number().int().min(0),
@@ -68,7 +67,7 @@ export const RuntimeConfigSchema = z.object({
     }),
   }),
   models: z.object({
-    routerModel: z.string().min(1).default(MODEL_IDS.GEMINI_3_FLASH_PREVIEW),
+    routerModel: z.string().min(1),
     failurePolicy: z.enum(['retry_then_fail']),
     strictValidation: z.boolean(),
     registry: z.object({

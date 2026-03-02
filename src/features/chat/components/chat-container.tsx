@@ -33,6 +33,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   const router = useRouter()
   const conversationId = conversationIdProp
   const { streamState, sendMessage, abort } = useChatStream()
+  const effectiveConversationId = streamState.resolvedConversationId ?? conversationId
   const isStreaming = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
   const chatInputRef = useRef<ChatInputHandle>(null)
   const { setPhase, setModelSelection, setHasText } = useStreamPhase()
@@ -125,13 +126,13 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   }, [streamState.detectedSearchMode, setMode])
 
   const { data: conversation } = trpc.conversation.getById.useQuery(
-    { id: conversationId ?? '' },
-    { staleTime: UX.QUERY_STALE_TIME_FOREVER, enabled: !!conversationId },
+    { id: effectiveConversationId ?? '' },
+    { staleTime: UX.QUERY_STALE_TIME_FOREVER, enabled: !!effectiveConversationId },
   )
 
   const { data: messagesData } = trpc.conversation.messages.useQuery(
-    { conversationId: conversationId ?? '' },
-    { staleTime: UX.QUERY_STALE_TIME_FOREVER, enabled: !!conversationId },
+    { conversationId: effectiveConversationId ?? '' },
+    { staleTime: UX.QUERY_STALE_TIME_FOREVER, enabled: !!effectiveConversationId },
   )
   const messages = useMemo(() => messagesData?.messages ?? [], [messagesData])
 

@@ -1,5 +1,5 @@
 import type { v0_8 } from '@a2ui-sdk/types'
-import type { CHAT_STREAM_STATUS, TITLEBAR_PHASE } from '@/config/constants'
+import type { CHAT_STREAM_STATUS, STREAM_ACTIONS, TITLEBAR_PHASE } from '@/config/constants'
 import type { StreamPhase, ChatInput } from '@/schemas'
 
 export type ChatStreamStatus = (typeof CHAT_STREAM_STATUS)[keyof typeof CHAT_STREAM_STATUS]
@@ -46,6 +46,7 @@ export type StreamState = {
   lastInput: ChatInput | null
   detectedSearchMode: boolean
   pendingUserMessage: string | null
+  resolvedConversationId: string | null
 }
 
 export type StreamAction =
@@ -69,5 +70,6 @@ export type StreamAction =
   | { type: 'DONE' }
   | { type: 'RESET' }
   | { type: 'SAVE_INPUT'; input: ChatInput }
+  | { type: typeof STREAM_ACTIONS.SET_CONVERSATION_ID; conversationId: string }
 
 export type TitlebarPhase = (typeof TITLEBAR_PHASE)[keyof typeof TITLEBAR_PHASE]

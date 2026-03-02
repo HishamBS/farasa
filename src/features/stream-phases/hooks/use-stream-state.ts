@@ -14,6 +14,7 @@ export const initialStreamState: StreamState = {
   lastInput: null,
   detectedSearchMode: false,
   pendingUserMessage: null,
+  resolvedConversationId: null,
 }
 
 export function streamStateReducer(state: StreamState, action: StreamAction): StreamState {
@@ -125,11 +126,16 @@ export function streamStateReducer(state: StreamState, action: StreamAction): St
       return { ...state, lastInput: action.input, pendingUserMessage: action.input.content }
     }
 
+    case STREAM_ACTIONS.SET_CONVERSATION_ID: {
+      return { ...state, resolvedConversationId: action.conversationId }
+    }
+
     case STREAM_ACTIONS.RESET: {
       return {
         ...initialStreamState,
         lastInput: state.lastInput,
         pendingUserMessage: state.pendingUserMessage,
+        resolvedConversationId: state.resolvedConversationId,
       }
     }
   }

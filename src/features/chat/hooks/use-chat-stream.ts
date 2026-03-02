@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
 import { trpcClient } from '@/trpc/client'
 import { trpc } from '@/trpc/provider'
 import { STREAM_EVENTS, STREAM_PHASES, STREAM_ACTIONS } from '@/config/constants'
@@ -31,7 +30,6 @@ export function useChatStream() {
   const cancelStreamMutation = trpc.chat.cancel.useMutation()
   const activeSessionRef = useRef<ActiveStreamSession | null>(null)
   const resolvedConversationIdRef = useRef<string | undefined>(undefined)
-  const router = useRouter()
 
   const clearActiveSession = useCallback(() => {
     const active = activeSessionRef.current
@@ -45,8 +43,12 @@ export function useChatStream() {
       const effectiveConversationId = input.conversationId ?? resolvedConversationIdRef.current
       resolvedConversationIdRef.current = effectiveConversationId
 
-      const activeConversationId = activeSessionRef.current?.conversationId
-      if (activeConversationId && activeConversationId === effectiveConversationId) {
+      const activeSession = activeSessionRef.current
+      if (
+        activeSession &&
+        !activeSession.isSettled &&
+        activeSession.conversationId === effectiveConversationId
+      ) {
         clearActiveSession()
       }
 
@@ -101,7 +103,11 @@ export function useChatStream() {
               case STREAM_EVENTS.CONVERSATION_CREATED:
                 resolvedConversationIdRef.current = chunk.conversationId
                 if (active) active.conversationId = chunk.conversationId
-                router.replace(ROUTES.CHAT_BY_ID(chunk.conversationId))
+                dispatch({
+                  type: STREAM_ACTIONS.SET_CONVERSATION_ID,
+                  conversationId: chunk.conversationId,
+                })
+                window.history.replaceState(null, '', ROUTES.CHAT_BY_ID(chunk.conversationId))
                 break
               case STREAM_EVENTS.USER_MESSAGE_SAVED: {
                 const convId = resolvedConversationIdRef.current
@@ -203,7 +209,7 @@ export function useChatStream() {
 
       session.unsubscribe = () => subscription.unsubscribe()
     },
-    [clearActiveSession, dispatch, reset, utils, router],
+    [clearActiveSession, dispatch, reset, utils],
   )
 
   const sendMessage = useCallback(

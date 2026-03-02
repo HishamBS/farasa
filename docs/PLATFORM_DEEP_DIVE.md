@@ -22,6 +22,7 @@ A complete end-to-end technical reference for the Farasa AI chat platform. Every
 - [Chapter 13 — Deployment & Infrastructure](#chapter-13--deployment--infrastructure)
 - [Chapter 14 — PWA & Offline](#chapter-14--pwa--offline)
 - [Chapter 15 — Design System](#chapter-15--design-system)
+- [Chapter 16 — Group Mode: Multi-Model Comparison & Synthesis](#chapter-16--group-mode-multi-model-comparison--synthesis)
 
 ---
 
@@ -1061,6 +1062,13 @@ Lightweight per-user settings (theme, sidebar state, etc.) that are simpler than
 - One row per user (`userId` is unique).
 - `preferences` JSONB with typed schema.
 
+Two columns were added to support Group Mode preference persistence:
+
+- `groupModels: jsonb('group_models').$type<string[]>()` — nullable. Stores the last 2–3 model IDs the user selected for Group Mode. `NULL` for users who have never entered Group Mode.
+- `groupJudgeModel: text('group_judge_model')` — nullable. Stores the last judge model ID chosen for synthesis.
+
+Both are updated via the existing `userPreferences.update` mutation whenever the user changes their Group Mode selections.
+
 **`attachments`**
 
 ```typescript
@@ -1270,6 +1278,27 @@ By the time a procedure is `rateLimitedChatProcedure`, we know:
 3. The user's runtime config is needed for the actual work.
 
 Loading runtime config at this point (not earlier) ensures we only hit the DB for users who pass auth and rate limiting. Failed auth or rate-limited requests skip the config lookup entirely — a small efficiency win.
+
+### 5.5 Merged Router (`src/server/routers/_app.ts`)
+
+All sub-routers are composed into a single `appRouter` that is exported from `_app.ts` and mounted at `/api/trpc`:
+
+```typescript
+export const appRouter = router({
+  chat: chatRouter,
+  conversation: conversationRouter,
+  model: modelRouter,
+  upload: uploadRouter,
+  search: searchRouter,
+  runtimeConfig: runtimeConfigRouter,
+  userPreferences: userPreferencesRouter,
+  group: groupRouter,
+})
+
+export type AppRouter = typeof appRouter
+```
+
+Each key becomes the namespace prefix for all procedures in that router (e.g., `group.stream`, `group.synthesize`). The `group` router was added alongside the Group Mode feature and uses two different procedure tiers: `group.stream` uses `rateLimitedChatProcedure` (auth + rate limit + runtime config), while `group.synthesize` uses `protectedProcedure` (auth only). This matches the semantics of each endpoint — streaming a new group request is a rate-limited chat action, whereas synthesizing an already-completed group turn is a lightweight post-processing step that does not warrant a separate rate-limit slot.
 
 ---
 
@@ -3412,3 +3441,197 @@ A: Without it, Next.js might statically render the route handler during build an
 
 **Q: How does the design handle the no-flash theme switching?**
 A: A synchronous inline `<script>` in `<head>` reads `localStorage` for the theme preference and sets `data-theme` on `<html>` before any CSS parses or React renders. CSS custom properties (defined per `data-theme` value) provide the correct colors from the very first paint.
+
+---
+
+## Chapter 16 — Group Mode: Multi-Model Comparison & Synthesis
+
+### What Group Mode Does
+
+Group Mode is a parallel-query feature that sends a single user prompt to 2–3 AI models simultaneously, streams each response in real time under a dedicated tab, and optionally synthesizes the best-of-all answer via a user-selected judge model. It adds a second submission path alongside `chat.stream` with zero impact on the existing single-model flow.
+
+The feature is composed of two tRPC subscriptions (`group.stream` and `group.synthesize`), a set of React components and hooks under `src/features/group/`, and two new nullable columns on the `userPreferences` table.
+
+---
+
+### 16.1 Concurrency Model: Producer-Consumer Queue
+
+`group.stream` must multiplex N independent OpenRouter streams into a single async generator. The implementation uses an in-memory producer-consumer queue rather than `Promise.all` (which would require all streams to finish before any chunk is yielded).
+
+```typescript
+const queue: QueueItem[] = []
+let resolver: (() => void) | null = null
+
+// Producer: each model stream pushes items as they arrive
+const push = (item: QueueItem): void => {
+  queue.push(item)
+  if (resolver) {
+    resolver()
+    resolver = null
+  }
+}
+
+// Consumer: blocks when queue is empty
+const next = (): Promise<void> => {
+  if (queue.length > 0) return Promise.resolve()
+  return new Promise<void>((r) => {
+    resolver = r
+  })
+}
+```
+
+Each `spawnModelStream` call is a detached async function (no `await`) that pushes `{ done: false, modelId, modelIndex, chunk }` items as streaming chunks arrive, then pushes `{ done: true, modelId }` when its stream ends. The main generator dequeues items and yields them; it exits when it has received N `done: true` sentinels.
+
+This design gives sub-millisecond fan-out: the first chunk from the fastest model is yielded to the client before the slowest model has even started responding.
+
+---
+
+### 16.2 `group.stream` Annotated Walkthrough
+
+1. **Model validation** — all model IDs in `input.models` are validated against `getModelRegistry()`. Any unknown ID throws `TRPC_CODES.BAD_REQUEST` immediately, before any DB write.
+
+2. **Conversation creation** — if no `conversationId` is supplied, a new conversation row is inserted and a `group_stream_event { type: 'conversation_created' }` chunk is emitted so the client can navigate to the new URL.
+
+3. **Idempotent user message** — a `clientRequestId` UUID is generated and checked against the DB before insert. If a row with that ID already exists (e.g. subscription retry), the existing `messageId` is reused. This prevents duplicate user messages on reconnect.
+
+4. **groupId generation** — `groupId = crypto.randomUUID()` is generated once per group request and stored on every assistant message produced by this request.
+
+5. **History fetch** — a single query fetches the last `LIMITS.CONVERSATION_HISTORY_LIMIT` user + assistant messages, ordered ascending. This shared history is sent to every model stream identically.
+
+6. **Parallel spawning** — `spawnModelStream(modelId, i)` is called for each model without `await`. Each function opens its own OpenRouter streaming request and pushes chunks into the shared queue.
+
+7. **Fan-out loop** — the main generator dequeues items and yields `group_model_chunk` events until all N done-sentinels are received. If the queue is empty it suspends on `next()`.
+
+8. **Persistence** — after all streams complete, N assistant messages are inserted in a loop, each with `metadata: { groupId, modelUsed, userMessageId }`.
+
+9. **group_done** — `{ type: 'group_done', groupId, completedModels }` is yielded. The client uses this event (not a client-side count) to enable the Synthesize button.
+
+10. **Title generation** — if the conversation title is still `NEW_CHAT_TITLE`, a title is generated from `input.content` and updated in the DB. Title failure is non-fatal (wrapped in try/catch).
+
+---
+
+### 16.3 `group.synthesize` Annotated Walkthrough
+
+1. **Judge model validation** — `input.judgeModel` is validated against `getModelRegistry()`.
+
+2. **Conversation ownership** — the conversation row is fetched with `userId` filter before any message access.
+
+3. **SQL JSONB filter** — instead of fetching all assistant messages and filtering in Node.js, a single SQL-filtered query is used:
+
+```typescript
+sql`${messages.metadata}->>'groupId' = ${input.groupId}`,
+sql`(${messages.metadata}->>'isGroupSynthesis') IS DISTINCT FROM 'true'`,
+```
+
+The `->>` operator extracts a JSONB field as `text` (returning `NULL` if absent). `IS DISTINCT FROM 'true'` is NULL-safe: it returns `true` for `NULL` (field absent — normal group messages) and for any non-`'true'` value, and returns `false` only for the literal string `'true'` (synthesis messages). This correctly includes normal group responses and excludes any prior synthesis.
+
+4. **XML prompt construction** — each model response is wrapped in `<model_response model="modelId">...</model_response>`. The judge sees all responses with their model IDs but the synthesis instruction explicitly says not to reveal which model said what.
+
+5. **Streaming + persistence** — synthesis chunks are yielded as `group_synthesis_chunk { content }` events. After the stream ends, the full synthesis text is saved as a new assistant message with `metadata: { groupId, isGroupSynthesis: true, modelUsed: judgeModel }`.
+
+6. **group_synthesis_done** — `{ type: 'group_synthesis_done', groupId }` is yielded to signal completion.
+
+---
+
+### 16.4 MessageMetadata Extensions
+
+Three fields were added to `MessageMetadataSchema` to support Group Mode. All are optional and absent on non-group messages.
+
+| Field              | Type            | Purpose                                                                                                                                                                                     |
+| ------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `groupId`          | `string` (uuid) | Links all N assistant messages from one group turn. Also present on the synthesis message. Used as the lookup key in `group.synthesize`.                                                    |
+| `isGroupSynthesis` | `boolean`       | When `true`, marks a message as the synthesis result for its group turn. Used by the SQL filter in `group.synthesize` to exclude prior syntheses.                                           |
+| `userMessageId`    | `string` (uuid) | The ID of the user message that triggered this group turn, stored on each group assistant message. `group.synthesize` uses this to retrieve the original question for the synthesis prompt. |
+
+---
+
+### 16.5 Frontend: `useGroupStream`
+
+`useGroupStream` subscribes to `trpc.group.stream` and manages per-model state:
+
+```
+Map<modelId, StreamState>
+```
+
+Each `group_model_chunk` event carries a `modelId` and a `chunk: StreamChunk` — the hook routes the chunk to the appropriate `StreamState` entry via the existing `streamStateReducer` (the same reducer used by `useChatStream`). This means every capability of the single-model stream (thinking blocks, tool calls, error recovery) works identically in Group Mode.
+
+The hook exposes:
+
+- `modelStates: Map<string, StreamState>` — one entry per model
+- `modelOrder: string[]` — preserves original model order for tab rendering
+- `phase: 'idle' | 'active' | 'done' | 'error'` — overall group phase
+- `groupId: string | undefined` — set when the server emits `group_done`
+- `groupDone: boolean` — set `true` only on receiving the server `group_done` event; never computed client-side
+
+The `groupDone` flag is authoritative: the Synthesis tab becomes enabled only when the server says all models have finished, not when the client has received a certain number of chunks.
+
+---
+
+### 16.6 Frontend: `useGroupSynthesis`
+
+`useGroupSynthesis` accumulates synthesis text incrementally:
+
+```typescript
+const trigger = (groupId: string, judgeModel: string) => {
+  // opens trpc.group.synthesize subscription
+}
+```
+
+The hook returns a memoized object (`useMemo`) to ensure reference stability — `SynthesisPanel` can safely include the synthesis state in its own dependency arrays without triggering unnecessary re-renders.
+
+---
+
+### 16.7 Frontend: `GroupModeContext`
+
+`GroupModeContext` is the single source of truth for which models the user has selected for Group Mode and which judge model they prefer. It is separate from `ChatModeContext` (which tracks whether the UI is in chat/search/group mode overall).
+
+On mount, the context loads the user's saved preferences from `trpc.userPreferences.get` and populates `groupModels` (default: `[]`) and `judgeModel` (default: `undefined`). On every change, it persists via `trpc.userPreferences.update`. This mirrors the pattern used by `defaultModel` in the single-model flow.
+
+---
+
+### 16.8 Component Tree
+
+```
+GroupMessageGroup               ← container for one group turn
+  ├── UserMessage                ← existing component, reused
+  └── GroupTabs                  ← shadcn Tabs, one tab per model + Synthesis tab
+        ├── GroupResponsePanel   ← per-model streaming or historical response
+        │     ├── ThinkingBlock  ← reused, shows extended thinking if present
+        │     ├── MarkdownRenderer  ← reused, renders model response
+        │     └── ToolExecution  ← reused, shows tool calls if any
+        └── SynthesisPanel       ← judge picker + Synthesize button + result
+              ├── Model chips    ← quick-select from comparison models
+              ├── ModelSelector  ← full registry search for any judge model
+              └── MarkdownRenderer  ← renders synthesis streaming output
+```
+
+**Live vs. historical rendering:** The same component tree is used for both live (in-progress) and historical (loaded from DB) group turns. In live mode, `GroupResponsePanel` receives its `StreamState` from `useGroupStream`. In historical mode, it receives reconstructed state built from the saved `messages` array. This means the rendering path is identical — there is no separate "historical" component.
+
+---
+
+### 16.9 Security Invariants
+
+- **Conversation ownership** — `group.synthesize` verifies `conversations.userId = ctx.userId` before fetching any messages. A user cannot synthesize another user's group turn.
+- **Registry validation** — all model IDs (in `group.stream` and `judgeModel` in `group.synthesize`) are validated against `getModelRegistry()` on every request. Client-provided IDs are never trusted.
+- **Compile-time type safety** — all yielded chunks use `satisfies StreamChunk` instead of `as StreamChunk`. This verifies structural compatibility at compile time while preserving the narrowed literal type, catching type errors that a cast would silently hide.
+- **Rate limiting** — `group.stream` uses `rateLimitedChatProcedure`. One group request occupies one rate-limit slot regardless of N models.
+- **SQL injection safety** — the JSONB filters use Drizzle's `sql` tagged template, which compiles `${input.groupId}` into a parameterized placeholder (`$1`), never string-concatenated.
+
+---
+
+### 16.10 FAQ
+
+**Why does `group.stream` use `rateLimitedChatProcedure` regardless of N models?**
+One group request represents one user intent. Charging N slots would penalise users for comparing models, which is the core purpose of the feature. The server enforces a model count limit (`GROUP_LIMITS.MAX_MODELS = 3`) to bound the total compute per slot.
+
+**Why `IS DISTINCT FROM 'true'` instead of `!= 'true'` or `IS NULL OR != 'true'`?**
+In PostgreSQL, `!= 'true'` returns `NULL` (not `true`) when the left operand is `NULL`, so rows where `isGroupSynthesis` is absent would be excluded — the opposite of the desired behaviour. `IS DISTINCT FROM` treats `NULL` as a comparable value, returning `true` when the left side is `NULL`. It is the correct NULL-safe negation.
+
+**Are model responses streamed to the client in a guaranteed order?**
+No. The shared queue interleaves chunks from all models in arrival order. Tab ordering (which model is Tab 1, Tab 2, etc.) is determined by `modelOrder` — the original order the user selected — which is preserved independently of stream ordering.
+
+**Why is `userMessageId` stored on each assistant message instead of being derivable from position?**
+Group assistant messages are not positionally adjacent to their user message in the DB — other messages may be inserted between turns if the user sends another message while a group stream is in flight. Storing `userMessageId` explicitly makes the lookup O(1) regardless of conversation length.
+
+**Can Group Mode and Search mode interact?**
+No. `[Chat | Search | Group]` is a radio control — exactly one mode is active at a time. `group.stream` never performs a Tavily search phase. Models in Group Mode may independently invoke the `web_search` tool mid-stream (autonomous tool use), but that is model behaviour, not Search mode.

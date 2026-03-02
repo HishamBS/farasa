@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useMemo } from 'react'
+import { useCallback, useEffect, useRef, useMemo } from 'react'
 import { X } from 'lucide-react'
 import { ModelSelector } from '@/features/chat/components/model-selector'
 import { useGroupMode } from '@/features/group/context/group-context'
@@ -16,6 +16,7 @@ type SelectedChipProps = {
   providerKey: string
   onRemove: (modelId: string) => void
   canRemove: boolean
+  isStale?: boolean
 }
 
 function SelectedChip({
@@ -24,6 +25,7 @@ function SelectedChip({
   providerKey,
   onRemove,
   canRemove,
+  isStale,
 }: SelectedChipProps) {
   const dotClass = PROVIDER_DOT_CLASSES[providerKey] ?? 'bg-(--text-ghost)'
 
@@ -32,7 +34,12 @@ function SelectedChip({
   }, [modelId, onRemove])
 
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-(--border-subtle) bg-(--bg-surface) py-1 pl-2 pr-1.5 text-xs text-(--text-secondary)">
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full border border-(--border-subtle) bg-(--bg-surface) py-1 pl-2 pr-1.5 text-xs text-(--text-secondary)',
+        isStale && 'opacity-50 italic',
+      )}
+    >
       <span className={cn('size-1.5 shrink-0 rounded-full', dotClass)} />
       <span className="max-w-24 truncate font-mono">{modelLabel}</span>
       {canRemove && (
@@ -61,6 +68,15 @@ export function GroupModelPicker() {
     }
     return map
   }, [modelList])
+
+  // Purge IDs not in the current registry once registry is loaded
+  useEffect(() => {
+    if (modelList.length === 0) return
+    const stale = groupModels.filter((id) => !modelMetaMap.has(id))
+    if (stale.length > 0) {
+      setGroupModels(groupModels.filter((id) => modelMetaMap.has(id)))
+    }
+  }, [modelList.length, modelMetaMap, groupModels, setGroupModels])
 
   const canAdd = groupModels.length < GROUP_LIMITS.MAX_MODELS
   const canRemove = groupModels.length > GROUP_LIMITS.MIN_MODELS
@@ -91,6 +107,7 @@ export function GroupModelPicker() {
     <div className="flex flex-wrap items-center gap-1.5">
       {groupModels.map((modelId) => {
         const meta = modelMetaMap.get(modelId)
+        const isStale = modelList.length > 0 && !meta
         const label = meta?.name ?? extractModelName(modelId)
         const providerKey = meta?.provider ?? extractProviderKey(modelId)
         return (
@@ -101,6 +118,7 @@ export function GroupModelPicker() {
             providerKey={providerKey}
             onRemove={handleRemove}
             canRemove={canRemove}
+            isStale={isStale}
           />
         )
       })}

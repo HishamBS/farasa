@@ -29,7 +29,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
     <html lang="en" suppressHydrationWarning>
       <body className={`${GeistSans.variable} ${GeistMono.variable} font-sans antialiased`}>
         <ThemeProvider
-          attribute="data-theme"
+          attribute="class"
           defaultTheme={APP_CONFIG.DEFAULT_THEME}
           enableSystem
           disableTransitionOnChange

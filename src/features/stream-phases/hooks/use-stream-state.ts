@@ -44,7 +44,14 @@ export function streamStateReducer(state: StreamState, action: StreamAction): St
       )
       return {
         ...state,
-        modelSelection: { model: action.model, reasoning: action.reasoning },
+        modelSelection: {
+          model: action.model,
+          reasoning: action.reasoning,
+          source: action.source,
+          category: action.category,
+          confidence: action.confidence,
+          factors: action.factors,
+        },
         statusMessages: updatedStatus,
       }
     }
@@ -131,12 +138,11 @@ export function streamStateReducer(state: StreamState, action: StreamAction): St
     }
 
     case STREAM_ACTIONS.RESET: {
-      return {
-        ...initialStreamState,
-        lastInput: state.lastInput,
-        pendingUserMessage: state.pendingUserMessage,
-        resolvedConversationId: state.resolvedConversationId,
-      }
+      return { ...initialStreamState, pendingUserMessage: state.pendingUserMessage }
+    }
+
+    case STREAM_ACTIONS.CLEAR_PENDING_USER_MESSAGE: {
+      return { ...state, pendingUserMessage: null }
     }
   }
 }

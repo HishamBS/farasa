@@ -273,6 +273,7 @@ export function useChatStream(conversationId?: string) {
       clearActiveSession()
       resolvedConversationIdRef.current = undefined
       dispatch({ type: STREAM_ACTIONS.RESET })
+      dispatch({ type: STREAM_ACTIONS.CLEAR_PENDING_USER_MESSAGE })
     }
     window.addEventListener(BROWSER_EVENTS.NEW_CHAT_REQUESTED, handleNewChatRequested)
     return () => {

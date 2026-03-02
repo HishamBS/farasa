@@ -1,6 +1,7 @@
 import type { v0_8 } from '@a2ui-sdk/types'
 import type { CHAT_STREAM_STATUS, STREAM_ACTIONS, TITLEBAR_PHASE } from '@/config/constants'
 import type { StreamPhase, ChatInput } from '@/schemas'
+import type { ModelCapability, ModelSelectionSource } from '@/schemas/model'
 
 export type ChatStreamStatus = (typeof CHAT_STREAM_STATUS)[keyof typeof CHAT_STREAM_STATUS]
 
@@ -19,6 +20,14 @@ export type ThinkingState = {
 export type ModelSelectionState = {
   model: string
   reasoning: string
+  source: ModelSelectionSource
+  category?: ModelCapability
+  confidence?: number
+  factors?: Array<{
+    key: string
+    label: string
+    value: string
+  }>
 }
 
 export type ToolExecutionState = {
@@ -51,7 +60,19 @@ export type StreamState = {
 
 export type StreamAction =
   | { type: 'STATUS'; phase: StreamPhase; message: string }
-  | { type: 'MODEL_SELECTED'; model: string; reasoning: string }
+  | {
+      type: 'MODEL_SELECTED'
+      model: string
+      reasoning: string
+      source: ModelSelectionSource
+      category?: ModelCapability
+      confidence?: number
+      factors?: Array<{
+        key: string
+        label: string
+        value: string
+      }>
+    }
   | { type: 'THINKING_CHUNK'; content: string; isComplete: boolean }
   | { type: 'TOOL_START'; name: string; input: unknown }
   | { type: 'TOOL_RESULT'; name: string; result: unknown }
@@ -71,5 +92,6 @@ export type StreamAction =
   | { type: 'RESET' }
   | { type: 'SAVE_INPUT'; input: ChatInput }
   | { type: typeof STREAM_ACTIONS.SET_CONVERSATION_ID; conversationId: string }
+  | { type: typeof STREAM_ACTIONS.CLEAR_PENDING_USER_MESSAGE }
 
 export type TitlebarPhase = (typeof TITLEBAR_PHASE)[keyof typeof TITLEBAR_PHASE]

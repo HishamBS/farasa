@@ -16,6 +16,7 @@ import {
 import { NEW_CHAT_TITLE, TRPC_CODES, MESSAGE_ROLES } from '@/config/constants'
 import type { MessageMetadata } from '@/schemas/message'
 import { getRuntimeConfig } from '@/lib/runtime-config/service'
+import { resolvePaginationLimit } from '@/lib/db/utils'
 
 export const conversationRouter = router({
   list: protectedProcedure.input(ConversationFilterSchema).query(async ({ ctx, input }) => {
@@ -31,11 +32,7 @@ export const conversationRouter = router({
       conditions.push(like(conversations.title, `%${input.search}%`))
     }
 
-    const resolvedLimit = Math.min(
-      input.limit ?? runtimeConfig.limits.paginationDefaultLimit,
-      runtimeConfig.limits.paginationMaxLimit,
-    )
-    const fetchLimit = resolvedLimit + 1
+    const { resolvedLimit, fetchLimit } = resolvePaginationLimit(input.limit, runtimeConfig.limits)
     const rows = await ctx.db
       .select()
       .from(conversations)
@@ -225,11 +222,10 @@ export const conversationRouter = router({
         conditions.push(lt(messages.createdAt, new Date(input.cursor)))
       }
 
-      const resolvedLimit = Math.min(
-        input.limit ?? runtimeConfig.limits.paginationDefaultLimit,
-        runtimeConfig.limits.paginationMaxLimit,
+      const { resolvedLimit, fetchLimit } = resolvePaginationLimit(
+        input.limit,
+        runtimeConfig.limits,
       )
-      const fetchLimit = resolvedLimit + 1
 
       const rows = await ctx.db.query.messages.findMany({
         where: and(...conditions),

@@ -1,33 +1,16 @@
 import { openrouter } from './client'
-import { ModelSelectionSchema, RouterSearchDecisionSchema } from '@/schemas/model'
-import { buildRouterPrompt, buildSearchClassifierPrompt } from '@/config/prompts'
-import type {
-  ModelSelection,
-  ModelConfig,
-  ModelCapability,
-  RouterSearchDecision,
-} from '@/schemas/model'
+import { ModelSelectionSchema } from '@/schemas/model'
+import { buildRouterPrompt } from '@/config/prompts'
+import type { ModelSelection, ModelConfig, ModelCapability } from '@/schemas/model'
 import type { RuntimeConfig } from '@/schemas/runtime-config'
 import { MODEL_CATEGORIES, MODEL_IDS } from '@/config/constants'
 
-type RawRouterSelection = {
-  category?: unknown
-  reasoning?: unknown
-  selectedModel?: unknown
-  requiresSearch?: unknown
-}
-
-function normalizeRouterSelection(raw: RawRouterSelection): RawRouterSelection {
-  if (typeof raw.requiresSearch === 'string') {
-    const normalized = raw.requiresSearch.trim().toLowerCase()
-    if (normalized === 'true') {
-      return { ...raw, requiresSearch: true }
-    }
-    if (normalized === 'false') {
-      return { ...raw, requiresSearch: false }
-    }
+function parseJsonObject(raw: string): unknown {
+  const parsed: unknown = JSON.parse(raw)
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('[router] Routing model returned non-object JSON')
   }
-  return raw
+  return parsed
 }
 
 function selectRoutingEngineModel(registry: ReadonlyArray<ModelConfig>): string {
@@ -59,6 +42,7 @@ function hasCategory(model: ModelConfig, category: ModelCapability): boolean {
 function validateModelSelection(
   selection: ModelSelection,
   registry: ReadonlyArray<ModelConfig>,
+  webSearchEnabled: boolean,
 ): ModelSelection {
   const selectedModel = registry.find((model) => model.id === selection.selectedModel)
   if (!selectedModel) {
@@ -71,9 +55,9 @@ function validateModelSelection(
     )
   }
 
-  if (selection.requiresSearch && !selectedModel.supportsTools) {
+  if (webSearchEnabled && !selectedModel.supportsTools) {
     throw new Error(
-      `[router] Selected model does not support tools for search-required request: ${selection.selectedModel}`,
+      `[router] Selected model does not support tools for web-search-enabled request: ${selection.selectedModel}`,
     )
   }
 
@@ -84,10 +68,16 @@ export async function routeModel(
   prompt: string,
   registry: ReadonlyArray<ModelConfig>,
   runtimeConfig: RuntimeConfig,
+  webSearchEnabled: boolean,
   signal?: AbortSignal,
 ): Promise<ModelSelection> {
   const routingModelId = selectRoutingEngineModel(registry)
-  const systemPrompt = buildRouterPrompt(registry)
+  const systemPrompt = `${buildRouterPrompt(registry)}
+
+Execution policy:
+- web_search_enabled is ${webSearchEnabled ? 'true' : 'false'}.
+- If web_search_enabled is true, selectedModel MUST support tools:y.
+- If web_search_enabled is false, do not optimize for tool capability unless otherwise needed by prompt semantics.`
 
   const wrappedPrompt =
     `${runtimeConfig.prompts.wrappers.userRequestOpen}\n` +
@@ -112,44 +102,6 @@ export async function routeModel(
 
   const raw = response.choices[0]?.message.content
   if (typeof raw !== 'string') throw new Error('[router] No content in routing model response')
-  const parsed = ModelSelectionSchema.parse(
-    normalizeRouterSelection(JSON.parse(raw) as RawRouterSelection),
-  )
-  return validateModelSelection(parsed, registry)
-}
-
-export async function classifySearchRequirement(
-  prompt: string,
-  registry: ReadonlyArray<ModelConfig>,
-  runtimeConfig: RuntimeConfig,
-  signal?: AbortSignal,
-): Promise<RouterSearchDecision> {
-  const routingModelId = selectRoutingEngineModel(registry)
-  const systemPrompt = buildSearchClassifierPrompt()
-  const wrappedPrompt =
-    `${runtimeConfig.prompts.wrappers.userRequestOpen}\n` +
-    `${prompt}\n` +
-    `${runtimeConfig.prompts.wrappers.userRequestClose}`
-
-  const response = await openrouter.chat.send(
-    {
-      chatGenerationParams: {
-        model: routingModelId,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: wrappedPrompt },
-        ],
-        responseFormat: { type: 'json_object' },
-        maxTokens: runtimeConfig.ai.routerMaxTokens,
-        temperature: runtimeConfig.ai.routerTemperature,
-      },
-    },
-    { signal },
-  )
-
-  const raw = response.choices[0]?.message.content
-  if (typeof raw !== 'string') {
-    throw new Error('[router] No content in search classifier response')
-  }
-  return RouterSearchDecisionSchema.parse(JSON.parse(raw) as unknown)
+  const parsed = ModelSelectionSchema.parse(parseJsonObject(raw))
+  return validateModelSelection(parsed, registry, webSearchEnabled)
 }

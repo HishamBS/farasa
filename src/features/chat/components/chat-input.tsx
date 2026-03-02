@@ -14,7 +14,7 @@ import { ArrowRight, Globe, Paperclip } from 'lucide-react'
 import { scaleIn } from '@/lib/utils/motion'
 import { StopButton } from './stop-button'
 import { cn } from '@/lib/utils/cn'
-import { APP_CONFIG, UI_TEXT, MOTION, LIMITS, CHAT_MODES, GROUP_LIMITS } from '@/config/constants'
+import { APP_CONFIG, UI_TEXT, MOTION, LIMITS, CHAT_MODES } from '@/config/constants'
 import { useChatInput } from '../hooks/use-chat-input'
 import { useFileUpload } from '../hooks/use-file-upload'
 import { useChatMode } from '../context/chat-mode-context'
@@ -97,9 +97,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
   const isTooLong = content.length > LIMITS.MESSAGE_MAX_LENGTH
   const canSend = useMemo(() => {
     if (content.trim().length === 0 || isStreaming || isTooLong) return false
-    if (mode === CHAT_MODES.GROUP) return groupModels.length >= GROUP_LIMITS.MIN_MODELS
     return true
-  }, [content, isStreaming, isTooLong, mode, groupModels])
+  }, [content, isStreaming, isTooLong])
 
   const handleSubmit = useCallback(() => {
     if (!content.trim() || isStreaming || isTooLong) return

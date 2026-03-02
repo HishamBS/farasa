@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS "conversations" (
 	"title" text DEFAULT 'New Chat' NOT NULL,
 	"model" text,
 	"is_pinned" boolean DEFAULT false NOT NULL,
+	"mode" text DEFAULT 'chat' NOT NULL,
+	"web_search_enabled" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -67,6 +69,8 @@ CREATE TABLE IF NOT EXISTS "user_preferences" (
 	"theme" text DEFAULT 'dark' NOT NULL,
 	"sidebar_expanded" boolean DEFAULT true NOT NULL,
 	"default_model" text,
+	"group_models" jsonb,
+	"group_judge_model" text,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -138,6 +142,34 @@ CREATE UNIQUE INDEX IF NOT EXISTS "msg_conv_request_unique" ON "messages" USING 
 CREATE UNIQUE INDEX IF NOT EXISTS "runtime_scope_unique" ON "runtime_configs" USING btree ("scope","scope_key");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "runtime_scope_idx" ON "runtime_configs" USING btree ("scope","scope_key");
 --> statement-breakpoint
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'conversations_mode_check'
+  ) THEN
+    ALTER TABLE "conversations"
+      ADD CONSTRAINT "conversations_mode_check"
+      CHECK ("mode" IN ('chat', 'group'));
+  END IF;
+END
+$$;
+--> statement-breakpoint
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'runtime_scope_check'
+  ) THEN
+    ALTER TABLE "runtime_configs"
+      ADD CONSTRAINT "runtime_scope_check"
+      CHECK (("scope" = 'system' AND "scope_key" IS NULL) OR ("scope" IN ('tenant','user') AND "scope_key" IS NOT NULL));
+  END IF;
+END
+$$;
+--> statement-breakpoint
 INSERT INTO runtime_configs (scope, scope_key, payload, updated_at)
 SELECT
   'system',
@@ -178,7 +210,7 @@ SELECT
       }
     },
     "models": {
-      "routerModel": "meta-llama/llama-3.1-8b-instruct",
+      "routerModel": "google/gemini-3-flash-preview",
       "failurePolicy": "retry_then_fail",
       "strictValidation": true,
       "registry": {

@@ -10,7 +10,6 @@ import type { ChatInputHandle } from './chat-input'
 import {
   CHAT_MODES,
   CHAT_STREAM_STATUS,
-  GROUP_LIMITS,
   GROUP_STREAM_PHASES,
   TITLEBAR_PHASE,
   UX,
@@ -83,7 +82,6 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   }, [groupDone, utils])
 
   const handleGroupSubmit = useCallback((input: GroupStreamInput) => {
-    if (input.models.length < GROUP_LIMITS.MIN_MODELS) return
     setGroupStreamInput(input)
   }, [])
 

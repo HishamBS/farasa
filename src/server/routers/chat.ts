@@ -230,7 +230,7 @@ export const chatRouter = router({
           .values({
             userId: ctx.userId,
             model: input.model,
-            searchMode: input.mode,
+            mode: input.mode,
             webSearchEnabled: input.webSearchEnabled,
           })
           .returning({ id: conversations.id })
@@ -386,7 +386,7 @@ export const chatRouter = router({
         .update(conversations)
         .set({
           model: selectedModel,
-          searchMode: conversationMode,
+          mode: conversationMode,
           webSearchEnabled: input.webSearchEnabled,
           updatedAt: new Date(),
         })

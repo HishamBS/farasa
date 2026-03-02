@@ -1,6 +1,6 @@
 {
-  "id": "61a8bce7-5517-42af-b51c-49decbccc709",
-  "prevId": "16a1c2fa-cc28-4ca2-8d89-45a77b9f105a",
+  "id": "0311ee9b-82f8-4257-a956-7fbb340a617b",
+  "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -263,12 +263,19 @@
           "notNull": true,
           "default": false
         },
-        "search_mode": {
-          "name": "search_mode",
+        "mode": {
+          "name": "mode",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "default": "'chat'"
+        },
+        "web_search_enabled": {
+          "name": "web_search_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -615,6 +622,18 @@
         },
         "default_model": {
           "name": "default_model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "group_models": {
+          "name": "group_models",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "group_judge_model": {
+          "name": "group_judge_model",
           "type": "text",
           "primaryKey": false,
           "notNull": false

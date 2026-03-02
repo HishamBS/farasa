@@ -75,12 +75,12 @@ export function Titlebar({
   })
 
   useEffect(() => {
-    const parsed = ChatModeSchema.safeParse(conversation?.searchMode)
+    const parsed = ChatModeSchema.safeParse(conversation?.mode)
     if (parsed.success) setMode(parsed.data)
     if (typeof conversation?.webSearchEnabled === 'boolean') {
       setWebSearchEnabled(conversation.webSearchEnabled)
     }
-  }, [conversation?.searchMode, conversation?.webSearchEnabled, setMode, setWebSearchEnabled])
+  }, [conversation?.mode, conversation?.webSearchEnabled, setMode, setWebSearchEnabled])
 
   const updateMutation = trpc.conversation.update.useMutation({
     onSuccess: () => void utils.conversation.invalidate(),

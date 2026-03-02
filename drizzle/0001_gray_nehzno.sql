@@ -1,1 +1,0 @@
-ALTER TABLE "conversations" ADD COLUMN "search_mode" text DEFAULT 'chat' NOT NULL;

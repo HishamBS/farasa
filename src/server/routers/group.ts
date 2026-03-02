@@ -59,7 +59,7 @@ export const groupRouter = router({
           .values({
             userId: ctx.userId,
             model: input.models[0],
-            searchMode: CHAT_MODES.GROUP,
+            mode: CHAT_MODES.GROUP,
             webSearchEnabled: input.webSearchEnabled,
           })
           .returning({ id: conversations.id })
@@ -136,7 +136,7 @@ export const groupRouter = router({
       await ctx.db
         .update(conversations)
         .set({
-          searchMode: CHAT_MODES.GROUP,
+          mode: CHAT_MODES.GROUP,
           webSearchEnabled: input.webSearchEnabled,
           updatedAt: new Date(),
         })

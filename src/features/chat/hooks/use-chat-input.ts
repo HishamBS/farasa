@@ -7,8 +7,10 @@ import { UX } from '@/config/constants'
 export function useChatInput(initialModel?: string | null, conversationId?: string) {
   const [content, setContent] = useState('')
   const [attachmentIds, setAttachmentIds] = useState<string[]>([])
+  const selectedModelRef = useRef<string | undefined>(initialModel ?? undefined)
+  const lastConversationIdRef = useRef<string | undefined>(conversationId)
   const [selectedModel, setSelectedModelState] = useState<string | undefined>(
-    initialModel ?? undefined,
+    selectedModelRef.current,
   )
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -16,15 +18,29 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
     staleTime: UX.QUERY_STALE_TIME_FOREVER,
   })
   const updatePrefsMutation = trpc.userPreferences.update.useMutation()
+  const updateConversationMutation = trpc.conversation.update.useMutation()
 
-  // Sync selectedModel when navigating to a different conversation or starting a fresh chat.
+  // Only reset selection when conversation identity changes.
+  // This prevents stale server echoes from overwriting a freshly selected model.
   useEffect(() => {
-    setSelectedModelState(initialModel ?? undefined)
+    if (lastConversationIdRef.current === conversationId) return
+    lastConversationIdRef.current = conversationId
+    selectedModelRef.current = initialModel ?? undefined
+    setSelectedModelState(selectedModelRef.current)
   }, [conversationId, initialModel])
 
-  const setSelectedModel = useCallback((modelId: string | undefined) => {
-    setSelectedModelState(modelId)
-  }, [])
+  const setSelectedModel = useCallback(
+    (modelId: string | undefined) => {
+      selectedModelRef.current = modelId
+      setSelectedModelState(modelId)
+      if (!conversationId) return
+      updateConversationMutation.mutate({
+        id: conversationId,
+        model: modelId ?? null,
+      })
+    },
+    [conversationId, updateConversationMutation],
+  )
 
   const setDefaultModel = useCallback(
     (modelId: string | undefined) => {
@@ -87,8 +103,10 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
     content,
     attachmentIds,
     selectedModel,
+    getSelectedModel: () => selectedModelRef.current,
     defaultModel: prefsQuery.data?.defaultModel ?? undefined,
     isSavingDefaultModel: updatePrefsMutation.isPending,
+    isPersistingConversationModel: updateConversationMutation.isPending,
     textareaRef,
     setSelectedModel,
     setDefaultModel,

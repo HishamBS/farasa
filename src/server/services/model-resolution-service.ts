@@ -149,15 +149,14 @@ export async function resolveModelDecision(
     }
   }
 
-  const { routeModel, classifySearchRequirement } = await import('@/lib/ai/router')
+  const { routeModel } = await import('@/lib/ai/router')
   let selection: Awaited<ReturnType<typeof routeModel>>
-  let searchDecision: Awaited<ReturnType<typeof classifySearchRequirement>>
   try {
-    selection = await routeModel(input.prompt, input.registry, input.runtimeConfig, input.signal)
-    searchDecision = await classifySearchRequirement(
+    selection = await routeModel(
       input.prompt,
       input.registry,
       input.runtimeConfig,
+      input.requestedWebSearchEnabled,
       input.signal,
     )
   } catch {
@@ -168,8 +167,7 @@ export async function resolveModelDecision(
   }
 
   const selectedModel = findModelById(input.registry, selection.selectedModel)
-  const requiresSearch =
-    input.requestedWebSearchEnabled || selection.requiresSearch || searchDecision.requiresSearch
+  const requiresSearch = input.requestedWebSearchEnabled
   ensureSearchCompatible(selectedModel, requiresSearch)
 
   return {
@@ -178,14 +176,7 @@ export async function resolveModelDecision(
     reasoning: selection.reasoning || AI_REASONING.MODEL_AUTO_ROUTER,
     category: selection.category,
     confidence: selection.confidence,
-    factors: [
-      ...selection.factors,
-      {
-        key: 'search_classifier',
-        label: 'Search Classifier',
-        value: searchDecision.reasoning,
-      },
-    ],
+    factors: selection.factors,
     requiresSearch,
     requestedMode: input.requestedMode,
   }

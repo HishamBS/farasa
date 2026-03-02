@@ -42,10 +42,27 @@ export const ModelConfigSchema = z
   })
 
 export const ModelSelectionSchema = z.object({
-  category: z.string(),
+  category: ModelCapabilitySchema,
   reasoning: z.string(),
   selectedModel: z.string(),
+  confidence: z.number().min(0).max(1),
+  factors: z
+    .array(
+      z.object({
+        key: z.string(),
+        label: z.string(),
+        value: z.string(),
+      }),
+    )
+    .min(1),
 })
+
+export const ModelSelectionSourceSchema = z.enum([
+  'explicit_request',
+  'conversation_default',
+  'user_default',
+  'auto_router',
+])
 
 export const ModelByIdSchema = z.object({
   id: z.string(),
@@ -60,5 +77,6 @@ export type Provider = z.infer<typeof ProviderSchema>
 export type ModelPricing = z.infer<typeof ModelPricingSchema>
 export type ModelConfig = z.infer<typeof ModelConfigSchema>
 export type ModelSelection = z.infer<typeof ModelSelectionSchema>
+export type ModelSelectionSource = z.infer<typeof ModelSelectionSourceSchema>
 export type ModelById = z.infer<typeof ModelByIdSchema>
 export type RefreshModels = z.infer<typeof RefreshModelsSchema>

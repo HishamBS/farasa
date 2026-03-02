@@ -13,7 +13,7 @@ export const UpdateConversationSchema = z.object({
   title: z.string().min(1).optional(),
   model: z.string().nullable().optional(),
   isPinned: z.boolean().optional(),
-  searchMode: ChatModeSchema.optional(),
+  mode: ChatModeSchema.optional(),
   webSearchEnabled: z.boolean().optional(),
 })
 
@@ -36,7 +36,7 @@ export const ConversationSummarySchema = z.object({
   title: z.string(),
   model: z.string().nullable(),
   isPinned: z.boolean(),
-  searchMode: ChatModeSchema.default(CHAT_MODES.CHAT),
+  mode: ChatModeSchema.default(CHAT_MODES.CHAT),
   webSearchEnabled: z.boolean().default(false),
   updatedAt: z.date(),
   createdAt: z.date(),

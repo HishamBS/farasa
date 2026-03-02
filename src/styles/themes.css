@@ -60,7 +60,7 @@
 
   --sidebar-width: 18rem;
   --sidebar-transition-duration: 200ms;
-  --content-max-width: 42.5rem;
+  --content-max-width: 60rem;
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;

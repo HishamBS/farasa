@@ -8,6 +8,7 @@ import {
   PROVIDER_DOT_CLASSES,
   LIMITS,
   STREAM_PHASES,
+  UX,
 } from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
 import type { ModelSelectionState, TitlebarPhase } from '@/types/stream'
@@ -38,8 +39,6 @@ type RoutingPanelProps = {
   models: ModelConfig[]
 }
 
-const ROUTING_MIN_DISPLAY_MS = 800
-
 export function RoutingPanel({ modelSelection, streamPhase, hasText, models }: RoutingPanelProps) {
   const isActive = streamPhase !== 'idle'
   const hasDecision = modelSelection !== null
@@ -56,7 +55,7 @@ export function RoutingPanel({ modelSelection, streamPhase, hasText, models }: R
     } else if (hasDecision && routingMinVisible) {
       routingTimerRef.current = setTimeout(
         () => setRoutingMinVisible(false),
-        ROUTING_MIN_DISPLAY_MS,
+        UX.ROUTING_MIN_DISPLAY_MS,
       )
     } else if (!isActive) {
       setRoutingMinVisible(false)

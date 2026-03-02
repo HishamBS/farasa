@@ -123,6 +123,7 @@ platform distinct.
 | **Web search**          | Tavily — structured result cards with source attribution and image gallery                                                                                                                                                     |
 | **File attachments**    | Multi-modal uploads via GCS presigned URLs (images, PDFs, text)                                                                                                                                                                |
 | **Voice I/O**           | Server-side STT via OpenRouter Whisper + TTS via Qwen; browser Web Speech API as fallback                                                                                                                                      |
+| **Group Mode**          | Compare 2–3 models simultaneously; real-time tabbed streaming per model; AI synthesis via user-selected judge model                                                                                                            |
 | **Agent UI (A2UI)**     | AI generates interactive React components via `@a2ui-sdk`                                                                                                                                                                      |
 | **Conversation mgmt**   | Full CRUD, sidebar navigation, pinning, Markdown export                                                                                                                                                                        |
 | **Auth & security**     | Google OAuth, per-user DB isolation, sliding-window rate limiting, AES-GCM token crypto                                                                                                                                        |
@@ -148,6 +149,7 @@ graph LR
         model["model"]
         srch["search"]
         upl["upload"]
+        grp["group"]
     end
 
     subgraph INFRA ["Infrastructure"]
@@ -164,11 +166,14 @@ graph LR
     tRPC --> model
     tRPC --> srch
     tRPC --> upl
+    tRPC --> grp
     chat --> OR
     chat --> PG
     conv --> PG
     srch --> TV
     upl --> GCS
+    grp --> OR
+    grp --> PG
 
     classDef client fill:#1a1a2e,stroke:#e94560,color:#e0e0e0
     classDef server fill:#16213e,stroke:#0f3460,color:#e0e0e0
@@ -177,7 +182,7 @@ graph LR
 
     class Browser client
     class MW,tRPC server
-    class chat,conv,model,srch,upl router
+    class chat,conv,model,srch,upl,grp router
     class OR,PG,TV,GCS infra
 ```
 
@@ -263,6 +268,7 @@ src/
 │   ├── sidebar/                 # Conversation list, navigation, user menu
 │   ├── markdown/                # Renderer, Shiki blocks, copy button
 │   ├── voice/                   # STT input, TTS playback
+│   ├── group/                   # Multi-model comparison, tabs, synthesis
 │   └── pwa/                     # Install prompt, offline banner
 │
 ├── lib/
@@ -296,7 +302,7 @@ Nine tables in `src/lib/db/schema.ts`. All foreign keys use `onDelete: 'cascade'
 | `conversations`      | Chat sessions                  | userId FK, title, model, isPinned. Index: (userId, updatedAt)                                                                                 |
 | `messages`           | Chat messages + metadata       | conversationId FK, role, content, metadata JSONB, clientRequestId, streamSequenceMax, tokenCount. Index: (conversationId, createdAt)          |
 | `runtimeConfigs`     | Runtime config overrides       | scope (`system\|tenant\|user`), scopeKey, payload JSONB. Resolved in precedence order: user → tenant → system → `RUNTIME_CONFIG_JSON` env var |
-| `userPreferences`    | Per-user UI settings           | userId PK FK, theme, sidebarExpanded, defaultModel                                                                                            |
+| `userPreferences`    | Per-user UI settings           | userId PK FK, theme, sidebarExpanded, defaultModel, groupModels (jsonb, string[]), groupJudgeModel (text)                                     |
 | `attachments`        | File uploads                   | userId FK, messageId FK, fileName, storageUrl, confirmedAt                                                                                    |
 
 ---
@@ -351,6 +357,27 @@ conversation.updateTitle({ id, title })           // Rename
 conversation.delete({ id })                       // Cascade: messages + attachments
 conversation.generateTitle({ conversationId })    // LLM-generated title
 conversation.exportMarkdown({ id })               // Markdown string
+```
+
+### Group Mode
+
+```ts
+group.stream({              // SSE subscription — rate-limited
+  conversationId?: string,
+  content: string,
+  models: string[],         // 2–3 model IDs validated against registry
+  attachmentIds?: string[],
+})
+// Emits (in order): group_stream_event (conversation_created, user_message_saved)
+//                   group_model_chunk (per model, interleaved)
+//                   group_done (groupId, completedModels)
+
+group.synthesize({          // SSE subscription
+  groupId: string,
+  conversationId: string,
+  judgeModel: string,       // validated against registry
+})
+// Emits: group_synthesis_chunk (content) → group_synthesis_done (groupId)
 ```
 
 ### Models, Search & Upload

@@ -331,7 +331,7 @@ export const chatRouter = router({
             value: string
           }>
         | undefined
-      let requiresSearch = input.webSearchEnabled
+      const webSearchEnabled = input.webSearchEnabled
       const { getModelRegistry } = await import('@/lib/ai/registry')
       const registry = await getModelRegistry({ runtimeConfig })
 
@@ -363,7 +363,6 @@ export const chatRouter = router({
       routerCategory = resolvedDecision.category
       routerConfidence = resolvedDecision.confidence
       routerFactors = resolvedDecision.factors
-      requiresSearch = resolvedDecision.requiresSearch
 
       yield emit({
         type: STREAM_EVENTS.MODEL_SELECTED,
@@ -385,7 +384,7 @@ export const chatRouter = router({
       await ctx.db
         .update(conversations)
         .set({
-          model: selectedModel,
+          model: resolvedDecision.source === 'auto_router' ? null : selectedModel,
           mode: conversationMode,
           webSearchEnabled: input.webSearchEnabled,
           updatedAt: new Date(),
@@ -439,7 +438,7 @@ export const chatRouter = router({
       let searchResults: SearchResult[] = []
       let searchImages: SearchImage[] = []
 
-      if (requiresSearch) {
+      if (webSearchEnabled) {
         if (!runtimeConfig.features.searchEnabled) {
           throw new TRPCError({
             code: TRPC_CODES.BAD_REQUEST,
@@ -531,7 +530,9 @@ export const chatRouter = router({
             messages: sdkMessages,
             stream: true,
             maxTokens: runtimeConfig.ai.chatMaxTokens,
-            ...(requiresSearch ? { tools: ALL_TOOLS, toolChoice: ToolChoiceOptionAuto.Auto } : {}),
+            ...(webSearchEnabled
+              ? { tools: ALL_TOOLS, toolChoice: ToolChoiceOptionAuto.Auto }
+              : {}),
           },
         },
         { signal: combinedSignal },
@@ -678,11 +679,11 @@ export const chatRouter = router({
         routerCategory,
         routerConfidence,
         routerFactors,
-        requiresSearch,
+        requiresSearch: webSearchEnabled,
         thinkingContent: thinkingContent || undefined,
         thinkingDurationMs,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-        searchQuery: requiresSearch ? input.content : undefined,
+        searchQuery: webSearchEnabled ? input.content : undefined,
         searchResults: searchResults.length > 0 ? searchResults : undefined,
         searchImages: searchImages.length > 0 ? searchImages : undefined,
         a2uiMessages: a2uiLines.length > 0 ? a2uiLines : undefined,

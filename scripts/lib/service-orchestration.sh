@@ -61,7 +61,7 @@ start_service_dev() {
     ensure_directory "logs"
 
     print_step "Starting dev server (bun dev)..."
-    bun dev > logs/dev.log 2>&1 &
+    nohup bun dev > logs/dev.log 2>&1 < /dev/null &
     local pid=$!
     register_pid "$pid" "farasa-dev"
 
@@ -104,18 +104,18 @@ start_service_postgres_docker() {
         return 1
     fi
 
-    if docker compose -f "$COMPOSE_DEV_FILE" ps -q postgres 2>/dev/null | grep -q .; then
+    if docker compose -f "$COMPOSE_DEV_FILE" ps --status running --services 2>/dev/null | grep -qx "postgres"; then
         print_success "PostgreSQL container already running"
         return 0
     fi
 
     print_step "Starting PostgreSQL container..."
-    docker compose -f "$COMPOSE_DEV_FILE" up -d postgres 2>&1 | follow_log_as_postgres
+    docker compose -f "$COMPOSE_DEV_FILE" up -d --remove-orphans postgres 2>&1 | follow_log_as_postgres
 
     print_step "Waiting for PostgreSQL to accept connections..."
     local i
     for ((i=1; i<=POSTGRES_STARTUP_TIMEOUT; i++)); do
-        if docker exec "$POSTGRES_CONTAINER" pg_isready -U farasa_user -d farasa_db > /dev/null 2>&1; then
+        if docker compose -f "$COMPOSE_DEV_FILE" exec -T postgres pg_isready -U farasa_user -d farasa_db > /dev/null 2>&1; then
             print_success "PostgreSQL is ready on :${POSTGRES_PORT}"
             return 0
         fi
@@ -132,7 +132,7 @@ start_service_postgres_docker() {
 
 stop_service_postgres_docker() {
     print_section "Stopping PostgreSQL"
-    if [[ -f "$COMPOSE_DEV_FILE" ]] && docker compose -f "$COMPOSE_DEV_FILE" ps -q postgres 2>/dev/null | grep -q .; then
+    if [[ -f "$COMPOSE_DEV_FILE" ]] && docker compose -f "$COMPOSE_DEV_FILE" ps --status running --services 2>/dev/null | grep -qx "postgres"; then
         docker compose -f "$COMPOSE_DEV_FILE" stop postgres 2>/dev/null || true
         print_success "PostgreSQL stopped"
     else
@@ -165,7 +165,7 @@ start_service_studio() {
     ensure_directory "logs"
 
     print_step "Starting Drizzle Studio..."
-    bun db:studio > logs/studio.log 2>&1 &
+    nohup bun db:studio > logs/studio.log 2>&1 < /dev/null &
     local studio_pid=$!
     register_pid "$studio_pid" "drizzle-studio"
 
@@ -218,8 +218,12 @@ start_docker_stack() {
     export COMPOSE_DOCKER_CLI_BUILD=1
     export DOCKER_BUILDKIT=1
 
+    # Reset both dev/prod compose resources before starting a fresh production stack.
+    docker compose -f "$COMPOSE_DEV_FILE" down --remove-orphans --timeout 10 >/dev/null 2>&1 || true
+    docker compose -f "$COMPOSE_PROD_FILE" down --remove-orphans --timeout 10 >/dev/null 2>&1 || true
+
     print_step "Building and starting all containers..."
-    if ! docker compose -f "$COMPOSE_PROD_FILE" up -d --build; then
+    if ! docker compose -f "$COMPOSE_PROD_FILE" up -d --build --remove-orphans; then
         print_error "Failed to start Docker stack"
         return 1
     fi
@@ -232,7 +236,7 @@ start_docker_stack() {
 stop_docker_stack() {
     print_header "Stopping Farasa Docker Stack"
     if [[ -f "$COMPOSE_PROD_FILE" ]]; then
-        docker compose -f "$COMPOSE_PROD_FILE" down --timeout 15
+        docker compose -f "$COMPOSE_PROD_FILE" down --remove-orphans --timeout 15
         print_success "Docker stack stopped"
     else
         print_warning "No Docker Compose file found"
@@ -483,13 +487,13 @@ show_service_status() {
     if check_docker_running 2>/dev/null; then
         local postgres_status
         local adminer_status
-        if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${POSTGRES_CONTAINER}$"; then
+        if [[ -f "$COMPOSE_DEV_FILE" ]] && docker compose -f "$COMPOSE_DEV_FILE" ps --status running --services 2>/dev/null | grep -qx "postgres"; then
             postgres_status="${BRIGHT_GREEN}● Running${RESET} → localhost:${POSTGRES_PORT}"
         else
             postgres_status="${DIM}○ Stopped${RESET}"
         fi
 
-        if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${ADMINER_CONTAINER}$"; then
+        if [[ -f "$COMPOSE_DEV_FILE" ]] && docker compose -f "$COMPOSE_DEV_FILE" ps --status running --services 2>/dev/null | grep -qx "adminer"; then
             adminer_status="${BRIGHT_GREEN}● Running${RESET} → http://localhost:${ADMINER_PORT}"
         else
             adminer_status="${DIM}○ Stopped${RESET}"
@@ -515,10 +519,10 @@ stop_all() {
     if check_docker_running 2>/dev/null; then
         local compose_file
         for compose_file in "$COMPOSE_DEV_FILE" "$COMPOSE_PROD_FILE"; do
-            if [[ -f "$compose_file" ]] && docker compose -f "$compose_file" ps -q 2>/dev/null | grep -q .; then
-                docker_was_running=true
+            if [[ -f "$compose_file" ]]; then
                 print_step "Stopping Docker containers ($compose_file)..."
-                docker compose -f "$compose_file" down --timeout 10 2>/dev/null || true
+                docker compose -f "$compose_file" down --remove-orphans --timeout 10 2>/dev/null || true
+                docker_was_running=true
             fi
         done
     fi

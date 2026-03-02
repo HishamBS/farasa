@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useRef, useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   MODEL_CATEGORIES,
@@ -38,12 +38,34 @@ type RoutingPanelProps = {
   models: ModelConfig[]
 }
 
+const ROUTING_MIN_DISPLAY_MS = 800
+
 export function RoutingPanel({ modelSelection, streamPhase, hasText, models }: RoutingPanelProps) {
   const isActive = streamPhase !== 'idle'
-  const isRouting = isActive && modelSelection === null
   const hasDecision = modelSelection !== null
   const isCollapsed = hasDecision && (hasText || streamPhase === 'done')
   const isExpanded = hasDecision && !isCollapsed
+
+  const [routingMinVisible, setRoutingMinVisible] = useState(false)
+  const routingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (isActive && !hasDecision) {
+      setRoutingMinVisible(true)
+      if (routingTimerRef.current) clearTimeout(routingTimerRef.current)
+    } else if (hasDecision && routingMinVisible) {
+      routingTimerRef.current = setTimeout(
+        () => setRoutingMinVisible(false),
+        ROUTING_MIN_DISPLAY_MS,
+      )
+    } else if (!isActive) {
+      setRoutingMinVisible(false)
+      if (routingTimerRef.current) clearTimeout(routingTimerRef.current)
+    }
+    return () => {
+      if (routingTimerRef.current) clearTimeout(routingTimerRef.current)
+    }
+  }, [isActive, hasDecision, routingMinVisible])
 
   const modelConfig = useMemo(
     () => (modelSelection ? (models.find((m) => m.id === modelSelection.model) ?? null) : null),
@@ -65,11 +87,11 @@ export function RoutingPanel({ modelSelection, streamPhase, hasText, models }: R
   const displayName =
     modelConfig?.name ?? modelSelection?.model.split('/')[1] ?? modelSelection?.model ?? ''
 
-  if (!isActive) return null
+  if (!isActive && !routingMinVisible) return null
 
   return (
     <AnimatePresence mode="wait">
-      {isRouting && (
+      {routingMinVisible && (
         <motion.div
           key={STREAM_PHASES.ROUTING}
           initial={{ opacity: 0, y: MOTION.PILL_OFFSET_Y, scale: MOTION.PILL_SCALE }}

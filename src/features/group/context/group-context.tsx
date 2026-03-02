@@ -32,10 +32,7 @@ export function GroupModeProvider({ children }: { children: ReactNode }) {
     [groupModels, prefsGroupModels],
   )
 
-  const resolvedJudgeModel = useMemo(
-    () => judgeModel ?? prefsJudgeModel ?? undefined,
-    [judgeModel, prefsJudgeModel],
-  )
+  const resolvedJudgeModel = judgeModel ?? prefsJudgeModel ?? undefined
 
   const setGroupModels = useCallback(
     (models: string[]) => {

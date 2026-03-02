@@ -788,6 +788,16 @@ Upload: attachment button or drag-drop -> validate -> tRPC presigned URL -> clie
 
 `@a2ui-sdk/react` with custom catalog extending `standardCatalog`. Adapters map A2UI types to shadcn/ui: Text, Button, Card, TextField, Image, Row, Column, List, Divider, CodeBlock. All adapters use app design tokens. Streaming via `processMessage`. Actions route through tRPC. System prompt includes catalog schema. AI decides A2UI vs markdown based on response type. Messages can contain both. A2UI surfaces remain interactive in history.
 
+### F9b. Multi-Model Group Mode
+
+Send a single prompt to 2–3 models simultaneously and compare responses side by side in real-time tabs. After all models complete, a user-selected judge model synthesizes the best elements into a unified answer.
+
+**Group stream** (`group.stream`): validates model IDs against registry, creates conversation if needed, saves user message (idempotent via `clientRequestId`), generates a `groupId` UUID, fetches shared history, spawns N parallel OpenRouter streams via a shared in-memory queue (producer-consumer), saves N assistant messages with `metadata.groupId`, `metadata.modelUsed`, `metadata.userMessageId`, then yields `group_done`. Rate-limited via `rateLimitedChatProcedure` — one slot for the entire group request regardless of N.
+
+**Synthesis** (`group.synthesize`): SQL JSONB filter fetches only the N messages for `groupId` (excluding prior syntheses via `IS DISTINCT FROM 'true'`), builds XML-delimited multi-model prompt, streams response via judge model, saves synthesis message with `isGroupSynthesis: true`.
+
+**Client**: `GroupModelPicker` (chip-based multi-select, 2–3 models), `GroupTabs` (shadcn Tabs), `GroupResponsePanel` (per-model streaming, reuses `ThinkingBlock`/`MarkdownRenderer`/`ToolExecution`), `SynthesisPanel` (judge picker + Synthesize button + streaming result), `GroupMessageGroup` (live + historical container). `useGroupStream` manages `Map<modelId, StreamState>`; `useGroupSynthesis` accumulates synthesis text. Selected models and judge persisted to `userPreferences.groupModels` / `userPreferences.groupJudgeModel`.
+
 ### F10. Mobile-First Responsive UI
 
 Everything designed at 375px first. Sidebar: hidden overlay mobile, persistent lg+. Chat: full width mobile, max-w-3xl centered desktop. A2UI: inline mobile, side panel lg+. Touch: 44pt min targets, swipe sidebar, long-press context menu.

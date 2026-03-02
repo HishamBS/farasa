@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { MODEL_CATEGORIES, PROVIDERS, PROVIDER_ALIASES } from '@/config/constants'
+import { extractProviderKey } from '@/lib/utils/model'
 
 export const ModelCapabilitySchema = z.enum([
   MODEL_CATEGORIES.CODE,
@@ -36,7 +37,7 @@ export const ModelConfigSchema = z
     pricing: ModelPricingSchema,
   })
   .transform((raw) => {
-    const [rawProvider = raw.id] = raw.id.split('/')
+    const rawProvider = extractProviderKey(raw.id)
     return { ...raw, provider: PROVIDER_ALIASES[rawProvider] ?? rawProvider }
   })
 

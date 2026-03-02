@@ -381,6 +381,7 @@ export const UI_TEXT = {
   WELCOME_BODY:
     "I'm your AI assistant. Let's build something amazing together today. What's on your mind?",
   EXPLORE_MORE: 'Explore more',
+  MORE_OPTIONS_ARIA: 'More options',
 } as const
 
 export const GROUP_LIMITS = {

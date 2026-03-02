@@ -196,7 +196,7 @@ export function Titlebar({
               <button
                 type="button"
                 className="flex h-11 w-11 items-center justify-center rounded-lg text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)"
-                aria-label="More options"
+                aria-label={UI_TEXT.MORE_OPTIONS_ARIA}
               >
                 <MoreHorizontal size={16} />
               </button>
@@ -231,7 +231,7 @@ export function Titlebar({
           <button
             type="button"
             className="flex h-11 w-11 items-center justify-center rounded-lg text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)"
-            aria-label="More options"
+            aria-label={UI_TEXT.MORE_OPTIONS_ARIA}
           >
             <MoreHorizontal size={16} />
           </button>

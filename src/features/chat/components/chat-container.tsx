@@ -41,7 +41,6 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   const utils = trpc.useUtils()
 
   const [groupStreamInput, setGroupStreamInput] = useState<GroupStreamInput | null>(null)
-  const [groupPendingUserMessage, setGroupPendingUserMessage] = useState<string | null>(null)
   const groupConversationIdRef = useRef<string | undefined>(conversationId)
   const synthesis = useGroupSynthesis()
 
@@ -83,7 +82,6 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
 
   const handleGroupSubmit = useCallback((input: GroupStreamInput) => {
     if (input.models.length < GROUP_LIMITS.MIN_MODELS) return
-    setGroupPendingUserMessage(input.content)
     setGroupStreamInput(input)
   }, [])
 
@@ -94,8 +92,9 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
 
   const activeGroupModels = useMemo((): ModelMeta[] => {
     if (!groupStreamInput) return []
+    const modelMap = new Map(modelList.map((m) => [m.id, m]))
     return groupStreamInput.models.map((modelId) => {
-      const reg = modelList.find((m) => m.id === modelId)
+      const reg = modelMap.get(modelId)
       return { id: modelId, name: reg?.name ?? modelId, provider: reg?.provider }
     })
   }, [groupStreamInput, modelList])
@@ -103,11 +102,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   const titlebarPhase = useMemo((): TitlebarPhase => {
     if (streamState.phase === CHAT_STREAM_STATUS.COMPLETE) return TITLEBAR_PHASE.DONE
     if (streamState.phase === CHAT_STREAM_STATUS.ACTIVE) {
-      if (
-        streamState.thinking !== null &&
-        streamState.thinking !== undefined &&
-        !streamState.thinking.completedAt
-      )
+      if (streamState.thinking !== null && !streamState.thinking.completedAt)
         return TITLEBAR_PHASE.THINKING
       return TITLEBAR_PHASE.STREAMING
     }
@@ -149,7 +144,6 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   useEffect(() => {
     if (messagesHaveGroup && groupStreamInput !== null) {
       setGroupStreamInput(null)
-      setGroupPendingUserMessage(null)
     }
   }, [messagesHaveGroup, groupStreamInput])
 
@@ -196,7 +190,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
           messages={messages}
           streamState={streamState}
           isChatStreaming={isStreaming}
-          pendingUserMessage={streamState.pendingUserMessage ?? groupPendingUserMessage}
+          pendingUserMessage={streamState.pendingUserMessage ?? groupStreamInput?.content ?? null}
           onSuggestionSelect={handleSuggestionSelect}
           conversationId={conversationId}
           liveGroup={liveGroup}

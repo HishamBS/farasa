@@ -913,8 +913,11 @@ export const chatRouter = router({
                 and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)),
               )
           }
-        } catch {
-          // Title generation failure is non-fatal; conversation stays as "New Chat"
+        } catch (titleError) {
+          console.error(
+            '[title-gen] generateTitle failed:',
+            titleError instanceof Error ? titleError.message : titleError,
+          )
         }
       }
 

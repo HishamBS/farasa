@@ -771,7 +771,7 @@ react-markdown + remark-gfm + rehype-sanitize + rehype-katex. Shiki for code: VS
 - `conversations` — (userId FK, title, model, isPinned, timestamps). Index: (userId, updatedAt)
 - `messages` — (conversationId FK, role, content, metadata JSONB, clientRequestId, streamSequenceMax, tokenCount). Indexes: (conversationId, createdAt), unique(conversationId, role, clientRequestId)
 - `runtimeConfigs` — (scope enum[system|tenant|user], scopeKey, payload JSONB). Stores runtime config overrides resolved in precedence order: user → tenant → system → `RUNTIME_CONFIG_JSON` env var
-- `userPreferences` — (userId PK FK, theme, sidebarExpanded, defaultModel). Per-user UI settings persisted to DB and served via `user-preferences` tRPC router
+- `userPreferences` — (userId PK FK, theme, sidebarExpanded, defaultModel, `groupModels` jsonb (nullable `string[]`, last-used group model IDs), `groupJudgeModel` text (nullable, last-used judge model ID)). Per-user UI settings persisted to DB and served via `user-preferences` tRPC router
 - `attachments` — (userId FK, messageId FK, fileName, fileType, fileSize, storageUrl, confirmedAt). Indexes: userId, messageId
 
 **Message Metadata** (JSONB): modelUsed, routerReasoning, thinkingContent, thinkingDurationMs, toolCalls, a2uiMessages, searchResults, usage. Enables full phase reconstruction when loading history — thinking blocks expandable, model badges visible, tool calls shown.
@@ -848,6 +848,16 @@ UX: STATUS_MIN_DISPLAY_MS (500), THINKING_COLLAPSE_DEFAULT (true), STREAM_BUFFER
 
 MOTION: DURATION_FAST (0.15), DURATION_NORMAL (0.2), DURATION_MEDIUM (0.25), DURATION_SLOW (0.3), STAGGER_CHILDREN (0.05), SPRING_STIFFNESS (400), SPRING_DAMPING (25), EASING [0.4, 0, 0.2, 1].
 
+GROUP_LIMITS: MAX_MODELS (3), MIN_MODELS (2).
+
+GROUP_EVENTS: MODEL_CHUNK ('group_model_chunk'), STREAM_EVENT ('group_stream_event'), DONE ('group_done'), SYNTHESIS_CHUNK ('group_synthesis_chunk'), SYNTHESIS_DONE ('group_synthesis_done').
+
+GROUP_STREAM_PHASES: IDLE ('idle'), ACTIVE ('active'), DONE ('done'), ERROR ('error').
+
+GROUP_STATUS_MESSAGES: SYNTHESIZING ('Synthesizing responses...'), STARTING ('Starting group comparison...').
+
+GROUP_TAB_VALUES: SYNTHESIS ('synthesis').
+
 **Separation note**: `constants.ts` contains compile-time static values only (measurements, provider colors, stream event names, markdown sanitization rules, motion durations). Runtime business behavior — limits, timeouts, prompts, retry policy, feature flags — lives in `src/schemas/runtime-config.ts` (Zod schema) and is resolved at runtime via `src/lib/runtime-config/service.ts` from the `runtimeConfigs` DB table.
 
 ### 6.3 Routes (`src/config/routes.ts`)
@@ -864,11 +874,11 @@ ROUTER_SYSTEM_PROMPT, A2UI_SYSTEM_PROMPT, TITLE_GENERATION_PROMPT, CHAT_SYSTEM_P
 
 ### message.ts
 
-MessageRoleSchema, AttachmentSchema, UsageSchema, StreamPhaseSchema, StreamChunkSchema (full discriminated union with status/thinking/model_selected/tool_start/tool_result/text/a2ui/error/done), ChatInputSchema (with mode: chat|search), MessageMetadataSchema (with thinkingContent, thinkingDurationMs, toolCalls, routerReasoning, etc.). All types derived via z.infer.
+MessageRoleSchema, AttachmentSchema, UsageSchema, StreamPhaseSchema, StreamChunkSchema (full discriminated union with status/thinking/model_selected/tool_start/tool_result/text/a2ui/error/done), ChatInputSchema (with mode: chat|search), MessageMetadataSchema (with thinkingContent, thinkingDurationMs, toolCalls, routerReasoning, `groupId?: uuid`, `isGroupSynthesis?: boolean`, `userMessageId?: uuid`, etc.). All types derived via z.infer.
 
 ### conversation.ts
 
-CreateConversationSchema, UpdateConversationSchema, ConversationFilterSchema. Derived types.
+CreateConversationSchema, UpdateConversationSchema, ConversationFilterSchema, `MessageListOutputSchema` (`{ messages, nextCursor: string | null }`). Derived types.
 
 ### model.ts
 
@@ -886,6 +896,10 @@ UploadRequestSchema, UploadResponseSchema. Derived types.
 
 SessionUserSchema. Derived type.
 
+### group.ts
+
+`GroupStreamInputSchema` (conversationId?, content, models string[2-3], attachmentIds?), `GroupOutputChunkSchema` (discriminated union: `group_model_chunk` | `group_stream_event` | `group_done`), `GroupSynthesizeInputSchema` (groupId, conversationId, judgeModel), `GroupSynthesisOutputChunkSchema` (discriminated union: `group_synthesis_chunk` | `group_synthesis_done`).
+
 ### index.ts
 
 Barrel export of all schemas.
@@ -902,15 +916,20 @@ src/
 │   ├── api/trpc/[trpc]/route.ts, auth/[...nextauth]/route.ts, health/route.ts
 │   ├── layout.tsx, manifest.ts, globals.css
 ├── server/
-│   ├── routers/_app.ts, chat.ts, conversation.ts, model.ts, search.ts, upload.ts
+│   ├── routers/_app.ts, chat.ts, conversation.ts, group.ts, model.ts, search.ts, upload.ts
 │   ├── trpc.ts, context.ts
 ├── schemas/
-│   ├── message.ts, conversation.ts, model.ts, search.ts, upload.ts, auth.ts, index.ts
+│   ├── message.ts, conversation.ts, group.ts, model.ts, search.ts, upload.ts, auth.ts, index.ts
 ├── features/
 │   ├── chat/
 │   │   ├── components/chat-container, message-list, message-bubble, chat-input,
 │   │   │   model-selector, mode-toggle, attachment-preview, stop-button, empty-state
 │   │   ├── hooks/use-chat-stream, use-auto-scroll, use-chat-input
+│   ├── group/
+│   │   ├── components/   # group-model-picker, group-tabs, group-response-panel, synthesis-panel, group-message-group
+│   │   ├── context/      # group-context.tsx
+│   │   ├── hooks/        # use-group-stream, use-group-synthesis
+│   │   └── types.ts
 │   ├── stream-phases/
 │   │   ├── components/stream-progress, thinking-block, model-badge, tool-execution
 │   │   ├── hooks/use-stream-state

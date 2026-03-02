@@ -134,7 +134,7 @@ export function GroupModelPicker() {
             <span className="text-base leading-none">+</span>
             <span>Add model</span>
           </button>
-          <div className="absolute bottom-full left-0 hidden">
+          <div className="absolute bottom-full left-0 h-0 overflow-visible">
             <ModelSelector ref={selectorRef} value={undefined} onChange={handleAdd} />
           </div>
         </div>

@@ -2,10 +2,10 @@ import { and, eq } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import type { RuntimeConfig } from '@/schemas/runtime-config'
 import type { ModelConfig, ModelSelectionSource } from '@/schemas/model'
-import type { SearchMode } from '@/schemas/search'
+import type { ChatMode } from '@/schemas/message'
 import type { db } from '@/lib/db/client'
 import { conversations, userPreferences } from '@/lib/db/schema'
-import { CHAT_MODES, AI_REASONING, TRPC_CODES } from '@/config/constants'
+import { AI_REASONING, TRPC_CODES } from '@/config/constants'
 import { AppError } from '@/lib/utils/errors'
 
 type RouterFactor = {
@@ -22,7 +22,7 @@ type ResolvedModelDecision = {
   confidence?: number
   factors: RouterFactor[]
   requiresSearch: boolean
-  effectiveMode: SearchMode
+  requestedMode: ChatMode
 }
 
 type ResolveModelDecisionInput = {
@@ -30,7 +30,8 @@ type ResolveModelDecisionInput = {
   userId: string
   conversationId: string
   requestedModel?: string
-  requestedMode: SearchMode
+  requestedMode: ChatMode
+  requestedWebSearchEnabled: boolean
   prompt: string
   registry: ReadonlyArray<ModelConfig>
   runtimeConfig: RuntimeConfig
@@ -48,8 +49,8 @@ function findModelById(registry: ReadonlyArray<ModelConfig>, modelId: string): M
   return model
 }
 
-function ensureSearchCompatible(model: ModelConfig, requestedMode: SearchMode): void {
-  if (requestedMode === CHAT_MODES.SEARCH && !model.supportsTools) {
+function ensureSearchCompatible(model: ModelConfig, requiresSearch: boolean): void {
+  if (requiresSearch && !model.supportsTools) {
     throw new TRPCError({
       code: TRPC_CODES.BAD_REQUEST,
       message: AppError.INVALID_MODEL,
@@ -92,10 +93,9 @@ async function resolveSourceModel(input: ResolveModelDecisionInput): Promise<{
 function buildFactors(params: {
   source: ModelSelectionSource
   selectedModel: string
-  requestedMode: SearchMode
+  requestedMode: ChatMode
   requiresSearch: boolean
 }): RouterFactor[] {
-  const modeLabel = params.requestedMode
   return [
     {
       key: 'selection_source',
@@ -105,7 +105,7 @@ function buildFactors(params: {
     {
       key: 'execution_mode',
       label: 'Execution Mode',
-      value: modeLabel,
+      value: params.requestedMode,
     },
     {
       key: 'tool_requirement',
@@ -127,7 +127,7 @@ export async function resolveModelDecision(
 
   if (source !== 'auto_router' && modelId) {
     const model = findModelById(input.registry, modelId)
-    ensureSearchCompatible(model, input.requestedMode)
+    ensureSearchCompatible(model, input.requestedWebSearchEnabled)
     return {
       selectedModel: model.id,
       source,
@@ -141,32 +141,36 @@ export async function resolveModelDecision(
         source,
         selectedModel: model.id,
         requestedMode: input.requestedMode,
-        requiresSearch: input.requestedMode === CHAT_MODES.SEARCH,
+        requiresSearch: input.requestedWebSearchEnabled,
       }),
-      requiresSearch: input.requestedMode === CHAT_MODES.SEARCH,
-      effectiveMode: input.requestedMode,
+      requiresSearch: input.requestedWebSearchEnabled,
+      requestedMode: input.requestedMode,
       confidence: 1,
     }
   }
 
-  const { routeModel } = await import('@/lib/ai/router')
+  const { routeModel, classifySearchRequirement } = await import('@/lib/ai/router')
   let selection: Awaited<ReturnType<typeof routeModel>>
+  let searchDecision: Awaited<ReturnType<typeof classifySearchRequirement>>
   try {
     selection = await routeModel(input.prompt, input.registry, input.runtimeConfig, input.signal)
+    searchDecision = await classifySearchRequirement(
+      input.prompt,
+      input.registry,
+      input.runtimeConfig,
+      input.signal,
+    )
   } catch {
     throw new TRPCError({
       code: TRPC_CODES.BAD_REQUEST,
       message: AppError.ROUTER_FAILED,
     })
   }
-  const selectedModel = findModelById(input.registry, selection.selectedModel)
-  const requiresSearch = input.requestedMode === CHAT_MODES.SEARCH || selection.requiresSearch
-  const effectiveMode =
-    input.requestedMode === CHAT_MODES.CHAT && requiresSearch
-      ? CHAT_MODES.SEARCH
-      : input.requestedMode
 
-  ensureSearchCompatible(selectedModel, effectiveMode)
+  const selectedModel = findModelById(input.registry, selection.selectedModel)
+  const requiresSearch =
+    input.requestedWebSearchEnabled || selection.requiresSearch || searchDecision.requiresSearch
+  ensureSearchCompatible(selectedModel, requiresSearch)
 
   return {
     selectedModel: selectedModel.id,
@@ -174,8 +178,15 @@ export async function resolveModelDecision(
     reasoning: selection.reasoning || AI_REASONING.MODEL_AUTO_ROUTER,
     category: selection.category,
     confidence: selection.confidence,
-    factors: selection.factors,
+    factors: [
+      ...selection.factors,
+      {
+        key: 'search_classifier',
+        label: 'Search Classifier',
+        value: searchDecision.reasoning,
+      },
+    ],
     requiresSearch,
-    effectiveMode,
+    requestedMode: input.requestedMode,
   }
 }

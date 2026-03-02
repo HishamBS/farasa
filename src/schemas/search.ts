@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { CHAT_MODES, LIMITS } from '@/config/constants'
+import { LIMITS } from '@/config/constants'
 
 export const SearchQuerySchema = z.object({
   query: z.string().min(1).max(LIMITS.SEARCH_QUERY_MAX_LENGTH),
@@ -27,10 +27,7 @@ export const SearchResponseSchema = z.object({
   images: z.array(SearchImageSchema).default([]),
 })
 
-export const SearchModeSchema = z.enum([CHAT_MODES.CHAT, CHAT_MODES.SEARCH])
-
 export type SearchQuery = z.infer<typeof SearchQuerySchema>
 export type SearchImage = z.infer<typeof SearchImageSchema>
 export type SearchResult = z.infer<typeof SearchResultSchema>
 export type SearchResponse = z.infer<typeof SearchResponseSchema>
-export type SearchMode = z.infer<typeof SearchModeSchema>

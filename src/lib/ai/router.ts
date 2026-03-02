@@ -1,7 +1,12 @@
 import { openrouter } from './client'
-import { ModelSelectionSchema } from '@/schemas/model'
-import { buildRouterPrompt } from '@/config/prompts'
-import type { ModelSelection, ModelConfig, ModelCapability } from '@/schemas/model'
+import { ModelSelectionSchema, RouterSearchDecisionSchema } from '@/schemas/model'
+import { buildRouterPrompt, buildSearchClassifierPrompt } from '@/config/prompts'
+import type {
+  ModelSelection,
+  ModelConfig,
+  ModelCapability,
+  RouterSearchDecision,
+} from '@/schemas/model'
 import type { RuntimeConfig } from '@/schemas/runtime-config'
 import { MODEL_CATEGORIES, MODEL_IDS } from '@/config/constants'
 
@@ -111,4 +116,40 @@ export async function routeModel(
     normalizeRouterSelection(JSON.parse(raw) as RawRouterSelection),
   )
   return validateModelSelection(parsed, registry)
+}
+
+export async function classifySearchRequirement(
+  prompt: string,
+  registry: ReadonlyArray<ModelConfig>,
+  runtimeConfig: RuntimeConfig,
+  signal?: AbortSignal,
+): Promise<RouterSearchDecision> {
+  const routingModelId = selectRoutingEngineModel(registry)
+  const systemPrompt = buildSearchClassifierPrompt()
+  const wrappedPrompt =
+    `${runtimeConfig.prompts.wrappers.userRequestOpen}\n` +
+    `${prompt}\n` +
+    `${runtimeConfig.prompts.wrappers.userRequestClose}`
+
+  const response = await openrouter.chat.send(
+    {
+      chatGenerationParams: {
+        model: routingModelId,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: wrappedPrompt },
+        ],
+        responseFormat: { type: 'json_object' },
+        maxTokens: runtimeConfig.ai.routerMaxTokens,
+        temperature: runtimeConfig.ai.routerTemperature,
+      },
+    },
+    { signal },
+  )
+
+  const raw = response.choices[0]?.message.content
+  if (typeof raw !== 'string') {
+    throw new Error('[router] No content in search classifier response')
+  }
+  return RouterSearchDecisionSchema.parse(JSON.parse(raw) as unknown)
 }

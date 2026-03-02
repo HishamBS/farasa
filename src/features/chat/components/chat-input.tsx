@@ -10,7 +10,7 @@ import {
   useImperativeHandle,
 } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { ArrowRight, Paperclip } from 'lucide-react'
+import { ArrowRight, Globe, Paperclip } from 'lucide-react'
 import { scaleIn } from '@/lib/utils/motion'
 import { StopButton } from './stop-button'
 import { cn } from '@/lib/utils/cn'
@@ -53,8 +53,10 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     content,
     attachmentIds,
     selectedModel,
+    getSelectedModel,
     defaultModel,
     isSavingDefaultModel,
+    isPersistingConversationModel,
     textareaRef,
     setSelectedModel,
     setDefaultModel,
@@ -66,7 +68,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     setExternalContent,
   } = useChatInput(initialModel, conversationId)
 
-  const { mode } = useChatMode()
+  const { mode, webSearchEnabled, setWebSearchEnabled } = useChatMode()
   const { groupModels } = useGroupMode()
 
   const {
@@ -101,6 +103,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
 
   const handleSubmit = useCallback(() => {
     if (!content.trim() || isStreaming || isTooLong) return
+    const modelForSubmission = getSelectedModel()
     if (mode === CHAT_MODES.GROUP) {
       if (onGroupSubmit) {
         onGroupSubmit({
@@ -108,6 +111,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           models: groupModels,
           conversationId,
           attachmentIds,
+          webSearchEnabled,
         })
         clear()
         clearFiles()
@@ -117,9 +121,10 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     onSend({
       content: content.trim(),
       mode,
-      model: selectedModel,
+      model: modelForSubmission,
       conversationId,
       attachmentIds,
+      webSearchEnabled,
     })
     clear()
     clearFiles()
@@ -127,9 +132,10 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     content,
     isTooLong,
     mode,
-    selectedModel,
+    getSelectedModel,
     conversationId,
     attachmentIds,
+    webSearchEnabled,
     isStreaming,
     groupModels,
     onSend,
@@ -257,6 +263,24 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
                 <Paperclip size={15} />
               </button>
 
+              <button
+                type="button"
+                onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+                className={cn(
+                  'flex size-8 items-center justify-center rounded-lg transition-colors',
+                  webSearchEnabled
+                    ? 'bg-(--accent-muted) text-(--accent) hover:bg-(--accent-muted)'
+                    : 'text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)',
+                )}
+                aria-pressed={webSearchEnabled}
+                aria-label={
+                  webSearchEnabled ? UI_TEXT.WEB_SEARCH_DISABLE : UI_TEXT.WEB_SEARCH_ENABLE
+                }
+                title={webSearchEnabled ? UI_TEXT.WEB_SEARCH_DISABLE : UI_TEXT.WEB_SEARCH_ENABLE}
+              >
+                <Globe size={15} />
+              </button>
+
               <MicButton onTranscript={handleTranscript} />
 
               <AnimatePresence mode="wait">
@@ -325,6 +349,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
               <button
                 type="button"
                 disabled={
+                  isPersistingConversationModel ||
                   isSavingDefaultModel ||
                   (selectedModel ?? undefined) === (defaultModel ?? undefined)
                 }
@@ -332,6 +357,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
                 className={cn(
                   'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors',
                   isSavingDefaultModel ||
+                    isPersistingConversationModel ||
                     (selectedModel ?? undefined) === (defaultModel ?? undefined)
                     ? 'cursor-not-allowed text-(--text-ghost)'
                     : 'text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)',
@@ -356,13 +382,12 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           </span>
         </div>
 
-        {mode === CHAT_MODES.SEARCH && (
-          <div className="mt-1 px-1 text-xs text-(--text-muted)">Search mode is active.</div>
-        )}
-
         {mode === CHAT_MODES.GROUP && (
           <div className="mt-1 px-1 text-xs text-(--text-muted)">Group mode is active.</div>
         )}
+        <div className="mt-1 px-1 text-xs text-(--text-muted)">
+          {webSearchEnabled ? UI_TEXT.WEB_SEARCH_ACTIVE : UI_TEXT.WEB_SEARCH_INACTIVE}
+        </div>
       </div>
     </div>
   )

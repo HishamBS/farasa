@@ -6,6 +6,7 @@ export const GroupStreamInputSchema = z.object({
   conversationId: z.string().uuid().optional(),
   content: z.string().min(1),
   models: z.array(z.string()).min(GROUP_LIMITS.MIN_MODELS).max(GROUP_LIMITS.MAX_MODELS),
+  webSearchEnabled: z.boolean().default(false),
   attachmentIds: z.array(z.string().uuid()).default([]),
 })
 

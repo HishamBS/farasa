@@ -5,6 +5,7 @@ import { GroupStreamInputSchema, GroupSynthesizeInputSchema } from '@/schemas/gr
 import type { GroupOutputChunk, GroupSynthesisOutputChunk } from '@/schemas/group'
 import { MessageMetadataSchema } from '@/schemas/message'
 import type { StreamChunk } from '@/schemas/message'
+import type { SearchImage, SearchResult } from '@/schemas/search'
 import { conversations, messages } from '@/lib/db/schema'
 import {
   GROUP_EVENTS,
@@ -17,9 +18,11 @@ import {
   CHAT_MODES,
   AI_PARAMS,
   AI_REASONING,
+  TOOL_NAMES,
 } from '@/config/constants'
 import type { Message } from '@openrouter/sdk/models'
 import { getErrorMessage } from '@/lib/utils/errors'
+import { executeSearchEnrichment } from '@/server/services/search-enrichment-service'
 
 type QueueItem =
   | { done: false; modelId: string; modelIndex: number; chunk: StreamChunk }
@@ -57,6 +60,7 @@ export const groupRouter = router({
             userId: ctx.userId,
             model: input.models[0],
             searchMode: CHAT_MODES.GROUP,
+            webSearchEnabled: input.webSearchEnabled,
           })
           .returning({ id: conversations.id })
         if (!created) {
@@ -125,6 +129,65 @@ export const groupRouter = router({
       }
 
       const groupId = crypto.randomUUID()
+      let searchContext = ''
+      let searchResults: SearchResult[] = []
+      let searchImages: SearchImage[] = []
+
+      await ctx.db
+        .update(conversations)
+        .set({
+          searchMode: CHAT_MODES.GROUP,
+          webSearchEnabled: input.webSearchEnabled,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
+
+      if (input.webSearchEnabled) {
+        if (!runtimeConfig.features.searchEnabled) {
+          throw new TRPCError({
+            code: TRPC_CODES.BAD_REQUEST,
+            message: runtimeConfig.chat.errors.processing,
+          })
+        }
+
+        yield {
+          type: GROUP_EVENTS.STREAM_EVENT,
+          chunk: {
+            type: STREAM_EVENTS.STATUS,
+            streamRequestId,
+            phase: STREAM_PHASES.SEARCHING,
+            message: runtimeConfig.chat.statusMessages.searching,
+          } satisfies StreamChunk,
+        }
+        yield {
+          type: GROUP_EVENTS.STREAM_EVENT,
+          chunk: {
+            type: STREAM_EVENTS.TOOL_START,
+            streamRequestId,
+            toolName: TOOL_NAMES.WEB_SEARCH,
+            input: { query: input.content },
+          } satisfies StreamChunk,
+        }
+
+        const enrichment = await executeSearchEnrichment(input.content, runtimeConfig)
+        searchContext = enrichment.context
+        searchResults = enrichment.results
+        searchImages = enrichment.images
+
+        yield {
+          type: GROUP_EVENTS.STREAM_EVENT,
+          chunk: {
+            type: STREAM_EVENTS.TOOL_RESULT,
+            streamRequestId,
+            toolName: TOOL_NAMES.WEB_SEARCH,
+            result: {
+              query: enrichment.query,
+              results: enrichment.results,
+              images: enrichment.images,
+            },
+          } satisfies StreamChunk,
+        }
+      }
 
       const historyRows = await ctx.db
         .select({ role: messages.role, content: messages.content })
@@ -143,7 +206,9 @@ export const groupRouter = router({
         content: row.content,
       }))
 
-      const systemPrompt = runtimeConfig.prompts.chatSystem
+      const systemPrompt = searchContext
+        ? `${runtimeConfig.prompts.chatSystem}\n\n${searchContext}`
+        : runtimeConfig.prompts.chatSystem
       const sdkMessages: Message[] = [
         { role: MESSAGE_ROLES.SYSTEM, content: systemPrompt },
         ...historyMessages,
@@ -324,6 +389,10 @@ export const groupRouter = router({
           groupId,
           modelUsed: modelId,
           userMessageId,
+          requiresSearch: input.webSearchEnabled,
+          searchQuery: input.webSearchEnabled ? input.content : undefined,
+          searchResults: searchResults.length > 0 ? searchResults : undefined,
+          searchImages: searchImages.length > 0 ? searchImages : undefined,
         })
         await ctx.db.insert(messages).values({
           conversationId,

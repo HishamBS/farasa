@@ -12,7 +12,6 @@ import { conversations, messages, attachments } from '@/lib/db/schema'
 import {
   STREAM_EVENTS,
   STREAM_PHASES,
-  CHAT_MODES,
   MESSAGE_ROLES,
   TRPC_CODES,
   NEW_CHAT_TITLE,
@@ -24,15 +23,15 @@ import type { StreamChunk } from '@/schemas/message'
 import type { ToolCall, Usage } from '@/schemas/message'
 import type { RuntimeConfig } from '@/schemas/runtime-config'
 import type { ModelCapability, ModelSelectionSource } from '@/schemas/model'
-import type { Message, ToolResponseMessage, ChatMessageContentItem } from '@openrouter/sdk/models'
+import type { Message, ChatMessageContentItem } from '@openrouter/sdk/models'
 import {
   ToolChoiceOptionAuto,
-  ChatMessageToolCallType,
   ChatMessageContentItemImageType,
   ChatMessageContentItemTextType,
 } from '@openrouter/sdk/models'
 import { escapeXmlForPrompt, sanitizeA2UIJsonLine } from '@/lib/security/runtime-safety'
 import { resolveModelDecision } from '@/server/services/model-resolution-service'
+import { executeSearchEnrichment } from '@/server/services/search-enrichment-service'
 
 type StreamSession = {
   key: string
@@ -174,27 +173,6 @@ function classifyTerminalError(
   }
 }
 
-function buildSearchContext(results: SearchResult[], runtimeConfig: RuntimeConfig): string {
-  if (results.length === 0) {
-    return ''
-  }
-
-  const wrappers = runtimeConfig.prompts.wrappers
-  const normalize = (value: string) =>
-    runtimeConfig.safety.escapeSearchXml ? escapeXmlForPrompt(value) : value
-
-  const body = results
-    .map((result) => {
-      const title = normalize(result.title)
-      const snippet = normalize(result.snippet)
-      const url = normalize(result.url)
-      return `${wrappers.searchResultOpen}<title>${title}</title><snippet>${snippet}</snippet><url>${url}</url>${wrappers.searchResultClose}`
-    })
-    .join('\n')
-
-  return `\n\n${wrappers.searchResultsOpen}\n${body}\n${wrappers.searchResultsClose}`
-}
-
 function buildCombinedAbortSignal(signals: AbortSignal[], timeoutMs: number): AbortSignal {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => {
@@ -253,6 +231,7 @@ export const chatRouter = router({
             userId: ctx.userId,
             model: input.model,
             searchMode: input.mode,
+            webSearchEnabled: input.webSearchEnabled,
           })
           .returning({ id: conversations.id })
         if (!created) {
@@ -340,7 +319,7 @@ export const chatRouter = router({
       }
 
       let selectedModel: string | undefined
-      let effectiveMode = input.mode
+      let conversationMode = input.mode
       let routerReasoning: string | undefined
       let routerSource: ModelSelectionSource | undefined
       let routerCategory: ModelCapability | undefined
@@ -352,7 +331,7 @@ export const chatRouter = router({
             value: string
           }>
         | undefined
-      let requiresSearch = input.mode === CHAT_MODES.SEARCH
+      let requiresSearch = input.webSearchEnabled
       const { getModelRegistry } = await import('@/lib/ai/registry')
       const registry = await getModelRegistry({ runtimeConfig })
 
@@ -370,6 +349,7 @@ export const chatRouter = router({
         conversationId,
         requestedModel: input.model,
         requestedMode: input.mode,
+        requestedWebSearchEnabled: input.webSearchEnabled,
         prompt: input.content,
         registry,
         runtimeConfig,
@@ -377,7 +357,7 @@ export const chatRouter = router({
       })
 
       selectedModel = resolvedDecision.selectedModel
-      effectiveMode = resolvedDecision.effectiveMode
+      conversationMode = resolvedDecision.requestedMode
       routerReasoning = resolvedDecision.reasoning
       routerSource = resolvedDecision.source
       routerCategory = resolvedDecision.category
@@ -404,7 +384,12 @@ export const chatRouter = router({
 
       await ctx.db
         .update(conversations)
-        .set({ model: selectedModel, searchMode: effectiveMode, updatedAt: new Date() })
+        .set({
+          model: selectedModel,
+          searchMode: conversationMode,
+          webSearchEnabled: input.webSearchEnabled,
+          updatedAt: new Date(),
+        })
         .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
 
       const wrappedContent = `${runtimeConfig.prompts.wrappers.userRequestOpen}\n${input.content}\n${runtimeConfig.prompts.wrappers.userRequestClose}`
@@ -454,7 +439,7 @@ export const chatRouter = router({
       let searchResults: SearchResult[] = []
       let searchImages: SearchImage[] = []
 
-      if (effectiveMode === CHAT_MODES.SEARCH) {
+      if (requiresSearch) {
         if (!runtimeConfig.features.searchEnabled) {
           throw new TRPCError({
             code: TRPC_CODES.BAD_REQUEST,
@@ -474,36 +459,30 @@ export const chatRouter = router({
         })
 
         const startedAt = Date.now()
-        const { tavilySearch } = await import('@/lib/search/tavily')
-        const response = await tavilySearch({
-          query: input.content,
-          maxResults: runtimeConfig.limits.searchMaxResults,
-          includeImages: runtimeConfig.search.includeImagesByDefault,
-          searchDepth: runtimeConfig.search.defaultDepth,
-        })
-        searchResults = response.results
-        searchImages = response.images
+        const enrichment = await executeSearchEnrichment(input.content, runtimeConfig)
+        searchResults = enrichment.results
+        searchImages = enrichment.images
 
         yield emit({
           type: STREAM_EVENTS.TOOL_RESULT,
           toolName: searchToolName,
           result: {
-            query: response.query,
-            results: response.results,
-            images: response.images,
+            query: enrichment.query,
+            results: enrichment.results,
+            images: enrichment.images,
           },
         })
         toolCalls.push({
           name: searchToolName,
           input: { query: input.content },
           result: {
-            query: response.query,
-            results: response.results,
-            images: response.images,
+            query: enrichment.query,
+            results: enrichment.results,
+            images: enrichment.images,
           },
           durationMs: Date.now() - startedAt,
         })
-        searchContext = buildSearchContext(response.results, runtimeConfig)
+        searchContext = enrichment.context
       }
 
       yield emit({
@@ -552,9 +531,7 @@ export const chatRouter = router({
             messages: sdkMessages,
             stream: true,
             maxTokens: runtimeConfig.ai.chatMaxTokens,
-            ...(effectiveMode === CHAT_MODES.SEARCH
-              ? { tools: ALL_TOOLS, toolChoice: ToolChoiceOptionAuto.Auto }
-              : {}),
+            ...(requiresSearch ? { tools: ALL_TOOLS, toolChoice: ToolChoiceOptionAuto.Auto } : {}),
           },
         },
         { signal: combinedSignal },
@@ -569,7 +546,6 @@ export const chatRouter = router({
       let a2uiBuffer = ''
       let usage: Usage | undefined
       let streamSequenceMax = 0
-      const toolCallArgBuffers = new Map<number, { id: string; name: string; args: string }>()
 
       for await (const streamChunk of stream) {
         if (streamChunk.usage) {
@@ -598,21 +574,6 @@ export const chatRouter = router({
             streamSequenceMax = Math.max(streamSequenceMax, thinkingEvent.sequence)
           }
           yield thinkingEvent
-          continue
-        }
-
-        if (delta.toolCalls) {
-          for (const toolCall of delta.toolCalls) {
-            const existing = toolCallArgBuffers.get(toolCall.index) ?? {
-              id: toolCall.id ?? '',
-              name: toolCall.function?.name ?? '',
-              args: '',
-            }
-            existing.args += toolCall.function?.arguments ?? ''
-            if (toolCall.id) existing.id = toolCall.id
-            if (toolCall.function?.name) existing.name = toolCall.function.name
-            toolCallArgBuffers.set(toolCall.index, existing)
-          }
           continue
         }
 
@@ -700,130 +661,6 @@ export const chatRouter = router({
         yield thinkingCompleteEvent
       }
 
-      if (toolCallArgBuffers.size > 0 && effectiveMode === CHAT_MODES.CHAT) {
-        const assistantToolCallMessage: Message = {
-          role: MESSAGE_ROLES.ASSISTANT,
-          content: fullText || '',
-          toolCalls: [...toolCallArgBuffers.entries()].map(([, toolCall]) => ({
-            id: toolCall.id,
-            type: ChatMessageToolCallType.Function,
-            function: { name: toolCall.name, arguments: toolCall.args },
-          })),
-        }
-        const toolResultMessages: ToolResponseMessage[] = []
-
-        for (const [, toolCall] of toolCallArgBuffers.entries()) {
-          if (toolCall.name !== searchToolName || !runtimeConfig.features.searchEnabled) continue
-
-          let query = toolCall.args
-          try {
-            query = (JSON.parse(toolCall.args) as { query: string }).query
-          } catch {
-            // If tool args are not JSON we pass through raw string query.
-          }
-
-          const toolStartEvent = emit({
-            type: STREAM_EVENTS.TOOL_START,
-            toolName: searchToolName,
-            input: { query },
-          })
-          if (typeof toolStartEvent.sequence === 'number') {
-            streamSequenceMax = Math.max(streamSequenceMax, toolStartEvent.sequence)
-          }
-          yield toolStartEvent
-
-          const startedAt = Date.now()
-          const { tavilySearch } = await import('@/lib/search/tavily')
-          const response = await tavilySearch({
-            query,
-            maxResults: runtimeConfig.limits.searchMaxResults,
-            includeImages: runtimeConfig.search.includeImagesByDefault,
-            searchDepth: runtimeConfig.search.defaultDepth,
-          })
-          searchResults = response.results
-          searchImages = response.images
-
-          const toolResultEvent = emit({
-            type: STREAM_EVENTS.TOOL_RESULT,
-            toolName: searchToolName,
-            result: {
-              query: response.query,
-              results: response.results,
-              images: response.images,
-            },
-          })
-          if (typeof toolResultEvent.sequence === 'number') {
-            streamSequenceMax = Math.max(streamSequenceMax, toolResultEvent.sequence)
-          }
-          yield toolResultEvent
-
-          toolCalls.push({
-            name: searchToolName,
-            input: { query },
-            result: {
-              query: response.query,
-              results: response.results,
-              images: response.images,
-            },
-            durationMs: Date.now() - startedAt,
-          })
-
-          const resultsText = response.results
-            .map((result) => `[${result.title}](${result.url})\n${result.snippet}`)
-            .join('\n\n')
-          toolResultMessages.push({
-            role: 'tool',
-            content: resultsText,
-            toolCallId: toolCall.id,
-          })
-        }
-
-        if (toolResultMessages.length > 0) {
-          fullText = ''
-          const followUpMessages: Message[] = [
-            ...sdkMessages,
-            assistantToolCallMessage,
-            ...toolResultMessages,
-          ]
-          const followUpStream = await openrouter.chat.send(
-            {
-              chatGenerationParams: {
-                model: selectedModel,
-                messages: followUpMessages,
-                stream: true,
-                maxTokens: runtimeConfig.ai.chatMaxTokens,
-              },
-            },
-            { signal: combinedSignal },
-          )
-
-          for await (const followUpChunk of followUpStream) {
-            if (followUpChunk.usage) {
-              const parsedUsage = UsageSchema.safeParse({
-                promptTokens: followUpChunk.usage.promptTokens ?? 0,
-                completionTokens: followUpChunk.usage.completionTokens ?? 0,
-                totalTokens: followUpChunk.usage.totalTokens ?? 0,
-              })
-              if (parsedUsage.success) {
-                usage = parsedUsage.data
-              }
-            }
-
-            const followUpDelta = followUpChunk.choices[0]?.delta
-            if (!followUpDelta?.content) continue
-            fullText += followUpDelta.content
-            const textEvent = emit({
-              type: STREAM_EVENTS.TEXT,
-              content: followUpDelta.content,
-            })
-            if (typeof textEvent.sequence === 'number') {
-              streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
-            }
-            yield textEvent
-          }
-        }
-      }
-
       const modelEntry = selectedModel ? registry.find((m) => m.id === selectedModel) : undefined
       const estimatedCost =
         modelEntry && usage
@@ -845,7 +682,7 @@ export const chatRouter = router({
         thinkingContent: thinkingContent || undefined,
         thinkingDurationMs,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-        searchQuery: effectiveMode === CHAT_MODES.SEARCH ? input.content : undefined,
+        searchQuery: requiresSearch ? input.content : undefined,
         searchResults: searchResults.length > 0 ? searchResults : undefined,
         searchImages: searchImages.length > 0 ? searchImages : undefined,
         a2uiMessages: a2uiLines.length > 0 ? a2uiLines : undefined,

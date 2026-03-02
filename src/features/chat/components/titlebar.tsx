@@ -11,7 +11,7 @@ import type { TitlebarPhase, ModelSelectionState } from '@/types/stream'
 import { ModeToggle } from './mode-toggle'
 import { RoutingPanel } from './routing-panel'
 import { useChatMode } from '../context/chat-mode-context'
-import { SearchModeSchema } from '@/schemas/search'
+import { ChatModeSchema } from '@/schemas/message'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,7 +45,7 @@ export function Titlebar({
 }: TitlebarProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const { mode, setMode } = useChatMode()
+  const { mode, setMode, setWebSearchEnabled } = useChatMode()
   const utils = trpc.useUtils()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showDone, setShowDone] = useState(false)
@@ -75,9 +75,12 @@ export function Titlebar({
   })
 
   useEffect(() => {
-    const parsed = SearchModeSchema.safeParse(conversation?.searchMode)
+    const parsed = ChatModeSchema.safeParse(conversation?.searchMode)
     if (parsed.success) setMode(parsed.data)
-  }, [conversation?.searchMode, setMode])
+    if (typeof conversation?.webSearchEnabled === 'boolean') {
+      setWebSearchEnabled(conversation.webSearchEnabled)
+    }
+  }, [conversation?.searchMode, conversation?.webSearchEnabled, setMode, setWebSearchEnabled])
 
   const updateMutation = trpc.conversation.update.useMutation({
     onSuccess: () => void utils.conversation.invalidate(),

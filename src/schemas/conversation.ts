@@ -1,19 +1,20 @@
 import { z } from 'zod'
-import { AttachmentSchema, MessageSchema } from './message'
-import { SearchModeSchema } from './search'
+import { AttachmentSchema, ChatModeSchema, MessageSchema } from './message'
 import { CHAT_MODES } from '@/config/constants'
 
 export const CreateConversationSchema = z.object({
   title: z.string().min(1).optional(),
-  model: z.string().optional(),
+  model: z.string().nullable().optional(),
   firstMessage: z.string().min(1).optional(),
 })
 
 export const UpdateConversationSchema = z.object({
   id: z.string().uuid(),
   title: z.string().min(1).optional(),
-  model: z.string().optional(),
+  model: z.string().nullable().optional(),
   isPinned: z.boolean().optional(),
+  searchMode: ChatModeSchema.optional(),
+  webSearchEnabled: z.boolean().optional(),
 })
 
 export const ConversationByIdSchema = z.object({
@@ -35,7 +36,8 @@ export const ConversationSummarySchema = z.object({
   title: z.string(),
   model: z.string().nullable(),
   isPinned: z.boolean(),
-  searchMode: SearchModeSchema.default(CHAT_MODES.CHAT),
+  searchMode: ChatModeSchema.default(CHAT_MODES.CHAT),
+  webSearchEnabled: z.boolean().default(false),
   updatedAt: z.date(),
   createdAt: z.date(),
 })

@@ -14,7 +14,6 @@ type ModeToggleProps = {
 
 const MODES: ReadonlyArray<{ value: ChatMode; label: string }> = [
   { value: CHAT_MODES.CHAT, label: 'Chat' },
-  { value: CHAT_MODES.SEARCH, label: 'Search' },
   { value: CHAT_MODES.GROUP, label: 'Group' },
 ]
 

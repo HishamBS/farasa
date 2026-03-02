@@ -159,7 +159,6 @@ export const TRPC_CODES = {
 
 export const CHAT_MODES = {
   CHAT: 'chat',
-  SEARCH: 'search',
   GROUP: 'group',
 } as const
 
@@ -418,6 +417,10 @@ export const UI_TEXT = {
   GROUP_MODEL_SEARCH_PLACEHOLDER: 'Search models...',
   GROUP_MODEL_REMOVE_ARIA_PREFIX: 'Remove',
   GROUP_JUDGE_SELECT_ARIA_PREFIX: 'Select judge',
+  WEB_SEARCH_ENABLE: 'Enable web search',
+  WEB_SEARCH_DISABLE: 'Disable web search',
+  WEB_SEARCH_ACTIVE: 'Web search on',
+  WEB_SEARCH_INACTIVE: 'Web search off',
   STT_TRANSCRIPTION_FAILED: 'Transcription failed. Please try again.',
   STT_PERMISSION_DENIED:
     'Microphone access was denied. Please allow microphone in your browser settings.',

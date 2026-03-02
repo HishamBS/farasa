@@ -1,8 +1,9 @@
 import { z } from 'zod'
 import { STREAM_EVENTS, STREAM_PHASES, CHAT_MODES } from '@/config/constants'
-import { SearchImageSchema, SearchModeSchema, SearchResultSchema } from './search'
+import { SearchImageSchema, SearchResultSchema } from './search'
+import { ModelCapabilitySchema, ModelSelectionSourceSchema } from './model'
 
-export const ChatModeSchema = z.enum([CHAT_MODES.CHAT, CHAT_MODES.SEARCH, CHAT_MODES.GROUP])
+export const ChatModeSchema = z.enum([CHAT_MODES.CHAT, CHAT_MODES.GROUP])
 
 export const MessageRoleSchema = z.enum(['user', 'assistant', 'system'])
 
@@ -51,6 +52,18 @@ export const StreamChunkSchema = z.discriminatedUnion('type', [
     type: z.literal(STREAM_EVENTS.MODEL_SELECTED),
     model: z.string(),
     reasoning: z.string(),
+    source: ModelSelectionSourceSchema,
+    category: ModelCapabilitySchema.optional(),
+    confidence: z.number().min(0).max(1).optional(),
+    factors: z
+      .array(
+        z.object({
+          key: z.string(),
+          label: z.string(),
+          value: z.string(),
+        }),
+      )
+      .optional(),
   }),
   StreamEventMetaSchema.extend({
     type: z.literal(STREAM_EVENTS.TOOL_START),
@@ -95,8 +108,9 @@ export const StreamChunkSchema = z.discriminatedUnion('type', [
 export const ChatInputSchema = z.object({
   conversationId: z.string().uuid().optional(),
   content: z.string().min(1),
-  mode: SearchModeSchema.default(CHAT_MODES.CHAT),
+  mode: ChatModeSchema.default(CHAT_MODES.CHAT),
   model: z.string().optional(),
+  webSearchEnabled: z.boolean().default(false),
   attachmentIds: z.array(z.string().uuid()).default([]),
 })
 
@@ -113,6 +127,19 @@ export const MessageMetadataSchema = z.object({
   failureReasonCode: z.string().optional(),
   modelUsed: z.string().optional(),
   routerReasoning: z.string().optional(),
+  routerSource: ModelSelectionSourceSchema.optional(),
+  routerCategory: ModelCapabilitySchema.optional(),
+  routerConfidence: z.number().min(0).max(1).optional(),
+  routerFactors: z
+    .array(
+      z.object({
+        key: z.string(),
+        label: z.string(),
+        value: z.string(),
+      }),
+    )
+    .optional(),
+  requiresSearch: z.boolean().optional(),
   thinkingContent: z.string().optional(),
   thinkingDurationMs: z.number().int().nonnegative().optional(),
   toolCalls: z.array(ToolCallSchema).optional(),

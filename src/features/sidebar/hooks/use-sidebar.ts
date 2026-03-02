@@ -14,13 +14,19 @@ export function useSidebar() {
   })
   const updatePrefsMutation = trpc.userPreferences.update.useMutation()
 
-  // Initialize from DB preferences
+  // Initialize from DB preferences; seed DB on first load when no record exists
   useEffect(() => {
     if (prefsInitializedRef.current) return
     if (!prefsQuery.data) return
     prefsInitializedRef.current = true
-    setIsOpenState(prefsQuery.data.sidebarExpanded)
-  }, [prefsQuery.data])
+    if ('userId' in prefsQuery.data) {
+      // Real DB row exists — apply persisted value
+      setIsOpenState(prefsQuery.data.sidebarExpanded)
+    } else {
+      // No DB row yet (server returned fallback defaults) — seed with current default
+      updatePrefsMutation.mutate({ sidebarExpanded: isOpen })
+    }
+  }, [prefsQuery.data, isOpen, updatePrefsMutation])
 
   const setIsOpen = useCallback(
     (value: boolean) => {

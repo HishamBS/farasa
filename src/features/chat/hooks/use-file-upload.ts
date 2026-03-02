@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { trpc } from '@/trpc/provider'
+import { getErrorMessage } from '@/lib/utils/errors'
 
 export type UploadState = {
   token: string
@@ -98,7 +99,7 @@ export function useFileUpload() {
         }))
         return { token, attachmentId }
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to upload file'
+        const message = getErrorMessage(error, 'Failed to upload file')
         upsertState(token, (previous) => ({
           ...(previous ?? {
             token,
@@ -188,7 +189,7 @@ export function useFileUpload() {
         }))
         return { token, attachmentId }
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Upload failed'
+        const message = getErrorMessage(error, 'Upload failed')
         upsertState(token, (previous) => ({
           ...(previous ?? {
             token,

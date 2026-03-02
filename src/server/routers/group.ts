@@ -17,6 +17,7 @@ import {
   AI_PARAMS,
 } from '@/config/constants'
 import type { Message } from '@openrouter/sdk/models'
+import { getErrorMessage } from '@/lib/utils/errors'
 
 type QueueItem =
   | { done: false; modelId: string; modelIndex: number; chunk: StreamChunk }
@@ -292,7 +293,7 @@ export const groupRouter = router({
         completedModels: input.models,
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'An unexpected error occurred'
+      const message = getErrorMessage(err, 'An unexpected error occurred')
       yield {
         type: GROUP_EVENTS.STREAM_EVENT,
         chunk: {

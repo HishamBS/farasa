@@ -19,7 +19,7 @@ import {
   AI_MARKUP,
   LIMITS,
 } from '@/config/constants'
-import { AppError } from '@/lib/utils/errors'
+import { AppError, getErrorMessage } from '@/lib/utils/errors'
 import type { StreamChunk } from '@/schemas/message'
 import type { ToolCall, Usage } from '@/schemas/message'
 import type { RuntimeConfig } from '@/schemas/runtime-config'
@@ -914,10 +914,7 @@ export const chatRouter = router({
               )
           }
         } catch (titleError) {
-          console.error(
-            '[title-gen] generateTitle failed:',
-            titleError instanceof Error ? titleError.message : titleError,
-          )
+          console.error('[title-gen] generateTitle failed:', getErrorMessage(titleError))
         }
       }
 

@@ -15,3 +15,8 @@ export const AppError = {
 } as const
 
 export type AppErrorCode = keyof typeof AppError
+
+export function getErrorMessage(err: unknown, fallback?: string): string {
+  if (err instanceof Error) return err.message
+  return fallback ?? String(err)
+}

@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { trpcClient } from '@/trpc/client'
-import { GROUP_EVENTS, STREAM_ACTIONS, STREAM_EVENTS, CHAT_STREAM_STATUS } from '@/config/constants'
+import {
+  GROUP_EVENTS,
+  GROUP_STREAM_PHASES,
+  STREAM_ACTIONS,
+  STREAM_EVENTS,
+  CHAT_STREAM_STATUS,
+} from '@/config/constants'
 import {
   streamStateReducer,
   initialStreamState,
@@ -39,7 +45,7 @@ export function useGroupStream({
 }: UseGroupStreamOptions): UseGroupStreamReturn {
   const [modelStates, setModelStates] = useState<Map<string, StreamState>>(new Map())
   const [modelOrder, setModelOrder] = useState<string[]>([])
-  const [phase, setPhase] = useState<GroupStreamPhase>('idle')
+  const [phase, setPhase] = useState<GroupStreamPhase>(GROUP_STREAM_PHASES.IDLE)
   const [groupId, setGroupId] = useState<string | undefined>(undefined)
   const [groupDone, setGroupDone] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
@@ -70,7 +76,7 @@ export function useGroupStream({
     if (!active) return
     active.unsubscribe()
     activeSubRef.current = null
-    setPhase('idle')
+    setPhase(GROUP_STREAM_PHASES.IDLE)
   }, [])
 
   useEffect(() => {
@@ -89,7 +95,7 @@ export function useGroupStream({
     }
     setModelStates(new Map(initialStates))
     setModelOrder(initialOrder)
-    setPhase('active')
+    setPhase(GROUP_STREAM_PHASES.ACTIVE)
     setGroupId(undefined)
     setGroupDone(false)
     setError(undefined)
@@ -150,13 +156,13 @@ export function useGroupStream({
           if (eventChunk.type === STREAM_EVENTS.CONVERSATION_CREATED) {
             onConversationCreatedRef.current?.(eventChunk.conversationId)
           } else if (eventChunk.type === STREAM_EVENTS.ERROR) {
-            setPhase('error')
+            setPhase(GROUP_STREAM_PHASES.ERROR)
             setError(eventChunk.message)
           }
         } else if (chunk.type === GROUP_EVENTS.DONE) {
           setGroupDone(true)
           setGroupId(chunk.groupId)
-          setPhase('done')
+          setPhase(GROUP_STREAM_PHASES.DONE)
           setModelStates((prev) => {
             const next = new Map(prev)
             for (const [modelId, state] of next) {
@@ -174,7 +180,7 @@ export function useGroupStream({
       onError(err: Error) {
         const active = activeSubRef.current
         if (!active || active.sessionId !== sessionId) return
-        setPhase('error')
+        setPhase(GROUP_STREAM_PHASES.ERROR)
         setError(err.message || 'Connection error.')
         activeSubRef.current = null
       },

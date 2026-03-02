@@ -119,7 +119,7 @@ export const STREAM_ACTIONS = {
   DONE: 'DONE',
   RESET: 'RESET',
   SAVE_INPUT: 'SAVE_INPUT',
-  SET_CONVERSATION_ID: 'set_conversation_id',
+  SET_CONVERSATION_ID: 'SET_CONVERSATION_ID',
 } as const
 
 export const MESSAGE_ROLES = {

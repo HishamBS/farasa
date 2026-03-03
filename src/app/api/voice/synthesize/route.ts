@@ -53,7 +53,7 @@ async function collectAudioFromSSE(response: Response): Promise<Buffer> {
   if (!reader) throw new Error('No response body')
 
   const decoder = new TextDecoder()
-  const base64Chunks: string[] = []
+  const pcmChunks: Buffer[] = []
   let buffer = ''
 
   try {
@@ -75,7 +75,7 @@ async function collectAudioFromSSE(response: Response): Promise<Buffer> {
           const parsed = JSON.parse(payload) as SSEAudioDelta
           const audioData = parsed.choices?.[0]?.delta?.audio?.data
           if (typeof audioData === 'string' && audioData.length > 0) {
-            base64Chunks.push(audioData)
+            pcmChunks.push(Buffer.from(audioData, 'base64'))
           }
         } catch {
           // Skip malformed SSE payloads
@@ -86,11 +86,11 @@ async function collectAudioFromSSE(response: Response): Promise<Buffer> {
     reader.releaseLock()
   }
 
-  if (base64Chunks.length === 0) {
+  if (pcmChunks.length === 0) {
     throw new Error('No audio data received from model')
   }
 
-  const pcmBuffer = Buffer.from(base64Chunks.join(''), 'base64')
+  const pcmBuffer = Buffer.concat(pcmChunks)
   const wavHeader = createWavHeader(pcmBuffer.byteLength, VOICE.TTS_SAMPLE_RATE)
   return Buffer.concat([wavHeader, pcmBuffer])
 }

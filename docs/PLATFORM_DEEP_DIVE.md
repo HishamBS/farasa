@@ -472,14 +472,18 @@ Every animation in the app uses these constants — no magic numbers.
 
 ```typescript
 const ChatInputSchema = z.object({
-  conversationId: z.string().uuid().nullable(),
-  content: z.string().min(1).max(LIMITS.MESSAGE_MAX_LENGTH),
-  mode: z.enum([CHAT_MODES.CHAT, CHAT_MODES.SEARCH]),
+  conversationId: z.string().uuid().optional(),
+  content: z.string().min(1),
+  mode: ChatModeSchema.default(CHAT_MODES.CHAT),
+  model: z.string().nullable().optional(),
+  clientRequestId: z.string().uuid().optional(),
+  webSearchEnabled: z.boolean().default(false),
+  attachmentIds: z.array(z.string().uuid()).default([]),
 })
 type ChatInput = z.infer<typeof ChatInputSchema> // derived, not handwritten
 ```
 
-This is the SSOT principle (R01) in action: the schema is the truth. The type follows from it. They can never drift.
+Seven fields, each with purpose: `mode` is `'chat' | 'team'` (not `'chat' | 'search'` — search is a boolean flag, not a mode). `model` carries an explicit model selection (nullable when using auto-router). `clientRequestId` enables client-side idempotency. `webSearchEnabled` toggles the dual search architecture. `attachmentIds` references pre-uploaded GCS files. This is the SSOT principle (R01) in action: the schema is the truth. The type follows from it. They can never drift.
 
 ---
 
@@ -494,17 +498,9 @@ export default auth((req) => {
 
   const isProtected = pathname.startsWith(ROUTES.CHAT)
   const isAuthPage = pathname.startsWith(ROUTES.LOGIN)
-  const isTrpcApi = pathname.startsWith(ROUTES.API.TRPC)
 
   if (isProtected && !isLoggedIn) {
     return Response.redirect(new URL(ROUTES.LOGIN, req.nextUrl))
-  }
-
-  if (isTrpcApi && !isLoggedIn) {
-    return new Response(JSON.stringify({ error: { message: AppError.UNAUTHORIZED } }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
   }
 
   if (isAuthPage && isLoggedIn) {
@@ -521,13 +517,13 @@ export const config = {
 
 **Why middleware rather than per-route checks:** Centralized. Every route is protected by default by proximity — forget to add a check in one route handler and you've exposed it. Middleware applies before any route handler runs, including before any database query.
 
-**Three route categories and their different responses:**
+**Two route categories and their different responses:**
 
 1. **Protected routes (`/chat/*`):** User is not logged in → `Response.redirect(LOGIN_URL)`. The browser follows the redirect to the login page. This is a standard UX pattern.
 
-2. **tRPC API routes (`/api/trpc/*`):** User is not logged in → `401 JSON`. Why not redirect? Because tRPC calls are XHR/fetch requests made by JavaScript — they don't follow redirects in a browser-visible way. The tRPC client needs a machine-readable response. A 401 JSON error is that response. The client can then navigate to login.
+2. **Auth pages (`/login/*`):** User is already logged in → redirect to `/chat`. No point showing the login page to someone who's authenticated.
 
-3. **Auth pages (`/login/*`):** User is already logged in → redirect to `/chat`. No point showing the login page to someone who's authenticated.
+**Why tRPC is NOT in middleware:** tRPC API routes are protected at the procedure layer, not at the middleware layer. `protectedProcedure` (in `src/server/trpc.ts`) checks the session and resolves `userId` — returning a typed `UNAUTHORIZED` tRPC error if the session is missing. This is intentional: tRPC calls are programmatic (fetch/XHR), not browser navigations. A redirect response would be useless to a tRPC client — it needs a machine-readable error. The `protectedProcedure` middleware provides exactly that. This two-layer architecture (Next.js middleware for page routes, tRPC middleware for API routes) is the standard pattern for Next.js + tRPC apps — each layer handles auth in the way appropriate for its transport.
 
 **The matcher pattern:** `'/((?!api/auth|_next/static|_next/image|favicon.ico).*)'`
 
@@ -984,26 +980,31 @@ For email verification flows (not used with Google OAuth, but required by Drizzl
 export const conversations = pgTable(
   'conversations',
   {
-    id: text('id')
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
+    id: uuid('id').primaryKey().defaultRandom(),
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    title: text('title').notNull().default(NEW_CONVERSATION_TITLE),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    title: text('title').notNull().default(NEW_CHAT_TITLE),
+    model: text('model'),
+    isPinned: boolean('is_pinned').notNull().default(false),
+    mode: text('mode').notNull().default(CHAT_MODES.CHAT),
+    webSearchEnabled: boolean('web_search_enabled').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   },
   (table) => ({
-    userIdIdx: index('conversations_user_id_idx').on(table.userId),
-    updatedAtIdx: index('conversations_updated_at_idx').on(table.updatedAt),
+    convUserUpdatedIdx: index('conv_user_updated_idx').on(table.userId, table.updatedAt),
   }),
 )
 ```
 
+- `id` uses `uuid` with `defaultRandom()` (not `text` with `crypto.randomUUID()`) — Postgres-native UUID generation.
 - `userId` foreign key with cascade delete: delete user → all their conversations are deleted.
-- `userIdIdx`: allows `WHERE userId = ?` queries (list user's conversations) to use the index rather than full table scan.
-- `updatedAtIdx`: the sidebar shows conversations sorted by `updatedAt DESC`. This index makes that sort efficient.
+- `model`: sticky per-conversation model selection. When a user picks a model, it persists for that conversation.
+- `isPinned`: pin conversations to top of sidebar.
+- `mode`: `'chat' | 'team'` — determines single-model vs multi-model behavior.
+- `webSearchEnabled`: persisted toggle state so returning to a conversation preserves the search preference.
+- Single composite index `convUserUpdatedIdx` on `(userId, updatedAt)` covers both the `WHERE userId = ?` filter and the `ORDER BY updatedAt DESC` sort in one B-tree scan — replaces two separate indexes.
 
 **`messages`**
 
@@ -1011,22 +1012,21 @@ export const conversations = pgTable(
 export const messages = pgTable(
   'messages',
   {
-    id: text('id')
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
-    conversationId: text('conversation_id')
+    id: uuid('id').primaryKey().defaultRandom(),
+    conversationId: uuid('conversation_id')
       .notNull()
       .references(() => conversations.id, { onDelete: 'cascade' }),
     role: text('role', { enum: ['user', 'assistant', 'system'] }).notNull(),
     content: text('content').notNull(),
-    clientRequestId: text('client_request_id'),
     metadata: jsonb('metadata').$type<MessageMetadata>(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    clientRequestId: text('client_request_id'),
+    streamSequenceMax: integer('stream_sequence_max'),
+    tokenCount: integer('token_count'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   },
   (table) => ({
-    conversationIdIdx: index('messages_conversation_id_idx').on(table.conversationId),
-    clientRequestIdIdx: uniqueIndex('messages_client_request_id_idx').on(
+    msgConvCreatedIdx: index('msg_conv_created_idx').on(table.conversationId, table.createdAt),
+    msgConvRequestUnique: uniqueIndex('msg_conv_request_unique').on(
       table.conversationId,
       table.role,
       table.clientRequestId,
@@ -1035,24 +1035,45 @@ export const messages = pgTable(
 )
 ```
 
-The `uniqueIndex` on `(conversationId, role, clientRequestId)` is the idempotency key. `clientRequestId` is generated by the client before sending. If the same request is retried (network error, server restart), the second insert hits the unique constraint and fails — or an upsert updates the existing row. This prevents duplicate messages.
+- `id` and `conversationId` use `uuid` type (not `text`) — Postgres-native UUID with `defaultRandom()`.
+- `streamSequenceMax`: tracks the last emitted stream sequence number for stream resume after reconnection.
+- `tokenCount`: cached token count for usage analytics, avoiding recount on every read.
+- No `updatedAt` — messages are immutable once persisted; only the conversation's `updatedAt` changes.
+- `msgConvCreatedIdx` composite index on `(conversationId, createdAt)` for chronological message history queries.
+- `msgConvRequestUnique` unique index on `(conversationId, role, clientRequestId)` is the idempotency key. If the same request is retried (network error, server restart), the second insert hits the unique constraint — preventing duplicate messages.
 
-`metadata` is JSONB with the `MessageMetadata` TypeScript type:
+`metadata` is JSONB with the `MessageMetadata` TypeScript type (derived from `MessageMetadataSchema` via `z.infer`):
 
 ```typescript
-type MessageMetadata = {
-  model?: string
-  tokens?: { prompt: number; completion: number; total: number }
-  cost?: number
-  duration?: number
-  thinking?: string
-  toolCalls?: ToolCall[]
-  searchResults?: SearchResult[]
-  attachmentIds?: string[]
-}
+const MessageMetadataSchema = z.object({
+  streamRequestId: z.string().uuid().optional(),
+  recoveryAttemptCount: z.number().int().nonnegative().optional(),
+  failureReasonCode: z.string().optional(),
+  modelUsed: z.string().optional(),
+  routerReasoning: z.string().optional(),
+  routerSource: ModelSelectionSourceSchema.optional(),
+  routerCategory: ModelCapabilitySchema.optional(),
+  routerResponseFormat: ModelResponseFormatSchema.optional(),
+  routerConfidence: z.number().min(0).max(1).optional(),
+  routerFactors: z
+    .array(z.object({ key: z.string(), label: z.string(), value: z.string() }))
+    .optional(),
+  requiresSearch: z.boolean().optional(),
+  thinkingContent: z.string().optional(),
+  thinkingDurationMs: z.number().int().nonnegative().optional(),
+  toolCalls: z.array(ToolCallSchema).optional(),
+  a2uiMessages: z.array(z.unknown()).optional(),
+  searchQuery: z.string().optional(),
+  searchResults: z.array(SearchResultSchema).optional(),
+  searchImages: z.array(SearchImageSchema).optional(),
+  usage: UsageSchema.optional(),
+  teamId: z.string().uuid().optional(),
+  isTeamSynthesis: z.boolean().optional(),
+  userMessageId: z.string().uuid().optional(),
+})
 ```
 
-Every field about how the message was generated is stored here, not as separate columns. This avoids premature schema normalization when the metadata shape is still evolving.
+21 fields capturing the full lifecycle of a message generation — from routing decision (`routerSource`, `routerReasoning`, `routerConfidence`, `routerFactors`) through thinking (`thinkingContent`, `thinkingDurationMs`), tool usage (`searchQuery`, `searchResults`, `searchImages`, `toolCalls`), A2UI rendering (`a2uiMessages`), to usage stats (`usage`). The `router*` fields store the complete auto-router decision for replay in the `RoutingDecisionBlock` component. `teamId` and `isTeamSynthesis` link team-mode messages to their team session. `recoveryAttemptCount` and `failureReasonCode` track stream retry diagnostics. All fields are optional — absent on messages that don't use a given feature. This is stored as JSONB rather than separate columns to avoid premature schema normalization while the metadata shape evolves.
 
 **`runtimeConfigs`** — covered in §3.2.
 
@@ -1390,22 +1411,25 @@ const combinedSignal = buildCombinedAbortSignal([
 **Idempotency:**
 
 ```typescript
-const { conversationId } = input
-// streamRequestId is server-generated above — NOT from client input
-
-let conversation = await db.query.conversations.findFirst({
-  where: eq(conversations.id, conversationId ?? ''),
-})
-
-if (!conversation) {
-  conversation = await createConversation(db, userId, NEW_CHAT_TITLE)
-  // NOTE: emit() is called here but the result is NOT yielded — this is a bug in the current code.
-  // The CONVERSATION_CREATED event is constructed but never sent to the client.
-  emit({ type: STREAM_EVENTS.CONVERSATION_CREATED, conversationId: conversation.id })
+if (!conversationId) {
+  const [created] = await ctx.db
+    .insert(conversations)
+    .values({
+      userId: ctx.userId,
+      model: input.model,
+      mode: input.mode,
+      webSearchEnabled: input.webSearchEnabled,
+    })
+    .returning({ id: conversations.id })
+  if (!created) {
+    throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
+  }
+  conversationId = created.id
+  yield emit({ type: STREAM_EVENTS.CONVERSATION_CREATED, conversationId: created.id })
 }
 ```
 
-If `conversationId` is null (new chat), create a conversation with the default title `NEW_CHAT_TITLE`. The `CONVERSATION_CREATED` event is built via `emit()` but — due to a current bug — is not `yield`-ed, so the client actually receives it via the `USER_MESSAGE_SAVED` event and the subsequent navigation. The client navigates to the new conversation URL upon receiving `CONVERSATION_CREATED`.
+If `conversationId` is absent (new chat), a conversation is created with the user's model preference, mode, and search toggle persisted. The `CONVERSATION_CREATED` event is `yield`-ed to the client, which uses it to navigate to the new conversation URL (replacing the `/chat` route with `/chat/{conversationId}`).
 
 **`streamRequestId` as idempotency key:** The server-generated `streamRequestId` is stored as `clientRequestId` in the database (the field name refers to "request" not "client-supplied"). It becomes the idempotency key for message DB writes. If the same stream is retried (e.g., brief network blip), the second attempt finds the existing message by `clientRequestId` and updates it rather than creating a duplicate.
 
@@ -1505,65 +1529,82 @@ Two attachment paths exist: (1) **GCS attachments** uploaded via the presigned-U
 
 OpenRouter's API accepts an array of content blocks for multimodal models. Vision-capable models (GPT-4V, Claude 3, Gemini) process `image_url` blocks and "see" the image. Non-vision models only see the text blocks; the image reference text tells them a file was attached.
 
-### 6.6 Search Mode (Pre-Search)
+### 6.6 Web Search (Pre-Search Phase)
 
 ```typescript
+const searchToolName = runtimeConfig.search.toolName
+const toolCalls: ToolCall[] = []
 let searchContext = ''
+let searchResults: SearchResult[] = []
+let searchImages: SearchImage[] = []
 
-if (input.mode === CHAT_MODES.SEARCH) {
-  yield emit({ type: STREAM_EVENTS.STATUS, phase: STREAM_PHASES.SEARCHING })
+if (webSearchEnabled) {
+  yield emit({
+    type: STREAM_EVENTS.STATUS,
+    phase: STREAM_PHASES.SEARCHING,
+    message: runtimeConfig.chat.statusMessages.searching,
+  })
   yield emit({
     type: STREAM_EVENTS.TOOL_START,
-    toolName: TOOL_NAMES.WEB_SEARCH,
+    toolName: searchToolName,
     input: { query: input.content },
   })
-  const results = await tavilySearch(input.content, runtimeConfig)
-  const resultsText = results.map((r) => `[${r.title}](${r.url})\n${r.snippet}`).join('\n\n')
+
+  const startedAt = Date.now()
+  const enrichment = await executeSearchEnrichment(input.content, runtimeConfig)
+  searchResults = enrichment.results
+  searchImages = enrichment.images
+
   yield emit({
     type: STREAM_EVENTS.TOOL_RESULT,
-    toolName: TOOL_NAMES.WEB_SEARCH,
-    result: resultsText,
+    toolName: searchToolName,
+    result: {
+      query: enrichment.query,
+      results: enrichment.results,
+      images: enrichment.images,
+    },
   })
-  searchContext = buildSearchContext(results)
+  toolCalls.push({
+    name: searchToolName,
+    input: { query: input.content },
+    result: {
+      query: enrichment.query,
+      results: enrichment.results,
+      images: enrichment.images,
+    },
+    durationMs: Date.now() - startedAt,
+  })
+  searchContext = enrichment.context
 }
 ```
 
-**SEARCH mode also emits TOOL_START/TOOL_RESULT:** Even though SEARCH mode does the search before the LLM call (not via LLM tool-calling), it still emits `TOOL_START` and `TOOL_RESULT` events so the frontend's `ToolExecution` component renders the search activity in the UI. The tool result payload for this pre-search is plain text (`[title](url)\nsnippet`) formatted for readability — it is **not** the XML-escaped `buildSearchContext` format (that format is used only for the system prompt injection).
+**`webSearchEnabled` boolean, not a mode:** Search is controlled by a `webSearchEnabled: boolean` flag (not `input.mode === CHAT_MODES.SEARCH`). Mode is `'chat' | 'team'` only. This allows search to work in both chat and team modes.
 
-**`buildSearchContext`:**
+**`executeSearchEnrichment()`** (`src/server/services/search-enrichment-service.ts`): The actual search function — not `tavilySearch()` directly. Returns a structured `SearchEnrichment` object with `{ query, results, images, context }`. Internally calls `tavilySearch()` with runtime-configurable parameters (`maxResults`, `includeImages`, `searchDepth`), then builds the XML search context.
+
+**Pre-search emits TOOL_START/TOOL_RESULT:** Even though pre-search runs before the LLM call (not via LLM tool-calling), it emits tool events so the frontend renders search activity in the UI. The tool result payload contains structured data (query, results array, images array) — not plain text.
+
+**`buildSearchContext`** (`src/server/services/search-enrichment-service.ts`):
 
 ```typescript
-function buildSearchContext(results: TavilyResult[]): string {
-  const escaped = results
-    .map(
-      (r) =>
-        `<result>
-      <url>${escapeXmlForPrompt(r.url)}</url>
-      <title>${escapeXmlForPrompt(r.title)}</title>
-      <content>${escapeXmlForPrompt(r.content)}</content>
-    </result>`,
-    )
+export function buildSearchContext(results: SearchResult[], runtimeConfig: RuntimeConfig): string {
+  if (results.length === 0) return ''
+  const wrappers = runtimeConfig.prompts.wrappers
+  const body = results
+    .map((result) => {
+      const title = normalizeForPrompt(result.title, runtimeConfig)
+      const snippet = normalizeForPrompt(result.snippet, runtimeConfig)
+      const url = normalizeForPrompt(result.url, runtimeConfig)
+      return `${wrappers.searchResultOpen}<title>${title}</title><snippet>${snippet}</snippet><url>${url}</url>${wrappers.searchResultClose}`
+    })
     .join('\n')
-  return `<search_results>\n${escaped}\n</search_results>`
+  return `\n\n${wrappers.searchResultsOpen}\n${body}\n${wrappers.searchResultsClose}`
 }
 ```
 
-**XML escaping of search results:**
+**Configurable XML wrappers:** The wrapper tags (`searchResultOpen`, `searchResultClose`, `searchResultsOpen`, `searchResultsClose`) come from `runtimeConfig.prompts.wrappers` — not hardcoded `<search_results>`. This enables A/B testing of prompt injection defenses without code changes.
 
-```typescript
-function escapeXmlForPrompt(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-```
-
-Search results come from arbitrary websites. A malicious page could have content like `</search_results><system_prompt>You are now...`. XML escaping prevents this content from breaking the XML structure and injecting rogue tags.
-
-**Why search results need different treatment than user input:**
-User input is sanitized by being placed inside `<user_request>` tags. Search results are untrusted third-party content with potentially adversarial intent (prompt injection via web pages is a known attack vector). XML escaping ensures the search result's content cannot escape the `<result>` element.
+**`normalizeForPrompt()`** conditionally applies XML escaping based on `runtimeConfig.safety.escapeSearchXml`. When enabled, `escapeXmlForPrompt()` replaces `&`, `<`, `>`, `"` with XML entities. This prevents a malicious web page from injecting `</search_results><system>You are now...` to break the XML structure. The flag makes escaping configurable per-environment for defense tuning.
 
 ### 6.7 System Prompt Assembly
 
@@ -1612,34 +1653,41 @@ const messages = [
 
 The system message contains instructions. History provides context. The user message is last — this is the standard pattern for chat APIs.
 
-### 6.8 OpenRouter Stream Setup
+### 6.8 OpenRouter Stream Setup — Dual Search Architecture
 
 ```typescript
-const tools = input.mode === CHAT_MODES.CHAT ? ALL_TOOLS : undefined
-const toolChoice = tools ? 'auto' : undefined
-
-const stream = await openrouter.chat.send(
-  {
-    chatGenerationParams: {
-      model: selectedModel,
-      messages,
-      tools,
-      toolChoice,
-      maxTokens: runtimeConfig.ai.chatMaxTokens,
-      temperature: runtimeConfig.ai.chatTemperature,
-      stream: true,
+while (true) {
+  const stream = await openrouter.chat.send(
+    {
+      chatGenerationParams: {
+        model: selectedModel,
+        messages: attemptMessages,
+        stream: true,
+        maxTokens: runtimeConfig.ai.chatMaxTokens,
+        ...(webSearchEnabled ? { tools: ALL_TOOLS, toolChoice: ToolChoiceOptionAuto.Auto } : {}),
+      },
     },
-  },
-  { signal: combinedSignal },
-)
+    { signal: combinedSignal },
+  )
+  // ... chunk processing loop ...
+  // If tool calls detected, execute them, append results to attemptMessages, continue loop
+  // Break when: no tool calls in response, or toolRoundCount >= SEARCH_MAX_TOOL_CALL_ROUNDS
+}
 ```
 
-**Tools only in CHAT mode (not SEARCH):**
-In SEARCH mode, the system already ran a search and injected results. Adding the `web_search` tool too would be redundant — the model would have both pre-injected search results AND the ability to call search again.
+**Dual search strategy when `webSearchEnabled` is true:**
 
-In CHAT mode, the model decides whether to search. Tool calling is appropriate when the model's judgment should determine if web context is needed.
+1. **Pre-search phase** (§6.6, before LLM call): `executeSearchEnrichment()` fetches Tavily results, builds XML context, injects it into the system prompt. The model starts with immediate search context about the user's original query.
 
-**`toolChoice: 'auto'`** — let the model decide whether to call a tool. Alternatives: `required` (must call a tool, used for extraction tasks), `none` (never call tools), or a specific tool name. `auto` is correct here because not every question needs web search.
+2. **Tool-based search** (during LLM call): `ALL_TOOLS` = `[WEB_SEARCH_TOOL]` is passed with `toolChoice: Auto`. The outer `while (true)` loop supports up to `LIMITS.SEARCH_MAX_TOOL_CALL_ROUNDS` (12) rounds. The model can call `web_search` with refined queries. Results are merged across rounds via `mergeSearchResults()` / `mergeSearchImages()`.
+
+This is **not** redundant — it's complementary. Pre-search provides low-latency context about the user's original query. Tool calling lets the model explore follow-up questions, verify claims, or search with more specific queries informed by the initial results.
+
+**When `webSearchEnabled` is false:** No pre-search, no tools. The model generates pure text with no external information access. The empty spread `{}` means no `tools` or `toolChoice` properties are sent to OpenRouter.
+
+**The `while (true)` tool loop** (lines 634–870 of `chat.ts`): Each round processes the stream, collects tool call deltas into a `Map`, executes each `web_search` tool call via `executeSearchEnrichment()`, emits `TOOL_START`/`TOOL_RESULT` events, merges results, appends tool results to `attemptMessages`, and starts a new stream request. Breaks when: no tool calls in the response, or `toolRoundCount >= SEARCH_MAX_TOOL_CALL_ROUNDS`.
+
+**`toolChoice: ToolChoiceOptionAuto.Auto`** — let the model decide whether to call a tool. Alternatives: `required` (must call a tool), `none` (never call tools), or a specific tool name. `Auto` is correct here because not every question needs additional web search beyond the pre-search context.
 
 ### 6.9 Chunk Processing Loop
 
@@ -1767,118 +1815,98 @@ if (thinkingBuffer) {
 
 `stream.isComplete` from the OpenRouter SDK indicates whether the stream ended with a proper `finish_reason: stop` (natural completion) vs. being interrupted by the abort signal. Used for analytics and determining whether to attempt message persistence.
 
-### 6.11 Tool Execution — Two-Turn Pattern
+### 6.11 Tool Execution — Multi-Round Loop
 
-When the model decides to call `web_search`:
+When the model decides to call `web_search` during a stream round, tool call deltas are accumulated in a `Map`:
 
 ```typescript
-if (Object.keys(toolCallBuffer).length > 0) {
-  for (const [callId, toolCall] of Object.entries(toolCallBuffer)) {
-    emitter.emit(STREAM_EVENTS.TOOL_START, {
-      callId,
-      name: toolCall.function.name,
-      input: toolCall.function.arguments,
-    })
-
-    let toolResult: string
-    if (toolCall.function.name === TOOL_NAMES.WEB_SEARCH) {
-      const query = JSON.parse(toolCall.function.arguments).query
-      const results = await tavilySearch(query, runtimeConfig)
-      // Plain text format for the tool result message — NOT the XML buildSearchContext format
-      toolResult = results
-        .map(r => `[${r.title}](${r.url})\n${r.snippet}`)
-        .join('\n\n')
-    }
-
-    emitter.emit(STREAM_EVENTS.TOOL_RESULT, {
-      callId,
-      result: toolResult,
-    })
+// Inside the chunk processing loop
+if (delta.toolCalls && delta.toolCalls.length > 0) {
+  for (const toolCallDelta of delta.toolCalls) {
+    const idx = toolCallDelta.index
+    const existing = toolCallDeltas.get(idx) ?? { argsJson: '' }
+    if (toolCallDelta.id) existing.id = toolCallDelta.id
+    if (toolCallDelta.function?.name) existing.name = toolCallDelta.function.name
+    if (toolCallDelta.function?.arguments) existing.argsJson += toolCallDelta.function.arguments
+    toolCallDeltas.set(idx, existing)
   }
-
-  // Follow-up generation with tool results
-  const followUpMessages = [
-    ...messages,
-    {
-      role: 'assistant',
-      content: textBuffer || null,
-      tool_calls: Object.entries(toolCallBuffer).map(([id, tc]) => ({
-        id,
-        type: 'function',
-        function: tc.function,
-      })),
-    },
-    ...toolResults.map(r => ({
-      role: 'tool',
-      tool_call_id: r.callId,
-      content: r.result,
-    })),
-  ]
-
-  // Second OpenRouter call — no tools to prevent infinite loops
-  const followUpStream = await openrouter.chat.send(
-    {
-      chatGenerationParams: {
-        model: selectedModel,
-        messages: followUpMessages,
-        // NO tools here
-        maxTokens: runtimeConfig.ai.chatMaxTokens,
-        stream: true,
-      },
-    },
-    { signal: combinedSignal },
-  )
-
-  // Process follow-up stream (same chunk processing loop)
-  for await (const chunk of followUpStream) { ... }
 }
 ```
 
-**Why follow-up generation is needed:**
-The OpenAI/OpenRouter tool calling API is designed as a multi-turn protocol:
+After a stream round completes, if tool calls were detected:
 
-1. Client sends messages → Model responds with a `tool_calls` block (not text).
-2. Client executes the tools, adds the tool results to the message history.
-3. Client sends the augmented history → Model responds with the final text answer.
+```typescript
+if (toolCallDeltas.size > 0 && toolRoundCount < LIMITS.SEARCH_MAX_TOOL_CALL_ROUNDS) {
+  toolRoundCount++
 
-Step 3 is the "follow-up generation." Without it, the user would see no text response — just a tool call that was never followed up.
+  for (const [, tc] of toolCallDeltas) {
+    const parsedArgs = JSON.parse(tc.argsJson)
+    yield emit({ type: STREAM_EVENTS.TOOL_START, toolName: tc.name, input: parsedArgs })
 
-**Tool result format — plain text, not XML:** The tool result injected into the follow-up message array uses a plain markdown-style format (`[title](url)\nsnippet`) rather than the XML `buildSearchContext` format used when injecting pre-search results into the system prompt. The XML format is used for system prompt injection (where structure helps demarcate boundaries); plain text is used for the tool result message (where the model reads it as conversational context).
+    const enrichment = await executeSearchEnrichment(parsedArgs.query, runtimeConfig)
+    searchResults = mergeSearchResults(searchResults, enrichment.results)
+    searchImages = mergeSearchImages(searchImages, enrichment.images)
 
-**No tools in the follow-up:**
-If tools were included in the follow-up, the model could call `web_search` again, which would need another follow-up, potentially looping indefinitely. Removing tools from the follow-up request forces the model to produce text.
+    yield emit({
+      type: STREAM_EVENTS.TOOL_RESULT,
+      toolName: tc.name,
+      result: { query: enrichment.query, results: enrichment.results, images: enrichment.images },
+    })
+  }
 
-**The complete message array for follow-up:**
+  // Append assistant + tool messages to attemptMessages, then continue the while(true) loop
+}
+```
+
+**Multi-round, not two-turn:** The implementation uses a `while (true)` loop supporting up to `SEARCH_MAX_TOOL_CALL_ROUNDS` (12) rounds. Each round: stream → detect tool calls → execute tools → append results to `attemptMessages` → new stream request with tools still enabled. The model can search repeatedly, refining queries based on previous results. The loop breaks when the model produces text without tool calls, or when the round limit is reached.
+
+**`mergeSearchResults()` / `mergeSearchImages()`:** Results from all rounds are merged (deduplicated by URL) into the running `searchResults` and `searchImages` arrays. These accumulate across the entire stream session and are persisted in `MessageMetadata` at the end.
+
+**Tool result format — structured data, not plain text:** Tool results are emitted as structured objects (`{ query, results, images }`) so the frontend can render them with full fidelity. The tool result messages appended to `attemptMessages` use a stringified representation for the model's consumption.
+
+**The message array grows each round:**
 
 ```
-[SYSTEM, ...HISTORY, USER, ASSISTANT(tool_calls=[...]), TOOL(result=...)]
+Round 1: [SYSTEM, ...HISTORY, USER] → model calls web_search
+Round 2: [..., ASSISTANT(tool_calls), TOOL(result), ...] → model calls web_search again
+Round N: [..., ASSISTANT(tool_calls), TOOL(result)] → model produces final text
 ```
 
-The assistant message contains the `tool_calls` array — telling the model "here's what you decided to do." The tool messages contain the results — "here's what happened when we did it." The model then produces a natural language synthesis.
+Each round adds an assistant message (with tool calls) and tool result messages. The model sees the full history of its own search decisions and results, enabling increasingly refined queries.
 
 ### 6.12 Message Persistence
 
 ```typescript
-const cost = lastUsage
-  ? (lastUsage.prompt_tokens * selectedModelConfig.pricing.promptPerMillion) / 1_000_000 +
-    (lastUsage.completion_tokens * selectedModelConfig.pricing.completionPerMillion) / 1_000_000
-  : undefined
+const modelEntry = selectedModel ? registry.find((m) => m.id === selectedModel) : undefined
+const estimatedCost =
+  modelEntry && usage
+    ? (usage.promptTokens * modelEntry.pricing.promptPerMillion +
+        usage.completionTokens * modelEntry.pricing.completionPerMillion) /
+      1_000_000
+    : undefined
+const usageWithCost = usage ? { ...usage, cost: estimatedCost } : undefined
 
-const messageMetadata: MessageMetadata = {
-  model: selectedModel,
-  tokens: lastUsage
-    ? {
-        prompt: lastUsage.prompt_tokens,
-        completion: lastUsage.completion_tokens,
-        total: lastUsage.total_tokens,
-      }
-    : undefined,
-  cost,
-  duration,
-  thinking: thinkingBuffer || undefined,
-  toolCalls: resolvedToolCalls.length > 0 ? resolvedToolCalls : undefined,
-  attachmentIds: input.attachmentIds?.length ? input.attachmentIds : undefined,
-}
+const metadata = MessageMetadataSchema.parse({
+  streamRequestId,
+  recoveryAttemptCount: a2uiContractRetryCount > 0 ? a2uiContractRetryCount : undefined,
+  modelUsed: selectedModel,
+  routerReasoning,
+  routerSource,
+  routerCategory,
+  routerResponseFormat,
+  routerConfidence,
+  routerFactors,
+  requiresSearch: webSearchEnabled,
+  thinkingContent: thinkingContent || undefined,
+  thinkingDurationMs,
+  toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+  searchQuery: webSearchEnabled ? input.content : undefined,
+  searchResults: searchResults.length > 0 ? searchResults : undefined,
+  searchImages: searchImages.length > 0 ? searchImages : undefined,
+  a2uiMessages: a2uiLines.length > 0 ? a2uiLines : undefined,
+  usage: usageWithCost,
+  userMessageId: userMessageId ?? undefined,
+})
 
 // Idempotent check-then-insert/update
 const [existingMsg] = await ctx.db
@@ -2467,13 +2495,12 @@ The system prompt includes capability-first selection rules that guide the route
 
 **`ROUTER_CAPABILITY_PATTERNS`** in `src/config/constants.ts` holds all pattern arrays (R01 SSOT — no magic strings in registry or prompt code).
 
-**`RoutingPanel` component** (`src/features/chat/components/routing-panel.tsx`): Three animated states driven by `streamPhase: TitlebarPhase` and `modelSelection: ModelSelectionState | null` passed from `StreamPhaseContext`:
+**`RoutingDecisionBlock` component** (`src/features/stream-phases/components/routing-decision-block.tsx`): A collapsible routing decision display rendered inline within assistant messages. Shows:
 
-1. `streamPhase !== 'idle' && modelSelection === null` → animated "Selecting model…" pulse pill
-2. `modelSelection !== null && !hasText && streamPhase !== 'done'` → expanded card: provider dot, model name, category badge, capability pills, context size, router reasoning
-3. `modelSelection !== null && (hasText || streamPhase === 'done')` → collapsed `• {modelName}` pill
+1. **Collapsed state** — a pill showing the model name and confidence percentage (e.g., "Claude 3.5 Sonnet · 92%").
+2. **Expanded state** (on click) — reveals routing factors as colored badges (categorized by tools, sources, complexity, with theme-aware colors from `--routing-*` design tokens), the router's reasoning text, and the selection source (explicit, conversation, user, or auto-router).
 
-`StreamPhaseContext` carries `modelSelection` and `hasText` pushed by `ChatContainer` via `useEffect`s on `streamState.modelSelection` and `streamState.textContent.length`.
+The component receives `modelSelection` data from `StreamPhaseContext`, which carries the router's decision including model name, source, confidence, factors array, and reasoning. Each factor badge uses a category-based color: tools (emerald), sources (sky), complexity (amber), default (violet) — all mapped to CSS custom properties for theme consistency.
 
 **`responseFormat: { type: 'json_object' }`:** Forces the model to output valid JSON. Without this, some models might wrap JSON in markdown code fences or add explanatory text. With it, the entire response is a valid JSON object.
 

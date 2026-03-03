@@ -22,7 +22,7 @@ Next.js 15 · tRPC v11 SSE · React 19 · Bun · Neon Postgres · GCP Cloud Run
 
 ### Prerequisites
 
-- [Bun](https://bun.sh) `>= 1.0`
+- [Bun](https://bun.sh) `>= 1.2`
 - [Docker](https://docs.docker.com/get-docker/) (for local Postgres — image pulled automatically)
 - Google OAuth credentials ([create here](https://console.cloud.google.com/apis/credentials))
 

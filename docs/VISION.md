@@ -747,11 +747,10 @@ Native `@openrouter/sdk`. Dynamic registry from `/api/v1/models`, cached. Models
 
 The system prompt includes capability-first selection rules: vision tasks → require `vision:y`; complex analysis → prefer `think:y`; real-time data → require `tools:y`; simple lookups → prefer `fast` caps. Returns `ModelSelectionSchema` (category, reasoning, selectedModel) via `response_format: json_object`. Results emitted as `model_selected` chunk.
 
-**Live routing decision UI (`RoutingPanel`):** Three animated states in the titlebar:
+**Live routing decision UI (`RoutingDecisionBlock`)** (`src/features/stream-phases/components/routing-decision-block.tsx`): Collapsible inline display within assistant messages:
 
-1. **Routing** — animated pulse pill "Selecting model…" while the router LLM runs
-2. **Decision revealed** — expanded card showing model name, provider dot, category badge, capability pills (Thinking/Vision/Tools), context size, and one-sentence router reasoning
-3. **Collapsed** — compact `• {provider} {modelName}` pill once text starts streaming; persists until stream resets
+1. **Collapsed** — pill showing model name and confidence percentage (e.g., "Claude 3.5 Sonnet · 92%")
+2. **Expanded** (on click) — routing factors as colored badges (tools/emerald, sources/sky, complexity/amber), reasoning text, and selection source
 
 **Reactive mode toggle:** When the main model calls the web search tool, `detectedSearchMode` is set in stream state and the Chat/Search toggle updates to Search in real time — accurately reflecting what the model is doing.
 

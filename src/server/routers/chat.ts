@@ -9,7 +9,7 @@ import {
   TRPC_CODES,
 } from '@/config/constants'
 import { PROMPTS } from '@/config/prompts'
-import { attachments, conversations, messages } from '@/lib/db/schema'
+import { conversations, messages } from '@/lib/db/schema'
 import { AppError, getErrorMessage } from '@/lib/utils/errors'
 import type { StreamChunk, ToolCall, Usage } from '@/schemas/message'
 import {
@@ -27,7 +27,7 @@ import { executeSearchEnrichment } from '@/server/services/search-enrichment-ser
 import type { ChatMessageContentItem, ChatMessageToolCall, Message } from '@openrouter/sdk/models'
 import { ChatMessageContentItemTextType, ToolChoiceOptionAuto } from '@openrouter/sdk/models'
 import { TRPCError } from '@trpc/server'
-import { and, asc, eq, inArray, isNotNull, sql } from 'drizzle-orm'
+import { and, asc, eq, sql } from 'drizzle-orm'
 import { protectedProcedure, rateLimitedChatProcedure, router } from '../trpc'
 
 type StreamSession = {
@@ -343,24 +343,8 @@ export const chatRouter = router({
       })
 
       if (input.attachmentIds.length > 0 && userMessageId) {
-        const linked = await ctx.db
-          .update(attachments)
-          .set({ messageId: userMessageId })
-          .where(
-            and(
-              inArray(attachments.id, input.attachmentIds),
-              eq(attachments.userId, ctx.userId),
-              isNotNull(attachments.confirmedAt),
-            ),
-          )
-          .returning({ id: attachments.id })
-
-        if (linked.length !== input.attachmentIds.length) {
-          throw new TRPCError({
-            code: TRPC_CODES.FORBIDDEN,
-            message: AppError.ATTACHMENT_ACCESS_DENIED,
-          })
-        }
+        const { linkAttachmentsToMessage } = await import('@/server/services/history-builder')
+        await linkAttachmentsToMessage(ctx.db, ctx.userId, input.attachmentIds, userMessageId)
       }
 
       let selectedModel: string | undefined
@@ -456,17 +440,13 @@ export const chatRouter = router({
           { type: ChatMessageContentItemTextType.Text, text: wrappedContent },
         ]
 
-        const attachmentRows = await ctx.db
-          .select()
-          .from(attachments)
-          .where(
-            and(
-              inArray(attachments.id, input.attachmentIds),
-              eq(attachments.userId, ctx.userId),
-              isNotNull(attachments.confirmedAt),
-            ),
-          )
-        const { buildAttachmentBlocks } = await import('@/server/services/history-builder')
+        const { fetchConfirmedAttachments, buildAttachmentBlocks } =
+          await import('@/server/services/history-builder')
+        const attachmentRows = await fetchConfirmedAttachments(
+          ctx.db,
+          ctx.userId,
+          input.attachmentIds,
+        )
         blocks.push(...buildAttachmentBlocks(attachmentRows))
 
         userContent = blocks

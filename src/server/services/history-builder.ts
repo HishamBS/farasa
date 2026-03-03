@@ -1,19 +1,24 @@
-import { LIMITS, MESSAGE_ROLES } from '@/config/constants'
+import { LIMITS, MESSAGE_ROLES, TRPC_CODES } from '@/config/constants'
 import type { db } from '@/lib/db/client'
 import { attachments, messages } from '@/lib/db/schema'
 import { escapeXmlForPrompt } from '@/lib/security/runtime-safety'
+import { AppError } from '@/lib/utils/errors'
 import type { ChatMessageContentItem, Message } from '@openrouter/sdk/models'
 import {
   ChatMessageContentItemImageType,
   ChatMessageContentItemTextType,
 } from '@openrouter/sdk/models'
+import { TRPCError } from '@trpc/server'
 import { and, asc, eq, inArray, isNotNull, or } from 'drizzle-orm'
 
 type AttachmentRow = typeof attachments.$inferSelect
 
+const DATA_URL_SEPARATOR = ','
+const DATA_URL_SEPARATOR_NOT_FOUND = -1
+
 function decodeDataUrlToText(dataUrl: string): string {
-  const commaIndex = dataUrl.indexOf(',')
-  if (commaIndex === -1) return dataUrl
+  const commaIndex = dataUrl.indexOf(DATA_URL_SEPARATOR)
+  if (commaIndex === DATA_URL_SEPARATOR_NOT_FOUND) return dataUrl
   const base64 = dataUrl.slice(commaIndex + 1)
   return Buffer.from(base64, 'base64').toString('utf-8')
 }
@@ -35,6 +40,49 @@ export function buildAttachmentBlocks(attachmentRows: AttachmentRow[]): ChatMess
     }
   }
   return blocks
+}
+
+export async function linkAttachmentsToMessage(
+  dbClient: typeof db,
+  userId: string,
+  attachmentIds: string[],
+  messageId: string,
+): Promise<void> {
+  const linked = await dbClient
+    .update(attachments)
+    .set({ messageId })
+    .where(
+      and(
+        inArray(attachments.id, attachmentIds),
+        eq(attachments.userId, userId),
+        isNotNull(attachments.confirmedAt),
+      ),
+    )
+    .returning({ id: attachments.id })
+
+  if (linked.length !== attachmentIds.length) {
+    throw new TRPCError({
+      code: TRPC_CODES.FORBIDDEN,
+      message: AppError.ATTACHMENT_ACCESS_DENIED,
+    })
+  }
+}
+
+export async function fetchConfirmedAttachments(
+  dbClient: typeof db,
+  userId: string,
+  attachmentIds: string[],
+): Promise<AttachmentRow[]> {
+  return dbClient
+    .select()
+    .from(attachments)
+    .where(
+      and(
+        inArray(attachments.id, attachmentIds),
+        eq(attachments.userId, userId),
+        isNotNull(attachments.confirmedAt),
+      ),
+    )
 }
 
 export async function buildEnrichedHistory(
@@ -95,13 +143,16 @@ export async function buildEnrichedHistory(
     const meta = row.metadata
 
     if (meta?.searchQuery && meta?.searchResults?.length) {
-      enrichedContent = `[This response used web search for: "${meta.searchQuery}"]\n${enrichedContent}`
+      const safeQuery = escapeXmlForPrompt(meta.searchQuery)
+      enrichedContent = `[This response used web search for: "${safeQuery}"]\n${enrichedContent}`
     }
     if (meta?.teamId && meta?.modelUsed && !meta?.isTeamSynthesis) {
-      enrichedContent = `[Response from: ${meta.modelUsed}]\n${enrichedContent}`
+      const safeModel = escapeXmlForPrompt(meta.modelUsed)
+      enrichedContent = `[Response from: ${safeModel}]\n${enrichedContent}`
     }
     if (meta?.isTeamSynthesis && meta?.modelUsed) {
-      enrichedContent = `[Synthesis by: ${meta.modelUsed}]\n${enrichedContent}`
+      const safeModel = escapeXmlForPrompt(meta.modelUsed)
+      enrichedContent = `[Synthesis by: ${safeModel}]\n${enrichedContent}`
     }
 
     return { role: row.role, content: enrichedContent }

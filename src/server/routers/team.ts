@@ -6,11 +6,10 @@ import {
   NEW_CHAT_TITLE,
   STREAM_EVENTS,
   STREAM_PHASES,
-  TOOL_NAMES,
   TRPC_CODES,
 } from '@/config/constants'
-import { attachments, conversations, messages } from '@/lib/db/schema'
-import { AppError, getErrorMessage } from '@/lib/utils/errors'
+import { conversations, messages } from '@/lib/db/schema'
+import { getErrorMessage } from '@/lib/utils/errors'
 import type { TeamOutputChunk, TeamSynthesisOutputChunk } from '@/schemas/team'
 import { TeamStreamInputSchema, TeamSynthesizeInputSchema } from '@/schemas/team'
 import type { StreamChunk } from '@/schemas/message'
@@ -20,7 +19,7 @@ import { executeSearchEnrichment } from '@/server/services/search-enrichment-ser
 import type { ChatMessageContentItem, Message } from '@openrouter/sdk/models'
 import { ChatMessageContentItemTextType } from '@openrouter/sdk/models'
 import { TRPCError } from '@trpc/server'
-import { and, asc, eq, inArray, isNotNull, sql } from 'drizzle-orm'
+import { and, asc, eq, sql } from 'drizzle-orm'
 import { rateLimitedChatProcedure, router } from '../trpc'
 
 type QueueItem =
@@ -134,38 +133,16 @@ export const teamRouter = router({
 
       let userContent: string | ChatMessageContentItem[] = input.content
       if (input.attachmentIds.length > 0) {
-        const linked = await ctx.db
-          .update(attachments)
-          .set({ messageId: userMessageId })
-          .where(
-            and(
-              inArray(attachments.id, input.attachmentIds),
-              eq(attachments.userId, ctx.userId),
-              isNotNull(attachments.confirmedAt),
-            ),
-          )
-          .returning({ id: attachments.id })
-
-        if (linked.length !== input.attachmentIds.length) {
-          throw new TRPCError({
-            code: TRPC_CODES.FORBIDDEN,
-            message: AppError.ATTACHMENT_ACCESS_DENIED,
-          })
-        }
-
-        const attachmentRows = await ctx.db
-          .select()
-          .from(attachments)
-          .where(
-            and(
-              inArray(attachments.id, input.attachmentIds),
-              eq(attachments.userId, ctx.userId),
-              isNotNull(attachments.confirmedAt),
-            ),
-          )
+        const { linkAttachmentsToMessage, fetchConfirmedAttachments, buildAttachmentBlocks } =
+          await import('@/server/services/history-builder')
+        await linkAttachmentsToMessage(ctx.db, ctx.userId, input.attachmentIds, userMessageId)
+        const attachmentRows = await fetchConfirmedAttachments(
+          ctx.db,
+          ctx.userId,
+          input.attachmentIds,
+        )
 
         if (attachmentRows.length > 0) {
-          const { buildAttachmentBlocks } = await import('@/server/services/history-builder')
           userContent = [
             { type: ChatMessageContentItemTextType.Text, text: input.content },
             ...buildAttachmentBlocks(attachmentRows),
@@ -204,12 +181,13 @@ export const teamRouter = router({
             message: runtimeConfig.chat.statusMessages.searching,
           } satisfies StreamChunk,
         }
+        const searchToolName = runtimeConfig.search.toolName
         yield {
           type: TEAM_EVENTS.STREAM_EVENT,
           chunk: {
             type: STREAM_EVENTS.TOOL_START,
             streamRequestId,
-            toolName: TOOL_NAMES.WEB_SEARCH,
+            toolName: searchToolName,
             input: { query: input.content },
           } satisfies StreamChunk,
         }
@@ -224,7 +202,7 @@ export const teamRouter = router({
           chunk: {
             type: STREAM_EVENTS.TOOL_RESULT,
             streamRequestId,
-            toolName: TOOL_NAMES.WEB_SEARCH,
+            toolName: searchToolName,
             result: {
               query: enrichment.query,
               results: enrichment.results,

@@ -420,7 +420,6 @@ export const UI_TEXT = {
   WEB_SEARCH_ENABLE: 'Enable web search',
   WEB_SEARCH_DISABLE: 'Disable web search',
   WEB_SEARCH_ACTIVE: 'Web search on',
-  WEB_SEARCH_INACTIVE: 'Web search off',
   WEB_SEARCH_MODEL_INCOMPATIBLE: 'Selected model does not support web search',
   STT_TRANSCRIPTION_FAILED: 'Transcription failed. Please try again.',
   STT_PERMISSION_DENIED:

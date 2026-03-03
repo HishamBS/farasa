@@ -79,7 +79,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
   const selectedModelSupportsTools = useMemo(() => {
     if (!selectedModel) return true
     const model = models.find((m) => m.id === selectedModel)
-    return model?.supportsTools ?? true
+    if (models.length === 0) return true
+    return model?.supportsTools ?? false
   }, [selectedModel, models])
 
   const isGlobeDisabled = mode === CHAT_MODES.CHAT && !selectedModelSupportsTools

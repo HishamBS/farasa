@@ -14,7 +14,7 @@ export async function generateTitle(
   const response = await openrouter.chat.send(
     {
       chatGenerationParams: {
-        model: runtimeConfig.models.routerModel,
+        model: runtimeConfig.models.titleModel,
         messages: [
           { role: 'system', content: runtimeConfig.prompts.titleSystem },
           {
@@ -22,7 +22,7 @@ export async function generateTitle(
             content: wrappedMessage,
           },
         ],
-        maxTokens: runtimeConfig.ai.titleMaxTokens,
+        maxCompletionTokens: runtimeConfig.ai.titleMaxTokens,
         temperature: runtimeConfig.ai.titleTemperature,
       },
     },

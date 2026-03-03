@@ -1,4 +1,4 @@
-import { AI_REASONING, RESPONSE_FORMATS, TRPC_CODES } from '@/config/constants'
+import { AI_REASONING, LIMITS, RESPONSE_FORMATS, TRPC_CODES } from '@/config/constants'
 import type { db } from '@/lib/db/client'
 import { conversations, userPreferences } from '@/lib/db/schema'
 import { AppError } from '@/lib/utils/errors'
@@ -39,7 +39,7 @@ type ResolveModelDecisionInput = {
   signal: AbortSignal
 }
 
-const ROUTER_MAX_ATTEMPTS = 2
+const ROUTER_MAX_ATTEMPTS = LIMITS.ROUTER_MAX_ATTEMPTS
 
 function findModelById(registry: ReadonlyArray<ModelConfig>, modelId: string): ModelConfig {
   const model = registry.find((entry) => entry.id === modelId)

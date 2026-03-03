@@ -34,6 +34,7 @@ export const ModelConfigSchema = z
     supportsVision: z.boolean(),
     supportsTools: z.boolean(),
     supportsThinking: z.boolean().default(false),
+    maxCompletionTokens: z.number().int().min(0).default(0),
     pricing: ModelPricingSchema,
   })
   .transform((raw) => {

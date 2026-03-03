@@ -40,7 +40,7 @@ export const teamRouter = router({
   }): AsyncGenerator<TeamOutputChunk> {
     const runtimeConfig = ctx.runtimeConfig
 
-    const { getModelRegistry } = await import('@/lib/ai/registry')
+    const { getModelRegistry, getModelMaxCompletionTokens } = await import('@/lib/ai/registry')
     const registry = await getModelRegistry({ runtimeConfig })
 
     for (const modelId of input.models) {
@@ -270,7 +270,7 @@ export const teamRouter = router({
                 model: modelId,
                 messages: sdkMessages,
                 stream: true,
-                maxTokens: runtimeConfig.ai.chatMaxTokens,
+                maxCompletionTokens: getModelMaxCompletionTokens(registry, modelId),
               },
             },
             { signal: signal ?? undefined },
@@ -540,7 +540,7 @@ export const teamRouter = router({
       signal,
     }): AsyncGenerator<TeamSynthesisOutputChunk> {
       const runtimeConfig = ctx.runtimeConfig
-      const { getModelRegistry } = await import('@/lib/ai/registry')
+      const { getModelRegistry, getModelMaxCompletionTokens } = await import('@/lib/ai/registry')
       const registry = await getModelRegistry({ runtimeConfig })
 
       if (!registry.some((m) => m.id === input.synthesisModel)) {
@@ -638,7 +638,7 @@ Your task: write a single unified response that combines the strongest elements 
             model: input.synthesisModel,
             messages: [{ role: MESSAGE_ROLES.USER, content: synthesisPrompt }],
             stream: true,
-            maxTokens: runtimeConfig.ai.chatMaxTokens,
+            maxCompletionTokens: getModelMaxCompletionTokens(registry, input.synthesisModel),
           },
         },
         { signal: signal ?? undefined },

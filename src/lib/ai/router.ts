@@ -1,4 +1,3 @@
-import { MODEL_IDS } from '@/config/constants'
 import { buildRouterPrompt } from '@/config/prompts'
 import type { ModelConfig, ModelSelection } from '@/schemas/model'
 import { ModelSelectionSchema } from '@/schemas/model'
@@ -66,8 +65,11 @@ function parseJsonObject(raw: string): unknown {
   return parsed
 }
 
-function selectRoutingEngineModel(registry: ReadonlyArray<ModelConfig>): string {
-  const requiredRouterModelId = MODEL_IDS.GEMINI_3_FLASH_PREVIEW
+function selectRoutingEngineModel(
+  registry: ReadonlyArray<ModelConfig>,
+  runtimeConfig: RuntimeConfig,
+): string {
+  const requiredRouterModelId = runtimeConfig.models.autoRouterModel
   const required = registry.find((model) => model.id === requiredRouterModelId)
   if (!required) {
     throw new Error(`[router] Required router model is unavailable: ${requiredRouterModelId}`)
@@ -101,7 +103,7 @@ export async function routeModel(
   webSearchEnabled: boolean,
   signal?: AbortSignal,
 ): Promise<ModelSelection> {
-  const routingModelId = selectRoutingEngineModel(registry)
+  const routingModelId = selectRoutingEngineModel(registry, runtimeConfig)
   const systemPrompt = `${buildRouterPrompt(registry)}
 
 Execution policy:
@@ -124,7 +126,7 @@ Execution policy:
           { role: 'user', content: wrappedPrompt },
         ],
         responseFormat: { type: 'json_object' },
-        maxTokens: runtimeConfig.ai.routerMaxTokens,
+        maxCompletionTokens: runtimeConfig.ai.routerMaxTokens,
         temperature: runtimeConfig.ai.routerTemperature,
       },
     },

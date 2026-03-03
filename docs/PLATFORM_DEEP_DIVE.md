@@ -1663,7 +1663,7 @@ while (true) {
         model: selectedModel,
         messages: attemptMessages,
         stream: true,
-        maxTokens: runtimeConfig.ai.chatMaxTokens,
+        maxCompletionTokens: getModelMaxCompletionTokens(registry, selectedModel),
         ...(webSearchEnabled ? { tools: ALL_TOOLS, toolChoice: ToolChoiceOptionAuto.Auto } : {}),
       },
     },
@@ -2483,7 +2483,7 @@ The system prompt includes capability-first selection rules that guide the route
 - Web search or real-time data needed → require `tools:y`
 - Simple lookups, yes/no → prefer `fast` caps; never a thinking model
 
-**The router model:** `runtimeConfig.models.routerModel` defaults to `google/gemini-3-flash-preview` — 1049k context, multimodal awareness, purpose-built for fast structured-output classification. Sub-second JSON responses add minimal latency to the stream.
+**The router model:** `runtimeConfig.models.autoRouterModel` defaults to `google/gemini-3-flash-preview` — 1049k context, multimodal awareness, purpose-built for fast structured-output classification. Sub-second JSON responses add minimal latency to the stream.
 
 **`inferCapabilities(model: OpenRouterModel): ModelCapability[]`** (in `src/lib/ai/registry.ts`): assigns multi-label capability tags from `ROUTER_CAPABILITY_PATTERNS` (constants.ts) + API-reported parameters:
 
@@ -2556,7 +2556,7 @@ export const WEB_SEARCH_TOOL: ToolDefinitionJson = {
 ```typescript
 const response = await openrouter.chat.send({
   chatGenerationParams: {
-    model: runtimeConfig.models.routerModel, // same small model as router
+    model: runtimeConfig.models.titleModel, // small model for title generation
     messages: [
       { role: 'system', content: runtimeConfig.prompts.titleSystem },
       { role: 'user', content: wrappedMessage },
@@ -3358,31 +3358,31 @@ The phase bar slides in when streaming begins and slides out when the `DONE` eve
 
 ## Appendix A — Key Numbers to Know
 
-| Constant                        | Value       | Why                                 |
-| ------------------------------- | ----------- | ----------------------------------- |
-| `CONVERSATION_HISTORY_LIMIT`    | 20          | Last 20 messages sent to LLM        |
-| `STREAM_TIMEOUT_MS`             | 60,000ms    | Max 60s for any stream              |
-| `CHAT_PER_MINUTE`               | 20          | Rate limit: 20 chat requests/minute |
-| `UPLOAD_PER_MINUTE`             | 30          | Rate limit: 30 uploads/minute       |
-| `FILE_MAX_SIZE_BYTES`           | 10MB        | Max upload size                     |
-| `FILE_NAME_MAX_LENGTH`          | 255         | GCS object name limit               |
-| `CONVERSATION_TITLE_MAX_LENGTH` | 200         | Truncate AI-generated titles        |
-| `SEARCH_MAX_RESULTS`            | 10          | Max Tavily results                  |
-| `SEARCH_QUERY_MAX_LENGTH`       | 200         | Max search query chars              |
-| `RUNTIME_CONFIG_CACHE_TTL_MS`   | 5,000ms     | Config cache refresh interval       |
-| `MODEL_REGISTRY_CACHE_TTL_MS`   | 3,600,000ms | 1 hour model list cache             |
-| `ROUTER_MAX_TOKENS`             | 200         | Max tokens for routing decision     |
-| `TITLE_MAX_TOKENS`              | 50          | Max tokens for title generation     |
-| `CHAT_MAX_TOKENS`               | 4,096       | Default max for chat completion     |
-| `TTS_MAX_CHARS`                 | 4,096       | Max chars sent to TTS API           |
-| `UPLOAD_URL_EXPIRY_MS`          | 15 min      | GCS signed URL validity             |
-| `IV_LENGTH`                     | 12 bytes    | AES-GCM IV length                   |
-| `KEY_LENGTH`                    | 32 bytes    | AES-256 key length                  |
-| `PAGINATION_DEFAULT_LIMIT`      | 20          | Conversations per page              |
-| `PAGINATION_MAX_LIMIT`          | 50          | Max conversations per request       |
-| `AUTO_SCROLL_THRESHOLD`         | 100px       | Bottom threshold for auto-scroll    |
-| `COPY_FEEDBACK_DURATION_MS`     | 2,000ms     | "Copied!" display duration          |
-| `LONG_PRESS_DELAY_MS`           | 500ms       | Mobile long-press threshold         |
+| Constant                        | Value       | Why                                                 |
+| ------------------------------- | ----------- | --------------------------------------------------- |
+| `CONVERSATION_HISTORY_LIMIT`    | 20          | Last 20 messages sent to LLM                        |
+| `STREAM_TIMEOUT_MS`             | 60,000ms    | Max 60s for any stream                              |
+| `CHAT_PER_MINUTE`               | 20          | Rate limit: 20 chat requests/minute                 |
+| `UPLOAD_PER_MINUTE`             | 30          | Rate limit: 30 uploads/minute                       |
+| `FILE_MAX_SIZE_BYTES`           | 10MB        | Max upload size                                     |
+| `FILE_NAME_MAX_LENGTH`          | 255         | GCS object name limit                               |
+| `CONVERSATION_TITLE_MAX_LENGTH` | 200         | Truncate AI-generated titles                        |
+| `SEARCH_MAX_RESULTS`            | 10          | Max Tavily results                                  |
+| `SEARCH_QUERY_MAX_LENGTH`       | 200         | Max search query chars                              |
+| `RUNTIME_CONFIG_CACHE_TTL_MS`   | 5,000ms     | Config cache refresh interval                       |
+| `MODEL_REGISTRY_CACHE_TTL_MS`   | 3,600,000ms | 1 hour model list cache                             |
+| `ROUTER_MAX_TOKENS`             | 200         | Max tokens for routing decision                     |
+| `TITLE_MAX_TOKENS`              | 50          | Max tokens for title generation                     |
+| `CHAT_MAX_TOKENS_FALLBACK`      | 4,096       | Fallback when model's max_completion_tokens unknown |
+| `TTS_MAX_CHARS`                 | 4,096       | Max chars sent to TTS API                           |
+| `UPLOAD_URL_EXPIRY_MS`          | 15 min      | GCS signed URL validity                             |
+| `IV_LENGTH`                     | 12 bytes    | AES-GCM IV length                                   |
+| `KEY_LENGTH`                    | 32 bytes    | AES-256 key length                                  |
+| `PAGINATION_DEFAULT_LIMIT`      | 20          | Conversations per page                              |
+| `PAGINATION_MAX_LIMIT`          | 50          | Max conversations per request                       |
+| `AUTO_SCROLL_THRESHOLD`         | 100px       | Bottom threshold for auto-scroll                    |
+| `COPY_FEEDBACK_DURATION_MS`     | 2,000ms     | "Copied!" display duration                          |
+| `LONG_PRESS_DELAY_MS`           | 500ms       | Mobile long-press threshold                         |
 
 ---
 

@@ -1,6 +1,7 @@
 import type { ModelConfig } from '@/schemas/model'
 import type { ModelCapability } from '@/schemas/model'
 import {
+  AI_PARAMS,
   MODEL_CATEGORIES,
   MODEL_REGISTRY_CACHE_KEY,
   EXTERNAL_URLS,
@@ -18,6 +19,7 @@ type OpenRouterModel = {
   architecture?: { modality?: string; tokenizer?: string }
   pricing?: { prompt?: string; completion?: string }
   supported_parameters?: string[]
+  top_provider?: { max_completion_tokens?: number | null }
 }
 
 function inferCapabilities(model: OpenRouterModel): ModelCapability[] {
@@ -92,6 +94,7 @@ async function fetchFromOpenRouter(runtimeConfig: RuntimeConfig): Promise<ModelC
       supportsVision,
       supportsTools: params.includes('tools'),
       supportsThinking,
+      maxCompletionTokens: raw.top_provider?.max_completion_tokens ?? 0,
       pricing: {
         promptPerMillion: parseFloat(raw.pricing?.prompt ?? '0') * 1_000_000,
         completionPerMillion: parseFloat(raw.pricing?.completion ?? '0') * 1_000_000,
@@ -110,6 +113,14 @@ async function fetchFromOpenRouter(runtimeConfig: RuntimeConfig): Promise<ModelC
 
 export function clearModelRegistryCache(): void {
   cache.delete(MODEL_REGISTRY_CACHE_KEY)
+}
+
+export function getModelMaxCompletionTokens(
+  registry: ReadonlyArray<ModelConfig>,
+  modelId: string,
+): number {
+  const model = registry.find((m) => m.id === modelId)
+  return model?.maxCompletionTokens || AI_PARAMS.CHAT_MAX_TOKENS_FALLBACK
 }
 
 export async function getModelRegistry(options: ModelRegistryOptions = {}): Promise<ModelConfig[]> {

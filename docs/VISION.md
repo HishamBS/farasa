@@ -735,7 +735,7 @@ Native `@openrouter/sdk`. Dynamic registry from `/api/v1/models`, cached. Models
 
 ### F4. LLM-Powered Auto Model Router
 
-**Router model:** `google/gemini-3-flash-preview` — purpose-built for fast structured-output classification. Sub-second JSON responses, multimodal awareness (can reason about image-containing requests), and excellent instruction following. Configured via `runtimeConfig.models.routerModel` in `src/schemas/runtime-config.ts`.
+**Router model:** `google/gemini-3-flash-preview` — purpose-built for fast structured-output classification. Sub-second JSON responses, multimodal awareness (can reason about image-containing requests), and excellent instruction following. Configured via `runtimeConfig.models.autoRouterModel` in `src/schemas/runtime-config.ts`.
 
 **Capability-aware selection:** The registry fetcher (`src/lib/ai/registry.ts`) runs `inferCapabilities(model)` on every OpenRouter model, assigning multi-label capability tags (`code`, `analysis`, `vision`, `fast`, `general`) from pattern matching on model ID/name and API-reported parameters (`reasoning`, image modality). Patterns are defined in `ROUTER_CAPABILITY_PATTERNS` in `src/config/constants.ts` (R01 SSOT).
 

@@ -222,12 +222,6 @@ export async function getRuntimeConfig(options: RuntimeConfigOptions = {}): Prom
   const envConfig = parseEnvRuntimeConfig()
   const dbSources = await loadDbSources(options)
 
-  if (!envConfig && dbSources.length === 0) {
-    throw new RuntimeConfigError(
-      'No runtime config source found. Provide RUNTIME_CONFIG_JSON or persisted runtime_config rows.',
-    )
-  }
-
   const resolved = buildRuntimeConfig(envConfig, dbSources)
   runtimeConfigCache.set(cacheKey, { config: resolved, expiresAt: now + ttlMs })
   return resolved

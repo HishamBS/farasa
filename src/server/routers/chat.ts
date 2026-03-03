@@ -383,7 +383,7 @@ export const chatRouter = router({
           }>
         | undefined
       const webSearchEnabled = input.webSearchEnabled
-      const { getModelRegistry } = await import('@/lib/ai/registry')
+      const { getModelRegistry, getModelMaxCompletionTokens } = await import('@/lib/ai/registry')
       const registry = await getModelRegistry({ runtimeConfig })
 
       if (!input.model) {
@@ -638,7 +638,7 @@ export const chatRouter = router({
                 model: selectedModel,
                 messages: attemptMessages,
                 stream: true,
-                maxTokens: runtimeConfig.ai.chatMaxTokens,
+                maxCompletionTokens: getModelMaxCompletionTokens(registry, selectedModel),
                 ...(webSearchEnabled
                   ? { tools: ALL_TOOLS, toolChoice: ToolChoiceOptionAuto.Auto }
                   : {}),

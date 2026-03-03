@@ -4,9 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, Plus, X } from 'lucide-react'
 import { trpc } from '@/trpc/provider'
 import { useGroupMode } from '@/features/group/context/group-context'
-import { GROUP_LIMITS, PROVIDER_DOT_CLASSES, UI_TEXT } from '@/config/constants'
+import { GROUP_LIMITS, PROVIDER_ALIASES, PROVIDER_DOT_CLASSES, UI_TEXT } from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
-import { extractProviderKey, extractModelName } from '@/lib/utils/model'
+import { resolveProviderKey, extractModelName } from '@/lib/utils/model'
 import {
   Dialog,
   DialogContent,
@@ -120,7 +120,7 @@ export function GroupModelPicker() {
         const meta = modelMetaMap.get(modelId)
         const isStale = modelList.length > 0 && !meta
         const label = meta?.name ?? extractModelName(modelId)
-        const providerKey = meta?.provider ?? extractProviderKey(modelId)
+        const providerKey = meta?.provider ?? resolveProviderKey(modelId, PROVIDER_ALIASES)
         return (
           <SelectedChip
             key={modelId}

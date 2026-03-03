@@ -1,12 +1,5 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { trpc } from '@/trpc/provider'
-import { useChatStream } from '../hooks/use-chat-stream'
-import { MessageList } from './message-list'
-import { ChatInput } from './chat-input'
-import type { ChatInputHandle } from './chat-input'
 import {
   CHAT_MODES,
   CHAT_STREAM_STATUS,
@@ -15,14 +8,22 @@ import {
   UX,
 } from '@/config/constants'
 import { ROUTES } from '@/config/routes'
-import type { TitlebarPhase } from '@/types/stream'
-import { useStreamPhase } from '../context/stream-phase-context'
-import { useChatMode } from '../context/chat-mode-context'
-import { ConversationCostProvider } from '../context/conversation-cost-context'
 import { useGroupStream } from '@/features/group/hooks/use-group-stream'
 import { useGroupSynthesis } from '@/features/group/hooks/use-group-synthesis'
-import type { GroupStreamInput } from '@/schemas/group'
 import type { LiveGroupData, ModelMeta } from '@/features/group/types'
+import type { GroupStreamInput } from '@/schemas/group'
+import { trpc } from '@/trpc/provider'
+import type { TitlebarPhase } from '@/types/stream'
+import { AlertCircle } from 'lucide-react'
+import { useParams, useRouter } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useChatMode } from '../context/chat-mode-context'
+import { ConversationCostProvider } from '../context/conversation-cost-context'
+import { useStreamPhase } from '../context/stream-phase-context'
+import { useChatStream } from '../hooks/use-chat-stream'
+import type { ChatInputHandle } from './chat-input'
+import { ChatInput } from './chat-input'
+import { MessageList } from './message-list'
 
 type ChatContainerProps = {
   conversationId?: string
@@ -138,6 +139,12 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     return messages.some((m) => m.metadata?.groupId === groupId)
   }, [messages, groupId])
 
+  useEffect(() => {
+    if (groupDone && messagesHaveGroup && groupStreamInput !== null) {
+      setGroupStreamInput(null)
+    }
+  }, [groupDone, messagesHaveGroup, groupStreamInput])
+
   const handleSuggestionSelect = useCallback((text: string) => {
     chatInputRef.current?.setContent(text)
   }, [])
@@ -158,7 +165,15 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
       !messages.some(
         (m) => m.metadata?.groupId === groupId && m.metadata?.isGroupSynthesis === true,
       )
-    if (!isGroupActive && !isSynthesisInFlight && !synthesisJustCompleted) return null
+    const awaitingSynthesis =
+      groupDone &&
+      !synthesis.isDone &&
+      !synthesis.isSynthesizing &&
+      !messages.some(
+        (m) => m.metadata?.groupId === groupId && m.metadata?.isGroupSynthesis === true,
+      )
+    if (!isGroupActive && !isSynthesisInFlight && !synthesisJustCompleted && !awaitingSynthesis)
+      return null
     return {
       modelStates,
       modelOrder,
@@ -188,12 +203,20 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
           messages={messages}
           streamState={streamState}
           isChatStreaming={isStreaming}
-          pendingUserMessage={streamState.pendingUserMessage ?? groupStreamInput?.content ?? null}
+          pendingUserMessage={streamState.pendingUserMessage}
           onSuggestionSelect={handleSuggestionSelect}
           conversationId={effectiveConversationId}
           liveGroup={liveGroup}
         />
       </ConversationCostProvider>
+      {streamState.phase === CHAT_STREAM_STATUS.ERROR && streamState.error && (
+        <div className="mx-auto w-full max-w-240 px-4 py-2">
+          <div className="flex items-center gap-2 rounded-lg border border-(--error)/20 bg-(--error)/5 px-3 py-2 text-sm text-(--error)">
+            <AlertCircle className="size-4 shrink-0" />
+            <span className="flex-1">{streamState.error.message}</span>
+          </div>
+        </div>
+      )}
       <ChatInput
         ref={chatInputRef}
         onSend={sendMessage}

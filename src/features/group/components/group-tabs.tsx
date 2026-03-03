@@ -4,9 +4,14 @@ import { useMemo } from 'react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { GroupResponsePanel } from './group-response-panel'
 import { SynthesisPanel } from './synthesis-panel'
-import { CHAT_STREAM_STATUS, GROUP_TAB_VALUES, PROVIDER_DOT_CLASSES } from '@/config/constants'
+import {
+  CHAT_STREAM_STATUS,
+  GROUP_TAB_VALUES,
+  PROVIDER_ALIASES,
+  PROVIDER_DOT_CLASSES,
+} from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
-import { extractProviderKey, extractModelName } from '@/lib/utils/model'
+import { resolveProviderKey, extractModelName } from '@/lib/utils/model'
 import type { StreamState } from '@/types/stream'
 import type { UseSynthesisReturn } from '@/features/group/hooks/use-group-synthesis'
 import type { ModelMeta } from '@/features/group/types'
@@ -61,7 +66,7 @@ export function GroupTabs({
     for (const modelId of modelOrder) {
       const meta = modelMetaMap.get(modelId)
       map.set(modelId, {
-        providerKey: meta?.provider ?? extractProviderKey(modelId),
+        providerKey: meta?.provider ?? resolveProviderKey(modelId, PROVIDER_ALIASES),
         label: meta?.name ?? extractModelName(modelId),
       })
     }

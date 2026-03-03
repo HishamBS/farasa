@@ -762,7 +762,7 @@ When following a link to another site, only send the origin (not the full URL pa
 
 **`Permissions-Policy: camera=(), microphone=(), geolocation=()`**
 
-Explicitly disables access to sensitive APIs. Even though JavaScript could request these, this header prevents it at the browser level. The `()` means "deny for all origins including self." Note: the app uses `MediaRecorder` for voice input but handles permissions itself through the browser's permission API, not via this policy.
+Explicitly disables access to camera and geolocation. Microphone is allowed for same-origin (`microphone=(self)`) because the app uses browser-native `SpeechRecognition` for voice input, which requires microphone access. The browser handles microphone permission prompts natively.
 
 ### 2.6 Input Security
 
@@ -2736,62 +2736,47 @@ Non-image content is referenced by name. The model knows a file was attached but
 
 ### 11.1 Speech-to-Text
 
-**Browser capture:**
+**Browser-native SpeechRecognition:**
 
 ```typescript
-const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
-const chunks: Blob[] = []
-mediaRecorder.ondataavailable = (e) => chunks.push(e.data)
-mediaRecorder.onstop = async () => {
-  const blob = new Blob(chunks, { type: 'audio/webm' })
-  await transcribe(blob)
+const Ctor = window.SpeechRecognition ?? window.webkitSpeechRecognition
+const recognition = new Ctor()
+recognition.continuous = VOICE.STT_CONTINUOUS // true
+recognition.interimResults = VOICE.STT_INTERIM_RESULTS // true
+recognition.lang = VOICE.STT_LANG // 'en-US'
+
+recognition.onresult = (event) => {
+  for (let i = event.resultIndex; i < event.results.length; i++) {
+    const result = event.results[i]
+    if (result.isFinal) {
+      transcript += result[0].transcript // append final text
+    } else {
+      interimTranscript = result[0].transcript // show live preview
+    }
+  }
 }
+
+recognition.start() // 1-click start
+recognition.stop() // 1-click stop
 ```
 
-`MediaRecorder` captures audio from the microphone in WebM format (Opus codec). The user presses Record, speaks, presses Stop. The recorded chunks are assembled into a single Blob.
+STT runs entirely in the browser via the Web Speech API (`SpeechRecognition`). No server route, no audio upload, no API cost. The user clicks the mic button once to start listening, clicks again to stop. Interim transcripts appear in real-time as the user speaks.
 
-**Server-side transcription:**
+**Browser compatibility:**
 
-```typescript
-// Client sends the audio
-const formData = new FormData()
-formData.append('audio', blob, 'recording.webm')
-const response = await fetch('/api/voice/transcribe', { method: 'POST', body: formData })
-const { transcript } = await response.json() // field is 'transcript', not 'text'
-```
+- Chrome/Edge: full support (uses Google's speech recognition service).
+- Safari: supported via `webkitSpeechRecognition`.
+- Firefox: not supported — the mic button renders as disabled with an "unsupported" message.
 
-The transcription endpoint (`/api/voice/transcribe`) sends the audio to OpenRouter's Whisper endpoint (`VOICE.STT_MODEL = 'openai/whisper'`).
+The `getSpeechRecognitionConstructor()` helper checks for both `window.SpeechRecognition` and `window.webkitSpeechRecognition` and returns `null` if neither exists.
 
-**Why server-side Whisper instead of browser Web Speech API:**
+**Permissions:** The browser handles microphone permission natively when `recognition.start()` is called. If denied, the `onerror` handler receives `error: 'not-allowed'` and the UI surfaces a permission-denied error state. The `Permissions-Policy` header allows `microphone=(self)`.
 
-The browser's Web Speech API (`window.SpeechRecognition`) has significant limitations:
-
-- Only works in Chrome/Edge (not Firefox, not Safari on iOS without a polyfill).
-- Sends audio to Google's servers (privacy concern).
-- Quality varies by browser implementation.
-- No control over model or accuracy.
-
-OpenRouter Whisper:
-
-- Works in all browsers (we're sending a Blob, not using browser APIs).
-- High accuracy across accents and technical vocabulary.
-- Server-side processing keeps audio on our infrastructure.
-- The same API key works regardless of user's browser.
-
-**No browser STT fallback path:**
-If the server STT call fails (Whisper quota exceeded, network error), the UI surfaces an explicit error state. The recording/transcription lifecycle is deterministic and does not silently switch engines.
-
-**Audio size limit:**
-
-```typescript
-VOICE.MAX_AUDIO_BYTES = 25 * 1024 * 1024 // 25MB
-```
-
-Whisper's API limit. Recordings longer than approximately 5-10 minutes would exceed this. The client validates size before sending.
+**No server STT route:** The previous `/api/voice/transcribe` endpoint (which proxied to OpenRouter Whisper) has been removed. The OpenRouter models used (`openai/whisper`) did not exist, causing 502 errors.
 
 ### 11.2 Text-to-Speech
 
-**Server-side synthesis:**
+**Server-side synthesis via OpenRouter:**
 
 ```typescript
 const response = await fetch('/api/voice/synthesize', {
@@ -2804,22 +2789,36 @@ const audioUrl = URL.createObjectURL(audioBlob)
 new Audio(audioUrl).play()
 ```
 
-The TTS endpoint uses a direct `fetch('https://openrouter.ai/api/v1/audio/speech')` call (not the OpenAI SDK). The API returns raw `audio/mpeg` bytes as an `ArrayBuffer`. The endpoint sets the response `Content-Type: audio/mpeg` and streams the buffer back to the client, which creates an object URL and plays it.
+The client-side contract is unchanged — POST text, receive an audio blob. The server route has been rewritten to use `openai/gpt-audio-mini` via OpenRouter's chat completions API with audio modality:
+
+```typescript
+// Server route sends a streaming chat completion
+const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+  body: JSON.stringify({
+    model: VOICE.TTS_MODEL, // 'openai/gpt-audio-mini'
+    messages: [{ role: 'user', content: `Read this aloud: ${text}` }],
+    modalities: ['text', 'audio'],
+    audio: { voice: VOICE.TTS_VOICE, format: VOICE.TTS_FORMAT }, // 'alloy', 'mp3'
+    stream: true,
+  }),
+})
+// Collect base64 audio chunks from SSE delta.audio.data, decode, return as audio/mpeg
+```
+
+Audio output via chat completions requires `stream: true`. The server consumes the SSE stream, collects base64-encoded audio chunks from `choices[0].delta.audio.data`, concatenates them, decodes the base64 to a binary buffer, and returns `audio/mpeg` to the client.
 
 **Markdown stripping before synthesis:**
 
 ```typescript
-// Single regex handles all markdown decorators in one pass
-const MARKDOWN_RE = /(\*\*|__|\*|_|~~|`{1,3}|#{1,6}\s|>\s|\[([^\]]+)\]\([^)]+\))/g
+const MARKDOWN_RE = /(\*\*|__|\*|_|~~|`{1,3}|#{1,6}\s|!\[.*?\]\(.*?\)|\[([^\]]+)\]\(.*?\))/g
 const strippedText = text.replace(MARKDOWN_RE, '$2')
 ```
 
-A single regex replaces all markdown formatting tokens in one pass — bold (`**`, `__`), italic (`*`, `_`), strikethrough (`~~`), code backticks, heading markers, blockquotes, and link syntax. A response like `**The answer is** \`console.log('hello')\`` becomes "The answer is console.log('hello')". Much more natural for speech.
+A single regex replaces all markdown formatting tokens in one pass — bold, italic, strikethrough, code backticks, heading markers, images, and link syntax. Much more natural for speech.
 
-**`VOICE.TTS_MAX_CHARS = 4_096`:** TTS APIs have character limits. Long responses are truncated before synthesis. A notification tells the user the response was truncated.
+**`VOICE.TTS_MAX_CHARS = 4_096`:** Long responses are truncated before synthesis.
 
-**No browser TTS fallback path:**
-If the server TTS call fails, the UI surfaces an explicit unavailable/error state instead of silently switching to browser speech synthesis.
+**Error handling:** If the TTS call fails, the UI surfaces an explicit error state. Transient failures (502, 503) show the error message from the server response.
 
 ---
 

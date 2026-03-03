@@ -8,220 +8,177 @@ type SttStatus = (typeof VOICE_STT_STATES)[keyof typeof VOICE_STT_STATES]
 type STTState = {
   status: SttStatus
   transcript: string
+  interimTranscript: string
   isSupported: boolean
-  permissionError: string | null
-  transcriptionError: string | null
+  error: string | null
 }
 
-function hasMediaDevices(): boolean {
-  return (
-    typeof navigator !== 'undefined' &&
-    typeof navigator.mediaDevices?.getUserMedia === 'function' &&
-    typeof MediaRecorder !== 'undefined'
-  )
+type SpeechRecognitionEvent = {
+  resultIndex: number
+  results: SpeechRecognitionResultList
+}
+
+type SpeechRecognitionErrorEvent = {
+  error: string
+  message: string
+}
+
+type SpeechRecognitionInstance = EventTarget & {
+  continuous: boolean
+  interimResults: boolean
+  lang: string
+  start: () => void
+  stop: () => void
+  abort: () => void
+  onresult: ((event: SpeechRecognitionEvent) => void) | null
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null
+  onend: (() => void) | null
+  onstart: (() => void) | null
+}
+
+function getSpeechRecognitionConstructor(): (new () => SpeechRecognitionInstance) | null {
+  if (typeof window === 'undefined') return null
+  const win = window as unknown as Record<string, unknown>
+  const Ctor = win['SpeechRecognition'] ?? win['webkitSpeechRecognition']
+  if (typeof Ctor === 'function') return Ctor as new () => SpeechRecognitionInstance
+  return null
 }
 
 export function useSpeechToText() {
   const [state, setState] = useState<STTState>({
     status: VOICE_STT_STATES.IDLE,
     transcript: '',
+    interimTranscript: '',
     isSupported: true,
-    permissionError: null,
-    transcriptionError: null,
+    error: null,
   })
   const [isReady, setIsReady] = useState(false)
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const streamRef = useRef<MediaStream | null>(null)
-  const chunksRef = useRef<Blob[]>([])
-  const requestSeqRef = useRef(0)
-  const statusRef = useRef(state.status)
+  const startListening = useCallback(() => {
+    const Ctor = getSpeechRecognitionConstructor()
+    if (!Ctor) return
 
-  useEffect(() => {
-    statusRef.current = state.status
-  }, [state.status])
-
-  const cleanupStream = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop())
-      streamRef.current = null
+    if (recognitionRef.current) {
+      recognitionRef.current.abort()
+      recognitionRef.current = null
     }
-    mediaRecorderRef.current = null
-  }, [])
 
-  const transcribeViaServer = useCallback(async (blob: Blob): Promise<string | null> => {
-    if (blob.size === 0 || blob.size > VOICE.MAX_AUDIO_BYTES) return null
+    const recognition = new Ctor()
+    recognition.continuous = VOICE.STT_CONTINUOUS
+    recognition.interimResults = VOICE.STT_INTERIM_RESULTS
+    recognition.lang = VOICE.STT_LANG
+    recognitionRef.current = recognition
 
-    try {
-      const formData = new FormData()
-      formData.append('audio', blob, 'audio.webm')
-      const response = await fetch('/api/voice/transcribe', {
-        method: 'POST',
-        body: formData,
-        signal: AbortSignal.timeout(VOICE.STT_TRANSCRIBE_TIMEOUT_MS),
-      })
-      if (!response.ok) return null
-      const data = (await response.json()) as { transcript?: string }
-      return data.transcript ?? null
-    } catch {
-      return null
-    }
-  }, [])
-
-  const startListening = useCallback(async () => {
-    if (!hasMediaDevices()) return
-    if (statusRef.current === VOICE_STT_STATES.REQUESTING_PERMISSION) return
-    if (statusRef.current === VOICE_STT_STATES.LISTENING) return
-    if (statusRef.current === VOICE_STT_STATES.TRANSCRIBING) return
-
-    const requestSeq = requestSeqRef.current + 1
-    requestSeqRef.current = requestSeq
-
-    setState((prev) => ({
-      ...prev,
-      status: VOICE_STT_STATES.REQUESTING_PERMISSION,
-      permissionError: null,
-      transcriptionError: null,
-    }))
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      if (requestSeq !== requestSeqRef.current) {
-        stream.getTracks().forEach((track) => track.stop())
-        return
-      }
-
-      streamRef.current = stream
-      chunksRef.current = []
-
-      const recorder = new MediaRecorder(stream)
-      mediaRecorderRef.current = recorder
-
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunksRef.current.push(event.data)
-        }
-      }
-
-      recorder.onerror = () => {
-        if (requestSeq !== requestSeqRef.current) return
-        cleanupStream()
-        setState((prev) => ({
-          ...prev,
-          status: VOICE_STT_STATES.ERROR,
-          transcriptionError: UI_TEXT.STT_TRANSCRIPTION_FAILED,
-        }))
-      }
-
-      recorder.onstop = async () => {
-        if (requestSeq !== requestSeqRef.current) return
-
-        cleanupStream()
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
-        chunksRef.current = []
-
-        setState((prev) => ({
-          ...prev,
-          status: VOICE_STT_STATES.TRANSCRIBING,
-          transcriptionError: null,
-        }))
-
-        const transcript = await transcribeViaServer(blob)
-        if (requestSeq !== requestSeqRef.current) return
-
-        if (transcript) {
-          setState((prev) => ({
-            ...prev,
-            status: VOICE_STT_STATES.IDLE,
-            transcript,
-            transcriptionError: null,
-          }))
-          return
-        }
-
-        setState((prev) => ({
-          ...prev,
-          status: VOICE_STT_STATES.ERROR,
-          transcriptionError: UI_TEXT.STT_TRANSCRIPTION_FAILED,
-        }))
-      }
-
-      recorder.start()
+    recognition.onstart = () => {
       setState((prev) => ({
         ...prev,
         status: VOICE_STT_STATES.LISTENING,
-        permissionError: null,
-        transcriptionError: null,
+        error: null,
+        interimTranscript: '',
       }))
-    } catch (error) {
-      if (requestSeq !== requestSeqRef.current) return
-      cleanupStream()
-      if (error instanceof DOMException && error.name === 'NotAllowedError') {
-        setState((prev) => ({
-          ...prev,
-          status: VOICE_STT_STATES.ERROR,
-          permissionError: UI_TEXT.STT_PERMISSION_DENIED,
-        }))
-        return
+    }
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let finalTranscript = ''
+      let interimTranscript = ''
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i]
+        if (!result?.[0]) continue
+        const text = result[0].transcript
+        if (result.isFinal) {
+          finalTranscript += text
+        } else {
+          interimTranscript += text
+        }
       }
 
+      if (finalTranscript) {
+        setState((prev) => ({
+          ...prev,
+          transcript: (prev.transcript + ' ' + finalTranscript).trim(),
+          interimTranscript: '',
+        }))
+      } else {
+        setState((prev) => ({ ...prev, interimTranscript }))
+      }
+    }
+
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      if (event.error === 'aborted' || event.error === 'no-speech') return
+
+      recognitionRef.current = null
       setState((prev) => ({
         ...prev,
         status: VOICE_STT_STATES.ERROR,
-        transcriptionError: UI_TEXT.STT_TRANSCRIPTION_FAILED,
+        interimTranscript: '',
+        error:
+          event.error === 'not-allowed'
+            ? UI_TEXT.STT_PERMISSION_DENIED
+            : UI_TEXT.STT_TRANSCRIPTION_FAILED,
       }))
     }
-  }, [cleanupStream, transcribeViaServer])
 
-  const stopListening = useCallback(() => {
-    const recorder = mediaRecorderRef.current
-
-    if (recorder && recorder.state !== 'inactive') {
-      recorder.stop()
-      return
+    recognition.onend = () => {
+      recognitionRef.current = null
+      setState((prev) => {
+        if (prev.status === VOICE_STT_STATES.ERROR) return prev
+        return { ...prev, status: VOICE_STT_STATES.IDLE, interimTranscript: '' }
+      })
     }
 
-    requestSeqRef.current += 1
-    cleanupStream()
-    setState((prev) => ({
-      ...prev,
-      status: VOICE_STT_STATES.IDLE,
-    }))
-  }, [cleanupStream])
+    try {
+      recognition.start()
+    } catch {
+      recognitionRef.current = null
+      setState((prev) => ({
+        ...prev,
+        status: VOICE_STT_STATES.ERROR,
+        error: UI_TEXT.STT_TRANSCRIPTION_FAILED,
+      }))
+    }
+  }, [])
+
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop()
+      recognitionRef.current = null
+    }
+    setState((prev) => ({ ...prev, status: VOICE_STT_STATES.IDLE, interimTranscript: '' }))
+  }, [])
 
   const resetTranscript = useCallback(() => {
     setState((prev) => ({
       ...prev,
       transcript: '',
+      interimTranscript: '',
+      error: null,
       status: prev.status === VOICE_STT_STATES.ERROR ? VOICE_STT_STATES.IDLE : prev.status,
     }))
   }, [])
 
   useEffect(() => {
-    setState((prev) => ({ ...prev, isSupported: hasMediaDevices() }))
+    setState((prev) => ({ ...prev, isSupported: getSpeechRecognitionConstructor() !== null }))
     setIsReady(true)
   }, [])
 
   useEffect(() => {
     return () => {
-      requestSeqRef.current += 1
-      cleanupStream()
+      if (recognitionRef.current) {
+        recognitionRef.current.abort()
+        recognitionRef.current = null
+      }
     }
-  }, [cleanupStream])
-
-  const isListening = state.status === VOICE_STT_STATES.LISTENING
-  const isTranscribing = state.status === VOICE_STT_STATES.TRANSCRIBING
-  const isRequestingPermission = state.status === VOICE_STT_STATES.REQUESTING_PERMISSION
+  }, [])
 
   return {
-    isListening,
-    isTranscribing,
-    isRequestingPermission,
+    isListening: state.status === VOICE_STT_STATES.LISTENING,
     transcript: state.transcript,
+    interimTranscript: state.interimTranscript,
     isSupported: state.isSupported,
     isReady,
-    permissionError: state.permissionError,
-    transcriptionError: state.transcriptionError,
+    error: state.error,
     startListening,
     stopListening,
     resetTranscript,

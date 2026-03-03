@@ -816,9 +816,9 @@ Dark default. Toggle in sidebar/menu. System preference detection. CSS custom pr
 
 ### F14. TTS/STT
 
-Server-side STT via `openai/whisper` on OpenRouter — browser records audio via `MediaRecorder`, POSTs the blob to `/api/voice/transcribe`, server forwards to OpenRouter and returns the transcript. Server-side TTS via `qwen/qwen3-tts` on OpenRouter — text POSTed to `/api/voice/synthesize`, server returns an audio blob played via `<audio>` element. Markdown is stripped from text before TTS synthesis. Unsupported or unavailable voice paths fail explicitly with typed UI errors.
+Browser-native STT via the Web Speech API (`SpeechRecognition`) — 1-click start begins listening with real-time interim transcripts, 1-click stop finalizes. Falls back to unsupported state in browsers without `SpeechRecognition` (Firefox, some mobile). Server-side TTS via `openai/gpt-audio-mini` on OpenRouter — text POSTed to `/api/voice/synthesize`, server sends a streaming chat completion with `modalities: ["text", "audio"]`, collects base64 audio chunks, decodes, and returns audio blob played via `<audio>` element. Markdown is stripped from text before TTS synthesis. Unsupported or unavailable voice paths fail explicitly with typed UI errors.
 
-Mic button in chat input. TTS play button on assistant messages. Constants: `VOICE.STT_MODEL` (`openai/whisper`), `VOICE.TTS_MODEL` (`qwen/qwen3-tts`), `VOICE.TTS_MAX_CHARS` (4096), `VOICE.MAX_AUDIO_BYTES` (25MB). Routes: `POST /api/voice/transcribe`, `POST /api/voice/synthesize`. Hooks: `use-speech-to-text.ts`, `use-text-to-speech.ts` in `src/features/voice/hooks/`.
+Mic button in chat input. TTS play button on assistant messages. Constants: `VOICE.TTS_MODEL` (`openai/gpt-audio-mini`), `VOICE.TTS_VOICE` (`alloy`), `VOICE.TTS_FORMAT` (`mp3`), `VOICE.TTS_MAX_CHARS` (4096), `VOICE.STT_LANG` (`en-US`). Routes: `POST /api/voice/synthesize` (proxies to OpenRouter chat completions). Hooks: `use-speech-to-text.ts` (browser-native SpeechRecognition), `use-text-to-speech.ts` (server-proxied) in `src/features/voice/hooks/`.
 
 ---
 

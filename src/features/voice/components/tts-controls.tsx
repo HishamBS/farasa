@@ -64,7 +64,7 @@ export function TTSControls({ content }: TTSControlsProps) {
       iconClassName: 'size-3.5',
     },
     [VOICE_TTS_STATES.UNAVAILABLE]: {
-      ariaLabel: UI_TEXT.TTS_UNAVAILABLE,
+      ariaLabel: error ?? UI_TEXT.TTS_UNAVAILABLE,
       disabled: true,
       toneClass: 'cursor-not-allowed text-(--text-ghost)',
       icon: Volume2,

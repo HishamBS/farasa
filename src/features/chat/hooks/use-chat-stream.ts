@@ -1,20 +1,22 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { trpcClient } from '@/trpc/client'
-import { trpc } from '@/trpc/provider'
 import {
+  BROWSER_EVENTS,
+  MESSAGE_ROLES,
+  STATUS_MESSAGES,
+  STREAM_ACTIONS,
   STREAM_EVENTS,
   STREAM_PHASES,
-  STREAM_ACTIONS,
-  STATUS_MESSAGES,
-  BROWSER_EVENTS,
 } from '@/config/constants'
-import { useStreamState } from '@/features/stream-phases/hooks/use-stream-state'
-import type { ChatInput, StreamChunk } from '@/schemas/message'
-import type { v0_8 } from '@a2ui-sdk/types'
 import { ROUTES } from '@/config/routes'
+import { useStreamState } from '@/features/stream-phases/hooks/use-stream-state'
+import type { MessageWithAttachments } from '@/schemas/conversation'
+import type { ChatInput, StreamChunk } from '@/schemas/message'
+import { trpcClient } from '@/trpc/client'
+import { trpc } from '@/trpc/provider'
+import type { v0_8 } from '@a2ui-sdk/types'
+import { useRouter } from 'next/navigation'
+import { useCallback, useEffect, useRef } from 'react'
 
 type ActiveStreamSession = {
   conversationId: string | undefined
@@ -77,11 +79,13 @@ export function useChatStream(conversationId?: string) {
         type: STREAM_ACTIONS.SAVE_INPUT,
         input: { ...input, conversationId: effectiveConversationId, clientRequestId },
       })
-      dispatch({
-        type: STREAM_ACTIONS.STATUS,
-        phase: !input.model ? STREAM_PHASES.ROUTING : STREAM_PHASES.THINKING,
-        message: !input.model ? STATUS_MESSAGES.ROUTING : STATUS_MESSAGES.THINKING,
-      })
+      if (!input.model) {
+        dispatch({
+          type: STREAM_ACTIONS.STATUS,
+          phase: STREAM_PHASES.ROUTING,
+          message: STATUS_MESSAGES.ROUTING,
+        })
+      }
 
       const sessionId = crypto.randomUUID()
       const session: ActiveStreamSession = {
@@ -102,6 +106,8 @@ export function useChatStream(conversationId?: string) {
         const active = activeSessionRef.current
         if (!active || active.sessionId !== sessionId || active.isSettled) return
         active.isSettled = true
+        active.unsubscribe()
+        activeSessionRef.current = null
         sendLockRef.current = false
 
         dispatch({
@@ -143,7 +149,38 @@ export function useChatStream(conversationId?: string) {
                 break
               case STREAM_EVENTS.USER_MESSAGE_SAVED: {
                 const convId = resolvedConversationIdRef.current
-                if (convId) void utils.conversation.messages.invalidate({ conversationId: convId })
+                if (convId) {
+                  const userMessage: MessageWithAttachments = {
+                    id: chunk.messageId,
+                    conversationId: convId,
+                    role: MESSAGE_ROLES.USER,
+                    content: input.content,
+                    metadata: null,
+                    clientRequestId,
+                    streamSequenceMax: null,
+                    tokenCount: null,
+                    createdAt: new Date(),
+                    attachments: [],
+                  }
+                  utils.conversation.messages.setData({ conversationId: convId }, (current) => {
+                    const currentMessages = current?.messages ?? []
+                    const hasExistingMessage = currentMessages.some(
+                      (message) =>
+                        message.id === chunk.messageId ||
+                        (clientRequestId.length > 0 && message.clientRequestId === clientRequestId),
+                    )
+                    if (hasExistingMessage) {
+                      return current ?? { messages: currentMessages, nextCursor: null }
+                    }
+
+                    return {
+                      messages: [...currentMessages, userMessage],
+                      nextCursor: current?.nextCursor ?? null,
+                    }
+                  })
+                  dispatch({ type: STREAM_ACTIONS.CLEAR_PENDING_USER_MESSAGE })
+                  void utils.conversation.messages.invalidate({ conversationId: convId })
+                }
                 break
               }
               case STREAM_EVENTS.STATUS:
@@ -215,6 +252,7 @@ export function useChatStream(conversationId?: string) {
               case STREAM_EVENTS.DONE: {
                 if (active.isSettled) return
                 active.isSettled = true
+                activeSessionRef.current = null
                 sendLockRef.current = false
                 dispatch({ type: STREAM_ACTIONS.DONE })
                 const convId = resolvedConversationIdRef.current

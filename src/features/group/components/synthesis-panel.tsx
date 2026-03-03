@@ -1,15 +1,15 @@
 'use client'
 
-import { useCallback, useMemo, useRef } from 'react'
-import { Loader2 } from 'lucide-react'
-import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
+import { PROVIDER_ALIASES, PROVIDER_DOT_CLASSES } from '@/config/constants'
+import type { ModelSelectorHandle } from '@/features/chat/components/model-selector'
 import { ModelSelector } from '@/features/chat/components/model-selector'
 import { useGroupMode } from '@/features/group/context/group-context'
-import { PROVIDER_DOT_CLASSES } from '@/config/constants'
-import { cn } from '@/lib/utils/cn'
-import { extractProviderKey, extractModelName } from '@/lib/utils/model'
-import type { ModelSelectorHandle } from '@/features/chat/components/model-selector'
 import type { UseSynthesisReturn } from '@/features/group/hooks/use-group-synthesis'
+import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
+import { cn } from '@/lib/utils/cn'
+import { extractModelName, resolveProviderKey } from '@/lib/utils/model'
+import { Loader2 } from 'lucide-react'
+import { useCallback, useMemo, useRef } from 'react'
 
 type SynthesisPanelProps = {
   comparisonModelIds: string[]
@@ -17,6 +17,8 @@ type SynthesisPanelProps = {
   groupId: string
   groupDone: boolean
   synthesis: UseSynthesisReturn
+  initialSynthesisText?: string
+  initialSynthesisModelId?: string
 }
 
 type ModelChipProps = {
@@ -26,7 +28,7 @@ type ModelChipProps = {
 }
 
 function ModelChip({ modelId, isSelected, onSelect }: ModelChipProps) {
-  const providerKey = extractProviderKey(modelId)
+  const providerKey = resolveProviderKey(modelId, PROVIDER_ALIASES)
   const label = extractModelName(modelId)
   const initials = label
     .split(/[-./]/)
@@ -67,12 +69,15 @@ export function SynthesisPanel({
   groupId,
   groupDone,
   synthesis,
+  initialSynthesisText,
+  initialSynthesisModelId,
 }: SynthesisPanelProps) {
   const { judgeModel, setJudgeModel } = useGroupMode()
   const modelSelectorRef = useRef<ModelSelectorHandle>(null)
   const { trigger, isSynthesizing, synthesisText, error: synthesisError } = synthesis
 
   const canSynthesize = groupDone && !!judgeModel && !isSynthesizing
+  const displayedSynthesisText = synthesisText || initialSynthesisText || ''
 
   const handleSelectJudge = useCallback(
     (modelId: string) => {
@@ -101,6 +106,12 @@ export function SynthesisPanel({
     if (!judgeModel) return null
     return extractModelName(judgeModel)
   }, [judgeModel])
+
+  const synthesisModelLabel = useMemo(() => {
+    if (synthesisText && selectedJudgeLabel) return selectedJudgeLabel
+    if (initialSynthesisModelId) return extractModelName(initialSynthesisModelId)
+    return selectedJudgeLabel
+  }, [initialSynthesisModelId, selectedJudgeLabel, synthesisText])
 
   return (
     <div className="space-y-4 py-1">
@@ -157,16 +168,16 @@ export function SynthesisPanel({
         {synthesisError && <p className="text-xs text-red-400">{synthesisError}</p>}
       </div>
 
-      {synthesisText && (
+      {displayedSynthesisText && (
         <div className="rounded-xl border border-(--border-subtle) bg-(--bg-surface) p-4">
           <p className="mb-3 text-xs font-medium text-(--text-muted)">
             Synthesis
-            {selectedJudgeLabel && (
-              <span className="ml-1 font-mono text-(--text-ghost)">via {selectedJudgeLabel}</span>
+            {synthesisModelLabel && (
+              <span className="ml-1 font-mono text-(--text-ghost)">via {synthesisModelLabel}</span>
             )}
           </p>
           <div className="text-[0.90625rem] leading-[1.72] text-(--text-primary)">
-            <MarkdownRenderer content={synthesisText} />
+            <MarkdownRenderer content={displayedSynthesisText} />
           </div>
         </div>
       )}

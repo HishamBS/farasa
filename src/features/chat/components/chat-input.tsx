@@ -78,12 +78,12 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
 
   const selectedModelSupportsTools = useMemo(() => {
     if (!selectedModel) return true
-    const model = models.find((m) => m.id === selectedModel)
     if (models.length === 0) return true
-    return model?.supportsTools ?? false
+    const model = models.find((m) => m.id === selectedModel)
+    return model?.supportsTools ?? true
   }, [selectedModel, models])
 
-  const isGlobeDisabled = mode === CHAT_MODES.CHAT && !selectedModelSupportsTools
+  const isGlobeDisabled = mode === CHAT_MODES.CHAT && !!selectedModel && !selectedModelSupportsTools
 
   useEffect(() => {
     if (isGlobeDisabled && webSearchEnabled) {

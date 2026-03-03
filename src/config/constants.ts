@@ -10,6 +10,7 @@ export const LIMITS = {
   REGISTRY_FETCH_TIMEOUT_MS: 10_000,
   UPLOAD_URL_EXPIRY_MS: 15 * 60 * 1000,
   STREAM_TIMEOUT_MS: 60_000,
+  ROUTER_TIMEOUT_MS: 15_000,
   SEARCH_MAX_RESULTS: 10,
   CODE_BLOCK_LINE_NUMBER_THRESHOLD: 5,
   TOKENS_PER_K: 1_000,
@@ -57,15 +58,13 @@ export const ROUTER_CAPABILITY_PATTERNS = {
 } as const
 
 export const VOICE = {
-  STT_MODEL: 'openai/whisper',
-  TTS_MODEL: 'qwen/qwen3-tts',
-  STT_LANG: 'en-US',
+  TTS_MODEL: 'openai/gpt-audio-mini',
+  TTS_VOICE: 'alloy',
+  TTS_FORMAT: 'mp3',
   TTS_MAX_CHARS: 4_096,
-  TTS_RATE: 1,
-  TTS_PITCH: 1,
-  TTS_VOICE_LOAD_TIMEOUT_MS: 1_500,
-  MAX_AUDIO_BYTES: 25 * 1024 * 1024,
-  STT_TRANSCRIBE_TIMEOUT_MS: 20_000,
+  STT_LANG: 'en-US',
+  STT_CONTINUOUS: true,
+  STT_INTERIM_RESULTS: true,
 } as const
 
 export const VOICE_TTS_STATES = {
@@ -78,9 +77,7 @@ export const VOICE_TTS_STATES = {
 
 export const VOICE_STT_STATES = {
   IDLE: 'idle',
-  REQUESTING_PERMISSION: 'requesting_permission',
   LISTENING: 'listening',
-  TRANSCRIBING: 'transcribing',
   ERROR: 'error',
 } as const
 
@@ -218,10 +215,16 @@ export const PROVIDERS = {
   META: 'meta',
   GROQ: 'groq',
   CEREBRAS: 'cerebras',
+  QWEN: 'qwen',
+  MISTRALAI: 'mistralai',
+  DEEPSEEK: 'deepseek',
 } as const
 
-export const PROVIDER_ALIASES: Record<string, (typeof PROVIDERS)[keyof typeof PROVIDERS]> = {
+export const PROVIDER_ALIASES: Record<string, string> = {
   'meta-llama': PROVIDERS.META,
+  qwen: PROVIDERS.QWEN,
+  mistralai: PROVIDERS.MISTRALAI,
+  deepseek: PROVIDERS.DEEPSEEK,
 }
 
 export const PROVIDER_DOT_CLASSES: Record<string, string> = {
@@ -231,6 +234,9 @@ export const PROVIDER_DOT_CLASSES: Record<string, string> = {
   [PROVIDERS.META]: 'bg-(--provider-meta)',
   [PROVIDERS.GROQ]: 'bg-(--provider-groq)',
   [PROVIDERS.CEREBRAS]: 'bg-(--provider-cerebras)',
+  [PROVIDERS.QWEN]: 'bg-(--provider-qwen)',
+  [PROVIDERS.MISTRALAI]: 'bg-(--provider-mistralai)',
+  [PROVIDERS.DEEPSEEK]: 'bg-(--provider-deepseek)',
 }
 
 export const PROVIDER_TEXT_CLASSES: Record<string, string> = {
@@ -240,6 +246,9 @@ export const PROVIDER_TEXT_CLASSES: Record<string, string> = {
   [PROVIDERS.META]: 'text-(--provider-meta)',
   [PROVIDERS.GROQ]: 'text-(--provider-groq)',
   [PROVIDERS.CEREBRAS]: 'text-(--provider-cerebras)',
+  [PROVIDERS.QWEN]: 'text-(--provider-qwen)',
+  [PROVIDERS.MISTRALAI]: 'text-(--provider-mistralai)',
+  [PROVIDERS.DEEPSEEK]: 'text-(--provider-deepseek)',
 }
 
 export const UX = {
@@ -421,14 +430,11 @@ export const UI_TEXT = {
   WEB_SEARCH_DISABLE: 'Disable web search',
   WEB_SEARCH_ACTIVE: 'Web search on',
   WEB_SEARCH_MODEL_INCOMPATIBLE: 'Selected model does not support web search',
-  STT_TRANSCRIPTION_FAILED: 'Transcription failed. Please try again.',
-  STT_PERMISSION_DENIED:
-    'Microphone access was denied. Please allow microphone in your browser settings.',
-  STT_UNSUPPORTED: 'Voice input is not supported in this browser.',
+  STT_TRANSCRIPTION_FAILED: 'Speech recognition failed. Please try again.',
+  STT_PERMISSION_DENIED: 'Microphone access was denied. Please enable it in your browser settings.',
+  STT_UNSUPPORTED: 'Speech recognition is not supported in this browser.',
   STT_START: 'Start voice input',
-  STT_STOP: 'Stop recording',
-  STT_REQUESTING_PERMISSION: 'Requesting microphone permission...',
-  STT_TRANSCRIBING: 'Transcribing...',
+  STT_STOP: 'Stop voice input',
   TTS_UNAVAILABLE: 'Text-to-speech is currently unavailable.',
   TTS_READ_ALOUD: 'Read aloud',
   TTS_STOP: 'Stop reading',

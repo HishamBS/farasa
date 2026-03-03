@@ -163,7 +163,11 @@ export async function resolveModelDecision(
       input.requestedWebSearchEnabled,
       input.signal,
     )
-  } catch {
+  } catch (error) {
+    console.error(
+      '[router] routeModel failed:',
+      error instanceof Error ? error.message : String(error),
+    )
     throw new TRPCError({
       code: TRPC_CODES.BAD_REQUEST,
       message: AppError.ROUTER_FAILED,

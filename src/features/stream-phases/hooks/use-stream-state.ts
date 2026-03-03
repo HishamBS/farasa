@@ -111,6 +111,8 @@ export function streamStateReducer(state: StreamState, action: StreamAction): St
         ...state,
         phase: CHAT_STREAM_STATUS.ERROR,
         error: action.error,
+        pendingUserMessage: null,
+        pendingClientRequestId: null,
         thinking:
           state.thinking && !state.thinking.completedAt
             ? { ...state.thinking, completedAt: Date.now() }

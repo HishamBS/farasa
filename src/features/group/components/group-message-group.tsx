@@ -4,9 +4,9 @@ import { useMemo } from 'react'
 import { GroupTabs } from './group-tabs'
 import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { GROUP_TAB_VALUES, PROVIDER_DOT_CLASSES } from '@/config/constants'
+import { GROUP_TAB_VALUES, PROVIDER_ALIASES, PROVIDER_DOT_CLASSES } from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
-import { extractProviderKey, extractModelName } from '@/lib/utils/model'
+import { resolveProviderKey, extractModelName } from '@/lib/utils/model'
 import type { StreamState } from '@/types/stream'
 import type { UseSynthesisReturn } from '@/features/group/hooks/use-group-synthesis'
 import type { ModelMeta } from '@/features/group/types'
@@ -50,7 +50,7 @@ function HistoricalTabs({ messages, synthesisText, synthesisModelId }: Historica
   const tabMetas = useMemo(
     () =>
       messages.map((msg) => {
-        const providerKey = extractProviderKey(msg.modelId)
+        const providerKey = resolveProviderKey(msg.modelId, PROVIDER_ALIASES)
         return {
           modelId: msg.modelId,
           providerKey,

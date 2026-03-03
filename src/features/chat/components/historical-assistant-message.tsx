@@ -94,6 +94,19 @@ export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessa
     <motion.div {...(shouldReduce ? {} : fadeInUp)}>
       <AssistantFrame modelLabel={modelLabel} tokenLabel={tokenLabel} costLabel={costLabel}>
         <div className="space-y-3">
+          {metadata?.routerSource === 'auto_router' && (
+            <div className="flex flex-wrap items-center gap-1 text-[0.625rem] text-(--text-muted)">
+              {typeof metadata.routerConfidence === 'number' && (
+                <span className="rounded-full bg-(--bg-surface-active) px-1.5 py-0.5">
+                  {Math.round(metadata.routerConfidence * 100)}% confidence
+                </span>
+              )}
+              {metadata.routerReasoning && (
+                <span className="max-w-xs truncate">{metadata.routerReasoning}</span>
+              )}
+            </div>
+          )}
+
           {thinking && <ThinkingBlock thinking={thinking} />}
 
           {toolExecutions.length > 0 && (

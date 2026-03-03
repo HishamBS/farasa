@@ -1,37 +1,36 @@
-import { and, asc, eq, inArray, isNotNull, or, sql } from 'drizzle-orm'
-import { TRPCError } from '@trpc/server'
-import { router, protectedProcedure, rateLimitedChatProcedure } from '../trpc'
 import {
+  AI_MARKUP,
+  LIMITS,
+  MESSAGE_ROLES,
+  NEW_CHAT_TITLE,
+  STREAM_EVENTS,
+  STREAM_PHASES,
+  TRPC_CODES,
+} from '@/config/constants'
+import { attachments, conversations, messages } from '@/lib/db/schema'
+import { escapeXmlForPrompt, sanitizeA2UIJsonLine } from '@/lib/security/runtime-safety'
+import { AppError, getErrorMessage } from '@/lib/utils/errors'
+import type { StreamChunk, ToolCall, Usage } from '@/schemas/message'
+import {
+  CancelStreamInputSchema,
   ChatInputSchema,
   MessageMetadataSchema,
   UsageSchema,
-  CancelStreamInputSchema,
 } from '@/schemas/message'
-import type { SearchImage, SearchResult } from '@/schemas/search'
-import { conversations, messages, attachments } from '@/lib/db/schema'
-import {
-  STREAM_EVENTS,
-  STREAM_PHASES,
-  MESSAGE_ROLES,
-  TRPC_CODES,
-  NEW_CHAT_TITLE,
-  AI_MARKUP,
-  LIMITS,
-} from '@/config/constants'
-import { AppError, getErrorMessage } from '@/lib/utils/errors'
-import type { StreamChunk } from '@/schemas/message'
-import type { ToolCall, Usage } from '@/schemas/message'
-import type { RuntimeConfig } from '@/schemas/runtime-config'
 import type { ModelCapability, ModelSelectionSource } from '@/schemas/model'
-import type { Message, ChatMessageContentItem } from '@openrouter/sdk/models'
-import {
-  ToolChoiceOptionAuto,
-  ChatMessageContentItemImageType,
-  ChatMessageContentItemTextType,
-} from '@openrouter/sdk/models'
-import { escapeXmlForPrompt, sanitizeA2UIJsonLine } from '@/lib/security/runtime-safety'
+import type { RuntimeConfig } from '@/schemas/runtime-config'
+import type { SearchImage, SearchResult } from '@/schemas/search'
 import { resolveModelDecision } from '@/server/services/model-resolution-service'
 import { executeSearchEnrichment } from '@/server/services/search-enrichment-service'
+import type { ChatMessageContentItem, ChatMessageToolCall, Message } from '@openrouter/sdk/models'
+import {
+  ChatMessageContentItemImageType,
+  ChatMessageContentItemTextType,
+  ToolChoiceOptionAuto,
+} from '@openrouter/sdk/models'
+import { TRPCError } from '@trpc/server'
+import { and, asc, eq, inArray, isNotNull, or, sql } from 'drizzle-orm'
+import { protectedProcedure, rateLimitedChatProcedure, router } from '../trpc'
 
 type StreamSession = {
   key: string
@@ -205,6 +204,40 @@ function buildCombinedAbortSignal(signals: AbortSignal[], timeoutMs: number): Ab
   return controller.signal
 }
 
+function parseSearchToolQuery(rawArguments: string, fallbackQuery: string): string {
+  try {
+    const parsed = JSON.parse(rawArguments) as { query?: unknown }
+    if (typeof parsed.query === 'string' && parsed.query.trim().length > 0) {
+      return parsed.query
+    }
+  } catch {
+    // If arguments are malformed, use the user prompt as the safest fallback.
+  }
+  return fallbackQuery
+}
+
+function mergeSearchResults(existing: SearchResult[], incoming: SearchResult[]): SearchResult[] {
+  const byUrl = new Map<string, SearchResult>()
+  for (const result of existing) {
+    byUrl.set(result.url, result)
+  }
+  for (const result of incoming) {
+    byUrl.set(result.url, result)
+  }
+  return [...byUrl.values()]
+}
+
+function mergeSearchImages(existing: SearchImage[], incoming: SearchImage[]): SearchImage[] {
+  const byUrl = new Map<string, SearchImage>()
+  for (const image of existing) {
+    byUrl.set(image.url, image)
+  }
+  for (const image of incoming) {
+    byUrl.set(image.url, image)
+  }
+  return [...byUrl.values()]
+}
+
 export const chatRouter = router({
   stream: rateLimitedChatProcedure.input(ChatInputSchema).subscription(async function* ({
     ctx,
@@ -261,6 +294,13 @@ export const chatRouter = router({
           : [streamSession.abortController.signal],
         runtimeConfig.chat.stream.timeoutMs,
       )
+
+      if (input.webSearchEnabled && !runtimeConfig.features.searchEnabled) {
+        throw new TRPCError({
+          code: TRPC_CODES.BAD_REQUEST,
+          message: AppError.SEARCH_UNAVAILABLE,
+        })
+      }
 
       const [existingUserMessage] = await ctx.db
         .select({ id: messages.id })
@@ -343,6 +383,9 @@ export const chatRouter = router({
         })
       }
 
+      const routerSignal = AbortSignal.timeout(LIMITS.ROUTER_TIMEOUT_MS)
+      const routerCombined = AbortSignal.any([combinedSignal, routerSignal])
+
       const resolvedDecision = await resolveModelDecision({
         dbClient: ctx.db,
         userId: ctx.userId,
@@ -353,7 +396,7 @@ export const chatRouter = router({
         prompt: input.content,
         registry,
         runtimeConfig,
-        signal: combinedSignal,
+        signal: routerCombined,
       })
 
       selectedModel = resolvedDecision.selectedModel
@@ -442,7 +485,7 @@ export const chatRouter = router({
         if (!runtimeConfig.features.searchEnabled) {
           throw new TRPCError({
             code: TRPC_CODES.BAD_REQUEST,
-            message: runtimeConfig.chat.errors.processing,
+            message: AppError.SEARCH_UNAVAILABLE,
           })
         }
 
@@ -523,20 +566,6 @@ export const chatRouter = router({
 
       const { openrouter } = await import('@/lib/ai/client')
       const { ALL_TOOLS } = await import('@/lib/ai/tools')
-      const stream = await openrouter.chat.send(
-        {
-          chatGenerationParams: {
-            model: selectedModel,
-            messages: sdkMessages,
-            stream: true,
-            maxTokens: runtimeConfig.ai.chatMaxTokens,
-            ...(webSearchEnabled
-              ? { tools: ALL_TOOLS, toolChoice: ToolChoiceOptionAuto.Auto }
-              : {}),
-          },
-        },
-        { signal: combinedSignal },
-      )
 
       let fullText = ''
       let thinkingContent = ''
@@ -548,58 +577,122 @@ export const chatRouter = router({
       let usage: Usage | undefined
       let streamSequenceMax = 0
 
-      for await (const streamChunk of stream) {
-        if (streamChunk.usage) {
-          const parsedUsage = UsageSchema.safeParse({
-            promptTokens: streamChunk.usage.promptTokens ?? 0,
-            completionTokens: streamChunk.usage.completionTokens ?? 0,
-            totalTokens: streamChunk.usage.totalTokens ?? 0,
-          })
-          if (parsedUsage.success) {
-            usage = parsedUsage.data
+      let toolRoundCount = 0
+      while (true) {
+        const stream = await openrouter.chat.send(
+          {
+            chatGenerationParams: {
+              model: selectedModel,
+              messages: sdkMessages,
+              stream: true,
+              maxTokens: runtimeConfig.ai.chatMaxTokens,
+              ...(webSearchEnabled
+                ? { tools: ALL_TOOLS, toolChoice: ToolChoiceOptionAuto.Auto }
+                : {}),
+            },
+          },
+          { signal: combinedSignal },
+        )
+
+        const toolCallDeltas = new Map<number, { id?: string; name?: string; argsJson: string }>()
+        let roundAssistantText = ''
+
+        for await (const streamChunk of stream) {
+          if (streamChunk.usage) {
+            const parsedUsage = UsageSchema.safeParse({
+              promptTokens: streamChunk.usage.promptTokens ?? 0,
+              completionTokens: streamChunk.usage.completionTokens ?? 0,
+              totalTokens: streamChunk.usage.totalTokens ?? 0,
+            })
+            if (parsedUsage.success) {
+              usage = parsedUsage.data
+            }
           }
-        }
 
-        const delta = streamChunk.choices[0]?.delta
-        if (!delta) continue
+          const delta = streamChunk.choices[0]?.delta
+          if (!delta) continue
 
-        if (delta.reasoning) {
-          if (!thinkingStartedAt) thinkingStartedAt = Date.now()
-          thinkingContent += delta.reasoning
-          const thinkingEvent = emit({
-            type: STREAM_EVENTS.THINKING,
-            content: delta.reasoning,
-            isComplete: false,
-          })
-          if (typeof thinkingEvent.sequence === 'number') {
-            streamSequenceMax = Math.max(streamSequenceMax, thinkingEvent.sequence)
+          if (delta.toolCalls && delta.toolCalls.length > 0) {
+            for (const toolCallDelta of delta.toolCalls) {
+              const current = toolCallDeltas.get(toolCallDelta.index) ?? { argsJson: '' }
+              if (toolCallDelta.id) {
+                current.id = toolCallDelta.id
+              }
+              if (toolCallDelta.function?.name) {
+                current.name = toolCallDelta.function.name
+              }
+              if (toolCallDelta.function?.arguments) {
+                current.argsJson += toolCallDelta.function.arguments
+              }
+              toolCallDeltas.set(toolCallDelta.index, current)
+            }
           }
-          yield thinkingEvent
-          continue
-        }
 
-        if (!delta.content) continue
-
-        const text = delta.content
-        if (text.includes(AI_MARKUP.A2UI_FENCE_START)) {
-          inA2UI = true
-          a2uiBuffer = ''
-          const generatingUiEvent = emit({
-            type: STREAM_EVENTS.STATUS,
-            phase: STREAM_PHASES.GENERATING_UI,
-            message: runtimeConfig.chat.statusMessages.generatingUi,
-          })
-          if (typeof generatingUiEvent.sequence === 'number') {
-            streamSequenceMax = Math.max(streamSequenceMax, generatingUiEvent.sequence)
+          if (delta.reasoning) {
+            if (!thinkingStartedAt) thinkingStartedAt = Date.now()
+            thinkingContent += delta.reasoning
+            const thinkingEvent = emit({
+              type: STREAM_EVENTS.THINKING,
+              content: delta.reasoning,
+              isComplete: false,
+            })
+            if (typeof thinkingEvent.sequence === 'number') {
+              streamSequenceMax = Math.max(streamSequenceMax, thinkingEvent.sequence)
+            }
+            yield thinkingEvent
+            continue
           }
-          yield generatingUiEvent
-          continue
-        }
 
-        if (inA2UI && text.includes(AI_MARKUP.CODE_FENCE_END)) {
-          if (a2uiBuffer.trim()) {
-            const sanitizedLine = sanitizeA2UIJsonLine(a2uiBuffer.trim(), runtimeConfig.safety.a2ui)
-            if (sanitizedLine) {
+          if (!delta.content) continue
+
+          const text = delta.content
+          if (text.includes(AI_MARKUP.A2UI_FENCE_START)) {
+            inA2UI = true
+            a2uiBuffer = ''
+            const generatingUiEvent = emit({
+              type: STREAM_EVENTS.STATUS,
+              phase: STREAM_PHASES.GENERATING_UI,
+              message: runtimeConfig.chat.statusMessages.generatingUi,
+            })
+            if (typeof generatingUiEvent.sequence === 'number') {
+              streamSequenceMax = Math.max(streamSequenceMax, generatingUiEvent.sequence)
+            }
+            yield generatingUiEvent
+            continue
+          }
+
+          if (inA2UI && text.includes(AI_MARKUP.CODE_FENCE_END)) {
+            if (a2uiBuffer.trim()) {
+              const sanitizedLine = sanitizeA2UIJsonLine(
+                a2uiBuffer.trim(),
+                runtimeConfig.safety.a2ui,
+              )
+              if (sanitizedLine) {
+                a2uiLines.push(sanitizedLine)
+                const a2uiEvent = emit({
+                  type: STREAM_EVENTS.A2UI,
+                  jsonl: sanitizedLine,
+                })
+                if (typeof a2uiEvent.sequence === 'number') {
+                  streamSequenceMax = Math.max(streamSequenceMax, a2uiEvent.sequence)
+                }
+                yield a2uiEvent
+              }
+            }
+            inA2UI = false
+            a2uiBuffer = ''
+            continue
+          }
+
+          if (inA2UI) {
+            a2uiBuffer += text
+            const lines = a2uiBuffer.split('\n')
+            a2uiBuffer = lines.pop() ?? ''
+            for (const line of lines) {
+              const trimmed = line.trim()
+              if (!trimmed) continue
+              const sanitizedLine = sanitizeA2UIJsonLine(trimmed, runtimeConfig.safety.a2ui)
+              if (!sanitizedLine) continue
               a2uiLines.push(sanitizedLine)
               const a2uiEvent = emit({
                 type: STREAM_EVENTS.A2UI,
@@ -610,43 +703,112 @@ export const chatRouter = router({
               }
               yield a2uiEvent
             }
+            continue
           }
-          inA2UI = false
-          a2uiBuffer = ''
-          continue
+
+          roundAssistantText += text
+          fullText += text
+          const textEvent = emit({
+            type: STREAM_EVENTS.TEXT,
+            content: text,
+          })
+          if (typeof textEvent.sequence === 'number') {
+            streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
+          }
+          yield textEvent
         }
 
-        if (inA2UI) {
-          a2uiBuffer += text
-          const lines = a2uiBuffer.split('\n')
-          a2uiBuffer = lines.pop() ?? ''
-          for (const line of lines) {
-            const trimmed = line.trim()
-            if (!trimmed) continue
-            const sanitizedLine = sanitizeA2UIJsonLine(trimmed, runtimeConfig.safety.a2ui)
-            if (!sanitizedLine) continue
-            a2uiLines.push(sanitizedLine)
-            const a2uiEvent = emit({
-              type: STREAM_EVENTS.A2UI,
-              jsonl: sanitizedLine,
-            })
-            if (typeof a2uiEvent.sequence === 'number') {
-              streamSequenceMax = Math.max(streamSequenceMax, a2uiEvent.sequence)
-            }
-            yield a2uiEvent
-          }
-          continue
+        if (toolCallDeltas.size === 0) {
+          break
         }
 
-        fullText += text
-        const textEvent = emit({
-          type: STREAM_EVENTS.TEXT,
-          content: text,
+        if (toolRoundCount >= LIMITS.SEARCH_MAX_TOOL_CALL_ROUNDS) {
+          throw new TRPCError({
+            code: TRPC_CODES.BAD_REQUEST,
+            message: runtimeConfig.chat.errors.processing,
+          })
+        }
+
+        const roundToolCalls: ChatMessageToolCall[] = [...toolCallDeltas.entries()]
+          .sort(([a], [b]) => a - b)
+          .map(([index, value]) => ({
+            id: value.id ?? `tool_${index}_${crypto.randomUUID()}`,
+            type: 'function' as const,
+            function: {
+              name: value.name ?? '',
+              arguments: value.argsJson,
+            },
+          }))
+          .filter((call) => call.function.name.length > 0)
+
+        if (roundToolCalls.length === 0) {
+          break
+        }
+
+        sdkMessages.push({
+          role: MESSAGE_ROLES.ASSISTANT,
+          content: roundAssistantText,
+          toolCalls: roundToolCalls,
         })
-        if (typeof textEvent.sequence === 'number') {
-          streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
+
+        for (const call of roundToolCalls) {
+          if (call.function.name !== searchToolName) {
+            sdkMessages.push({
+              role: 'tool',
+              toolCallId: call.id,
+              content: JSON.stringify({ error: 'Unsupported tool call' }),
+            })
+            continue
+          }
+
+          const toolQuery = parseSearchToolQuery(call.function.arguments, input.content)
+          const startedAt = Date.now()
+          yield emit({
+            type: STREAM_EVENTS.TOOL_START,
+            toolName: searchToolName,
+            input: { query: toolQuery },
+          })
+          const enrichment = await executeSearchEnrichment(toolQuery, runtimeConfig)
+          searchResults = mergeSearchResults(searchResults, enrichment.results)
+          searchImages = mergeSearchImages(searchImages, enrichment.images)
+          yield emit({
+            type: STREAM_EVENTS.TOOL_RESULT,
+            toolName: searchToolName,
+            result: {
+              query: enrichment.query,
+              results: enrichment.results,
+              images: enrichment.images,
+            },
+          })
+
+          toolCalls.push({
+            name: searchToolName,
+            input: { query: toolQuery },
+            result: {
+              query: enrichment.query,
+              results: enrichment.results,
+              images: enrichment.images,
+            },
+            durationMs: Date.now() - startedAt,
+          })
+
+          sdkMessages.push({
+            role: 'tool',
+            toolCallId: call.id,
+            content: JSON.stringify({
+              query: enrichment.query,
+              results: enrichment.results,
+              images: enrichment.images,
+            }),
+          })
         }
-        yield textEvent
+
+        toolRoundCount += 1
+        yield emit({
+          type: STREAM_EVENTS.STATUS,
+          phase: STREAM_PHASES.THINKING,
+          message: runtimeConfig.chat.statusMessages.thinking,
+        })
       }
 
       if (thinkingContent) {
@@ -660,6 +822,14 @@ export const chatRouter = router({
           streamSequenceMax = Math.max(streamSequenceMax, thinkingCompleteEvent.sequence)
         }
         yield thinkingCompleteEvent
+      }
+
+      const hasVisibleAssistantOutput = fullText.trim().length > 0 || a2uiLines.length > 0
+      if (!hasVisibleAssistantOutput) {
+        throw new TRPCError({
+          code: TRPC_CODES.INTERNAL_SERVER_ERROR,
+          message: runtimeConfig.chat.errors.processing,
+        })
       }
 
       const modelEntry = selectedModel ? registry.find((m) => m.id === selectedModel) : undefined
@@ -729,13 +899,19 @@ export const chatRouter = router({
         .set({ updatedAt: new Date() })
         .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
 
-      const [messageCount] = await ctx.db
+      const [assistantCount] = await ctx.db
         .select({ value: sql<number>`count(*)` })
         .from(messages)
-        .where(eq(messages.conversationId, conversationId))
+        .where(
+          and(
+            eq(messages.conversationId, conversationId),
+            eq(messages.role, MESSAGE_ROLES.ASSISTANT),
+            sql`length(trim(${messages.content})) > 0`,
+          ),
+        )
         .limit(1)
       const shouldGenerateTitle =
-        conversation.title === NEW_CHAT_TITLE && Number(messageCount?.value ?? 0) <= 2
+        conversation.title === NEW_CHAT_TITLE && Number(assistantCount?.value ?? 0) === 1
 
       if (shouldGenerateTitle) {
         const generatingTitleEvent = emit({

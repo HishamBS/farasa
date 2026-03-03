@@ -53,6 +53,9 @@
   --provider-meta: #6366f1;
   --provider-groq: #d97706;
   --provider-cerebras: #f59e0b;
+  --provider-qwen: #a855f7;
+  --provider-mistralai: #f43f5e;
+  --provider-deepseek: #0ea5e9;
 
   --assistant-avatar-from: #6366f1;
   --code-block-border: #0000000f;
@@ -151,6 +154,9 @@
   --provider-meta: #818cf8;
   --provider-groq: #fb7185;
   --provider-cerebras: #fbbf24;
+  --provider-qwen: #c084fc;
+  --provider-mistralai: #fb7185;
+  --provider-deepseek: #38bdf8;
 
   --assistant-avatar-from: #6366f1;
   --code-block-border: #ffffff0a;

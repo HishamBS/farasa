@@ -1,9 +1,8 @@
-name: farasa
+name: farasa-prod
 
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: farasa-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: farasa_user
@@ -26,7 +25,6 @@ services:
       args:
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3010}
         DATABASE_URL: ${DATABASE_URL:-postgresql://farasa_user:farasa_password@postgres:5432/farasa_db}
-    container_name: farasa-app
     restart: unless-stopped
     ports:
       - '${APP_PORT:-3010}:3010'

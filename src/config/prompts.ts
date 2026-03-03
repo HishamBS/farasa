@@ -19,6 +19,8 @@ Capability-first selection rules:
 - If web search or real-time data is needed → require tools:y
 - For simple lookups, yes/no questions, or single-sentence answers → prefer caps including fast; do not use a thinking model
 - For programming, debugging, or code review → prefer caps including code
+- For research summaries, technical explanations, and strategic recommendations → prioritize models with higher context windows and think:y
+- Avoid tiny-context models for non-trivial requests when stronger options are available in the list
 - Do NOT factor price into selection — always pick the most capable model for the task
 
 Return ONLY valid JSON matching this exact structure:

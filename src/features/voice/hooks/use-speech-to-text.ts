@@ -91,16 +91,6 @@ export function useSpeechToText() {
       const recorder = new MediaRecorder(stream)
       mediaRecorderRef.current = recorder
 
-      recorder.onstart = () => {
-        if (requestSeq !== requestSeqRef.current) return
-        setState((prev) => ({
-          ...prev,
-          status: VOICE_STT_STATES.LISTENING,
-          permissionError: null,
-          transcriptionError: null,
-        }))
-      }
-
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           chunksRef.current.push(event.data)
@@ -151,6 +141,12 @@ export function useSpeechToText() {
       }
 
       recorder.start()
+      setState((prev) => ({
+        ...prev,
+        status: VOICE_STT_STATES.LISTENING,
+        permissionError: null,
+        transcriptionError: null,
+      }))
     } catch (error) {
       if (requestSeq !== requestSeqRef.current) return
       cleanupStream()

@@ -32,8 +32,8 @@ export function MicButton({ onTranscript }: MicButtonProps) {
   }, [transcript, onTranscript, resetTranscript])
 
   const handleClick = useCallback(async () => {
-    if (isTranscribing) return
-    if (isListening || isRequestingPermission) {
+    if (isTranscribing || isRequestingPermission) return
+    if (isListening) {
       stopListening()
     } else {
       await startListening()
@@ -54,7 +54,7 @@ export function MicButton({ onTranscript }: MicButtonProps) {
     )
   }
 
-  const disabled = isTranscribing
+  const disabled = isTranscribing || isRequestingPermission
   const title = permissionError ?? transcriptionError ?? undefined
 
   let ariaLabel: string = UI_TEXT.STT_START

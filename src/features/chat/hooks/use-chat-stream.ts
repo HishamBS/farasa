@@ -37,6 +37,7 @@ export function useChatStream(conversationId?: string) {
   const utils = trpc.useUtils()
   const cancelStreamMutation = trpc.chat.cancel.useMutation()
   const activeSessionRef = useRef<ActiveStreamSession | null>(null)
+  const sendLockRef = useRef(false)
   const resolvedConversationIdRef = useRef<string | undefined>(undefined)
   const pendingRouteConversationIdRef = useRef<string | undefined>(undefined)
 
@@ -55,6 +56,7 @@ export function useChatStream(conversationId?: string) {
     if (!active) return
     active.unsubscribe()
     activeSessionRef.current = null
+    sendLockRef.current = false
   }, [])
 
   const runStreamAttempt = useCallback(
@@ -102,6 +104,7 @@ export function useChatStream(conversationId?: string) {
         const active = activeSessionRef.current
         if (!active || active.sessionId !== sessionId || active.isSettled) return
         active.isSettled = true
+        sendLockRef.current = false
 
         dispatch({
           type: STREAM_ACTIONS.ERROR,
@@ -214,6 +217,7 @@ export function useChatStream(conversationId?: string) {
               case STREAM_EVENTS.DONE: {
                 if (active.isSettled) return
                 active.isSettled = true
+                sendLockRef.current = false
                 dispatch({ type: STREAM_ACTIONS.DONE })
                 const convId = resolvedConversationIdRef.current
                 if (convId) {
@@ -231,6 +235,7 @@ export function useChatStream(conversationId?: string) {
             }
           },
           onError(error: Error) {
+            sendLockRef.current = false
             settleWithError({
               message: error.message || 'Connection error.',
               reasonCode: 'transient_network',
@@ -243,6 +248,7 @@ export function useChatStream(conversationId?: string) {
             const active = activeSessionRef.current
             if (!active || active.sessionId !== sessionId) return
             activeSessionRef.current = null
+            sendLockRef.current = false
           },
         },
       )
@@ -254,6 +260,10 @@ export function useChatStream(conversationId?: string) {
 
   const sendMessage = useCallback(
     (input: ChatInput) => {
+      if (sendLockRef.current) {
+        return
+      }
+      sendLockRef.current = true
       runStreamAttempt(input)
     },
     [runStreamAttempt],
@@ -265,6 +275,7 @@ export function useChatStream(conversationId?: string) {
 
     active.unsubscribe()
     activeSessionRef.current = null
+    sendLockRef.current = false
 
     const conversationId = resolvedConversationIdRef.current
     if (conversationId) {
@@ -285,6 +296,7 @@ export function useChatStream(conversationId?: string) {
     const handleNewChatRequested = () => {
       clearActiveSession()
       resolvedConversationIdRef.current = undefined
+      sendLockRef.current = false
       dispatch({ type: STREAM_ACTIONS.RESET })
       dispatch({ type: STREAM_ACTIONS.CLEAR_PENDING_USER_MESSAGE })
     }

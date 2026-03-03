@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth/config'
 import { env } from '@/config/env'
 import { VOICE, APP_CONFIG } from '@/config/constants'
+import { AppError } from '@/lib/utils/errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,18 +15,27 @@ function stripMarkdown(text: string): string {
 export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json(
+      { errorCode: 'unauthorized', message: AppError.UNAUTHORIZED },
+      { status: 401 },
+    )
   }
 
   let text: string
   try {
     const body = (await req.json()) as { text?: unknown }
     if (typeof body.text !== 'string' || body.text.length === 0) {
-      return NextResponse.json({ error: 'Missing text field' }, { status: 400 })
+      return NextResponse.json(
+        { errorCode: 'missing_text', message: AppError.TTS_MISSING_TEXT },
+        { status: 400 },
+      )
     }
     text = stripMarkdown(body.text).slice(0, VOICE.TTS_MAX_CHARS)
   } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    return NextResponse.json(
+      { errorCode: 'invalid_body', message: AppError.TTS_INVALID_BODY },
+      { status: 400 },
+    )
   }
 
   try {
@@ -41,8 +51,15 @@ export async function POST(req: NextRequest) {
     })
 
     if (!response.ok) {
-      console.error('[TTS] OpenRouter error:', response.status, await response.text())
-      return NextResponse.json({ error: 'unavailable' }, { status: 502 })
+      const providerError = await response.text()
+      console.error('[TTS] OpenRouter error:', response.status, providerError)
+      return NextResponse.json(
+        {
+          errorCode: 'provider_error',
+          message: `${AppError.TTS_PROVIDER_FAILED} (${response.status}).`,
+        },
+        { status: 502 },
+      )
     }
 
     const audioBuffer = await response.arrayBuffer()
@@ -54,6 +71,12 @@ export async function POST(req: NextRequest) {
     })
   } catch (error) {
     console.error('[TTS] Error:', error)
-    return NextResponse.json({ error: 'unavailable' }, { status: 500 })
+    return NextResponse.json(
+      {
+        errorCode: 'runtime_error',
+        message: AppError.TTS_RUNTIME_FAILED,
+      },
+      { status: 500 },
+    )
   }
 }

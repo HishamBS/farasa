@@ -120,7 +120,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     onSend({
       content: content.trim(),
       mode,
-      model: modelForSubmission,
+      model: modelForSubmission ?? null,
       conversationId,
       attachmentIds,
       webSearchEnabled,

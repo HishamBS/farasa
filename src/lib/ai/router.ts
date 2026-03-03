@@ -5,8 +5,61 @@ import type { ModelSelection, ModelConfig, ModelCapability } from '@/schemas/mod
 import type { RuntimeConfig } from '@/schemas/runtime-config'
 import { MODEL_CATEGORIES, MODEL_IDS } from '@/config/constants'
 
+function extractFirstJsonObject(raw: string): string {
+  const start = raw.indexOf('{')
+  if (start < 0) {
+    throw new Error('[router] Routing model response does not contain a JSON object')
+  }
+
+  let depth = 0
+  let inString = false
+  let escaped = false
+
+  for (let index = start; index < raw.length; index += 1) {
+    const char = raw[index]
+    if (inString) {
+      if (escaped) {
+        escaped = false
+        continue
+      }
+      if (char === '\\') {
+        escaped = true
+        continue
+      }
+      if (char === '"') {
+        inString = false
+      }
+      continue
+    }
+
+    if (char === '"') {
+      inString = true
+      continue
+    }
+
+    if (char === '{') {
+      depth += 1
+      continue
+    }
+
+    if (char === '}') {
+      depth -= 1
+      if (depth === 0) {
+        return raw.slice(start, index + 1)
+      }
+    }
+  }
+
+  throw new Error('[router] Routing model response contains unterminated JSON object')
+}
+
 function parseJsonObject(raw: string): unknown {
-  const parsed: unknown = JSON.parse(raw)
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    parsed = JSON.parse(extractFirstJsonObject(raw))
+  }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     throw new Error('[router] Routing model returned non-object JSON')
   }

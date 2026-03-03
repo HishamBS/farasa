@@ -70,7 +70,29 @@ export function MessageList({
       !lastMessageIsAssistant)
 
   const renderItems = useMemo((): RenderItem[] => {
+    const groupedMessages = new Map<
+      string,
+      {
+        messages: MessageWithAttachments[]
+        synthesis?: MessageWithAttachments
+      }
+    >()
+
+    for (const message of messages) {
+      const groupId = message.metadata?.groupId
+      if (message.role !== MESSAGE_ROLES.ASSISTANT || !groupId) continue
+
+      const current = groupedMessages.get(groupId) ?? { messages: [] }
+      if (message.metadata?.isGroupSynthesis) {
+        current.synthesis = message
+      } else {
+        current.messages.push(message)
+      }
+      groupedMessages.set(groupId, current)
+    }
+
     const items: RenderItem[] = []
+    const renderedGroupIds = new Set<string>()
     let i = 0
     while (i < messages.length) {
       const msg = messages[i]
@@ -80,29 +102,28 @@ export function MessageList({
       }
       const groupId = msg.metadata?.groupId
       if (msg.role === MESSAGE_ROLES.ASSISTANT && groupId && !msg.metadata?.isGroupSynthesis) {
-        const groupMsgs: MessageWithAttachments[] = [msg]
-        let synthesisMessage: MessageWithAttachments | undefined
-        while (
-          i + 1 < messages.length &&
-          messages[i + 1]?.role === MESSAGE_ROLES.ASSISTANT &&
-          messages[i + 1]?.metadata?.groupId === groupId &&
-          !messages[i + 1]?.metadata?.isGroupSynthesis
-        ) {
-          i++
-          const next = messages[i]
-          if (next) groupMsgs.push(next)
+        if (!renderedGroupIds.has(groupId)) {
+          renderedGroupIds.add(groupId)
+          const grouped = groupedMessages.get(groupId)
+          if (grouped && grouped.messages.length > 0) {
+            items.push({
+              type: 'group',
+              messages: grouped.messages,
+              groupId,
+              synthesis: grouped.synthesis,
+            })
+          } else {
+            items.push({ type: 'single', message: msg })
+          }
         }
-        const maybeSynthesis = messages[i + 1]
-        if (
-          maybeSynthesis?.role === MESSAGE_ROLES.ASSISTANT &&
-          maybeSynthesis.metadata?.groupId === groupId &&
-          maybeSynthesis.metadata?.isGroupSynthesis
-        ) {
-          synthesisMessage = maybeSynthesis
-          i += 1
+      } else if (
+        msg.role === MESSAGE_ROLES.ASSISTANT &&
+        groupId &&
+        msg.metadata?.isGroupSynthesis
+      ) {
+        if (!renderedGroupIds.has(groupId)) {
+          items.push({ type: 'single', message: msg })
         }
-
-        items.push({ type: 'group', messages: groupMsgs, groupId, synthesis: synthesisMessage })
       } else {
         items.push({ type: 'single', message: msg })
       }

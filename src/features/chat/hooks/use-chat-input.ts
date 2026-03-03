@@ -23,11 +23,26 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
   // Only reset selection when conversation identity changes.
   // This prevents stale server echoes from overwriting a freshly selected model.
   useEffect(() => {
-    if (lastConversationIdRef.current === conversationId) return
+    const previousConversationId = lastConversationIdRef.current
+    if (previousConversationId === conversationId) return
     lastConversationIdRef.current = conversationId
+
+    const transitionedFromDraftToPersisted = !previousConversationId && !!conversationId
+    const hasLocalSelection = typeof selectedModelRef.current === 'string'
+    const serverModelUnresolved = initialModel === undefined || initialModel === null
+
+    if (transitionedFromDraftToPersisted && hasLocalSelection && serverModelUnresolved) {
+      setSelectedModelState(selectedModelRef.current)
+      updateConversationMutation.mutate({
+        id: conversationId,
+        model: selectedModelRef.current,
+      })
+      return
+    }
+
     selectedModelRef.current = initialModel ?? undefined
     setSelectedModelState(selectedModelRef.current)
-  }, [conversationId, initialModel])
+  }, [conversationId, initialModel, updateConversationMutation])
 
   useEffect(() => {
     const handleNewChatRequested = () => {

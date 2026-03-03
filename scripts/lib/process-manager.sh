@@ -35,11 +35,6 @@ readonly FARASA_APP_PORTS=("$DEV_PORT" "$DRIZZLE_STUDIO_PORT")
 readonly FARASA_INFRA_PORTS=("$POSTGRES_PORT" "$ADMINER_PORT")
 readonly FARASA_ALL_PORTS=("$DEV_PORT" "$DRIZZLE_STUDIO_PORT" "$POSTGRES_PORT" "$ADMINER_PORT")
 
-# Docker identifiers
-readonly POSTGRES_CONTAINER="farasa-postgres"
-readonly ADMINER_CONTAINER="farasa-adminer"
-readonly APP_CONTAINER="farasa-app"
-
 # Docker compose file paths (SSOT)
 readonly COMPOSE_DEV_FILE="docker/docker-compose.dev.yml"
 readonly COMPOSE_PROD_FILE="docker/docker-compose.yml"
@@ -271,10 +266,10 @@ graceful_cleanup() {
 
     local compose_file
     for compose_file in "${COMPOSE_DEV_FILE}" "${COMPOSE_PROD_FILE}"; do
-        if [[ -f "$compose_file" ]] && docker compose -f "$compose_file" ps -q 2>/dev/null | grep -q .; then
+        if [[ -f "$compose_file" ]]; then
             docker_was_running=true
             echo "Stopping Docker containers ($compose_file)..."
-            docker compose -f "$compose_file" down --timeout 10 2>/dev/null || true
+            docker compose -f "$compose_file" down --remove-orphans --timeout 10 2>/dev/null || true
         fi
     done
 

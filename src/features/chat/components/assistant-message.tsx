@@ -23,6 +23,7 @@ export function AssistantMessage({ streamState }: AssistantMessageProps) {
   const modelLabel = streamState.modelSelection
     ? extractModelName(streamState.modelSelection.model)
     : null
+  const showRouterDecision = streamState.modelSelection?.source === 'auto_router'
 
   return (
     <motion.div {...(shouldReduce ? {} : fadeInUp)}>
@@ -37,11 +38,29 @@ export function AssistantMessage({ streamState }: AssistantMessageProps) {
             </div>
           )}
 
-          {streamState.modelSelection && (
+          {streamState.modelSelection && showRouterDecision && (
             <div className="rounded-xl border border-(--border-subtle) bg-(--bg-surface) px-3 py-2 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-(--text-secondary)">{modelLabel}</span>
+              <div className="flex items-center gap-2 text-(--text-secondary)">
+                <span className="font-medium">{modelLabel}</span>
+                {typeof streamState.modelSelection.confidence === 'number' && (
+                  <span className="rounded-full bg-(--bg-surface-active) px-2 py-0.5 text-[0.625rem] text-(--text-muted)">
+                    {Math.round(streamState.modelSelection.confidence * 100)}% confidence
+                  </span>
+                )}
               </div>
+              {streamState.modelSelection.factors &&
+                streamState.modelSelection.factors.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {streamState.modelSelection.factors.map((factor) => (
+                      <span
+                        key={factor.key}
+                        className="rounded-full bg-(--bg-surface-active) px-2 py-0.5 text-[0.625rem] text-(--text-muted)"
+                      >
+                        {factor.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
               <p className="mt-1 text-(--text-muted)">{streamState.modelSelection.reasoning}</p>
             </div>
           )}

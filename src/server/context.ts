@@ -1,7 +1,4 @@
 import type { Session } from 'next-auth'
-import type { JWT } from 'next-auth/jwt'
-import { getToken } from 'next-auth/jwt'
-import { env } from '@/config/env'
 import { auth } from '@/lib/auth/config'
 import { db } from '@/lib/db/client'
 
@@ -13,42 +10,6 @@ export type Context = ReturnType<typeof buildContext>
 
 export function createContextFromSession(session: Session | null): Context {
   return buildContext(session)
-}
-
-function sessionFromToken(token: JWT): Session {
-  const expires =
-    typeof token.exp === 'number'
-      ? new Date(token.exp * 1000).toISOString()
-      : new Date(Date.now() + 60_000).toISOString()
-
-  return {
-    user: {
-      id: token.sub ?? '',
-      name: token.name ?? null,
-      email: token.email ?? null,
-      image: typeof token.picture === 'string' ? token.picture : null,
-    },
-    expires,
-  }
-}
-
-export async function createContextFromRequest(req: Request): Promise<Context> {
-  let token: JWT | null = null
-  try {
-    token = await getToken({
-      req,
-      secret: env.AUTH_SECRET,
-      secureCookie: env.NODE_ENV === 'production',
-    })
-  } catch (error) {
-    console.warn('[auth] Failed to parse session token in tRPC context', error)
-  }
-
-  if (!token?.sub) {
-    return buildContext(null)
-  }
-
-  return buildContext(sessionFromToken(token))
 }
 
 export async function createContext(): Promise<Context> {

@@ -144,6 +144,65 @@ CREATE INDEX IF NOT EXISTS "runtime_scope_idx" ON "runtime_configs" USING btree 
 --> statement-breakpoint
 DO $$
 BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'conversations'
+      AND column_name = 'search_mode'
+  ) AND NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'conversations'
+      AND column_name = 'mode'
+  ) THEN
+    ALTER TABLE "conversations" RENAME COLUMN "search_mode" TO "mode";
+  END IF;
+END
+$$;
+--> statement-breakpoint
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'conversations'
+      AND column_name = 'web_search_enabled'
+  ) THEN
+    ALTER TABLE "conversations"
+      ADD COLUMN "web_search_enabled" boolean DEFAULT false NOT NULL;
+  END IF;
+END
+$$;
+--> statement-breakpoint
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'user_preferences'
+      AND column_name = 'group_models'
+  ) THEN
+    ALTER TABLE "user_preferences" ADD COLUMN "group_models" jsonb;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'user_preferences'
+      AND column_name = 'group_judge_model'
+  ) THEN
+    ALTER TABLE "user_preferences" ADD COLUMN "group_judge_model" text;
+  END IF;
+END
+$$;
+--> statement-breakpoint
+DO $$
+BEGIN
   IF NOT EXISTS (
     SELECT 1
     FROM pg_constraint
@@ -263,7 +322,7 @@ SELECT
       }
     },
     "ai": {
-      "routerMaxTokens": 200,
+      "routerMaxTokens": 512,
       "titleMaxTokens": 50,
       "chatMaxTokens": 4096,
       "routerTemperature": 0,
@@ -291,3 +350,8 @@ WHERE NOT EXISTS (
   FROM runtime_configs
   WHERE scope = 'system'
 );
+--> statement-breakpoint
+UPDATE runtime_configs
+SET payload = jsonb_set(payload, '{models,routerModel}', '"google/gemini-3-flash-preview"', true),
+    updated_at = NOW()
+WHERE scope = 'system';

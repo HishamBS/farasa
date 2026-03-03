@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { VOICE, VOICE_TTS_STATES, UI_TEXT } from '@/config/constants'
 
 type TtsStatus = (typeof VOICE_TTS_STATES)[keyof typeof VOICE_TTS_STATES]
@@ -10,13 +10,17 @@ type TtsState = {
   error: string | null
 }
 
+type TtsErrorResponse = {
+  message?: string
+}
+
 function isAudioElementSupported(): boolean {
-  return typeof Audio !== 'undefined'
+  return typeof window !== 'undefined' && typeof window.Audio === 'function'
 }
 
 export function useTextToSpeech() {
   const [state, setState] = useState<TtsState>({
-    status: isAudioElementSupported() ? VOICE_TTS_STATES.IDLE : VOICE_TTS_STATES.UNAVAILABLE,
+    status: VOICE_TTS_STATES.IDLE,
     error: null,
   })
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -39,10 +43,10 @@ export function useTextToSpeech() {
     abortControllerRef.current?.abort()
     abortControllerRef.current = null
     cleanupAudio()
-    setState((prev) => ({
-      ...prev,
-      status: isAudioElementSupported() ? VOICE_TTS_STATES.IDLE : VOICE_TTS_STATES.UNAVAILABLE,
-    }))
+    setState((prev) => {
+      if (prev.status === VOICE_TTS_STATES.UNAVAILABLE) return prev
+      return { ...prev, status: VOICE_TTS_STATES.IDLE }
+    })
   }, [cleanupAudio])
 
   const speak = useCallback(
@@ -73,9 +77,18 @@ export function useTextToSpeech() {
         })
 
         if (!response.ok) {
+          let errorMessage: string = UI_TEXT.TTS_UNAVAILABLE
+          try {
+            const payload = (await response.json()) as TtsErrorResponse
+            if (typeof payload.message === 'string' && payload.message.length > 0) {
+              errorMessage = payload.message
+            }
+          } catch {
+            // ignore malformed error payloads
+          }
           setState({
             status: VOICE_TTS_STATES.ERROR,
-            error: UI_TEXT.TTS_UNAVAILABLE,
+            error: errorMessage,
           })
           return
         }
@@ -110,6 +123,12 @@ export function useTextToSpeech() {
     },
     [cleanupAudio, stop],
   )
+
+  useEffect(() => {
+    if (!isAudioElementSupported()) {
+      setState({ status: VOICE_TTS_STATES.UNAVAILABLE, error: UI_TEXT.TTS_UNAVAILABLE })
+    }
+  }, [])
 
   return {
     speak,

@@ -29,7 +29,7 @@ type ResolveModelDecisionInput = {
   dbClient: typeof db
   userId: string
   conversationId: string
-  requestedModel?: string
+  requestedModel?: string | null
   requestedMode: ChatMode
   requestedWebSearchEnabled: boolean
   prompt: string
@@ -63,7 +63,11 @@ async function resolveSourceModel(input: ResolveModelDecisionInput): Promise<{
   source: ModelSelectionSource
 }> {
   const { dbClient, userId, conversationId, requestedModel } = input
-  if (requestedModel) {
+  if (requestedModel === null) {
+    return { source: 'auto_router' }
+  }
+
+  if (typeof requestedModel === 'string') {
     return { modelId: requestedModel, source: 'explicit_request' }
   }
 

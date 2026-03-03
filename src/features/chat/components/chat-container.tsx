@@ -138,12 +138,6 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     return messages.some((m) => m.metadata?.groupId === groupId)
   }, [messages, groupId])
 
-  useEffect(() => {
-    if (messagesHaveGroup && groupStreamInput !== null) {
-      setGroupStreamInput(null)
-    }
-  }, [messagesHaveGroup, groupStreamInput])
-
   const handleSuggestionSelect = useCallback((text: string) => {
     chatInputRef.current?.setContent(text)
   }, [])

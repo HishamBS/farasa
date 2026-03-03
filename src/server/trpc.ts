@@ -7,6 +7,7 @@ import { TRPC_CODES, RATE_LIMITS } from '@/config/constants'
 import { getRuntimeConfig } from '@/lib/runtime-config/service'
 import { users } from '@/lib/db/schema'
 import { AppError } from '@/lib/utils/errors'
+import type { Session } from 'next-auth'
 
 const t = initTRPC.context<Context>().create({
   transformer: superjson,
@@ -16,19 +17,51 @@ export const router = t.router
 export const publicProcedure = t.procedure
 export const createCallerFactory = t.createCallerFactory
 
-async function ensureSessionUserExists(ctx: Context, userId: string): Promise<void> {
+function getSessionUser(session: Session | null) {
+  return session?.user
+}
+
+async function resolveUserId(ctx: Context, userId: string): Promise<string> {
   const [existing] = await ctx.db
     .select({ id: users.id })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1)
 
-  if (!existing) {
+  if (existing) {
+    return existing.id
+  }
+
+  const sessionUser = getSessionUser(ctx.session)
+  const sessionEmail = sessionUser?.email
+  if (!sessionEmail) {
     throw new TRPCError({
       code: TRPC_CODES.UNAUTHORIZED,
       message: AppError.UNAUTHORIZED,
     })
   }
+
+  const [emailOwner] = await ctx.db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, sessionEmail))
+    .limit(1)
+
+  if (emailOwner) {
+    return emailOwner.id
+  }
+
+  await ctx.db
+    .insert(users)
+    .values({
+      id: userId,
+      email: sessionEmail,
+      name: sessionUser?.name ?? null,
+      image: sessionUser?.image ?? null,
+    })
+    .onConflictDoNothing()
+
+  return userId
 }
 
 export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
@@ -36,12 +69,12 @@ export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
     throw new TRPCError({ code: TRPC_CODES.UNAUTHORIZED })
   }
 
-  await ensureSessionUserExists(ctx, ctx.session.user.id)
+  const resolvedUserId = await resolveUserId(ctx, ctx.session.user.id)
 
   return next({
     ctx: {
       ...ctx,
-      userId: ctx.session.user.id,
+      userId: resolvedUserId,
       session: ctx.session,
     },
   })

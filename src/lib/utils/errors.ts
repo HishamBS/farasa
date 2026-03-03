@@ -12,6 +12,10 @@ export const AppError = {
   ATTACHMENT_ACCESS_DENIED: 'Attachment not found or access denied.',
   MISSING_CONVERSATION_ID: 'Missing conversation id for title generation.',
   ROUTER_FAILED: 'Auto-routing failed. Please select a model manually.',
+  TTS_PROVIDER_FAILED: 'TTS provider request failed.',
+  TTS_RUNTIME_FAILED: 'TTS request failed before audio generation.',
+  TTS_INVALID_BODY: 'Invalid request body',
+  TTS_MISSING_TEXT: 'Missing text field',
 } as const
 
 export type AppErrorCode = keyof typeof AppError

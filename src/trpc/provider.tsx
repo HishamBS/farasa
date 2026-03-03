@@ -14,9 +14,12 @@ import { isTrpcUnauthorizedError } from '@/lib/utils/trpc-errors'
 
 export const trpc = createTRPCReact<AppRouter>()
 
+let isRedirectingToLogin = false
+
 function handleUnauthorized(error: unknown): void {
   if (!isTrpcUnauthorizedError(error) || typeof window === 'undefined') return
-  if (window.location.pathname === ROUTES.LOGIN) return
+  if (window.location.pathname === ROUTES.LOGIN || isRedirectingToLogin) return
+  isRedirectingToLogin = true
   window.location.replace(ROUTES.LOGIN)
 }
 

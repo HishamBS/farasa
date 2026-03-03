@@ -781,7 +781,7 @@ react-markdown + remark-gfm + rehype-sanitize + rehype-katex. Shiki for code: VS
 
 ### F8. File Attachments
 
-Upload: attachment button or drag-drop -> validate -> tRPC presigned URL -> client PUT to GCS -> preview in input area. Supported: images, PDFs, text. Multi-modal: images as image_url blocks, PDFs as file blocks, text extracted. Display in messages: images inline with lightbox, files as download cards. Processing phase visible to user.
+Upload: attachment button or drag-drop -> validate -> tRPC presigned URL -> client PUT to GCS -> preview in input area. Supported: images, PDFs, text. Multi-modal via shared `buildAttachmentBlocks` (MIME prefix routing): `text/*` decoded to UTF-8 inline text with XML wrapping, everything else as `image_url` data URLs (images, PDFs, binary docs processed by vision/document-capable models). History persistence: `buildEnrichedHistory` reconstructs attachments on past user messages and annotates assistant messages with search context and team identity, ensuring full session continuity across follow-up turns. Display in messages: images inline with lightbox, files as download cards. Processing phase visible to user.
 
 ### F9. A2UI Agent-Generated UIs
 

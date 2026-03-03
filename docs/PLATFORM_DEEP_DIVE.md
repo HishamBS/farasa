@@ -69,9 +69,9 @@ This is what happens from the moment a user hits Enter to the moment the last to
 
    Phase 4 — Message Building:
      Wrap user message in XML delimiters.
-     Attach multimodal content: images as imageUrl blocks, files as text.
+     Attach multimodal content via MIME prefix routing: text/* decoded to UTF-8, everything else as image_url data URL.
      In SEARCH mode: run Tavily search first, XML-escape results, inject.
-     Fetch conversation history (last 20 messages).
+     Fetch enriched conversation history (last 20 messages) via `buildEnrichedHistory` — reconstructs attachments on user messages, annotates assistant messages with search context and team identity.
      Assemble: [SYSTEM_PROMPT, ...HISTORY, USER_MESSAGE].
 
    Phase 5 — OpenRouter Stream:
@@ -1491,43 +1491,32 @@ Default: `<user_request>` + userInput + `</user_request>`.
 **Multimodal content types:**
 
 ```typescript
-type ContentBlock =
-  | { type: 'text'; text: string }
-  | { type: 'image_url'; image_url: { url: string } }
+// Shared helper: src/server/services/history-builder.ts
+import { buildAttachmentBlocks } from '@/server/services/history-builder'
 
-const contentBlocks: ContentBlock[] = [{ type: 'text', text: wrappedContent }]
+const blocks: ChatMessageContentItem[] = [
+  { type: ChatMessageContentItemTextType.Text, text: wrappedContent },
+]
 
-// GCS-stored attachments (uploaded via presigned URL)
-for (const attachmentId of attachmentIds) {
-  const attachment = await validateAndFetchAttachment(db, attachmentId, userId)
-
-  if (attachment.mimeType.startsWith('image/')) {
-    // Images: use the stored GCS URL directly — it's stored on the attachment row
-    contentBlocks.push({
-      type: 'image_url',
-      image_url: { url: attachment.storageUrl },
-    })
-  } else {
-    // Non-images: reference by filename in text
-    contentBlocks.push({
-      type: 'text',
-      text: `[Attached file: ${attachment.fileName} (${attachment.mimeType})]`,
-    })
-  }
-}
-
-// Inline/data-URL attachments (pasted images, not GCS-stored)
-for (const inline of inlineAttachments ?? []) {
-  contentBlocks.push({
-    type: 'image_url',
-    image_url: { url: inline.dataUrl }, // data:image/... base64 string
-  })
-}
+const attachmentRows = await db
+  .select()
+  .from(attachments)
+  .where(
+    and(
+      inArray(attachments.id, input.attachmentIds),
+      eq(attachments.userId, ctx.userId),
+      isNotNull(attachments.confirmedAt),
+    ),
+  )
+blocks.push(...buildAttachmentBlocks(attachmentRows))
 ```
 
-Two attachment paths exist: (1) **GCS attachments** uploaded via the presigned-URL flow, which have `storageUrl` stored on the DB row — used directly without reconstruction; and (2) **inline attachments** which are data-URL-encoded images (e.g., paste from clipboard) sent inline in the request payload, bypassing GCS entirely.
+`buildAttachmentBlocks` uses **MIME prefix routing** — only two categories matter:
 
-OpenRouter's API accepts an array of content blocks for multimodal models. Vision-capable models (GPT-4V, Claude 3, Gemini) process `image_url` blocks and "see" the image. Non-vision models only see the text blocks; the image reference text tells them a file was attached.
+- **`text/*`** (plain, markdown, CSV, etc.): base64-decoded to UTF-8 text, wrapped in `<file name="...">` XML tags for prompt injection safety and clear file boundaries.
+- **Everything else** (images, PDFs, binary docs): sent as `image_url` data URLs. Vision-capable models (Claude, GPT-4o, Gemini) process images natively; document-capable models process PDFs via data URL. Unsupported formats degrade gracefully (model reports it can't read the file).
+
+This is future-proof: adding new MIME types to `SUPPORTED_FILE_TYPES` requires zero changes to the attachment handler.
 
 ### 6.6 Web Search (Pre-Search Phase)
 
@@ -1624,22 +1613,24 @@ const systemPrompt = [
 
 This is included so the model knows it can generate UI. If the model decides a chart would help answer the question, it has the format to do so. When `a2uiEnabled = false`, the A2UI schema is omitted from the system prompt entirely and the model will not attempt to produce A2UI output.
 
-**Conversation history:**
+**Enriched conversation history** (via `src/server/services/history-builder.ts`):
 
 ```typescript
-const history = await db.query.messages.findMany({
-  where: eq(messages.conversationId, conversationId),
-  orderBy: [asc(messages.createdAt)],
-  limit: LIMITS.CONVERSATION_HISTORY_LIMIT, // 20
-})
-
-const historyMessages = history.map((m) => ({
-  role: m.role as 'user' | 'assistant',
-  content: m.content,
-}))
+const { buildEnrichedHistory } = await import('@/server/services/history-builder')
+const historyMessages = await buildEnrichedHistory(ctx.db, conversationId)
 ```
 
-`CONVERSATION_HISTORY_LIMIT = 20` — the last 20 messages are included. Why limit? LLM context windows have token limits. For models with 128K context (most current models), 20 messages is usually adequate. For models with 8K context, 20 messages of lengthy conversation could exceed the limit, causing errors. 20 is a conservative safe default. Tunable via runtime config.
+`buildEnrichedHistory` replaces the previous plain `SELECT role, content` query with full context reconstruction:
+
+1. **Fetches messages** with `id`, `role`, `content`, and `metadata` (last `CONVERSATION_HISTORY_LIMIT = 20` messages).
+2. **Batch-fetches attachments** for all user messages in a single query (avoids N+1).
+3. **Reconstructs user messages**: if a user message had attachments, rebuilds the multimodal content array using `buildAttachmentBlocks` (MIME prefix routing: `text/*` decoded to UTF-8, everything else as `image_url` data URL).
+4. **Annotates assistant messages** from metadata:
+   - Search context: `[This response used web search for: "query"]` prefix (~20 tokens).
+   - Team identity: `[Response from: model-id]` prefix for multi-model responses.
+   - Synthesis marker: `[Synthesis by: model-id]` prefix for team synthesis responses.
+
+This ensures the AI retains full awareness of prior attachments, search context, and team response attribution on follow-up turns.
 
 **Final message array:**
 
@@ -1651,7 +1642,7 @@ const messages = [
 ]
 ```
 
-The system message contains instructions. History provides context. The user message is last — this is the standard pattern for chat APIs.
+The system message contains instructions. Enriched history provides full context including reconstructed attachments and search/team annotations. The user message is last — this is the standard pattern for chat APIs.
 
 ### 6.8 OpenRouter Stream Setup — Dual Search Architecture
 
@@ -2730,32 +2721,34 @@ The UUID is a random ID per upload (the attachment's `id`). This means two uploa
 
 ### 10.2 Multimodal Content Building
 
-In `chat.ts`, when building the user message:
+Attachment processing is centralized in `src/server/services/history-builder.ts` via `buildAttachmentBlocks`, shared by both `chat.ts` and `team.ts`. The function uses **MIME prefix routing** — no hardcoded individual file types:
 
-**Image files:**
+**`text/*` files** (plain, markdown, CSV, etc.):
 
 ```typescript
-if (attachment.mimeType.startsWith('image/')) {
-  // storageUrl is the full GCS URL stored on the attachment row at upload time
-  contentBlocks.push({
-    type: 'image_url',
-    image_url: { url: attachment.storageUrl },
+if (att.fileType.startsWith('text/')) {
+  const decoded = decodeDataUrlToText(att.storageUrl) // base64 → UTF-8
+  blocks.push({
+    type: ChatMessageContentItemTextType.Text,
+    text: `<file name="${escapeXmlForPrompt(att.fileName)}">\n${decoded}\n</file>`,
   })
 }
 ```
 
-`attachment.storageUrl` is the complete GCS URL stored on the DB row when the upload was confirmed — the URL is not reconstructed at send time. Vision-capable models (GPT-4V, Claude 3 Sonnet, Gemini 1.5) download the image from GCS and process it. Note: the GCS bucket must be publicly readable OR the model API must support signed URL auth (OpenRouter handles this transparently for supported models).
+Text files are base64-decoded from their `storageUrl` data URL and sent as inline text wrapped in `<file>` XML tags. The XML wrapping provides prompt injection safety (clear boundary between file content and prompt instructions) and lets the model identify the file by name.
 
-**Non-image files (PDFs, text, markdown):**
+**Everything else** (images, PDFs, binary documents):
 
 ```typescript
-contentBlocks.push({
-  type: 'text',
-  text: `[Attached file: ${attachment.fileName} (${attachment.mimeType})]`,
+blocks.push({
+  type: ChatMessageContentItemImageType.ImageUrl,
+  imageUrl: { url: att.storageUrl },
 })
 ```
 
-Non-image content is referenced by name. The model knows a file was attached but can't read it directly (file content injection for non-image types would require server-side extraction, not currently implemented). The user would typically paste the relevant content if needed.
+Non-text content is sent as `image_url` data URLs. Vision-capable models (Claude, GPT-4o, Gemini) process images natively; document-capable models process PDFs and other formats via data URL. Unsupported formats degrade gracefully — the model reports it cannot read the file.
+
+**History persistence:** `buildEnrichedHistory` reconstructs attachments on historical user messages by batch-fetching from the `attachments` table (joined via `messageId`). This means the AI retains awareness of uploaded files across follow-up turns — "what was in that PDF?" works on Turn 2+ because the attachment content is re-included in the history.
 
 ---
 
@@ -3515,7 +3508,7 @@ This design gives sub-millisecond fan-out: the first chunk from the fastest mode
 
 4. **teamId generation** — `teamId = crypto.randomUUID()` is generated once per team request and stored on every assistant message produced by this request.
 
-5. **History fetch** — a single query fetches the last `LIMITS.CONVERSATION_HISTORY_LIMIT` user + assistant messages, ordered ascending. This shared history is sent to every model stream identically.
+5. **History fetch** — `buildEnrichedHistory` (from `src/server/services/history-builder.ts`) fetches the last `LIMITS.CONVERSATION_HISTORY_LIMIT` user + assistant messages with full context reconstruction: user message attachments are rebuilt as multimodal content blocks, assistant messages are annotated with search context and team identity from metadata. This enriched, shared history is sent to every model stream identically.
 
 6. **Parallel spawning** — `spawnModelStream(modelId, i)` is called for each model without `await`. Each function opens its own OpenRouter streaming request and pushes chunks into the shared queue.
 

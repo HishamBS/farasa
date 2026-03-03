@@ -10,7 +10,6 @@ import {
 } from '@/config/constants'
 import { PROMPTS } from '@/config/prompts'
 import { attachments, conversations, messages } from '@/lib/db/schema'
-import { escapeXmlForPrompt } from '@/lib/security/runtime-safety'
 import { AppError, getErrorMessage } from '@/lib/utils/errors'
 import type { StreamChunk, ToolCall, Usage } from '@/schemas/message'
 import {
@@ -26,13 +25,9 @@ import { parseA2UIFencePayloadToJsonLines } from '@/server/services/a2ui-message
 import { resolveModelDecision } from '@/server/services/model-resolution-service'
 import { executeSearchEnrichment } from '@/server/services/search-enrichment-service'
 import type { ChatMessageContentItem, ChatMessageToolCall, Message } from '@openrouter/sdk/models'
-import {
-  ChatMessageContentItemImageType,
-  ChatMessageContentItemTextType,
-  ToolChoiceOptionAuto,
-} from '@openrouter/sdk/models'
+import { ChatMessageContentItemTextType, ToolChoiceOptionAuto } from '@openrouter/sdk/models'
 import { TRPCError } from '@trpc/server'
-import { and, asc, eq, inArray, isNotNull, or, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import { protectedProcedure, rateLimitedChatProcedure, router } from '../trpc'
 
 type StreamSession = {
@@ -471,19 +466,8 @@ export const chatRouter = router({
               isNotNull(attachments.confirmedAt),
             ),
           )
-        for (const attachment of attachmentRows) {
-          if (attachment.fileType.startsWith('image/')) {
-            blocks.push({
-              type: ChatMessageContentItemImageType.ImageUrl,
-              imageUrl: { url: attachment.storageUrl },
-            })
-          } else {
-            blocks.push({
-              type: ChatMessageContentItemTextType.Text,
-              text: `[Attachment: ${escapeXmlForPrompt(attachment.fileName)} — ${escapeXmlForPrompt(attachment.fileType)}]`,
-            })
-          }
-        }
+        const { buildAttachmentBlocks } = await import('@/server/services/history-builder')
+        blocks.push(...buildAttachmentBlocks(attachmentRows))
 
         userContent = blocks
       }
@@ -554,22 +538,8 @@ export const chatRouter = router({
         systemSections.push(searchContext)
       }
 
-      const historyRows = await ctx.db
-        .select({ role: messages.role, content: messages.content })
-        .from(messages)
-        .where(
-          and(
-            eq(messages.conversationId, conversationId),
-            or(eq(messages.role, MESSAGE_ROLES.USER), eq(messages.role, MESSAGE_ROLES.ASSISTANT)),
-          ),
-        )
-        .orderBy(asc(messages.createdAt))
-        .limit(LIMITS.CONVERSATION_HISTORY_LIMIT)
-
-      const historyMessages: Message[] = historyRows.map((row) => ({
-        role: row.role,
-        content: row.content,
-      }))
+      const { buildEnrichedHistory } = await import('@/server/services/history-builder')
+      const historyMessages = await buildEnrichedHistory(ctx.db, conversationId)
 
       const baseMessages: Message[] = [
         ...historyMessages,

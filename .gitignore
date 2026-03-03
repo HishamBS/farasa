@@ -1,7 +1,6 @@
 # Personal agent config — never push
 *.md
 !README.md
-!/docs/**/*.md
 
 .claude/
 .codex/

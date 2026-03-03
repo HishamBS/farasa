@@ -21,12 +21,32 @@ type SSEAudioDelta = {
   }>
 }
 
-const AUDIO_CONTENT_TYPE: Record<string, string> = {
-  mp3: 'audio/mpeg',
-  wav: 'audio/wav',
-  opus: 'audio/opus',
-  flac: 'audio/flac',
-} as const
+/** Build a 44-byte RIFF/WAV header for raw PCM16 mono audio. */
+function createWavHeader(pcmByteLength: number, sampleRate: number): Buffer {
+  const numChannels = 1
+  const bitsPerSample = 16
+  const byteRate = sampleRate * numChannels * (bitsPerSample / 8)
+  const blockAlign = numChannels * (bitsPerSample / 8)
+  const header = Buffer.alloc(44)
+
+  header.write('RIFF', 0)
+  header.writeUInt32LE(36 + pcmByteLength, 4)
+  header.write('WAVE', 8)
+
+  header.write('fmt ', 12)
+  header.writeUInt32LE(16, 16) // subchunk1 size (PCM)
+  header.writeUInt16LE(1, 20) // audio format (1 = PCM)
+  header.writeUInt16LE(numChannels, 22)
+  header.writeUInt32LE(sampleRate, 24)
+  header.writeUInt32LE(byteRate, 28)
+  header.writeUInt16LE(blockAlign, 32)
+  header.writeUInt16LE(bitsPerSample, 34)
+
+  header.write('data', 36)
+  header.writeUInt32LE(pcmByteLength, 40)
+
+  return header
+}
 
 async function collectAudioFromSSE(response: Response): Promise<Buffer> {
   const reader = response.body?.getReader()
@@ -70,7 +90,9 @@ async function collectAudioFromSSE(response: Response): Promise<Buffer> {
     throw new Error('No audio data received from model')
   }
 
-  return Buffer.from(base64Chunks.join(''), 'base64')
+  const pcmBuffer = Buffer.from(base64Chunks.join(''), 'base64')
+  const wavHeader = createWavHeader(pcmBuffer.byteLength, VOICE.TTS_SAMPLE_RATE)
+  return Buffer.concat([wavHeader, pcmBuffer])
 }
 
 const handler = auth(async function POST(req) {
@@ -137,12 +159,11 @@ const handler = auth(async function POST(req) {
       )
     }
 
-    const audioBuffer = await collectAudioFromSSE(response)
-    const contentType = AUDIO_CONTENT_TYPE[VOICE.TTS_FORMAT] ?? 'audio/wav'
+    const wavBuffer = await collectAudioFromSSE(response)
 
-    return new NextResponse(new Uint8Array(audioBuffer), {
+    return new NextResponse(new Uint8Array(wavBuffer), {
       headers: {
-        'Content-Type': contentType,
+        'Content-Type': 'audio/wav',
         'Cache-Control': 'no-store',
       },
     })

@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth/config'
 import { env } from '@/config/env'
-import { VOICE, APP_CONFIG, EXTERNAL_URLS } from '@/config/constants'
+import { VOICE, APP_CONFIG, EXTERNAL_URLS, LIMITS } from '@/config/constants'
 import { AppError } from '@/lib/utils/errors'
 import { escapeXmlForPrompt } from '@/lib/security/runtime-safety'
 
@@ -11,12 +11,11 @@ function stripMarkdown(text: string): string {
   return text.replace(MARKDOWN_RE, '$2').trim()
 }
 
-type AudioCompletionResponse = {
+type SSEAudioDelta = {
   choices?: Array<{
-    message?: {
+    delta?: {
       audio?: {
         data?: string
-        transcript?: string
       }
     }
   }>
@@ -28,6 +27,51 @@ const AUDIO_CONTENT_TYPE: Record<string, string> = {
   opus: 'audio/opus',
   flac: 'audio/flac',
 } as const
+
+async function collectAudioFromSSE(response: Response): Promise<Buffer> {
+  const reader = response.body?.getReader()
+  if (!reader) throw new Error('No response body')
+
+  const decoder = new TextDecoder()
+  const base64Chunks: string[] = []
+  let buffer = ''
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed.startsWith('data: ')) continue
+        const payload = trimmed.slice(6)
+        if (payload === '[DONE]') continue
+
+        try {
+          const parsed = JSON.parse(payload) as SSEAudioDelta
+          const audioData = parsed.choices?.[0]?.delta?.audio?.data
+          if (typeof audioData === 'string' && audioData.length > 0) {
+            base64Chunks.push(audioData)
+          }
+        } catch {
+          // Skip malformed SSE payloads
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock()
+  }
+
+  if (base64Chunks.length === 0) {
+    throw new Error('No audio data received from model')
+  }
+
+  return Buffer.from(base64Chunks.join(''), 'base64')
+}
 
 const handler = auth(async function POST(req) {
   if (!req.auth?.user) {
@@ -76,7 +120,9 @@ const handler = auth(async function POST(req) {
           voice: VOICE.TTS_VOICE,
           format: VOICE.TTS_FORMAT,
         },
+        stream: true,
       }),
+      signal: AbortSignal.timeout(LIMITS.STREAM_TIMEOUT_MS),
     })
 
     if (!response.ok) {
@@ -91,14 +137,8 @@ const handler = auth(async function POST(req) {
       )
     }
 
-    const result = (await response.json()) as AudioCompletionResponse
-    const audioData = result.choices?.[0]?.message?.audio?.data
-    if (typeof audioData !== 'string' || audioData.length === 0) {
-      throw new Error('No audio data in response')
-    }
-
-    const audioBuffer = Buffer.from(audioData, 'base64')
-    const contentType = AUDIO_CONTENT_TYPE[VOICE.TTS_FORMAT] ?? 'audio/mpeg'
+    const audioBuffer = await collectAudioFromSSE(response)
+    const contentType = AUDIO_CONTENT_TYPE[VOICE.TTS_FORMAT] ?? 'audio/wav'
 
     return new NextResponse(new Uint8Array(audioBuffer), {
       headers: {

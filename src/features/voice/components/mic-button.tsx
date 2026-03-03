@@ -25,15 +25,17 @@ export function MicButton({ onTranscript, onInterimTranscript }: MicButtonProps)
   } = useSpeechToText()
 
   useEffect(() => {
-    if (transcript) {
+    if (!isListening) return
+    const preview = [transcript, interimTranscript].filter(Boolean).join(' ')
+    onInterimTranscript?.(preview)
+  }, [isListening, transcript, interimTranscript, onInterimTranscript])
+
+  useEffect(() => {
+    if (!isListening && transcript) {
       onTranscript(transcript)
       resetTranscript()
     }
-  }, [transcript, onTranscript, resetTranscript])
-
-  useEffect(() => {
-    onInterimTranscript?.(interimTranscript)
-  }, [interimTranscript, onInterimTranscript])
+  }, [isListening, transcript, onTranscript, resetTranscript])
 
   const handleClick = useCallback(() => {
     if (isListening) {

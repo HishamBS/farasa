@@ -221,6 +221,13 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     [setExternalContent],
   )
 
+  const handleInterimTranscript = useCallback(
+    (text: string) => {
+      setExternalContent(text)
+    },
+    [setExternalContent],
+  )
+
   return (
     <div className="shrink-0 pb-[max(1rem,_env(safe-area-inset-bottom))] xl:pb-6">
       <div className="mx-auto w-full max-w-240 px-4">
@@ -307,7 +314,10 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
                 <Globe size={15} />
               </button>
 
-              <MicButton onTranscript={handleTranscript} />
+              <MicButton
+                onTranscript={handleTranscript}
+                onInterimTranscript={handleInterimTranscript}
+              />
 
               <AnimatePresence mode="wait">
                 {isStreaming ? (

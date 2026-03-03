@@ -61,7 +61,7 @@ export const ROUTER_CAPABILITY_PATTERNS = {
 export const VOICE = {
   TTS_MODEL: 'openai/gpt-audio-mini',
   TTS_VOICE: 'alloy',
-  TTS_FORMAT: 'mp3',
+  TTS_FORMAT: 'wav',
   TTS_MAX_CHARS: 4_096,
   STT_LANG: 'en-US',
   STT_CONTINUOUS: true,

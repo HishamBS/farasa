@@ -187,6 +187,14 @@ export const STATUS_MESSAGES = {
   THOUGHT_DURATION_UNIT: 's',
 } as const
 
+export const CHAT_ERRORS = {
+  UNAUTHORIZED: 'Please sign in to continue.',
+  CONNECTION: 'Connection lost. Please try again.',
+  PROCESSING: 'Something went wrong. Please try again.',
+  INVALID_MODEL: 'The selected model is unavailable.',
+  PROVIDER_UNAVAILABLE: 'The AI provider is temporarily unavailable. Please try again shortly.',
+} as const
+
 export const STREAM_PROGRESS = {
   STATUS: {
     INACTIVE: 'inactive',

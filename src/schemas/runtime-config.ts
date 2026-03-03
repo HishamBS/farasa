@@ -1,5 +1,6 @@
 import {
   AI_PARAMS,
+  CHAT_ERRORS,
   LIMITS,
   MODEL_IDS,
   RATE_LIMITS,
@@ -34,15 +35,12 @@ const StatusMessagesSchema = z
 
 const ChatErrorsSchema = z
   .object({
-    unauthorized: z.string().min(1).default('Please sign in to continue.'),
-    connection: z.string().min(1).default('Connection lost. Please try again.'),
-    processing: z.string().min(1).default('Something went wrong. Please try again.'),
-    invalidModel: z.string().min(1).default('The selected model is unavailable.'),
+    unauthorized: z.string().min(1).default(CHAT_ERRORS.UNAUTHORIZED),
+    connection: z.string().min(1).default(CHAT_ERRORS.CONNECTION),
+    processing: z.string().min(1).default(CHAT_ERRORS.PROCESSING),
+    invalidModel: z.string().min(1).default(CHAT_ERRORS.INVALID_MODEL),
     rateLimited: z.string().min(1).default(RATE_LIMITS.ERROR_MESSAGE),
-    providerUnavailable: z
-      .string()
-      .min(1)
-      .default('The AI provider is temporarily unavailable. Please try again shortly.'),
+    providerUnavailable: z.string().min(1).default(CHAT_ERRORS.PROVIDER_UNAVAILABLE),
   })
   .default({})
 

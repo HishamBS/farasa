@@ -29,11 +29,17 @@ export function useSpeechToText() {
     permissionError: null,
     transcriptionError: null,
   })
+  const [isReady, setIsReady] = useState(false)
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const requestSeqRef = useRef(0)
+  const statusRef = useRef(state.status)
+
+  useEffect(() => {
+    statusRef.current = state.status
+  }, [state.status])
 
   const cleanupStream = useCallback(() => {
     if (streamRef.current) {
@@ -64,9 +70,9 @@ export function useSpeechToText() {
 
   const startListening = useCallback(async () => {
     if (!hasMediaDevices()) return
-    if (state.status === VOICE_STT_STATES.REQUESTING_PERMISSION) return
-    if (state.status === VOICE_STT_STATES.LISTENING) return
-    if (state.status === VOICE_STT_STATES.TRANSCRIBING) return
+    if (statusRef.current === VOICE_STT_STATES.REQUESTING_PERMISSION) return
+    if (statusRef.current === VOICE_STT_STATES.LISTENING) return
+    if (statusRef.current === VOICE_STT_STATES.TRANSCRIBING) return
 
     const requestSeq = requestSeqRef.current + 1
     requestSeqRef.current = requestSeq
@@ -165,7 +171,7 @@ export function useSpeechToText() {
         transcriptionError: UI_TEXT.STT_TRANSCRIPTION_FAILED,
       }))
     }
-  }, [cleanupStream, state.status, transcribeViaServer])
+  }, [cleanupStream, transcribeViaServer])
 
   const stopListening = useCallback(() => {
     const recorder = mediaRecorderRef.current
@@ -193,6 +199,7 @@ export function useSpeechToText() {
 
   useEffect(() => {
     setState((prev) => ({ ...prev, isSupported: hasMediaDevices() }))
+    setIsReady(true)
   }, [])
 
   useEffect(() => {
@@ -212,6 +219,7 @@ export function useSpeechToText() {
     isRequestingPermission,
     transcript: state.transcript,
     isSupported: state.isSupported,
+    isReady,
     permissionError: state.permissionError,
     transcriptionError: state.transcriptionError,
     startListening,

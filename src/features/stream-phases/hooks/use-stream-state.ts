@@ -14,6 +14,7 @@ export const initialStreamState: StreamState = {
   lastInput: null,
   detectedSearchMode: false,
   pendingUserMessage: null,
+  pendingClientRequestId: null,
   resolvedConversationId: null,
 }
 
@@ -126,11 +127,17 @@ export function streamStateReducer(state: StreamState, action: StreamAction): St
             ? { ...state.thinking, completedAt: Date.now() }
             : state.thinking,
         pendingUserMessage: null,
+        pendingClientRequestId: null,
       }
     }
 
     case STREAM_ACTIONS.SAVE_INPUT: {
-      return { ...state, lastInput: action.input, pendingUserMessage: action.input.content }
+      return {
+        ...state,
+        lastInput: action.input,
+        pendingUserMessage: action.input.content,
+        pendingClientRequestId: action.input.clientRequestId ?? null,
+      }
     }
 
     case STREAM_ACTIONS.SET_CONVERSATION_ID: {
@@ -138,11 +145,15 @@ export function streamStateReducer(state: StreamState, action: StreamAction): St
     }
 
     case STREAM_ACTIONS.RESET: {
-      return { ...initialStreamState, pendingUserMessage: state.pendingUserMessage }
+      return {
+        ...initialStreamState,
+        pendingUserMessage: state.pendingUserMessage,
+        pendingClientRequestId: state.pendingClientRequestId,
+      }
     }
 
     case STREAM_ACTIONS.CLEAR_PENDING_USER_MESSAGE: {
-      return { ...state, pendingUserMessage: null }
+      return { ...state, pendingUserMessage: null, pendingClientRequestId: null }
     }
   }
 }

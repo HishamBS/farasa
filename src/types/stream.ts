@@ -55,6 +55,7 @@ export type StreamState = {
   lastInput: ChatInput | null
   detectedSearchMode: boolean
   pendingUserMessage: string | null
+  pendingClientRequestId: string | null
   resolvedConversationId: string | null
 }
 
@@ -91,7 +92,7 @@ export type StreamAction =
   | { type: 'DONE' }
   | { type: 'RESET' }
   | { type: 'SAVE_INPUT'; input: ChatInput }
-  | { type: typeof STREAM_ACTIONS.SET_CONVERSATION_ID; conversationId: string }
+  | { type: typeof STREAM_ACTIONS.SET_CONVERSATION_ID; conversationId: string | null }
   | { type: typeof STREAM_ACTIONS.CLEAR_PENDING_USER_MESSAGE }
 
 export type TitlebarPhase = (typeof TITLEBAR_PHASE)[keyof typeof TITLEBAR_PHASE]

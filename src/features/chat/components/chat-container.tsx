@@ -152,7 +152,13 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     const isGroupActive =
       (groupPhase === GROUP_STREAM_PHASES.ACTIVE || groupPhase === GROUP_STREAM_PHASES.DONE) &&
       !messagesHaveGroup
-    if (!isGroupActive) return null
+    const isSynthesisInFlight = synthesis.isSynthesizing
+    const synthesisJustCompleted =
+      synthesis.isDone &&
+      !messages.some(
+        (m) => m.metadata?.groupId === groupId && m.metadata?.isGroupSynthesis === true,
+      )
+    if (!isGroupActive && !isSynthesisInFlight && !synthesisJustCompleted) return null
     return {
       modelStates,
       modelOrder,
@@ -172,6 +178,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     conversationId,
     synthesis,
     activeGroupModels,
+    messages,
   ])
 
   return (

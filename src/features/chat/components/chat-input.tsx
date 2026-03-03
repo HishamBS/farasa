@@ -14,7 +14,8 @@ import { ArrowRight, Globe, Paperclip } from 'lucide-react'
 import { scaleIn } from '@/lib/utils/motion'
 import { StopButton } from './stop-button'
 import { cn } from '@/lib/utils/cn'
-import { APP_CONFIG, UI_TEXT, MOTION, LIMITS, CHAT_MODES } from '@/config/constants'
+import { APP_CONFIG, UI_TEXT, MOTION, LIMITS, CHAT_MODES, UX } from '@/config/constants'
+import { trpc } from '@/trpc/provider'
 import { useChatInput } from '../hooks/use-chat-input'
 import { useFileUpload } from '../hooks/use-file-upload'
 import { useChatMode } from '../context/chat-mode-context'
@@ -70,6 +71,24 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
 
   const { mode, webSearchEnabled, setWebSearchEnabled } = useChatMode()
   const { groupModels } = useGroupMode()
+
+  const { data: models = [] } = trpc.model.list.useQuery(undefined, {
+    staleTime: UX.QUERY_STALE_TIME_FOREVER,
+  })
+
+  const selectedModelSupportsTools = useMemo(() => {
+    if (!selectedModel) return true
+    const model = models.find((m) => m.id === selectedModel)
+    return model?.supportsTools ?? true
+  }, [selectedModel, models])
+
+  const isGlobeDisabled = mode === CHAT_MODES.CHAT && !selectedModelSupportsTools
+
+  useEffect(() => {
+    if (isGlobeDisabled && webSearchEnabled) {
+      setWebSearchEnabled(false)
+    }
+  }, [isGlobeDisabled, webSearchEnabled, setWebSearchEnabled])
 
   const {
     uploadFile,
@@ -264,18 +283,25 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
 
               <button
                 type="button"
-                onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+                onClick={() => !isGlobeDisabled && setWebSearchEnabled(!webSearchEnabled)}
+                disabled={isGlobeDisabled}
                 className={cn(
                   'flex size-8 items-center justify-center rounded-lg transition-colors',
-                  webSearchEnabled
-                    ? 'bg-(--accent-muted) text-(--accent) hover:bg-(--accent-muted)'
-                    : 'text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)',
+                  isGlobeDisabled
+                    ? 'cursor-not-allowed text-(--text-ghost)'
+                    : webSearchEnabled
+                      ? 'bg-(--accent-muted) text-(--accent) hover:bg-(--accent-muted)'
+                      : 'text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)',
                 )}
-                aria-pressed={webSearchEnabled}
+                aria-pressed={!isGlobeDisabled && webSearchEnabled}
                 aria-label={
-                  webSearchEnabled ? UI_TEXT.WEB_SEARCH_DISABLE : UI_TEXT.WEB_SEARCH_ENABLE
+                  isGlobeDisabled
+                    ? UI_TEXT.WEB_SEARCH_MODEL_INCOMPATIBLE
+                    : webSearchEnabled
+                      ? UI_TEXT.WEB_SEARCH_DISABLE
+                      : UI_TEXT.WEB_SEARCH_ENABLE
                 }
-                title={webSearchEnabled ? UI_TEXT.WEB_SEARCH_DISABLE : UI_TEXT.WEB_SEARCH_ENABLE}
+                title={isGlobeDisabled ? UI_TEXT.WEB_SEARCH_MODEL_INCOMPATIBLE : undefined}
               >
                 <Globe size={15} />
               </button>
@@ -384,9 +410,9 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
         {mode === CHAT_MODES.GROUP && (
           <div className="mt-1 px-1 text-xs text-(--text-muted)">Group mode is active.</div>
         )}
-        <div className="mt-1 px-1 text-xs text-(--text-muted)">
-          {webSearchEnabled ? UI_TEXT.WEB_SEARCH_ACTIVE : UI_TEXT.WEB_SEARCH_INACTIVE}
-        </div>
+        {webSearchEnabled && (
+          <div className="mt-1 px-1 text-xs text-(--text-muted)">{UI_TEXT.WEB_SEARCH_ACTIVE}</div>
+        )}
       </div>
     </div>
   )

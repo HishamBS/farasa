@@ -52,6 +52,7 @@ export function RoutingPanel({ modelSelection, streamPhase, hasText, models }: R
   const displayName =
     modelConfig?.name ?? modelSelection?.model.split('/')[1] ?? modelSelection?.model ?? ''
 
+  if (modelSelection && modelSelection.source !== 'auto_router') return null
   if (!isActive && !routingMinVisible) return null
 
   return (
@@ -80,7 +81,7 @@ export function RoutingPanel({ modelSelection, streamPhase, hasText, models }: R
           className="mr-1 flex items-center gap-1.5 rounded-full border border-(--border-subtle) bg-(--bg-surface) px-2.5 py-1 text-xs text-(--text-muted)"
         >
           <span className={cn('size-1.5 shrink-0 rounded-full', dotClass)} />
-          <span className="max-w-32 truncate">{displayName}</span>
+          <span className="max-w-48 truncate">{displayName}</span>
         </motion.div>
       )}
     </AnimatePresence>

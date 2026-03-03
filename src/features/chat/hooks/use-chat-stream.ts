@@ -43,12 +43,10 @@ export function useChatStream(conversationId?: string) {
 
   useEffect(() => {
     resolvedConversationIdRef.current = conversationId
-    if (conversationId) {
-      dispatch({
-        type: STREAM_ACTIONS.SET_CONVERSATION_ID,
-        conversationId,
-      })
-    }
+    dispatch({
+      type: STREAM_ACTIONS.SET_CONVERSATION_ID,
+      conversationId: conversationId ?? null,
+    })
   }, [conversationId, dispatch])
 
   const clearActiveSession = useCallback(() => {
@@ -247,6 +245,19 @@ export function useChatStream(conversationId?: string) {
           onComplete() {
             const active = activeSessionRef.current
             if (!active || active.sessionId !== sessionId) return
+            if (!active.isSettled) {
+              active.isSettled = true
+              dispatch({
+                type: STREAM_ACTIONS.ERROR,
+                error: {
+                  message: 'Connection interrupted. Please try again.',
+                  reasonCode: 'stream_closed_unexpectedly',
+                  recoverable: true,
+                  code: 'STREAM_INCOMPLETE',
+                  attempt: 0,
+                },
+              })
+            }
             activeSessionRef.current = null
             sendLockRef.current = false
           },

@@ -23,6 +23,7 @@ export function useTextToSpeech() {
     status: VOICE_TTS_STATES.IDLE,
     error: null,
   })
+  const [isReady, setIsReady] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const objectUrlRef = useRef<string | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -128,6 +129,7 @@ export function useTextToSpeech() {
     if (!isAudioElementSupported()) {
       setState({ status: VOICE_TTS_STATES.UNAVAILABLE, error: UI_TEXT.TTS_UNAVAILABLE })
     }
+    setIsReady(true)
   }, [])
 
   return {
@@ -135,5 +137,6 @@ export function useTextToSpeech() {
     stop,
     status: state.status,
     error: state.error,
+    isReady,
   }
 }

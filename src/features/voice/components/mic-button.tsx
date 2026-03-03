@@ -16,6 +16,7 @@ export function MicButton({ onTranscript }: MicButtonProps) {
     isTranscribing,
     isRequestingPermission,
     isSupported,
+    isReady,
     transcript,
     permissionError,
     transcriptionError,
@@ -40,7 +41,7 @@ export function MicButton({ onTranscript }: MicButtonProps) {
     }
   }, [isListening, isRequestingPermission, isTranscribing, startListening, stopListening])
 
-  if (!isSupported) {
+  if (isReady && !isSupported) {
     return (
       <button
         type="button"

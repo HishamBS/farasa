@@ -53,9 +53,19 @@ export function MessageList({
     !pendingUserMessage &&
     !liveGroup
 
-  const lastUserMessageContent =
-    messages.length > 0 ? messages.findLast((m) => m.role === MESSAGE_ROLES.USER)?.content : null
-  const showPendingBubble = !!pendingUserMessage && pendingUserMessage !== lastUserMessageContent
+  const showPendingBubble = useMemo(() => {
+    if (!pendingUserMessage) return false
+    if (streamState.pendingClientRequestId) {
+      const hasMatchingRequest = messages.some(
+        (m) =>
+          m.role === MESSAGE_ROLES.USER && m.clientRequestId === streamState.pendingClientRequestId,
+      )
+      if (hasMatchingRequest) return false
+    }
+    const lastUserContent =
+      messages.length > 0 ? messages.findLast((m) => m.role === MESSAGE_ROLES.USER)?.content : null
+    return pendingUserMessage !== lastUserContent
+  }, [pendingUserMessage, messages, streamState.pendingClientRequestId])
 
   const hasStreamedContent =
     !!streamState.textContent || !!streamState.thinking || streamState.toolExecutions.length > 0

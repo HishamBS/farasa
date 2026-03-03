@@ -66,12 +66,15 @@ export function useSidebar() {
   useEffect(() => {
     if (!isOpen) return
 
+    const isDesktop = window.matchMedia('(min-width: 1024px)').matches
+    if (isDesktop) return
+
     let idleTimer: ReturnType<typeof setTimeout> | null = null
 
     const schedule = () => {
       if (idleTimer) clearTimeout(idleTimer)
       idleTimer = setTimeout(() => {
-        setIsOpen(false)
+        setIsOpenState(false)
       }, UX.SIDEBAR_IDLE_AUTO_MINIMIZE_MS)
     }
 
@@ -95,7 +98,7 @@ export function useSidebar() {
         document.removeEventListener(event, schedule)
       }
     }
-  }, [isOpen, setIsOpen])
+  }, [isOpen])
 
   return { isOpen, open, close, toggle }
 }

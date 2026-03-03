@@ -11,7 +11,8 @@ type TTSControlsProps = {
 }
 
 export function TTSControls({ content }: TTSControlsProps) {
-  const { speak, stop, status, error } = useTextToSpeech()
+  const { speak, stop, status, error, isReady } = useTextToSpeech()
+  const effectiveStatus = isReady ? status : VOICE_TTS_STATES.IDLE
 
   const handleClick = useCallback(async () => {
     if (status === VOICE_TTS_STATES.LOADING) return
@@ -71,7 +72,7 @@ export function TTSControls({ content }: TTSControlsProps) {
     },
   }
 
-  const presentation = presentationByStatus[status]
+  const presentation = presentationByStatus[effectiveStatus]
   const Icon = presentation.icon
 
   return (

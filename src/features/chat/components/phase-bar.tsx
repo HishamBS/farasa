@@ -19,17 +19,10 @@ type RenderPhaseKey = (typeof PHASE_RENDER_ORDER)[number]
 const STREAMING_PHASE_KEY: RenderPhaseKey = 'STREAMING'
 
 export function PhaseBar({ model }: { model?: string }) {
-  const { phase, modelSelection, hasText, statusMessages, hasThinking, hasToolActivity } =
-    useStreamPhase()
+  const { phase, modelSelection, hasText, statusMessages } = useStreamPhase()
   const isActive = phase !== TITLEBAR_PHASE.IDLE && phase !== TITLEBAR_PHASE.DONE
 
   const seenPhases = new Set(statusMessages.map((statusMessage) => statusMessage.phase))
-  if (hasThinking) {
-    seenPhases.add(STREAM_PHASES.THINKING)
-  }
-  if (hasToolActivity) {
-    seenPhases.add(STREAM_PHASES.SEARCHING)
-  }
   if (modelSelection?.source === 'auto_router') {
     seenPhases.add(STREAM_PHASES.ROUTING)
   }
@@ -45,7 +38,6 @@ export function PhaseBar({ model }: { model?: string }) {
     if (renderedPhases.length === 0) return null
     if (phase === TITLEBAR_PHASE.DONE) return renderedPhases[renderedPhases.length - 1] ?? null
     if (hasText) return STREAMING_PHASE_KEY
-    if (hasThinking) return STREAM_PHASES.THINKING
     const lastStatusPhase = statusMessages[statusMessages.length - 1]?.phase
     if (lastStatusPhase && renderedPhases.includes(lastStatusPhase as RenderPhaseKey)) {
       return lastStatusPhase as RenderPhaseKey

@@ -192,7 +192,7 @@ export async function resolveModelDecision(
 
   const requiresSearch = input.requestedWebSearchEnabled
 
-  const { routeModel } = await import('@/lib/ai/router')
+  const { routeModel, adjudicateModelSelection } = await import('@/lib/ai/router')
   const attemptErrors: string[] = []
 
   for (let attempt = 1; attempt <= ROUTER_MAX_ATTEMPTS; attempt += 1) {
@@ -205,9 +205,43 @@ export async function resolveModelDecision(
         input.signal,
       )
 
-      const selectedModel = findModelById(input.registry, selection.selectedModel)
+      let effectiveSelection = selection
+      try {
+        const reviewed = await adjudicateModelSelection(
+          input.prompt,
+          selection,
+          input.registry,
+          input.runtimeConfig,
+          requiresSearch,
+          input.signal,
+        )
+        const reviewValue =
+          reviewed.selectedModel === selection.selectedModel
+            ? 'confirmed'
+            : `corrected_to:${reviewed.selectedModel}`
+        effectiveSelection = {
+          ...selection,
+          selectedModel: reviewed.selectedModel,
+          reasoning: reviewed.reasoning,
+          confidence:
+            typeof reviewed.confidence === 'number' ? reviewed.confidence : selection.confidence,
+          factors: [
+            ...selection.factors,
+            {
+              key: 'selection_review',
+              label: 'Selection Review',
+              value: reviewValue,
+            },
+          ],
+        }
+      } catch (reviewError) {
+        const message = reviewError instanceof Error ? reviewError.message : String(reviewError)
+        console.error('[router] selection adjudication failed:', message)
+      }
+
+      const selectedModel = findModelById(input.registry, effectiveSelection.selectedModel)
       ensureSearchCompatible(selectedModel, requiresSearch)
-      const responseFormat = await resolveResponseFormat(input, selection.responseFormat)
+      const responseFormat = await resolveResponseFormat(input, effectiveSelection.responseFormat)
       const baseFactors = buildFactors({
         source: 'auto_router',
         selectedModel: selectedModel.id,
@@ -218,15 +252,15 @@ export async function resolveModelDecision(
       const knownFactorKeys = new Set(baseFactors.map((factor) => factor.key))
       const mergedFactors = [
         ...baseFactors,
-        ...selection.factors.filter((factor) => !knownFactorKeys.has(factor.key)),
+        ...effectiveSelection.factors.filter((factor) => !knownFactorKeys.has(factor.key)),
       ]
 
       return {
         selectedModel: selectedModel.id,
         source: 'auto_router',
-        reasoning: selection.reasoning || AI_REASONING.MODEL_AUTO_ROUTER,
-        category: selection.category,
-        confidence: selection.confidence,
+        reasoning: effectiveSelection.reasoning || AI_REASONING.MODEL_AUTO_ROUTER,
+        category: effectiveSelection.category,
+        confidence: effectiveSelection.confidence,
         factors: mergedFactors,
         responseFormat,
         requiresSearch,

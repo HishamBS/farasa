@@ -23,6 +23,7 @@ type UseTeamStreamReturn = {
   phase: TeamStreamPhase
   teamId: string | undefined
   teamDone: boolean
+  teamPersisted: boolean
   error: string | undefined
   abort: () => void
 }
@@ -48,6 +49,7 @@ export function useTeamStream({
   const [phase, setPhase] = useState<TeamStreamPhase>(TEAM_STREAM_PHASES.IDLE)
   const [teamId, setTeamId] = useState<string | undefined>(undefined)
   const [teamDone, setTeamDone] = useState(false)
+  const [teamPersisted, setTeamPersisted] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
 
   const activeSubRef = useRef<ActiveSubscription | null>(null)
@@ -197,6 +199,7 @@ export function useTeamStream({
     setPhase(TEAM_STREAM_PHASES.ACTIVE)
     setTeamId(undefined)
     setTeamDone(false)
+    setTeamPersisted(false)
     setError(undefined)
 
     const newSub: ActiveSubscription = { sessionId, unsubscribe: () => {} }
@@ -218,6 +221,9 @@ export function useTeamStream({
             setPhase(TEAM_STREAM_PHASES.ERROR)
             setError(eventChunk.message)
           }
+        } else if (chunk.type === TEAM_EVENTS.PERSISTED) {
+          setTeamPersisted(true)
+          setTeamId(chunk.teamId)
         } else if (chunk.type === TEAM_EVENTS.DONE) {
           setTeamDone(true)
           setTeamId(chunk.teamId)
@@ -266,6 +272,7 @@ export function useTeamStream({
     phase,
     teamId,
     teamDone,
+    teamPersisted,
     error,
     abort,
   }

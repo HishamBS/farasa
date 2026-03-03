@@ -17,6 +17,7 @@ type RoutingDecisionBlockProps = {
   reasoning?: string
   factors?: RouterFactor[]
   defaultExpanded?: boolean
+  compact?: boolean
   className?: string
 }
 
@@ -40,6 +41,7 @@ export function RoutingDecisionBlock({
   reasoning,
   factors,
   defaultExpanded = true,
+  compact = false,
   className,
 }: RoutingDecisionBlockProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
@@ -52,15 +54,22 @@ export function RoutingDecisionBlock({
       <button
         type="button"
         onClick={toggle}
-        className="inline-flex max-w-full cursor-pointer select-none items-center gap-1.5 rounded-xl border border-(--accent)/35 bg-(--accent)/8 px-2.5 py-1.5 transition-all duration-200 hover:scale-[1.02] hover:border-(--accent)/50 active:scale-[0.98]"
+        className={cn(
+          'inline-flex max-w-full cursor-pointer select-none items-center gap-1.5 rounded-xl border border-(--accent)/35 bg-(--accent)/8 px-2.5 py-1.5 transition-all duration-200 active:scale-[0.98]',
+          compact
+            ? 'hover:scale-105 hover:border-(--accent)/55'
+            : 'hover:scale-[1.02] hover:border-(--accent)/50',
+        )}
         aria-expanded={isExpanded}
       >
         <span className="size-1.5 rounded-full bg-(--accent)" />
         <span className="text-sm font-medium text-(--accent)">
           {STREAM_PROGRESS.LABELS[STREAM_PHASES.ROUTING]}
         </span>
-        <span className="max-w-36 truncate text-xs text-(--text-secondary)">{modelLabel}</span>
-        {typeof confidence === 'number' && (
+        {!compact && (
+          <span className="max-w-36 truncate text-xs text-(--text-secondary)">{modelLabel}</span>
+        )}
+        {!compact && typeof confidence === 'number' && (
           <span className="rounded-full border border-(--border-subtle) bg-(--bg-surface-active) px-1.5 py-0.5 text-[0.625rem] text-(--text-muted)">
             {Math.round(confidence * 100)}%
           </span>
@@ -73,6 +82,14 @@ export function RoutingDecisionBlock({
 
       {isExpanded && (
         <div className="mt-3 space-y-2">
+          <div className="flex items-center gap-2 text-xs">
+            <span className="truncate font-medium text-(--text-secondary)">{modelLabel}</span>
+            {typeof confidence === 'number' && (
+              <span className="rounded-full border border-(--border-subtle) bg-(--bg-surface-active) px-1.5 py-0.5 text-[0.625rem] text-(--text-muted)">
+                {Math.round(confidence * 100)}%
+              </span>
+            )}
+          </div>
           {visibleFactors.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {visibleFactors.map((factor) => (

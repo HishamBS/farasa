@@ -38,14 +38,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   const effectiveConversationId = streamState.resolvedConversationId ?? conversationId
   const isStreaming = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
   const chatInputRef = useRef<ChatInputHandle>(null)
-  const {
-    setPhase,
-    setModelSelection,
-    setHasText,
-    setStatusMessages,
-    setHasThinking,
-    setHasToolActivity,
-  } = useStreamPhase()
+  const { setPhase, setModelSelection, setHasText, setStatusMessages } = useStreamPhase()
   const { mode } = useChatMode()
   const utils = trpc.useUtils()
 
@@ -72,6 +65,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     phase: teamPhase,
     teamId,
     teamDone,
+    teamPersisted,
     error: teamError,
     abort: abortTeam,
   } = useTeamStream({
@@ -109,41 +103,62 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     })
   }, [teamStreamInput, modelList])
 
-  const titlebarPhase = useMemo((): TitlebarPhase => {
-    if (streamState.phase === CHAT_STREAM_STATUS.COMPLETE) return TITLEBAR_PHASE.DONE
-    if (streamState.phase === CHAT_STREAM_STATUS.ACTIVE) {
-      if (streamState.thinking !== null && !streamState.thinking.completedAt)
-        return TITLEBAR_PHASE.THINKING
-      return TITLEBAR_PHASE.STREAMING
+  useEffect(() => {
+    if (
+      mode === CHAT_MODES.TEAM &&
+      (teamPhase === TEAM_STREAM_PHASES.ACTIVE || teamPhase === TEAM_STREAM_PHASES.DONE)
+    ) {
+      const teamStates = [...modelStates.values()]
+      const teamStatusMessages = teamStates.flatMap((state) => state.statusMessages)
+      const hasTeamThinking = teamStates.some(
+        (state) => state.thinking !== null && state.thinking.completedAt === undefined,
+      )
+      const hasTeamText = teamStates.some((state) => state.textContent.length > 0)
+      const selectedFromTeam =
+        teamStates.find((state) => state.modelSelection)?.modelSelection ?? null
+      const nextPhase: TitlebarPhase =
+        teamPhase === TEAM_STREAM_PHASES.DONE
+          ? TITLEBAR_PHASE.DONE
+          : hasTeamThinking
+            ? TITLEBAR_PHASE.THINKING
+            : hasTeamText
+              ? TITLEBAR_PHASE.STREAMING
+              : TITLEBAR_PHASE.IDLE
+
+      setPhase(nextPhase)
+      setModelSelection(selectedFromTeam)
+      setHasText(hasTeamText)
+      setStatusMessages(teamStatusMessages)
+      return
     }
-    return TITLEBAR_PHASE.IDLE
-  }, [streamState.phase, streamState.thinking])
 
-  useEffect(() => {
+    const titlebarPhase: TitlebarPhase =
+      streamState.phase === CHAT_STREAM_STATUS.COMPLETE
+        ? TITLEBAR_PHASE.DONE
+        : streamState.phase === CHAT_STREAM_STATUS.ACTIVE
+          ? streamState.thinking !== null && !streamState.thinking.completedAt
+            ? TITLEBAR_PHASE.THINKING
+            : TITLEBAR_PHASE.STREAMING
+          : TITLEBAR_PHASE.IDLE
+
     setPhase(titlebarPhase)
-  }, [titlebarPhase, setPhase])
-
-  useEffect(() => {
     setModelSelection(streamState.modelSelection)
-  }, [streamState.modelSelection, setModelSelection])
-
-  useEffect(() => {
     setHasText(streamState.textContent.length > 0)
-  }, [streamState.textContent, setHasText])
-
-  useEffect(() => {
     setStatusMessages(streamState.statusMessages)
-  }, [streamState.statusMessages, setStatusMessages])
-
-  useEffect(() => {
-    const isThinkingActive =
-      streamState.thinking !== null && streamState.thinking.completedAt === undefined
-    setHasThinking(isThinkingActive)
-  }, [streamState.thinking, setHasThinking])
-
-  useEffect(() => {
-    setHasToolActivity(streamState.toolExecutions.length > 0)
-  }, [streamState.toolExecutions.length, setHasToolActivity])
+  }, [
+    mode,
+    modelStates,
+    setHasText,
+    setModelSelection,
+    setPhase,
+    setStatusMessages,
+    streamState.modelSelection,
+    streamState.phase,
+    streamState.statusMessages,
+    streamState.textContent.length,
+    streamState.thinking,
+    teamPhase,
+  ])
 
   const { data: conversation } = trpc.conversation.getById.useQuery(
     { id: effectiveConversationId ?? '' },
@@ -156,16 +171,11 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   )
   const messages = useMemo(() => messagesData?.messages ?? [], [messagesData])
 
-  const messagesHaveTeam = useMemo(() => {
-    if (!teamId) return false
-    return messages.some((m) => m.metadata?.teamId === teamId)
-  }, [messages, teamId])
-
   useEffect(() => {
-    if (teamDone && messagesHaveTeam && teamStreamInput !== null) {
+    if (teamPersisted && teamStreamInput !== null) {
       setTeamStreamInput(null)
     }
-  }, [teamDone, messagesHaveTeam, teamStreamInput])
+  }, [teamPersisted, teamStreamInput])
 
   const handleSuggestionSelect = useCallback((text: string) => {
     chatInputRef.current?.setContent(text)
@@ -178,14 +188,9 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   }, [streamState.phase, streamState.lastInput])
 
   const liveTeam = useMemo((): LiveTeamData | null => {
-    const hasPersistedTeamMessages =
-      !!teamId &&
-      messages.some(
-        (message) => message.metadata?.teamId === teamId && !message.metadata?.isTeamSynthesis,
-      )
     const shouldRenderLiveTeam =
       teamPhase === TEAM_STREAM_PHASES.ACTIVE ||
-      (teamPhase === TEAM_STREAM_PHASES.DONE && !hasPersistedTeamMessages)
+      (teamPhase === TEAM_STREAM_PHASES.DONE && !teamPersisted)
     if (!shouldRenderLiveTeam) return null
     return {
       modelStates,
@@ -205,7 +210,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     conversationId,
     synthesis,
     activeTeamModels,
-    messages,
+    teamPersisted,
   ])
 
   return (

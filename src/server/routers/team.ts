@@ -7,6 +7,7 @@ import {
   STREAM_EVENTS,
   STREAM_PHASES,
   TEAM_EVENTS,
+  TEAM_LIMITS,
   TRPC_CODES,
 } from '@/config/constants'
 import { conversations, messages } from '@/lib/db/schema'
@@ -15,7 +16,11 @@ import type { StreamChunk } from '@/schemas/message'
 import { MessageMetadataSchema } from '@/schemas/message'
 import type { SearchImage, SearchResult } from '@/schemas/search'
 import type { TeamOutputChunk, TeamSynthesisOutputChunk } from '@/schemas/team'
-import { TeamStreamInputSchema, TeamSynthesizeInputSchema } from '@/schemas/team'
+import {
+  TeamPolicyInputSchema,
+  TeamStreamInputSchema,
+  TeamSynthesizeInputSchema,
+} from '@/schemas/team'
 import { executeSearchEnrichment } from '@/server/services/search-enrichment-service'
 import {
   mergeSearchImages,
@@ -45,7 +50,84 @@ type ModelStreamOutcome = {
   error?: string
 }
 
+type TeamPolicyModelOption = {
+  id: string
+  name: string
+  provider: string
+  selected: boolean
+  selectable: boolean
+  reasonCode?: string
+}
+
+function buildTeamPolicy(
+  registry: ReadonlyArray<{ id: string; name: string; provider: string }>,
+  input: {
+    selectedModelIds: string[]
+  },
+) {
+  const selectedSet = new Set<string>()
+  const normalizedSelectedModelIds: string[] = []
+  for (const modelId of input.selectedModelIds) {
+    if (selectedSet.has(modelId)) continue
+    if (!registry.some((model) => model.id === modelId)) continue
+    if (normalizedSelectedModelIds.length >= TEAM_LIMITS.MAX_MODELS) continue
+    selectedSet.add(modelId)
+    normalizedSelectedModelIds.push(modelId)
+  }
+
+  const selectedCount = normalizedSelectedModelIds.length
+  const teamModelOptions: TeamPolicyModelOption[] = registry.map((model) => {
+    const selected = selectedSet.has(model.id)
+    if (selected) {
+      const selectable = selectedCount > TEAM_LIMITS.MIN_MODELS
+      return {
+        id: model.id,
+        name: model.name,
+        provider: model.provider,
+        selected: true,
+        selectable,
+        ...(selectable ? {} : { reasonCode: 'min_models_required' }),
+      }
+    }
+
+    const selectable = selectedCount < TEAM_LIMITS.MAX_MODELS
+    return {
+      id: model.id,
+      name: model.name,
+      provider: model.provider,
+      selected: false,
+      selectable,
+      ...(selectable ? {} : { reasonCode: 'max_models_reached' }),
+    }
+  })
+
+  const synthesisModelOptions = registry
+    .filter((model) => !selectedSet.has(model.id))
+    .map((model) => ({
+      id: model.id,
+      name: model.name,
+      provider: model.provider,
+    }))
+
+  return {
+    minModels: TEAM_LIMITS.MIN_MODELS,
+    maxModels: TEAM_LIMITS.MAX_MODELS,
+    normalizedSelectedModelIds,
+    teamModelOptions,
+    synthesisModelOptions,
+  }
+}
+
 export const teamRouter = router({
+  policy: rateLimitedChatProcedure.input(TeamPolicyInputSchema).query(async ({ ctx, input }) => {
+    const { getModelRegistry } = await import('@/lib/ai/registry')
+    const registry = await getModelRegistry({
+      runtimeConfig: ctx.runtimeConfig,
+      userId: ctx.userId,
+    })
+    return buildTeamPolicy(registry, input)
+  }),
+
   stream: rateLimitedChatProcedure.input(TeamStreamInputSchema).subscription(async function* ({
     ctx,
     input,
@@ -699,6 +781,16 @@ export const teamRouter = router({
             // Title generation failure is non-fatal
           }
         }
+      }
+
+      if (!conversationId) {
+        throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
+      }
+
+      yield {
+        type: TEAM_EVENTS.PERSISTED,
+        teamId,
+        conversationId,
       }
 
       yield {

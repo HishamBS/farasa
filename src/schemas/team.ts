@@ -29,9 +29,16 @@ export const TeamDoneChunkSchema = z.object({
   completedModels: z.array(z.string()),
 })
 
+export const TeamPersistedChunkSchema = z.object({
+  type: z.literal(TEAM_EVENTS.PERSISTED),
+  teamId: z.string().uuid(),
+  conversationId: z.string().uuid(),
+})
+
 export const TeamOutputChunkSchema = z.discriminatedUnion('type', [
   TeamModelChunkSchema,
   TeamStreamEventChunkSchema,
+  TeamPersistedChunkSchema,
   TeamDoneChunkSchema,
 ])
 
@@ -56,12 +63,42 @@ export const TeamSynthesizeInputSchema = z.object({
   synthesisModel: z.string().min(1),
 })
 
+const TeamPolicyModelOptionSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  provider: z.string(),
+  selected: z.boolean(),
+  selectable: z.boolean(),
+  reasonCode: z.string().optional(),
+})
+
+export const TeamPolicyInputSchema = z.object({
+  selectedModelIds: z.array(z.string()).default([]),
+})
+
+export const TeamPolicyOutputSchema = z.object({
+  minModels: z.number().int().positive(),
+  maxModels: z.number().int().positive(),
+  normalizedSelectedModelIds: z.array(z.string()),
+  teamModelOptions: z.array(TeamPolicyModelOptionSchema),
+  synthesisModelOptions: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      provider: z.string(),
+    }),
+  ),
+})
+
 export type TeamStreamInput = z.infer<typeof TeamStreamInputSchema>
 export type TeamModelChunk = z.infer<typeof TeamModelChunkSchema>
 export type TeamStreamEventChunk = z.infer<typeof TeamStreamEventChunkSchema>
+export type TeamPersistedChunk = z.infer<typeof TeamPersistedChunkSchema>
 export type TeamDoneChunk = z.infer<typeof TeamDoneChunkSchema>
 export type TeamOutputChunk = z.infer<typeof TeamOutputChunkSchema>
 export type TeamSynthesisChunk = z.infer<typeof TeamSynthesisChunkSchema>
 export type TeamSynthesisDoneChunk = z.infer<typeof TeamSynthesisDoneChunkSchema>
 export type TeamSynthesisOutputChunk = z.infer<typeof TeamSynthesisOutputChunkSchema>
 export type TeamSynthesizeInput = z.infer<typeof TeamSynthesizeInputSchema>
+export type TeamPolicyInput = z.infer<typeof TeamPolicyInputSchema>
+export type TeamPolicyOutput = z.infer<typeof TeamPolicyOutputSchema>

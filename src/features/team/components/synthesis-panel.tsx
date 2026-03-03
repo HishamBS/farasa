@@ -1,9 +1,8 @@
 'use client'
 
-import { ModelSelector } from '@/features/chat/components/model-selector'
+import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
 import { useTeamMode } from '@/features/team/context/team-context'
 import type { UseSynthesisReturn } from '@/features/team/hooks/use-team-synthesis'
-import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
 import { extractModelName } from '@/lib/utils/model'
 import { trpc } from '@/trpc/provider'
 import { Loader2 } from 'lucide-react'
@@ -29,17 +28,16 @@ export function SynthesisPanel({
   initialSynthesisModelId,
 }: SynthesisPanelProps) {
   const { synthesisModel, setSynthesisModel } = useTeamMode()
-  const { data: modelList = [] } = trpc.model.list.useQuery()
+  const policyQuery = trpc.team.policy.useQuery({ selectedModelIds: comparisonModelIds })
+  const synthesisModelOptions = useMemo(
+    () => policyQuery.data?.synthesisModelOptions ?? [],
+    [policyQuery.data?.synthesisModelOptions],
+  )
   const { trigger, isSynthesizing, synthesisText, error: synthesisError } = synthesis
 
-  const availableSynthesisModels = useMemo(() => {
-    const selectedComparisonModels = new Set(comparisonModelIds)
-    return modelList.filter((model) => !selectedComparisonModels.has(model.id))
-  }, [comparisonModelIds, modelList])
-
   const hasSelectedSynthesisModel = useMemo(
-    () => availableSynthesisModels.some((model) => model.id === synthesisModel),
-    [availableSynthesisModels, synthesisModel],
+    () => synthesisModelOptions.some((model) => model.id === synthesisModel),
+    [synthesisModelOptions, synthesisModel],
   )
 
   useEffect(() => {
@@ -75,20 +73,29 @@ export function SynthesisPanel({
     return selectedSynthesisLabel
   }, [initialSynthesisModelId, selectedSynthesisLabel, synthesisText])
 
-  const hasSelectableSynthesisModel = availableSynthesisModels.length > 0
+  const hasSelectableSynthesisModel = synthesisModelOptions.length > 0
 
   return (
     <div className="space-y-4 py-1">
       <div className="space-y-2">
         <p className="text-xs font-medium text-(--text-muted)">Select synthesizer model</p>
         {hasSelectableSynthesisModel ? (
-          <ModelSelector
-            value={effectiveSynthesisModel}
-            onChange={handleSynthesisModelChange}
-            includeAuto={false}
-            excludedModelIds={comparisonModelIds}
-            emptyLabel="Select synthesizer"
-          />
+          <select
+            value={effectiveSynthesisModel ?? ''}
+            onChange={(event) => {
+              const value = event.target.value.trim()
+              handleSynthesisModelChange(value.length > 0 ? value : undefined)
+            }}
+            className="h-9 w-full rounded-lg border border-(--border-default) bg-(--bg-input) px-3 text-sm text-(--text-primary) outline-none focus:border-(--accent)"
+            aria-label="Select synthesizer model"
+          >
+            <option value="">Select synthesizer</option>
+            {synthesisModelOptions.map((model) => (
+              <option key={model.id} value={model.id}>
+                {model.name}
+              </option>
+            ))}
+          </select>
         ) : (
           <p className="text-xs text-(--text-ghost)">
             No additional synthesizer model available outside selected team models.

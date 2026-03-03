@@ -468,6 +468,7 @@ export const TEAM_LIMITS = {
 export const TEAM_EVENTS = {
   MODEL_CHUNK: 'team_model_chunk',
   STREAM_EVENT: 'team_stream_event',
+  PERSISTED: 'team_persisted',
   DONE: 'team_done',
   SYNTHESIS_CHUNK: 'team_synthesis_chunk',
   SYNTHESIS_DONE: 'team_synthesis_done',

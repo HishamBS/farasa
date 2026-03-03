@@ -22,6 +22,7 @@ source "$_ORCH_LIB_DIR/ui-components.sh"
 readonly DEV_STARTUP_TIMEOUT=45
 readonly POSTGRES_STARTUP_TIMEOUT=30
 readonly DOCKER_APP_STARTUP_TIMEOUT=60
+readonly DEV_SCHEMA_PREFLIGHT_LOG="logs/dev-schema-preflight.log"
 
 # ============================================================================
 # Dev Server (Next.js - native)
@@ -59,6 +60,15 @@ start_service_dev() {
     fi
 
     ensure_directory "logs"
+
+    print_step "Running database schema preflight (bun db:migrate)..."
+    if ! bun db:migrate > "$DEV_SCHEMA_PREFLIGHT_LOG" 2>&1; then
+        print_error "Schema preflight failed. Dev server start aborted."
+        print_info "Review preflight log: $DEV_SCHEMA_PREFLIGHT_LOG"
+        print_info "Fix database connectivity/migrations, then run: ./start.sh db:migrate"
+        return 1
+    fi
+    print_success "Schema preflight passed"
 
     print_step "Starting dev server (bun dev)..."
     nohup bun dev > logs/dev.log 2>&1 < /dev/null &

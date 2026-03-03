@@ -503,8 +503,11 @@ export const chatRouter = router({
 
       const strictA2UIContract =
         runtimeConfig.features.a2uiEnabled && routerResponseFormat === RESPONSE_FORMATS.A2UI
-      const maxA2UIAttempts = strictA2UIContract ? LIMITS.A2UI_CONTRACT_MAX_ATTEMPTS : 1
+      const maxA2UIAttempts = runtimeConfig.features.a2uiEnabled
+        ? LIMITS.A2UI_CONTRACT_MAX_ATTEMPTS
+        : 1
       let a2uiContractRetryCount = 0
+      let forceA2UIRetry = false
 
       let fullText = ''
       let thinkingContent = ''
@@ -532,7 +535,8 @@ export const chatRouter = router({
       }
 
       for (let contractAttempt = 1; contractAttempt <= maxA2UIAttempts; contractAttempt += 1) {
-        const isA2UIRetryAttempt = strictA2UIContract && contractAttempt > 1
+        const isA2UIRetryAttempt = contractAttempt > 1 && (strictA2UIContract || forceA2UIRetry)
+        const enforceA2UIContract = strictA2UIContract || forceA2UIRetry
         const attemptSystemSections = isA2UIRetryAttempt
           ? [...systemSections, PROMPTS.A2UI_RETRY_FORMAT_PROMPT]
           : systemSections
@@ -639,7 +643,7 @@ export const chatRouter = router({
                 if (fenceStartIndex < 0) {
                   roundAssistantText += remaining
                   fullText += remaining
-                  if (!strictA2UIContract) {
+                  if (!enforceA2UIContract) {
                     const textEvent = emit({
                       type: STREAM_EVENTS.TEXT,
                       content: remaining,
@@ -657,7 +661,7 @@ export const chatRouter = router({
                 if (visiblePrefix.length > 0) {
                   roundAssistantText += visiblePrefix
                   fullText += visiblePrefix
-                  if (!strictA2UIContract) {
+                  if (!enforceA2UIContract) {
                     const textEvent = emit({
                       type: STREAM_EVENTS.TEXT,
                       content: visiblePrefix,
@@ -812,27 +816,61 @@ export const chatRouter = router({
           yield thinkingCompleteEvent
         }
 
-        if (strictA2UIContract && a2uiLines.length === 0) {
-          if (contractAttempt < maxA2UIAttempts) {
-            a2uiContractRetryCount += 1
-            const retryStatusEvent = emit({
-              type: STREAM_EVENTS.STATUS,
-              phase: STREAM_PHASES.GENERATING_UI,
-              message: runtimeConfig.chat.statusMessages.generatingUi,
-            })
-            if (typeof retryStatusEvent.sequence === 'number') {
-              streamSequenceMax = Math.max(streamSequenceMax, retryStatusEvent.sequence)
+        if (a2uiLines.length === 0 && runtimeConfig.features.a2uiEnabled) {
+          if (strictA2UIContract || forceA2UIRetry) {
+            if (contractAttempt < maxA2UIAttempts) {
+              a2uiContractRetryCount += 1
+              const retryStatusEvent = emit({
+                type: STREAM_EVENTS.STATUS,
+                phase: STREAM_PHASES.GENERATING_UI,
+                message: runtimeConfig.chat.statusMessages.generatingUi,
+              })
+              if (typeof retryStatusEvent.sequence === 'number') {
+                streamSequenceMax = Math.max(streamSequenceMax, retryStatusEvent.sequence)
+              }
+              yield retryStatusEvent
+              continue
             }
-            yield retryStatusEvent
-            continue
+            throw new TRPCError({
+              code: TRPC_CODES.BAD_REQUEST,
+              message: AppError.A2UI_CONTRACT_FAILED,
+            })
           }
-          throw new TRPCError({
-            code: TRPC_CODES.BAD_REQUEST,
-            message: AppError.A2UI_CONTRACT_FAILED,
-          })
+
+          if (contractAttempt < maxA2UIAttempts) {
+            try {
+              const { decideA2UIRecovery } = await import('@/lib/ai/router')
+              const recoveryDecision = await decideA2UIRecovery(
+                input.content,
+                fullText,
+                registry,
+                runtimeConfig,
+                combinedSignal,
+              )
+              if (recoveryDecision.retryAsA2UI) {
+                forceA2UIRetry = true
+                a2uiContractRetryCount += 1
+                const retryStatusEvent = emit({
+                  type: STREAM_EVENTS.STATUS,
+                  phase: STREAM_PHASES.GENERATING_UI,
+                  message: runtimeConfig.chat.statusMessages.generatingUi,
+                })
+                if (typeof retryStatusEvent.sequence === 'number') {
+                  streamSequenceMax = Math.max(streamSequenceMax, retryStatusEvent.sequence)
+                }
+                yield retryStatusEvent
+                continue
+              }
+            } catch (recoveryError) {
+              console.error(
+                '[a2ui] recovery adjudication failed:',
+                recoveryError instanceof Error ? recoveryError.message : String(recoveryError),
+              )
+            }
+          }
         }
 
-        if (strictA2UIContract && fullText.trim().length > 0) {
+        if (enforceA2UIContract && fullText.trim().length > 0) {
           const deferredTextEvent = emit({
             type: STREAM_EVENTS.TEXT,
             content: fullText,

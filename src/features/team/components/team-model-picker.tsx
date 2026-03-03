@@ -1,12 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Check, Plus, X } from 'lucide-react'
-import { trpc } from '@/trpc/provider'
-import { useTeamMode } from '@/features/team/context/team-context'
-import { TEAM_LIMITS, PROVIDER_ALIASES, PROVIDER_DOT_CLASSES, UI_TEXT } from '@/config/constants'
-import { cn } from '@/lib/utils/cn'
-import { resolveProviderKey, extractModelName } from '@/lib/utils/model'
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -15,7 +9,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { PROVIDER_DOT_CLASSES, UI_TEXT } from '@/config/constants'
+import { useTeamMode } from '@/features/team/context/team-context'
+import { cn } from '@/lib/utils/cn'
+import { extractModelName } from '@/lib/utils/model'
+import { trpc } from '@/trpc/provider'
+import { Check, Plus, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+
+type TeamModelOption = {
+  id: string
+  name: string
+  provider: string
+  selected: boolean
+  selectable: boolean
+  reasonCode?: string
+}
 
 type SelectedChipProps = {
   modelId: string
@@ -23,7 +32,6 @@ type SelectedChipProps = {
   providerKey: string
   onRemove: (modelId: string) => void
   canRemove: boolean
-  isStale?: boolean
 }
 
 function SelectedChip({
@@ -32,17 +40,11 @@ function SelectedChip({
   providerKey,
   onRemove,
   canRemove,
-  isStale,
 }: SelectedChipProps) {
   const dotClass = PROVIDER_DOT_CLASSES[providerKey] ?? 'bg-(--text-ghost)'
 
   return (
-    <span
-      className={cn(
-        'inline-flex min-h-8 items-center gap-1.5 rounded-full border border-(--border-subtle) bg-(--bg-surface) py-1 pl-2 pr-1.5 text-xs text-(--text-secondary)',
-        isStale && 'opacity-50 italic',
-      )}
-    >
+    <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-(--border-subtle) bg-(--bg-surface) py-1 pl-2 pr-1.5 text-xs text-(--text-secondary)">
       <span className={cn('size-1.5 shrink-0 rounded-full', dotClass)} />
       <span className="max-w-40 truncate">{modelLabel}</span>
       {canRemove && (
@@ -63,64 +65,69 @@ export function TeamModelPicker() {
   const { teamModels, setTeamModels } = useTeamMode()
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const { data: modelList = [] } = trpc.model.list.useQuery()
 
-  const modelMetaMap = useMemo(() => {
-    const map = new Map<string, { name: string; provider: string }>()
-    for (const model of modelList) {
-      map.set(model.id, { name: model.name, provider: model.provider })
-    }
-    return map
-  }, [modelList])
+  const policyQuery = trpc.team.policy.useQuery({ selectedModelIds: teamModels })
+  const policy = policyQuery.data
 
   useEffect(() => {
-    if (modelList.length === 0) return
-    const stale = teamModels.filter((id) => !modelMetaMap.has(id))
-    if (stale.length > 0) {
-      setTeamModels(teamModels.filter((id) => modelMetaMap.has(id)))
+    if (!policy) return
+    const current = teamModels.join(',')
+    const normalized = policy.normalizedSelectedModelIds.join(',')
+    if (current !== normalized) {
+      setTeamModels(policy.normalizedSelectedModelIds)
     }
-  }, [teamModels, modelList.length, modelMetaMap, setTeamModels])
+  }, [policy, setTeamModels, teamModels])
+
+  const optionById = useMemo(() => {
+    const map = new Map<string, TeamModelOption>()
+    for (const option of policy?.teamModelOptions ?? []) {
+      map.set(option.id, option)
+    }
+    return map
+  }, [policy])
+
+  const selectedModelIds = policy?.normalizedSelectedModelIds ?? teamModels
+  const selectedCount = selectedModelIds.length
+  const canRemove = policy ? selectedCount > policy.minModels : false
+  const maxModels = policy?.maxModels ?? selectedCount
 
   const filteredModels = useMemo(() => {
+    const models = policy?.teamModelOptions ?? []
     const query = searchQuery.trim().toLowerCase()
-    if (!query) return modelList
-    return modelList.filter((model) => {
+    if (!query) return models
+    return models.filter((model) => {
       const haystack = `${model.name} ${model.id} ${model.provider}`.toLowerCase()
       return haystack.includes(query)
     })
-  }, [modelList, searchQuery])
-
-  const canRemove = teamModels.length > TEAM_LIMITS.MIN_MODELS
-  const canAddMore = teamModels.length < TEAM_LIMITS.MAX_MODELS
+  }, [policy?.teamModelOptions, searchQuery])
 
   const toggleModel = useCallback(
     (modelId: string) => {
-      if (teamModels.includes(modelId)) {
-        if (!canRemove) return
-        setTeamModels(teamModels.filter((id) => id !== modelId))
+      const option = optionById.get(modelId)
+      if (!option || !option.selectable) return
+      if (option.selected) {
+        setTeamModels(selectedModelIds.filter((id) => id !== modelId))
         return
       }
-      if (!canAddMore) return
-      setTeamModels([...teamModels, modelId])
+      setTeamModels([...selectedModelIds, modelId])
     },
-    [canAddMore, canRemove, teamModels, setTeamModels],
+    [optionById, selectedModelIds, setTeamModels],
   )
 
   const handleRemove = useCallback(
     (modelId: string) => {
       if (!canRemove) return
-      setTeamModels(teamModels.filter((id) => id !== modelId))
+      setTeamModels(selectedModelIds.filter((id) => id !== modelId))
     },
-    [canRemove, teamModels, setTeamModels],
+    [canRemove, selectedModelIds, setTeamModels],
   )
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      {teamModels.map((modelId) => {
-        const meta = modelMetaMap.get(modelId)
-        const isStale = modelList.length > 0 && !meta
+      {selectedModelIds.map((modelId) => {
+        const meta = optionById.get(modelId)
         const label = meta?.name ?? extractModelName(modelId)
-        const providerKey = meta?.provider ?? resolveProviderKey(modelId, PROVIDER_ALIASES)
+        const providerKey = meta?.provider ?? 'unknown'
         return (
           <SelectedChip
             key={modelId}
@@ -129,7 +136,6 @@ export function TeamModelPicker() {
             providerKey={providerKey}
             onRemove={handleRemove}
             canRemove={canRemove}
-            isStale={isStale}
           />
         )
       })}
@@ -141,9 +147,7 @@ export function TeamModelPicker() {
         aria-label={UI_TEXT.TEAM_MODEL_PICKER_OPEN_ARIA}
       >
         <Plus className="size-3" />
-        {teamModels.length === 0
-          ? UI_TEXT.TEAM_MODEL_HINT
-          : `${teamModels.length}/${TEAM_LIMITS.MAX_MODELS}`}
+        {selectedCount === 0 ? UI_TEXT.TEAM_MODEL_HINT : `${selectedCount}/${maxModels}`}
       </button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -164,23 +168,19 @@ export function TeamModelPicker() {
 
             <div className="max-h-72 overflow-y-auto rounded-lg border border-(--border-subtle)">
               {filteredModels.map((model) => {
-                const isSelected = teamModels.includes(model.id)
                 const providerDot = PROVIDER_DOT_CLASSES[model.provider] ?? 'bg-(--text-ghost)'
-                const selectionLocked = isSelected && !canRemove
-                const disabled = !isSelected && !canAddMore
-
                 return (
                   <button
                     key={model.id}
                     type="button"
                     onClick={() => toggleModel(model.id)}
-                    disabled={selectionLocked || disabled}
+                    disabled={!model.selectable}
                     className={cn(
                       'flex w-full items-center gap-2 border-b border-(--border-subtle) px-3 py-2 text-left transition-colors last:border-b-0',
-                      isSelected
+                      model.selected
                         ? 'bg-(--accent-muted)'
                         : 'bg-transparent hover:bg-(--bg-surface-hover)',
-                      (selectionLocked || disabled) && 'cursor-not-allowed opacity-60',
+                      !model.selectable && 'cursor-not-allowed opacity-60',
                     )}
                   >
                     <span className={cn('size-1.5 rounded-full', providerDot)} />
@@ -188,7 +188,7 @@ export function TeamModelPicker() {
                       <p className="truncate text-xs text-(--text-primary)">{model.name}</p>
                       <p className="truncate text-xs text-(--text-ghost)">{model.id}</p>
                     </div>
-                    {isSelected && <Check className="size-3.5 text-(--accent)" />}
+                    {model.selected && <Check className="size-3.5 text-(--accent)" />}
                   </button>
                 )
               })}

@@ -65,6 +65,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     phase: groupPhase,
     groupId,
     groupDone,
+    error: groupError,
     abort: abortGroup,
   } = useGroupStream({
     enabled: groupStreamInput !== null,
@@ -214,6 +215,14 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
           <div className="flex items-center gap-2 rounded-lg border border-(--error)/20 bg-(--error)/5 px-3 py-2 text-sm text-(--error)">
             <AlertCircle className="size-4 shrink-0" />
             <span className="flex-1">{streamState.error.message}</span>
+          </div>
+        </div>
+      )}
+      {groupPhase === GROUP_STREAM_PHASES.ERROR && groupError && (
+        <div className="mx-auto w-full max-w-240 px-4 py-2">
+          <div className="flex items-center gap-2 rounded-lg border border-(--error)/20 bg-(--error)/5 px-3 py-2 text-sm text-(--error)">
+            <AlertCircle className="size-4 shrink-0" />
+            <span className="flex-1">{groupError}</span>
           </div>
         </div>
       )}

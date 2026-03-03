@@ -858,6 +858,7 @@ export const chatRouter = router({
         searchImages: searchImages.length > 0 ? searchImages : undefined,
         a2uiMessages: a2uiLines.length > 0 ? a2uiLines : undefined,
         usage: usageWithCost,
+        userMessageId: userMessageId ?? undefined,
       })
 
       const [existingAssistantMessage] = await ctx.db
@@ -899,47 +900,77 @@ export const chatRouter = router({
         .set({ updatedAt: new Date() })
         .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
 
-      const [assistantCount] = await ctx.db
-        .select({ value: sql<number>`count(*)` })
-        .from(messages)
-        .where(
-          and(
-            eq(messages.conversationId, conversationId),
-            eq(messages.role, MESSAGE_ROLES.ASSISTANT),
-            sql`length(trim(${messages.content})) > 0`,
-          ),
-        )
-        .limit(1)
-      const shouldGenerateTitle =
-        conversation.title === NEW_CHAT_TITLE && Number(assistantCount?.value ?? 0) === 1
+      const shouldGenerateTitle = conversation.title === NEW_CHAT_TITLE
 
       if (shouldGenerateTitle) {
-        const generatingTitleEvent = emit({
-          type: STREAM_EVENTS.STATUS,
-          phase: STREAM_PHASES.GENERATING_TITLE,
-          message: runtimeConfig.chat.statusMessages.generatingTitle,
-        })
-        if (typeof generatingTitleEvent.sequence === 'number') {
-          streamSequenceMax = Math.max(streamSequenceMax, generatingTitleEvent.sequence)
-        }
-        yield generatingTitleEvent
+        const [firstAssistantMessage] = await ctx.db
+          .select({ metadata: messages.metadata })
+          .from(messages)
+          .where(
+            and(
+              eq(messages.conversationId, conversationId),
+              eq(messages.role, MESSAGE_ROLES.ASSISTANT),
+              sql`length(trim(${messages.content})) > 0`,
+            ),
+          )
+          .orderBy(asc(messages.createdAt), asc(messages.id))
+          .limit(1)
 
-        try {
-          const { generateTitle } = await import('@/lib/ai/title')
-          const generatedTitle = await generateTitle(input.content, runtimeConfig)
-          const safeTitle = generatedTitle
-            .trim()
-            .slice(0, runtimeConfig.limits.conversationTitleMaxLength)
-          if (safeTitle) {
-            await ctx.db
-              .update(conversations)
-              .set({ title: safeTitle, updatedAt: new Date() })
-              .where(
-                and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)),
-              )
+        const parsedFirstAssistantMetadata = MessageMetadataSchema.safeParse(
+          firstAssistantMessage?.metadata,
+        )
+        const firstUserMessageId = parsedFirstAssistantMetadata.success
+          ? parsedFirstAssistantMetadata.data.userMessageId
+          : undefined
+
+        let titleSeedMessage = input.content
+        if (firstUserMessageId) {
+          const [seedUserMessage] = await ctx.db
+            .select({ content: messages.content })
+            .from(messages)
+            .where(
+              and(
+                eq(messages.id, firstUserMessageId),
+                eq(messages.conversationId, conversationId),
+                eq(messages.role, MESSAGE_ROLES.USER),
+              ),
+            )
+            .limit(1)
+
+          const candidate = seedUserMessage?.content?.trim()
+          if (candidate) {
+            titleSeedMessage = candidate
           }
-        } catch (titleError) {
-          console.error('[title-gen] generateTitle failed:', getErrorMessage(titleError))
+        }
+
+        if (titleSeedMessage.trim()) {
+          const generatingTitleEvent = emit({
+            type: STREAM_EVENTS.STATUS,
+            phase: STREAM_PHASES.GENERATING_TITLE,
+            message: runtimeConfig.chat.statusMessages.generatingTitle,
+          })
+          if (typeof generatingTitleEvent.sequence === 'number') {
+            streamSequenceMax = Math.max(streamSequenceMax, generatingTitleEvent.sequence)
+          }
+          yield generatingTitleEvent
+
+          try {
+            const { generateTitle } = await import('@/lib/ai/title')
+            const generatedTitle = await generateTitle(titleSeedMessage, runtimeConfig)
+            const safeTitle = generatedTitle
+              .trim()
+              .slice(0, runtimeConfig.limits.conversationTitleMaxLength)
+            if (safeTitle) {
+              await ctx.db
+                .update(conversations)
+                .set({ title: safeTitle, updatedAt: new Date() })
+                .where(
+                  and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)),
+                )
+            }
+          } catch (titleError) {
+            console.error('[title-gen] generateTitle failed:', getErrorMessage(titleError))
+          }
         }
       }
 

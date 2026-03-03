@@ -76,10 +76,10 @@ export function RoutingPanel({ modelSelection, streamPhase, hasText, models }: R
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: MOTION.PILL_OFFSET_Y, scale: MOTION.PILL_SCALE }}
             transition={{ duration: MOTION.DURATION_FAST }}
-            className="pointer-events-auto fixed top-[4.5rem] left-3 right-3 z-40 sm:left-auto sm:right-4 sm:w-[min(26rem,calc(100vw-2rem))]"
+            className="pointer-events-auto fixed top-16 right-4 left-4 z-40 sm:left-auto sm:right-6 sm:w-[min(28rem,calc(100vw-3rem))]"
             aria-live="polite"
           >
-            <div className="rounded-2xl border border-(--border-default) bg-(--bg-shell-strong) p-3 shadow-xl backdrop-blur-xl">
+            <div className="rounded-2xl border border-(--border-default) bg-(--bg-shell-strong) p-3.5 shadow-xl backdrop-blur-xl">
               <div className="mb-2 flex items-center gap-2">
                 <span
                   className={cn(
@@ -88,7 +88,7 @@ export function RoutingPanel({ modelSelection, streamPhase, hasText, models }: R
                   )}
                 />
                 <span className="text-xs font-semibold tracking-wide text-(--text-secondary)">
-                  Routing Decision
+                  Auto-routing Decision
                 </span>
                 <button
                   type="button"
@@ -118,7 +118,7 @@ export function RoutingPanel({ modelSelection, streamPhase, hasText, models }: R
               )}
 
               {hasDecision && modelSelection && (
-                <div className="max-h-[40vh] space-y-2 overflow-y-auto rounded-xl border border-(--border-subtle) bg-(--bg-surface) p-3">
+                <div className="max-h-[50vh] space-y-2.5 overflow-y-auto rounded-xl border border-(--border-subtle) bg-(--bg-surface) p-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="max-w-full truncate text-sm font-semibold text-(--text-primary)">
                       {displayName}

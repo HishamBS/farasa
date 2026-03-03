@@ -76,6 +76,19 @@ export function Titlebar({
   })
 
   useEffect(() => {
+    if (!conversationId) {
+      syncedConversationIdRef.current = null
+      return
+    }
+    if (
+      syncedConversationIdRef.current !== null &&
+      syncedConversationIdRef.current !== conversationId
+    ) {
+      syncedConversationIdRef.current = null
+    }
+  }, [conversationId])
+
+  useEffect(() => {
     if (!conversationId || !conversation) return
     if (syncedConversationIdRef.current === conversationId) return
 

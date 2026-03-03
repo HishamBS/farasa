@@ -178,7 +178,6 @@ export function useChatStream(conversationId?: string) {
                       nextCursor: current?.nextCursor ?? null,
                     }
                   })
-                  dispatch({ type: STREAM_ACTIONS.CLEAR_PENDING_USER_MESSAGE })
                   void utils.conversation.messages.invalidate({ conversationId: convId })
                 }
                 break
@@ -325,12 +324,13 @@ export function useChatStream(conversationId?: string) {
     active.unsubscribe()
     activeSessionRef.current = null
     sendLockRef.current = false
+    dispatch({ type: STREAM_ACTIONS.CLEAR_PENDING_USER_MESSAGE })
 
     const conversationId = resolvedConversationIdRef.current
     if (conversationId) {
       void cancelStreamMutation.mutateAsync({ conversationId })
     }
-  }, [cancelStreamMutation])
+  }, [cancelStreamMutation, dispatch])
 
   useEffect(() => {
     return () => {

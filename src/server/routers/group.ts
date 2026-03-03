@@ -1,32 +1,37 @@
-import { and, asc, eq, or, sql } from 'drizzle-orm'
-import { TRPCError } from '@trpc/server'
-import { router, protectedProcedure, rateLimitedChatProcedure } from '../trpc'
-import { GroupStreamInputSchema, GroupSynthesizeInputSchema } from '@/schemas/group'
-import type { GroupOutputChunk, GroupSynthesisOutputChunk } from '@/schemas/group'
-import { MessageMetadataSchema } from '@/schemas/message'
-import type { StreamChunk } from '@/schemas/message'
-import type { SearchImage, SearchResult } from '@/schemas/search'
-import { conversations, messages } from '@/lib/db/schema'
 import {
-  GROUP_EVENTS,
-  MESSAGE_ROLES,
-  NEW_CHAT_TITLE,
-  TRPC_CODES,
-  LIMITS,
-  STREAM_EVENTS,
-  STREAM_PHASES,
-  CHAT_MODES,
   AI_PARAMS,
   AI_REASONING,
+  CHAT_MODES,
+  GROUP_EVENTS,
+  LIMITS,
+  MESSAGE_ROLES,
+  NEW_CHAT_TITLE,
+  STREAM_EVENTS,
+  STREAM_PHASES,
   TOOL_NAMES,
+  TRPC_CODES,
 } from '@/config/constants'
-import type { Message } from '@openrouter/sdk/models'
+import { conversations, messages } from '@/lib/db/schema'
 import { getErrorMessage } from '@/lib/utils/errors'
+import type { GroupOutputChunk, GroupSynthesisOutputChunk } from '@/schemas/group'
+import { GroupStreamInputSchema, GroupSynthesizeInputSchema } from '@/schemas/group'
+import type { StreamChunk } from '@/schemas/message'
+import { MessageMetadataSchema } from '@/schemas/message'
+import type { SearchImage, SearchResult } from '@/schemas/search'
 import { executeSearchEnrichment } from '@/server/services/search-enrichment-service'
+import type { Message } from '@openrouter/sdk/models'
+import { TRPCError } from '@trpc/server'
+import { and, asc, eq, or, sql } from 'drizzle-orm'
+import { protectedProcedure, rateLimitedChatProcedure, router } from '../trpc'
 
 type QueueItem =
   | { done: false; modelId: string; modelIndex: number; chunk: StreamChunk }
   | { done: true; modelId: string }
+
+type ModelStreamOutcome = {
+  content: string
+  error?: string
+}
 
 export const groupRouter = router({
   stream: rateLimitedChatProcedure.input(GroupStreamInputSchema).subscription(async function* ({
@@ -235,7 +240,7 @@ export const groupRouter = router({
         })
       }
 
-      const modelTexts: Map<string, string> = new Map()
+      const modelOutcomes: Map<string, ModelStreamOutcome> = new Map()
 
       const spawnModelStream = async (modelId: string, modelIndex: number): Promise<void> => {
         try {
@@ -338,10 +343,28 @@ export const groupRouter = router({
               streamRequestId: modelStreamRequestId,
             } satisfies StreamChunk,
           })
-          if (!modelTexts.has(modelId)) {
-            modelTexts.set(modelId, fullText)
+
+          if (fullText.trim().length === 0) {
+            const errorMessage = runtimeConfig.chat.errors.processing
+            push({
+              done: false,
+              modelId,
+              modelIndex,
+              chunk: {
+                type: STREAM_EVENTS.ERROR,
+                streamRequestId: modelStreamRequestId,
+                message: errorMessage,
+                recoverable: false,
+              } satisfies StreamChunk,
+            })
+            modelOutcomes.set(modelId, { content: '', error: errorMessage })
+            push({ done: true, modelId })
+            return
           }
-        } catch {
+
+          modelOutcomes.set(modelId, { content: fullText })
+        } catch (error) {
+          const errorMessage = getErrorMessage(error, runtimeConfig.chat.errors.providerUnavailable)
           push({
             done: false,
             modelId,
@@ -349,10 +372,11 @@ export const groupRouter = router({
             chunk: {
               type: STREAM_EVENTS.ERROR,
               streamRequestId: crypto.randomUUID(),
-              message: 'Model stream failed',
+              message: errorMessage,
               recoverable: false,
             } satisfies StreamChunk,
           })
+          modelOutcomes.set(modelId, { content: '', error: errorMessage })
         }
         push({ done: true, modelId })
       }
@@ -383,8 +407,13 @@ export const groupRouter = router({
         }
       }
 
+      const successfulModels: string[] = []
       for (const modelId of input.models) {
-        const content = modelTexts.get(modelId) ?? ''
+        const content = modelOutcomes.get(modelId)?.content.trim() ?? ''
+        if (content.length === 0) {
+          continue
+        }
+        successfulModels.push(modelId)
         const metadata = MessageMetadataSchema.parse({
           groupId,
           modelUsed: modelId,
@@ -402,6 +431,13 @@ export const groupRouter = router({
         })
       }
 
+      if (successfulModels.length === 0) {
+        throw new TRPCError({
+          code: TRPC_CODES.INTERNAL_SERVER_ERROR,
+          message: runtimeConfig.chat.errors.processing,
+        })
+      }
+
       await ctx.db
         .update(conversations)
         .set({ updatedAt: new Date() })
@@ -410,26 +446,67 @@ export const groupRouter = router({
       const shouldGenerateTitle = conversation.title === NEW_CHAT_TITLE
 
       if (shouldGenerateTitle) {
-        try {
-          const { generateTitle } = await import('@/lib/ai/title')
-          const generatedTitle = await generateTitle(
-            input.content,
-            runtimeConfig,
-            signal ?? undefined,
+        const [firstAssistantMessage] = await ctx.db
+          .select({ metadata: messages.metadata })
+          .from(messages)
+          .where(
+            and(
+              eq(messages.conversationId, conversationId),
+              eq(messages.role, MESSAGE_ROLES.ASSISTANT),
+              sql`length(trim(${messages.content})) > 0`,
+            ),
           )
-          const safeTitle = generatedTitle
-            .trim()
-            .slice(0, runtimeConfig.limits.conversationTitleMaxLength)
-          if (safeTitle) {
-            await ctx.db
-              .update(conversations)
-              .set({ title: safeTitle, updatedAt: new Date() })
-              .where(
-                and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)),
-              )
+          .orderBy(asc(messages.createdAt), asc(messages.id))
+          .limit(1)
+
+        const parsedFirstAssistantMetadata = MessageMetadataSchema.safeParse(
+          firstAssistantMessage?.metadata,
+        )
+        const firstUserMessageId = parsedFirstAssistantMetadata.success
+          ? parsedFirstAssistantMetadata.data.userMessageId
+          : undefined
+
+        let titleSeedMessage = input.content
+        if (firstUserMessageId) {
+          const [seedUserMessage] = await ctx.db
+            .select({ content: messages.content })
+            .from(messages)
+            .where(
+              and(
+                eq(messages.id, firstUserMessageId),
+                eq(messages.conversationId, conversationId),
+                eq(messages.role, MESSAGE_ROLES.USER),
+              ),
+            )
+            .limit(1)
+          const candidate = seedUserMessage?.content?.trim()
+          if (candidate) {
+            titleSeedMessage = candidate
           }
-        } catch {
-          // Title generation failure is non-fatal
+        }
+
+        if (titleSeedMessage.trim()) {
+          try {
+            const { generateTitle } = await import('@/lib/ai/title')
+            const generatedTitle = await generateTitle(
+              titleSeedMessage,
+              runtimeConfig,
+              signal ?? undefined,
+            )
+            const safeTitle = generatedTitle
+              .trim()
+              .slice(0, runtimeConfig.limits.conversationTitleMaxLength)
+            if (safeTitle) {
+              await ctx.db
+                .update(conversations)
+                .set({ title: safeTitle, updatedAt: new Date() })
+                .where(
+                  and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)),
+                )
+            }
+          } catch {
+            // Title generation failure is non-fatal
+          }
         }
       }
 

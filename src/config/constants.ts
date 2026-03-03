@@ -322,6 +322,8 @@ export const AI_REASONING = {
   MODEL_CONVERSATION_DEFAULT: 'Using the model configured for this conversation.',
   MODEL_USER_DEFAULT: 'Using your default model preference.',
   MODEL_AUTO_ROUTER: 'Model selected by the auto router.',
+  MODEL_AUTO_ROUTER_FALLBACK:
+    'Primary router decision failed; selected the best available compatible model.',
 } as const
 
 export const EXTERNAL_URLS = {

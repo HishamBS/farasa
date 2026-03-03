@@ -123,6 +123,10 @@ export function GroupTabs({
           Synthesis
         </TabsTrigger>
       </TabsList>
+      <div className="mt-2 flex items-center gap-3 px-1 text-[0.6875rem] text-(--text-ghost)">
+        <span>Left dot = provider</span>
+        <span>Right dot = stream status</span>
+      </div>
 
       {modelOrder.map((modelId) => {
         const resolved = resolvedMetaMap.get(modelId)

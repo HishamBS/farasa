@@ -127,7 +127,7 @@ export function GroupMessageGroup(props: GroupMessageGroupProps) {
     )
   }
 
-  if (props.historicalMessages.length > 0) {
+  if (props.historicalMessages.length > 0 || props.synthesisText) {
     return (
       <div className="rounded-2xl border border-(--border-subtle) bg-(--bg-surface) p-4">
         <HistoricalTabs

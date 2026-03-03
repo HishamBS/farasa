@@ -41,7 +41,7 @@ Open `.env` and fill in:
 | `AUTH_GOOGLE_SECRET`          | Same as above                                                                   |
 | `OPENROUTER_API_KEY`          | [openrouter.ai/keys](https://openrouter.ai/keys)                                |
 | `DATABASE_URL`                | Pre-filled: `postgresql://farasa_user:farasa_password@localhost:5433/farasa_db` |
-| `RUNTIME_CONFIG_JSON`         | Required runtime/business config JSON (see `.env.example`)                      |
+| `RUNTIME_CONFIG_JSON`         | Optional runtime/business config JSON (see `.env.example`)                      |
 | `RUNTIME_CONFIG_CACHE_TTL_MS` | Optional in-memory cache TTL for runtime config snapshots                       |
 
 Add `http://localhost:3010/api/auth/callback/google` to your OAuth client's **Authorized redirect URIs**.
@@ -124,7 +124,7 @@ platform distinct.
 | Feature                 | Details                                                                                                                                                                                                                        |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **LLM auto-router**     | Gemini Flash classifies each prompt and selects the optimal model from 100+ providers; capability-aware (vision, thinking, tools, context) with a live animated routing decision UI showing model, reasoning, and capabilities |
-| **Real-time streaming** | 7-phase SSE stream: routing → thinking → tools → text → A2UI                                                                                                                                                                   |
+| **Real-time streaming** | 11-event SSE stream: conversation_created → user_message_saved → status → model_selected → thinking → tool_start/result → text → a2ui → done                                                                                   |
 | **Web search**          | Tavily — structured result cards with source attribution and image gallery                                                                                                                                                     |
 | **File attachments**    | Multi-modal uploads via GCS presigned URLs (images, PDFs, text)                                                                                                                                                                |
 | **Voice I/O**           | Browser-native STT via SpeechRecognition + server-side TTS via `openai/gpt-audio-mini` on OpenRouter; explicit typed errors when unsupported/unavailable                                                                       |
@@ -188,6 +188,7 @@ graph LR
     team --> PG
     team --> TV
     uprefs --> PG
+    rc --> PG
 
     classDef client fill:#1a1a2e,stroke:#e94560,color:#e0e0e0
     classDef server fill:#16213e,stroke:#0f3460,color:#e0e0e0
@@ -233,7 +234,7 @@ missing, the app fails with typed runtime-config errors instead of silently degr
 | Client state      | [TanStack Query](https://tanstack.com/query)             | v5            | Caching, optimistic updates                                      |
 | AI gateway        | [OpenRouter](https://openrouter.ai)                      | —             | One key, 100+ models, live pricing metadata                      |
 | AI SDK            | `@openrouter/sdk`                                        | pinned        | Native OpenRouter SDK — typed provider routing, reasoning, tools |
-| Agent UI          | `@a2ui-sdk/react`                                        | v0.4          | Agent-generated interactive components                           |
+| Agent UI          | `@a2ui-sdk/react`                                        | v0.8          | Agent-generated interactive components                           |
 | Validation        | [Zod](https://zod.dev)                                   | latest        | SSOT — all TS types derived via `z.infer`                        |
 | Auth              | [Auth.js](https://authjs.dev)                            | v5            | Google OAuth, middleware-native                                  |
 | ORM               | [Drizzle ORM](https://orm.drizzle.team)                  | latest        | No query engine, SQL-transparent, edge-safe                      |
@@ -257,16 +258,18 @@ src/
 ├── app/                         # Next.js 15 App Router
 │   ├── (auth)/login/            # Google OAuth sign-in
 │   ├── (protected)/chat/        # Main chat UI (auth-gated)
-│   │   └── [id]/                # Conversation view
+│   │   └── [[...id]]/           # Catch-all conversation view
 │   ├── api/
 │   │   ├── trpc/[trpc]/         # tRPC handler — SSE + batch
 │   │   ├── auth/[...nextauth]/  # Auth.js OAuth callbacks
-│   │   └── health/              # Load balancer health check
+│   │   ├── health/              # Load balancer health check
+│   │   └── voice/synthesize/    # TTS API — WAV generation
+│   ├── offline/                 # Offline fallback page (PWA)
 │   └── manifest.ts / sw.ts      # PWA manifest + service worker entry
 │
 ├── server/
 │   ├── routers/
-│   │   ├── chat.ts              # 7-phase SSE streaming with tool call loop
+│   │   ├── chat.ts              # 11-event SSE streaming with tool call loop
 │   │   ├── conversation.ts      # CRUD, pagination, pin, Markdown export
 │   │   ├── model.ts             # Live registry — OpenRouter with 1h cache
 │   │   ├── runtime-config.ts    # Runtime config read/invalidate procedures
@@ -275,7 +278,8 @@ src/
 │   │   ├── upload.ts            # GCS presigned URL + confirmation
 │   │   └── user-preferences.ts  # Per-user UI settings (theme, defaults)
 │   ├── services/
-│   │   ├── history-builder.ts   # Enriched conversation history + attachment helpers
+│   │   ├── a2ui-message-service.ts      # A2UI fence parsing + sanitization
+│   │   ├── history-builder.ts           # Enriched conversation history + attachment helpers
 │   │   ├── model-resolution-service.ts  # Hierarchical model selection + auto-router
 │   │   ├── search-enrichment-service.ts # Tavily search execution + result merging
 │   │   └── search-tool-service.ts       # Tool call parsing for web search
@@ -289,20 +293,22 @@ src/
 │   ├── sidebar/                 # Conversation list, navigation, user menu
 │   ├── markdown/                # Renderer, Shiki blocks, copy button
 │   ├── voice/                   # STT input, TTS playback
-│   ├── team/                   # Multi-model comparison, tabs, synthesis
-│   └── pwa/                     # Install prompt, offline banner
+│   ├── team/                    # Multi-model comparison, tabs, synthesis
+│   ├── layout/                  # App shell, responsive layout primitives
+│   └── pwa/                     # Service worker dev utilities, offline banner
 │
 ├── lib/
-│   ├── ai/                      # OpenRouter client, model router, registry, tools
-│   ├── db/                      # Drizzle schema, relations, client, migrations
+│   ├── ai/                      # OpenRouter client, model router, registry, tools, title
+│   ├── auth/                    # Auth.js config, edge config, shared callbacks
+│   ├── db/                      # Drizzle schema, relations, client, migrations, utils
 │   ├── runtime-config/          # Dynamic runtime config resolution + cache
 │   ├── upload/                  # GCS presigned URL generation + sanitization
 │   ├── search/                  # Tavily wrapper
-│   ├── security/                # Sliding-window rate limiter, AES-GCM token crypto
+│   ├── security/                # Rate limiter, AES-GCM token crypto, A2UI runtime safety
 │   └── utils/                   # cn, format, error messages, motion presets
 │
 ├── schemas/                     # Zod SSOT — message, conversation, model, search, upload, runtime-config
-├── config/                      # constants.ts, env.ts, routes.ts, models.ts, prompts.ts
+├── config/                      # constants.ts, env.ts, routes.ts, prompts.ts
 ├── types/                       # Pure TypeScript domain types
 ├── styles/themes.css            # CSS custom properties — dark + light token system
 └── middleware.ts                # Auth guard on /chat/* and /api/trpc/*
@@ -344,19 +350,20 @@ chat.stream({
   clientRequestId?: string,  // idempotency key
   webSearchEnabled?: boolean,// default false
   attachmentIds?: string[],
-  skipUserInsert?: boolean,
 })
 
 // Emitted in phase order:
+{ type: 'conversation_created'; conversationId: string }
+{ type: 'user_message_saved'; messageId: string }
 { type: 'status'; phase: StreamPhase; message: string }
-{ type: 'model_selected'; model: ModelConfig; reasoning: string }
+{ type: 'model_selected'; model: string; source: string; category: string; confidence: number; factors: Factor[] }
 { type: 'thinking'; content: string; isComplete: boolean }
 { type: 'tool_start'; toolName: string; input: unknown }
 { type: 'tool_result'; toolName: string; result: unknown }
 { type: 'text'; content: string }
 { type: 'a2ui'; jsonl: string }
-{ type: 'done'; usage?: TokenUsage }
-{ type: 'error'; message: string; code?: string }
+{ type: 'done'; usage: TokenUsage; terminalReason?: string }
+{ type: 'error'; message: string; code?: string; reasonCode: string; recoverable: boolean }
 ```
 
 ### `chat.cancel`
@@ -364,7 +371,7 @@ chat.stream({
 ```ts
 chat.cancel({
   conversationId: string,
-  streamRequestId: string,
+  streamRequestId?: string,   // optional — cancels active stream for conversation
 })
 ```
 
@@ -374,7 +381,7 @@ chat.cancel({
 conversation.list({ limit?, cursor?, search? })  // Paginated — pinned first
 conversation.getById({ id })                      // Conversation + all messages
 conversation.create({ title? })                   // New conversation
-conversation.updateTitle({ id, title })           // Rename
+conversation.update({ id, title?, isPinned?, mode? }) // General update
 conversation.delete({ id })                       // Cascade: messages + attachments
 conversation.generateTitle({ conversationId })    // LLM-generated title
 conversation.exportMarkdown({ id })               // Markdown string
@@ -409,11 +416,11 @@ model.getById({ id })                             // Metadata + capabilities + p
 model.refresh()                                   // Invalidate cache
 
 runtimeConfig.get()                               // Resolved dynamic runtime config
-runtimeConfig.invalidate({ scope? })              // Clear cache snapshots
+runtimeConfig.invalidate({ userScoped?: boolean }) // Clear cache snapshots
 
-search.web({ query, maxResults? })                // Tavily → results + images
-upload.presignedUrl({ filename, mimeType })       // GCS signed URL + DB record
-upload.confirmUpload({ id, contentType })         // Mark confirmed after upload
+search.execute({ query, maxResults?, includeImages? })  // Tavily → results + images
+upload.presignedUrl({ fileName, fileType, fileSize })   // GCS signed URL + DB record
+upload.confirmUpload({ attachmentId })                  // Mark confirmed after upload
 ```
 
 ---
@@ -478,11 +485,11 @@ docker build \
 docker compose -f docker/docker-compose.yml up    # direct
 ```
 
-| Service  | Port     | Description                          |
-| -------- | -------- | ------------------------------------ |
-| Next.js  | **3010** | Main application                     |
-| Postgres | 5433     | PostgreSQL (internal: 5432)          |
-| Adminer  | 8080     | DB admin UI (`./start.sh --adminer`) |
+| Service  | Port     | Description                                     |
+| -------- | -------- | ----------------------------------------------- |
+| Next.js  | **3010** | Main application                                |
+| Postgres | 5433     | PostgreSQL (internal: 5432)                     |
+| Adminer  | 8080     | DB admin UI (via `./start.sh` interactive menu) |
 
 ---
 

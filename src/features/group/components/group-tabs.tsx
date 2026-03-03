@@ -1,20 +1,20 @@
 'use client'
 
-import { useMemo } from 'react'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { GroupResponsePanel } from './group-response-panel'
-import { SynthesisPanel } from './synthesis-panel'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   CHAT_STREAM_STATUS,
   GROUP_TAB_VALUES,
   PROVIDER_ALIASES,
   PROVIDER_DOT_CLASSES,
 } from '@/config/constants'
-import { cn } from '@/lib/utils/cn'
-import { resolveProviderKey, extractModelName } from '@/lib/utils/model'
-import type { StreamState } from '@/types/stream'
 import type { UseSynthesisReturn } from '@/features/group/hooks/use-group-synthesis'
 import type { ModelMeta } from '@/features/group/types'
+import { cn } from '@/lib/utils/cn'
+import { extractModelName, resolveProviderKey } from '@/lib/utils/model'
+import type { StreamState } from '@/types/stream'
+import { useMemo } from 'react'
+import { GroupResponsePanel } from './group-response-panel'
+import { SynthesisPanel } from './synthesis-panel'
 
 type GroupTabsProps = {
   modelStates: Map<string, StreamState>
@@ -29,17 +29,37 @@ type GroupTabsProps = {
 type ModelTabTriggerProps = {
   providerKey: string
   label: string
-  isStreaming: boolean
+  status: 'idle' | 'streaming' | 'done' | 'error'
 }
 
-function ModelTabTrigger({ providerKey, label, isStreaming }: ModelTabTriggerProps) {
-  const dotClass = PROVIDER_DOT_CLASSES[providerKey] ?? 'bg-(--text-ghost)'
+function ModelTabTrigger({ providerKey, label, status }: ModelTabTriggerProps) {
+  const dotClass = PROVIDER_DOT_CLASSES[providerKey] ?? 'bg-(--text-muted)'
+  const statusClass =
+    status === 'error'
+      ? 'bg-(--error)'
+      : status === 'done'
+        ? 'bg-(--success)'
+        : status === 'streaming'
+          ? 'animate-pulse bg-(--accent)'
+          : 'bg-(--text-ghost)'
+  const statusLabel =
+    status === 'error'
+      ? 'Error'
+      : status === 'done'
+        ? 'Complete'
+        : status === 'streaming'
+          ? 'Streaming'
+          : 'Idle'
 
   return (
     <>
       <span className={cn('size-1.5 shrink-0 rounded-full', dotClass)} />
       <span className="max-w-40 truncate">{label}</span>
-      {isStreaming && <span className="size-1.5 animate-pulse rounded-full bg-(--accent)" />}
+      <span
+        className={cn('size-1.5 rounded-full', statusClass)}
+        aria-label={`${label} status: ${statusLabel}`}
+        title={statusLabel}
+      />
     </>
   )
 }
@@ -81,12 +101,20 @@ export function GroupTabs({
         {modelOrder.map((modelId) => {
           const resolved = resolvedMetaMap.get(modelId)
           const streamState = modelStates.get(modelId)
+          const status =
+            streamState?.phase === CHAT_STREAM_STATUS.ERROR
+              ? 'error'
+              : streamState?.phase === CHAT_STREAM_STATUS.COMPLETE
+                ? 'done'
+                : streamState?.phase === CHAT_STREAM_STATUS.ACTIVE
+                  ? 'streaming'
+                  : 'idle'
           return (
             <TabsTrigger key={modelId} value={modelId}>
               <ModelTabTrigger
                 providerKey={resolved?.providerKey ?? ''}
                 label={resolved?.label ?? modelId}
-                isStreaming={streamState?.phase === CHAT_STREAM_STATUS.ACTIVE}
+                status={status}
               />
             </TabsTrigger>
           )

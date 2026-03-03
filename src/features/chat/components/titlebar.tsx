@@ -1,24 +1,5 @@
 'use client'
 
-import { useMemo, useCallback, useState, useEffect } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Menu, MoreHorizontal, Pin, PinOff, Trash2, Check } from 'lucide-react'
-import { trpc } from '@/trpc/provider'
-import { ROUTES, PATTERNS } from '@/config/routes'
-import { UX, UI_TEXT, MOTION } from '@/config/constants'
-import type { TitlebarPhase, ModelSelectionState } from '@/types/stream'
-import { ModeToggle } from './mode-toggle'
-import { RoutingPanel } from './routing-panel'
-import { useChatMode } from '../context/chat-mode-context'
-import { ChatModeSchema } from '@/schemas/message'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +10,25 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { MOTION, UI_TEXT, UX } from '@/config/constants'
+import { PATTERNS, ROUTES } from '@/config/routes'
+import { ChatModeSchema } from '@/schemas/message'
+import { trpc } from '@/trpc/provider'
+import type { ModelSelectionState, TitlebarPhase } from '@/types/stream'
+import { AnimatePresence, motion } from 'framer-motion'
+import { Check, Menu, MoreHorizontal, Pin, PinOff, Trash2 } from 'lucide-react'
+import { usePathname, useRouter } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useChatMode } from '../context/chat-mode-context'
+import { ModeToggle } from './mode-toggle'
+import { RoutingPanel } from './routing-panel'
 
 type TitlebarProps = {
   onMenuClick: () => void
@@ -49,6 +49,7 @@ export function Titlebar({
   const utils = trpc.useUtils()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showDone, setShowDone] = useState(false)
+  const syncedConversationIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (streamPhase === 'done') {
@@ -75,12 +76,14 @@ export function Titlebar({
   })
 
   useEffect(() => {
-    const parsed = ChatModeSchema.safeParse(conversation?.mode)
+    if (!conversationId || !conversation) return
+    if (syncedConversationIdRef.current === conversationId) return
+
+    const parsed = ChatModeSchema.safeParse(conversation.mode)
     if (parsed.success) setMode(parsed.data)
-    if (typeof conversation?.webSearchEnabled === 'boolean') {
-      setWebSearchEnabled(conversation.webSearchEnabled)
-    }
-  }, [conversation?.mode, conversation?.webSearchEnabled, setMode, setWebSearchEnabled])
+    setWebSearchEnabled(conversation.webSearchEnabled)
+    syncedConversationIdRef.current = conversationId
+  }, [conversationId, conversation, setMode, setWebSearchEnabled])
 
   const updateMutation = trpc.conversation.update.useMutation({
     onSuccess: () => void utils.conversation.invalidate(),

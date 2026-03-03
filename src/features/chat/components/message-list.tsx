@@ -1,20 +1,20 @@
 'use client'
 
-import { useRef, useCallback, useMemo } from 'react'
+import { CHAT_STREAM_STATUS, MESSAGE_ROLES, MOTION, UI_TEXT } from '@/config/constants'
+import { GroupMessageGroup } from '@/features/group/components/group-message-group'
+import type { LiveGroupData } from '@/features/group/types'
+import { formatCost, formatTokenCount } from '@/lib/utils/format'
+import { fadeIn } from '@/lib/utils/motion'
+import type { MessageWithAttachments } from '@/schemas/conversation'
+import type { StreamState } from '@/types/stream'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ChevronDown } from 'lucide-react'
-import { fadeIn } from '@/lib/utils/motion'
-import { MessageBubble } from './message-bubble'
+import { useCallback, useMemo, useRef } from 'react'
+import { useConversationCost } from '../context/conversation-cost-context'
+import { useAutoScroll } from '../hooks/use-auto-scroll'
 import { AssistantMessage } from './assistant-message'
 import { EmptyState } from './empty-state'
-import { GroupMessageGroup } from '@/features/group/components/group-message-group'
-import { useAutoScroll } from '../hooks/use-auto-scroll'
-import { CHAT_STREAM_STATUS, MESSAGE_ROLES, MOTION, UI_TEXT } from '@/config/constants'
-import { useConversationCost } from '../context/conversation-cost-context'
-import { formatCost, formatTokenCount } from '@/lib/utils/format'
-import type { StreamState } from '@/types/stream'
-import type { MessageWithAttachments } from '@/schemas/conversation'
-import type { LiveGroupData } from '@/features/group/types'
+import { MessageBubble } from './message-bubble'
 
 type MessageListProps = {
   messages: MessageWithAttachments[]
@@ -192,6 +192,7 @@ export function MessageList({
                     historicalMessages={historicalMessages}
                     synthesisText={item.synthesis?.content}
                     synthesisModelId={item.synthesis?.metadata?.modelUsed}
+                    groupId={item.groupId}
                     conversationId={conversationId ?? ''}
                   />
                 )

@@ -1,21 +1,21 @@
 'use client'
 
-import { useMemo } from 'react'
-import { motion, useReducedMotion } from 'framer-motion'
-import { fadeInUp } from '@/lib/utils/motion'
+import { AI_PARAMS, TOOL_NAMES } from '@/config/constants'
+import { A2UIMessage } from '@/features/a2ui/components/a2ui-message'
+import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
 import { ThinkingBlock } from '@/features/stream-phases/components/thinking-block'
 import { ToolExecution } from '@/features/stream-phases/components/tool-execution'
-import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
-import { A2UIMessage } from '@/features/a2ui/components/a2ui-message'
 import { TTSControls } from '@/features/voice/components/tts-controls'
-import { MessageMetadataSchema } from '@/schemas/message'
-import { TOOL_NAMES, AI_PARAMS } from '@/config/constants'
 import { formatCost } from '@/lib/utils/format'
-import { AssistantFrame } from './assistant-frame'
 import { extractModelName } from '@/lib/utils/model'
+import { fadeInUp } from '@/lib/utils/motion'
 import type { Message, MessageMetadata } from '@/schemas/message'
+import { MessageMetadataSchema } from '@/schemas/message'
 import type { ThinkingState, ToolExecutionState } from '@/types/stream'
 import type { v0_8 } from '@a2ui-sdk/types'
+import { motion, useReducedMotion } from 'framer-motion'
+import { useMemo } from 'react'
+import { AssistantFrame } from './assistant-frame'
 
 type HistoricalAssistantMessageProps = {
   message: Message
@@ -46,6 +46,15 @@ function buildThinkingState(metadata: MessageMetadata): ThinkingState | null {
 }
 
 function buildToolExecutions(metadata: MessageMetadata): ToolExecutionState[] {
+  if (metadata.toolCalls && metadata.toolCalls.length > 0) {
+    return metadata.toolCalls.map((toolCall, index) => ({
+      name: toolCall.name,
+      input: toolCall.input,
+      result: toolCall.result,
+      completedAt: index + 1,
+    }))
+  }
+
   if (
     (!metadata.searchResults || metadata.searchResults.length === 0) &&
     (!metadata.searchImages || metadata.searchImages.length === 0)

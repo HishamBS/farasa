@@ -4,7 +4,7 @@ export function extractModelName(modelId: string): string {
 }
 
 export function extractProviderKey(modelId: string): string {
-  return modelId.split('/')[0] ?? modelId
+  return (modelId.split('/')[0] ?? modelId).trim().toLowerCase()
 }
 
 export function resolveProviderKey(modelId: string, aliases: Record<string, string>): string {

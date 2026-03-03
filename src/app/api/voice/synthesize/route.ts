@@ -5,8 +5,6 @@ import { VOICE, APP_CONFIG, EXTERNAL_URLS } from '@/config/constants'
 import { AppError } from '@/lib/utils/errors'
 import { escapeXmlForPrompt } from '@/lib/security/runtime-safety'
 
-export const dynamic = 'force-dynamic'
-
 const MARKDOWN_RE = /(\*\*|__|\*|_|~~|`{1,3}|#{1,6}\s|!\[.*?\]\(.*?\)|\[([^\]]+)\]\(.*?\))/g
 
 function stripMarkdown(text: string): string {
@@ -31,7 +29,7 @@ const AUDIO_CONTENT_TYPE: Record<string, string> = {
   flac: 'audio/flac',
 } as const
 
-const handler = auth(async (req) => {
+const handler = auth(async function POST(req) {
   if (!req.auth?.user) {
     return NextResponse.json(
       { errorCode: 'unauthorized', message: AppError.UNAUTHORIZED },

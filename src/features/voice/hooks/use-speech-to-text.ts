@@ -25,7 +25,7 @@ export function useSpeechToText() {
   const [state, setState] = useState<STTState>({
     status: VOICE_STT_STATES.IDLE,
     transcript: '',
-    isSupported: false,
+    isSupported: true,
     permissionError: null,
     transcriptionError: null,
   })
@@ -34,10 +34,6 @@ export function useSpeechToText() {
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const requestSeqRef = useRef(0)
-
-  useEffect(() => {
-    setState((prev) => ({ ...prev, isSupported: hasMediaDevices() }))
-  }, [])
 
   const cleanupStream = useCallback(() => {
     if (streamRef.current) {
@@ -197,6 +193,10 @@ export function useSpeechToText() {
       transcript: '',
       status: prev.status === VOICE_STT_STATES.ERROR ? VOICE_STT_STATES.IDLE : prev.status,
     }))
+  }, [])
+
+  useEffect(() => {
+    setState((prev) => ({ ...prev, isSupported: hasMediaDevices() }))
   }, [])
 
   useEffect(() => {

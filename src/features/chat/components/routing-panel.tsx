@@ -39,8 +39,9 @@ type RoutingPanelProps = {
 export function RoutingPanel({ modelSelection, streamPhase, hasText, models }: RoutingPanelProps) {
   const isActive = streamPhase !== 'idle'
   const hasDecision = modelSelection !== null
-  const isExpanded = hasDecision && isActive
-  const isCollapsed = hasDecision && !isExpanded && hasText
+  const isAutoRouterDecision = modelSelection?.source === 'auto_router'
+  const isExpanded = hasDecision && isActive && isAutoRouterDecision
+  const isCollapsed = hasDecision && !isExpanded && (hasText || isActive)
 
   const [routingMinVisible, setRoutingMinVisible] = useState(false)
   const routingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -102,7 +103,7 @@ export function RoutingPanel({ modelSelection, streamPhase, hasText, models }: R
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: MOTION.PILL_OFFSET_Y, scale: MOTION.PILL_SCALE }}
           transition={{ duration: MOTION.DURATION_NORMAL, ease: MOTION.EASING }}
-          className="mr-1 flex flex-col gap-1 rounded-xl border border-(--border-subtle) bg-(--bg-glass-strong) px-3 py-2 text-xs backdrop-blur-md"
+          className="mr-1 mt-1 max-w-120 self-start flex flex-col gap-1 rounded-xl border border-(--border-subtle) bg-(--bg-glass-strong) px-3 py-2 text-xs backdrop-blur-md"
         >
           <div className="flex items-center gap-2">
             <span className={cn('size-2 shrink-0 rounded-full', dotClass)} />

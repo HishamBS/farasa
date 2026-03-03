@@ -28,7 +28,12 @@ type MessageListProps = {
 
 type RenderItem =
   | { type: 'single'; message: MessageWithAttachments }
-  | { type: 'group'; messages: MessageWithAttachments[]; groupId: string }
+  | {
+      type: 'group'
+      messages: MessageWithAttachments[]
+      groupId: string
+      synthesis?: MessageWithAttachments
+    }
 
 export function MessageList({
   messages,
@@ -76,6 +81,7 @@ export function MessageList({
       const groupId = msg.metadata?.groupId
       if (msg.role === MESSAGE_ROLES.ASSISTANT && groupId && !msg.metadata?.isGroupSynthesis) {
         const groupMsgs: MessageWithAttachments[] = [msg]
+        let synthesisMessage: MessageWithAttachments | undefined
         while (
           i + 1 < messages.length &&
           messages[i + 1]?.role === MESSAGE_ROLES.ASSISTANT &&
@@ -86,7 +92,17 @@ export function MessageList({
           const next = messages[i]
           if (next) groupMsgs.push(next)
         }
-        items.push({ type: 'group', messages: groupMsgs, groupId })
+        const maybeSynthesis = messages[i + 1]
+        if (
+          maybeSynthesis?.role === MESSAGE_ROLES.ASSISTANT &&
+          maybeSynthesis.metadata?.groupId === groupId &&
+          maybeSynthesis.metadata?.isGroupSynthesis
+        ) {
+          synthesisMessage = maybeSynthesis
+          i += 1
+        }
+
+        items.push({ type: 'group', messages: groupMsgs, groupId, synthesis: synthesisMessage })
       } else {
         items.push({ type: 'single', message: msg })
       }
@@ -143,6 +159,8 @@ export function MessageList({
                     key={item.groupId}
                     mode="historical"
                     historicalMessages={historicalMessages}
+                    synthesisText={item.synthesis?.content}
+                    synthesisModelId={item.synthesis?.metadata?.modelUsed}
                     conversationId={conversationId ?? ''}
                   />
                 )

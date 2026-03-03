@@ -52,10 +52,10 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   const handleGroupConversationCreated = useCallback(
     (createdId: string) => {
       groupConversationIdRef.current = createdId
-      router.replace(ROUTES.CHAT_BY_ID(createdId))
+      window.history.replaceState(window.history.state, '', ROUTES.CHAT_BY_ID(createdId))
       void utils.conversation.invalidate()
     },
-    [router, utils],
+    [utils],
   )
 
   const {
@@ -75,11 +75,12 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     if (groupDone) {
       const convId = groupConversationIdRef.current
       if (convId) {
+        router.replace(ROUTES.CHAT_BY_ID(convId))
         void utils.conversation.messages.invalidate({ conversationId: convId })
         void utils.conversation.getById.invalidate({ id: convId })
       }
     }
-  }, [groupDone, utils])
+  }, [groupDone, router, utils])
 
   const handleGroupSubmit = useCallback((input: GroupStreamInput) => {
     setGroupStreamInput(input)

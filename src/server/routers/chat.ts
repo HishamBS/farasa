@@ -212,7 +212,7 @@ export const chatRouter = router({
     signal,
   }) {
     const runtimeConfig = ctx.runtimeConfig
-    const streamRequestId = crypto.randomUUID()
+    const streamRequestId = input.clientRequestId ?? crypto.randomUUID()
     const emit = createChunkEmitter(streamRequestId, 0, runtimeConfig.chat.stream.enforceSequence)
 
     let conversationId = input.conversationId

@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { GroupTabs } from './group-tabs'
 import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { PROVIDER_DOT_CLASSES } from '@/config/constants'
+import { GROUP_TAB_VALUES, PROVIDER_DOT_CLASSES } from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
 import { extractProviderKey, extractModelName } from '@/lib/utils/model'
 import type { StreamState } from '@/types/stream'
@@ -31,6 +31,8 @@ type LiveGroupProps = {
 type HistoricalGroupProps = {
   mode: 'historical'
   historicalMessages: HistoricalMessage[]
+  synthesisText?: string
+  synthesisModelId?: string
   conversationId: string
 }
 
@@ -38,10 +40,12 @@ export type GroupMessageGroupProps = LiveGroupProps | HistoricalGroupProps
 
 type HistoricalTabsProps = {
   messages: HistoricalMessage[]
+  synthesisText?: string
+  synthesisModelId?: string
 }
 
-function HistoricalTabs({ messages }: HistoricalTabsProps) {
-  const defaultTab = messages[0]?.modelId ?? ''
+function HistoricalTabs({ messages, synthesisText, synthesisModelId }: HistoricalTabsProps) {
+  const defaultTab = messages[0]?.modelId ?? GROUP_TAB_VALUES.SYNTHESIS
 
   const tabMetas = useMemo(
     () =>
@@ -67,6 +71,7 @@ function HistoricalTabs({ messages }: HistoricalTabsProps) {
             <span className="max-w-40 truncate">{label}</span>
           </TabsTrigger>
         ))}
+        {synthesisText && <TabsTrigger value={GROUP_TAB_VALUES.SYNTHESIS}>Synthesis</TabsTrigger>}
       </TabsList>
 
       {tabMetas.map(({ modelId, content }) => (
@@ -76,6 +81,24 @@ function HistoricalTabs({ messages }: HistoricalTabsProps) {
           </div>
         </TabsContent>
       ))}
+
+      {synthesisText && (
+        <TabsContent value={GROUP_TAB_VALUES.SYNTHESIS}>
+          <div className="rounded-xl border border-(--border-subtle) bg-(--bg-surface) p-4">
+            <p className="mb-3 text-xs font-medium text-(--text-muted)">
+              Synthesis
+              {synthesisModelId && (
+                <span className="ml-1 font-mono text-(--text-ghost)">
+                  via {extractModelName(synthesisModelId)}
+                </span>
+              )}
+            </p>
+            <div className="text-[0.90625rem] leading-[1.72] text-(--text-primary)">
+              <MarkdownRenderer content={synthesisText} />
+            </div>
+          </div>
+        </TabsContent>
+      )}
     </Tabs>
   )
 }
@@ -100,7 +123,11 @@ export function GroupMessageGroup(props: GroupMessageGroupProps) {
   if (props.historicalMessages.length > 0) {
     return (
       <div className="rounded-2xl border border-(--border-subtle) bg-(--bg-surface) p-4">
-        <HistoricalTabs messages={props.historicalMessages} />
+        <HistoricalTabs
+          messages={props.historicalMessages}
+          synthesisText={props.synthesisText}
+          synthesisModelId={props.synthesisModelId}
+        />
       </div>
     )
   }

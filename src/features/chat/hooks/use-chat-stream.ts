@@ -38,6 +38,7 @@ export function useChatStream(conversationId?: string) {
   const cancelStreamMutation = trpc.chat.cancel.useMutation()
   const activeSessionRef = useRef<ActiveStreamSession | null>(null)
   const resolvedConversationIdRef = useRef<string | undefined>(undefined)
+  const pendingRouteConversationIdRef = useRef<string | undefined>(undefined)
 
   useEffect(() => {
     resolvedConversationIdRef.current = conversationId
@@ -58,6 +59,7 @@ export function useChatStream(conversationId?: string) {
 
   const runStreamAttempt = useCallback(
     (input: ChatInput) => {
+      const clientRequestId = input.clientRequestId ?? crypto.randomUUID()
       const effectiveConversationId = input.conversationId ?? resolvedConversationIdRef.current
       resolvedConversationIdRef.current = effectiveConversationId
 
@@ -73,7 +75,7 @@ export function useChatStream(conversationId?: string) {
       reset()
       dispatch({
         type: STREAM_ACTIONS.SAVE_INPUT,
-        input: { ...input, conversationId: effectiveConversationId },
+        input: { ...input, conversationId: effectiveConversationId, clientRequestId },
       })
       dispatch({
         type: STREAM_ACTIONS.STATUS,
@@ -111,12 +113,13 @@ export function useChatStream(conversationId?: string) {
             attempt: chunk.attempt ?? 0,
           },
         })
+        pendingRouteConversationIdRef.current = undefined
         const convId = resolvedConversationIdRef.current
         if (convId) void utils.conversation.messages.invalidate({ conversationId: convId })
       }
 
       const subscription = trpcClient.chat.stream.subscribe(
-        { ...input, conversationId: effectiveConversationId },
+        { ...input, conversationId: effectiveConversationId, clientRequestId },
         {
           onData(chunk: StreamChunk) {
             const active = activeSessionRef.current
@@ -126,11 +129,16 @@ export function useChatStream(conversationId?: string) {
               case STREAM_EVENTS.CONVERSATION_CREATED:
                 resolvedConversationIdRef.current = chunk.conversationId
                 if (active) active.conversationId = chunk.conversationId
+                pendingRouteConversationIdRef.current = chunk.conversationId
                 dispatch({
                   type: STREAM_ACTIONS.SET_CONVERSATION_ID,
                   conversationId: chunk.conversationId,
                 })
-                router.replace(ROUTES.CHAT_BY_ID(chunk.conversationId))
+                window.history.replaceState(
+                  window.history.state,
+                  '',
+                  ROUTES.CHAT_BY_ID(chunk.conversationId),
+                )
                 break
               case STREAM_EVENTS.USER_MESSAGE_SAVED: {
                 const convId = resolvedConversationIdRef.current
@@ -213,6 +221,11 @@ export function useChatStream(conversationId?: string) {
                   void utils.conversation.getById.invalidate({ id: convId })
                 }
                 void utils.conversation.list.invalidate()
+                const pendingRouteId = pendingRouteConversationIdRef.current
+                if (pendingRouteId) {
+                  pendingRouteConversationIdRef.current = undefined
+                  router.replace(ROUTES.CHAT_BY_ID(pendingRouteId))
+                }
                 break
               }
             }

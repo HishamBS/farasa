@@ -109,7 +109,8 @@ export const ChatInputSchema = z.object({
   conversationId: z.string().uuid().optional(),
   content: z.string().min(1),
   mode: ChatModeSchema.default(CHAT_MODES.CHAT),
-  model: z.string().optional(),
+  model: z.string().nullable().optional(),
+  clientRequestId: z.string().uuid().optional(),
   webSearchEnabled: z.boolean().default(false),
   attachmentIds: z.array(z.string().uuid()).default([]),
 })

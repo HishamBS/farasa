@@ -76,8 +76,9 @@ export async function routeModel(
 
 Execution policy:
 - web_search_enabled is ${webSearchEnabled ? 'true' : 'false'}.
-- If web_search_enabled is true, selectedModel MUST support tools:y.
-- If web_search_enabled is false, do not optimize for tool capability unless otherwise needed by prompt semantics.`
+- If web_search_enabled is true, selectedModel MUST support tools.
+- If web_search_enabled is false, do not optimize for tool capability unless otherwise needed by prompt semantics.
+- Prefer higher-capability and higher-context models for non-trivial requests when they exist in the candidate list.`
 
   const wrappedPrompt =
     `${runtimeConfig.prompts.wrappers.userRequestOpen}\n` +

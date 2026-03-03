@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { trpc } from '@/trpc/provider'
-import { UX } from '@/config/constants'
+import { BROWSER_EVENTS, UX } from '@/config/constants'
 
 export function useChatInput(initialModel?: string | null, conversationId?: string) {
   const [content, setContent] = useState('')
@@ -28,6 +28,18 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
     selectedModelRef.current = initialModel ?? undefined
     setSelectedModelState(selectedModelRef.current)
   }, [conversationId, initialModel])
+
+  useEffect(() => {
+    const handleNewChatRequested = () => {
+      if (conversationId) return
+      selectedModelRef.current = undefined
+      setSelectedModelState(undefined)
+    }
+    window.addEventListener(BROWSER_EVENTS.NEW_CHAT_REQUESTED, handleNewChatRequested)
+    return () => {
+      window.removeEventListener(BROWSER_EVENTS.NEW_CHAT_REQUESTED, handleNewChatRequested)
+    }
+  }, [conversationId])
 
   const setSelectedModel = useCallback(
     (modelId: string | undefined) => {

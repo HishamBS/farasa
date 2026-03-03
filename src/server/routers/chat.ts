@@ -137,15 +137,22 @@ function classifyTerminalError(
     if (error.code === TRPC_CODES.BAD_REQUEST) {
       const invalidModel = error.message === AppError.INVALID_MODEL
       const routerFailed = error.message === AppError.ROUTER_FAILED
+      const a2uiContractFailed = error.message === AppError.A2UI_CONTRACT_FAILED
       return {
         message: routerFailed
           ? AppError.ROUTER_FAILED
-          : invalidModel
-            ? runtimeConfig.chat.errors.invalidModel
-            : runtimeConfig.chat.errors.processing,
+          : a2uiContractFailed
+            ? AppError.A2UI_CONTRACT_FAILED
+            : invalidModel
+              ? runtimeConfig.chat.errors.invalidModel
+              : runtimeConfig.chat.errors.processing,
         code: error.code,
-        reasonCode: routerFailed ? 'router_failed' : 'validation_rejected',
-        recoverable: routerFailed,
+        reasonCode: routerFailed
+          ? 'router_failed'
+          : a2uiContractFailed
+            ? 'a2ui_contract_violation'
+            : 'validation_rejected',
+        recoverable: routerFailed || a2uiContractFailed,
       }
     }
     return {
@@ -564,8 +571,7 @@ export const chatRouter = router({
         content: row.content,
       }))
 
-      const sdkMessages: Message[] = [
-        { role: MESSAGE_ROLES.SYSTEM, content: systemSections.join('\n\n') },
+      const baseMessages: Message[] = [
         ...historyMessages,
         { role: MESSAGE_ROLES.USER, content: userContent },
       ]
@@ -573,16 +579,18 @@ export const chatRouter = router({
       const { openrouter } = await import('@/lib/ai/client')
       const { ALL_TOOLS } = await import('@/lib/ai/tools')
 
+      const strictA2UIContract =
+        runtimeConfig.features.a2uiEnabled && routerResponseFormat === RESPONSE_FORMATS.A2UI
+      const maxA2UIAttempts = strictA2UIContract ? LIMITS.A2UI_CONTRACT_MAX_ATTEMPTS : 1
+      let a2uiContractRetryCount = 0
+
       let fullText = ''
       let thinkingContent = ''
       let thinkingStartedAt: number | null = null
       let thinkingDurationMs: number | undefined
       let a2uiLines: string[] = []
-      let inA2UI = false
-      let a2uiBuffer = ''
       let usage: Usage | undefined
       let streamSequenceMax = 0
-      let thinkingStatusEmitted = false
 
       const emitA2UIFromPayload = (payload: string): StreamChunk[] => {
         const parsedLines = parseA2UIFencePayloadToJsonLines(payload, runtimeConfig.safety.a2ui)
@@ -601,260 +609,319 @@ export const chatRouter = router({
         return events
       }
 
-      let toolRoundCount = 0
-      while (true) {
-        const stream = await openrouter.chat.send(
-          {
-            chatGenerationParams: {
-              model: selectedModel,
-              messages: sdkMessages,
-              stream: true,
-              maxTokens: runtimeConfig.ai.chatMaxTokens,
-              ...(webSearchEnabled
-                ? { tools: ALL_TOOLS, toolChoice: ToolChoiceOptionAuto.Auto }
-                : {}),
+      for (let contractAttempt = 1; contractAttempt <= maxA2UIAttempts; contractAttempt += 1) {
+        const isA2UIRetryAttempt = strictA2UIContract && contractAttempt > 1
+        const attemptSystemSections = isA2UIRetryAttempt
+          ? [...systemSections, PROMPTS.A2UI_RETRY_FORMAT_PROMPT]
+          : systemSections
+        const attemptMessages: Message[] = [
+          { role: MESSAGE_ROLES.SYSTEM, content: attemptSystemSections.join('\n\n') },
+          ...baseMessages,
+        ]
+
+        fullText = ''
+        thinkingContent = ''
+        thinkingStartedAt = null
+        thinkingDurationMs = undefined
+        a2uiLines = []
+        usage = undefined
+
+        let inA2UI = false
+        let a2uiBuffer = ''
+        let thinkingStatusEmitted = false
+        let toolRoundCount = 0
+
+        while (true) {
+          const stream = await openrouter.chat.send(
+            {
+              chatGenerationParams: {
+                model: selectedModel,
+                messages: attemptMessages,
+                stream: true,
+                maxTokens: runtimeConfig.ai.chatMaxTokens,
+                ...(webSearchEnabled
+                  ? { tools: ALL_TOOLS, toolChoice: ToolChoiceOptionAuto.Auto }
+                  : {}),
+              },
             },
-          },
-          { signal: combinedSignal },
-        )
+            { signal: combinedSignal },
+          )
 
-        const toolCallDeltas = new Map<number, { id?: string; name?: string; argsJson: string }>()
-        let roundAssistantText = ''
+          const toolCallDeltas = new Map<number, { id?: string; name?: string; argsJson: string }>()
+          let roundAssistantText = ''
 
-        for await (const streamChunk of stream) {
-          if (streamChunk.usage) {
-            const parsedUsage = UsageSchema.safeParse({
-              promptTokens: streamChunk.usage.promptTokens ?? 0,
-              completionTokens: streamChunk.usage.completionTokens ?? 0,
-              totalTokens: streamChunk.usage.totalTokens ?? 0,
-            })
-            if (parsedUsage.success) {
-              usage = parsedUsage.data
-            }
-          }
-
-          const delta = streamChunk.choices[0]?.delta
-          if (!delta) continue
-
-          if (delta.toolCalls && delta.toolCalls.length > 0) {
-            for (const toolCallDelta of delta.toolCalls) {
-              const current = toolCallDeltas.get(toolCallDelta.index) ?? { argsJson: '' }
-              if (toolCallDelta.id) {
-                current.id = toolCallDelta.id
-              }
-              if (toolCallDelta.function?.name) {
-                current.name = toolCallDelta.function.name
-              }
-              if (toolCallDelta.function?.arguments) {
-                current.argsJson += toolCallDelta.function.arguments
-              }
-              toolCallDeltas.set(toolCallDelta.index, current)
-            }
-          }
-
-          if (delta.reasoning) {
-            if (!thinkingStatusEmitted) {
-              const thinkingStatusEvent = emit({
-                type: STREAM_EVENTS.STATUS,
-                phase: STREAM_PHASES.THINKING,
-                message: runtimeConfig.chat.statusMessages.thinking,
+          for await (const streamChunk of stream) {
+            if (streamChunk.usage) {
+              const parsedUsage = UsageSchema.safeParse({
+                promptTokens: streamChunk.usage.promptTokens ?? 0,
+                completionTokens: streamChunk.usage.completionTokens ?? 0,
+                totalTokens: streamChunk.usage.totalTokens ?? 0,
               })
-              if (typeof thinkingStatusEvent.sequence === 'number') {
-                streamSequenceMax = Math.max(streamSequenceMax, thinkingStatusEvent.sequence)
+              if (parsedUsage.success) {
+                usage = parsedUsage.data
               }
-              yield thinkingStatusEvent
-              thinkingStatusEmitted = true
             }
-            if (!thinkingStartedAt) thinkingStartedAt = Date.now()
-            thinkingContent += delta.reasoning
-            const thinkingEvent = emit({
-              type: STREAM_EVENTS.THINKING,
-              content: delta.reasoning,
-              isComplete: false,
-            })
-            if (typeof thinkingEvent.sequence === 'number') {
-              streamSequenceMax = Math.max(streamSequenceMax, thinkingEvent.sequence)
-            }
-            yield thinkingEvent
-            continue
-          }
 
-          if (!delta.content) continue
+            const delta = streamChunk.choices[0]?.delta
+            if (!delta) continue
 
-          let remaining = delta.content
-          while (remaining.length > 0) {
-            if (!inA2UI) {
-              const fenceStartIndex = remaining.indexOf(AI_MARKUP.A2UI_FENCE_START)
-              if (fenceStartIndex < 0) {
-                roundAssistantText += remaining
-                fullText += remaining
-                const textEvent = emit({
-                  type: STREAM_EVENTS.TEXT,
-                  content: remaining,
-                })
-                if (typeof textEvent.sequence === 'number') {
-                  streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
+            if (delta.toolCalls && delta.toolCalls.length > 0) {
+              for (const toolCallDelta of delta.toolCalls) {
+                const current = toolCallDeltas.get(toolCallDelta.index) ?? { argsJson: '' }
+                if (toolCallDelta.id) {
+                  current.id = toolCallDelta.id
                 }
-                yield textEvent
+                if (toolCallDelta.function?.name) {
+                  current.name = toolCallDelta.function.name
+                }
+                if (toolCallDelta.function?.arguments) {
+                  current.argsJson += toolCallDelta.function.arguments
+                }
+                toolCallDeltas.set(toolCallDelta.index, current)
+              }
+            }
+
+            if (delta.reasoning) {
+              if (!thinkingStatusEmitted) {
+                const thinkingStatusEvent = emit({
+                  type: STREAM_EVENTS.STATUS,
+                  phase: STREAM_PHASES.THINKING,
+                  message: runtimeConfig.chat.statusMessages.thinking,
+                })
+                if (typeof thinkingStatusEvent.sequence === 'number') {
+                  streamSequenceMax = Math.max(streamSequenceMax, thinkingStatusEvent.sequence)
+                }
+                yield thinkingStatusEvent
+                thinkingStatusEmitted = true
+              }
+              if (!thinkingStartedAt) thinkingStartedAt = Date.now()
+              thinkingContent += delta.reasoning
+              const thinkingEvent = emit({
+                type: STREAM_EVENTS.THINKING,
+                content: delta.reasoning,
+                isComplete: false,
+              })
+              if (typeof thinkingEvent.sequence === 'number') {
+                streamSequenceMax = Math.max(streamSequenceMax, thinkingEvent.sequence)
+              }
+              yield thinkingEvent
+              continue
+            }
+
+            if (!delta.content) continue
+
+            let remaining = delta.content
+            while (remaining.length > 0) {
+              if (!inA2UI) {
+                const fenceStartIndex = remaining.indexOf(AI_MARKUP.A2UI_FENCE_START)
+                if (fenceStartIndex < 0) {
+                  roundAssistantText += remaining
+                  fullText += remaining
+                  if (!strictA2UIContract) {
+                    const textEvent = emit({
+                      type: STREAM_EVENTS.TEXT,
+                      content: remaining,
+                    })
+                    if (typeof textEvent.sequence === 'number') {
+                      streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
+                    }
+                    yield textEvent
+                  }
+                  remaining = ''
+                  continue
+                }
+
+                const visiblePrefix = remaining.slice(0, fenceStartIndex)
+                if (visiblePrefix.length > 0) {
+                  roundAssistantText += visiblePrefix
+                  fullText += visiblePrefix
+                  if (!strictA2UIContract) {
+                    const textEvent = emit({
+                      type: STREAM_EVENTS.TEXT,
+                      content: visiblePrefix,
+                    })
+                    if (typeof textEvent.sequence === 'number') {
+                      streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
+                    }
+                    yield textEvent
+                  }
+                }
+
+                remaining = remaining.slice(fenceStartIndex + AI_MARKUP.A2UI_FENCE_START.length)
+                inA2UI = true
+                a2uiBuffer = ''
+                const generatingUiEvent = emit({
+                  type: STREAM_EVENTS.STATUS,
+                  phase: STREAM_PHASES.GENERATING_UI,
+                  message: runtimeConfig.chat.statusMessages.generatingUi,
+                })
+                if (typeof generatingUiEvent.sequence === 'number') {
+                  streamSequenceMax = Math.max(streamSequenceMax, generatingUiEvent.sequence)
+                }
+                yield generatingUiEvent
+                continue
+              }
+
+              const fenceEndIndex = remaining.indexOf(AI_MARKUP.CODE_FENCE_END)
+              if (fenceEndIndex < 0) {
+                a2uiBuffer += remaining
                 remaining = ''
                 continue
               }
 
-              const visiblePrefix = remaining.slice(0, fenceStartIndex)
-              if (visiblePrefix.length > 0) {
-                roundAssistantText += visiblePrefix
-                fullText += visiblePrefix
-                const textEvent = emit({
-                  type: STREAM_EVENTS.TEXT,
-                  content: visiblePrefix,
-                })
-                if (typeof textEvent.sequence === 'number') {
-                  streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
-                }
-                yield textEvent
+              a2uiBuffer += remaining.slice(0, fenceEndIndex)
+              const a2uiEvents = emitA2UIFromPayload(a2uiBuffer)
+              for (const a2uiEvent of a2uiEvents) {
+                yield a2uiEvent
               }
-
-              remaining = remaining.slice(fenceStartIndex + AI_MARKUP.A2UI_FENCE_START.length)
-              inA2UI = true
               a2uiBuffer = ''
-              const generatingUiEvent = emit({
-                type: STREAM_EVENTS.STATUS,
-                phase: STREAM_PHASES.GENERATING_UI,
-                message: runtimeConfig.chat.statusMessages.generatingUi,
-              })
-              if (typeof generatingUiEvent.sequence === 'number') {
-                streamSequenceMax = Math.max(streamSequenceMax, generatingUiEvent.sequence)
-              }
-              yield generatingUiEvent
-              continue
+              inA2UI = false
+              remaining = remaining.slice(fenceEndIndex + AI_MARKUP.CODE_FENCE_END.length)
             }
+          }
 
-            const fenceEndIndex = remaining.indexOf(AI_MARKUP.CODE_FENCE_END)
-            if (fenceEndIndex < 0) {
-              a2uiBuffer += remaining
-              remaining = ''
-              continue
-            }
-
-            a2uiBuffer += remaining.slice(0, fenceEndIndex)
+          if (inA2UI && a2uiBuffer.trim().length > 0) {
             const a2uiEvents = emitA2UIFromPayload(a2uiBuffer)
             for (const a2uiEvent of a2uiEvents) {
               yield a2uiEvent
             }
-            a2uiBuffer = ''
             inA2UI = false
-            remaining = remaining.slice(fenceEndIndex + AI_MARKUP.CODE_FENCE_END.length)
+            a2uiBuffer = ''
           }
-        }
 
-        if (inA2UI && a2uiBuffer.trim().length > 0) {
-          const a2uiEvents = emitA2UIFromPayload(a2uiBuffer)
-          for (const a2uiEvent of a2uiEvents) {
-            yield a2uiEvent
+          if (toolCallDeltas.size === 0) {
+            break
           }
-          inA2UI = false
-          a2uiBuffer = ''
-        }
 
-        if (toolCallDeltas.size === 0) {
-          break
-        }
+          if (toolRoundCount >= LIMITS.SEARCH_MAX_TOOL_CALL_ROUNDS) {
+            throw new TRPCError({
+              code: TRPC_CODES.BAD_REQUEST,
+              message: runtimeConfig.chat.errors.processing,
+            })
+          }
 
-        if (toolRoundCount >= LIMITS.SEARCH_MAX_TOOL_CALL_ROUNDS) {
-          throw new TRPCError({
-            code: TRPC_CODES.BAD_REQUEST,
-            message: runtimeConfig.chat.errors.processing,
+          const roundToolCalls: ChatMessageToolCall[] = [...toolCallDeltas.entries()]
+            .sort(([a], [b]) => a - b)
+            .map(([index, value]) => ({
+              id: value.id ?? `tool_${index}_${crypto.randomUUID()}`,
+              type: 'function' as const,
+              function: {
+                name: value.name ?? '',
+                arguments: value.argsJson,
+              },
+            }))
+            .filter((call) => call.function.name.length > 0)
+
+          if (roundToolCalls.length === 0) {
+            break
+          }
+
+          attemptMessages.push({
+            role: MESSAGE_ROLES.ASSISTANT,
+            content: roundAssistantText,
+            toolCalls: roundToolCalls,
           })
-        }
 
-        const roundToolCalls: ChatMessageToolCall[] = [...toolCallDeltas.entries()]
-          .sort(([a], [b]) => a - b)
-          .map(([index, value]) => ({
-            id: value.id ?? `tool_${index}_${crypto.randomUUID()}`,
-            type: 'function' as const,
-            function: {
-              name: value.name ?? '',
-              arguments: value.argsJson,
-            },
-          }))
-          .filter((call) => call.function.name.length > 0)
+          for (const call of roundToolCalls) {
+            if (call.function.name !== searchToolName) {
+              attemptMessages.push({
+                role: 'tool',
+                toolCallId: call.id,
+                content: JSON.stringify({ error: 'Unsupported tool call' }),
+              })
+              continue
+            }
 
-        if (roundToolCalls.length === 0) {
-          break
-        }
+            const toolQuery = parseSearchToolQuery(call.function.arguments, input.content)
+            const startedAt = Date.now()
+            yield emit({
+              type: STREAM_EVENTS.TOOL_START,
+              toolName: searchToolName,
+              input: { query: toolQuery },
+            })
+            const enrichment = await executeSearchEnrichment(toolQuery, runtimeConfig)
+            searchResults = mergeSearchResults(searchResults, enrichment.results)
+            searchImages = mergeSearchImages(searchImages, enrichment.images)
+            yield emit({
+              type: STREAM_EVENTS.TOOL_RESULT,
+              toolName: searchToolName,
+              result: {
+                query: enrichment.query,
+                results: enrichment.results,
+                images: enrichment.images,
+              },
+            })
 
-        sdkMessages.push({
-          role: MESSAGE_ROLES.ASSISTANT,
-          content: roundAssistantText,
-          toolCalls: roundToolCalls,
-        })
+            toolCalls.push({
+              name: searchToolName,
+              input: { query: toolQuery },
+              result: {
+                query: enrichment.query,
+                results: enrichment.results,
+                images: enrichment.images,
+              },
+              durationMs: Date.now() - startedAt,
+            })
 
-        for (const call of roundToolCalls) {
-          if (call.function.name !== searchToolName) {
-            sdkMessages.push({
+            attemptMessages.push({
               role: 'tool',
               toolCallId: call.id,
-              content: JSON.stringify({ error: 'Unsupported tool call' }),
+              content: JSON.stringify({
+                query: enrichment.query,
+                results: enrichment.results,
+                images: enrichment.images,
+              }),
             })
-            continue
           }
 
-          const toolQuery = parseSearchToolQuery(call.function.arguments, input.content)
-          const startedAt = Date.now()
-          yield emit({
-            type: STREAM_EVENTS.TOOL_START,
-            toolName: searchToolName,
-            input: { query: toolQuery },
-          })
-          const enrichment = await executeSearchEnrichment(toolQuery, runtimeConfig)
-          searchResults = mergeSearchResults(searchResults, enrichment.results)
-          searchImages = mergeSearchImages(searchImages, enrichment.images)
-          yield emit({
-            type: STREAM_EVENTS.TOOL_RESULT,
-            toolName: searchToolName,
-            result: {
-              query: enrichment.query,
-              results: enrichment.results,
-              images: enrichment.images,
-            },
-          })
+          toolRoundCount += 1
+        }
 
-          toolCalls.push({
-            name: searchToolName,
-            input: { query: toolQuery },
-            result: {
-              query: enrichment.query,
-              results: enrichment.results,
-              images: enrichment.images,
-            },
-            durationMs: Date.now() - startedAt,
+        if (thinkingContent) {
+          thinkingDurationMs = thinkingStartedAt ? Date.now() - thinkingStartedAt : undefined
+          const thinkingCompleteEvent = emit({
+            type: STREAM_EVENTS.THINKING,
+            content: '',
+            isComplete: true,
           })
+          if (typeof thinkingCompleteEvent.sequence === 'number') {
+            streamSequenceMax = Math.max(streamSequenceMax, thinkingCompleteEvent.sequence)
+          }
+          yield thinkingCompleteEvent
+        }
 
-          sdkMessages.push({
-            role: 'tool',
-            toolCallId: call.id,
-            content: JSON.stringify({
-              query: enrichment.query,
-              results: enrichment.results,
-              images: enrichment.images,
-            }),
+        if (strictA2UIContract && a2uiLines.length === 0) {
+          if (contractAttempt < maxA2UIAttempts) {
+            a2uiContractRetryCount += 1
+            const retryStatusEvent = emit({
+              type: STREAM_EVENTS.STATUS,
+              phase: STREAM_PHASES.GENERATING_UI,
+              message: runtimeConfig.chat.statusMessages.generatingUi,
+            })
+            if (typeof retryStatusEvent.sequence === 'number') {
+              streamSequenceMax = Math.max(streamSequenceMax, retryStatusEvent.sequence)
+            }
+            yield retryStatusEvent
+            continue
+          }
+          throw new TRPCError({
+            code: TRPC_CODES.BAD_REQUEST,
+            message: AppError.A2UI_CONTRACT_FAILED,
           })
         }
 
-        toolRoundCount += 1
-      }
-
-      if (thinkingContent) {
-        thinkingDurationMs = thinkingStartedAt ? Date.now() - thinkingStartedAt : undefined
-        const thinkingCompleteEvent = emit({
-          type: STREAM_EVENTS.THINKING,
-          content: '',
-          isComplete: true,
-        })
-        if (typeof thinkingCompleteEvent.sequence === 'number') {
-          streamSequenceMax = Math.max(streamSequenceMax, thinkingCompleteEvent.sequence)
+        if (strictA2UIContract && fullText.trim().length > 0) {
+          const deferredTextEvent = emit({
+            type: STREAM_EVENTS.TEXT,
+            content: fullText,
+          })
+          if (typeof deferredTextEvent.sequence === 'number') {
+            streamSequenceMax = Math.max(streamSequenceMax, deferredTextEvent.sequence)
+          }
+          yield deferredTextEvent
         }
-        yield thinkingCompleteEvent
+
+        break
       }
 
       const hasVisibleAssistantOutput = fullText.trim().length > 0 || a2uiLines.length > 0
@@ -876,6 +943,7 @@ export const chatRouter = router({
 
       const metadata = MessageMetadataSchema.parse({
         streamRequestId,
+        recoveryAttemptCount: a2uiContractRetryCount > 0 ? a2uiContractRetryCount : undefined,
         modelUsed: selectedModel,
         routerReasoning,
         routerSource,

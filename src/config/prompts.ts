@@ -110,6 +110,15 @@ Rules:
 - Keep each JSON object valid on its own
 - Use safe button action names (alphanumeric and underscore)
 - Do not output raw HTML/CSS when A2UI is requested`,
+
+  A2UI_RETRY_FORMAT_PROMPT: `Your previous response did not satisfy the required A2UI output contract.
+
+You must now return:
+1) A brief explanation sentence.
+2) A single fenced block labeled exactly \`a2ui\`.
+3) Inside that fence, valid A2UI v0.8 JSONL protocol messages only.
+
+Do not use \`json\` or \`text\` fences. Do not output raw HTML/CSS.`,
 } as const
 
 export const USER_REQUEST_DELIMITERS = {

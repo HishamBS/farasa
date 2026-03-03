@@ -12,6 +12,7 @@ export const AppError = {
   ATTACHMENT_ACCESS_DENIED: 'Attachment not found or access denied.',
   MISSING_CONVERSATION_ID: 'Missing conversation id for title generation.',
   ROUTER_FAILED: 'Auto-routing failed. Please select a model manually.',
+  A2UI_CONTRACT_FAILED: 'UI generation failed format validation. Please retry your request.',
   SEARCH_UNAVAILABLE: 'Web search is currently unavailable.',
   TTS_PROVIDER_FAILED: 'TTS provider request failed.',
   TTS_RUNTIME_FAILED: 'TTS request failed before audio generation.',

@@ -5,6 +5,12 @@
 
 .claude/
 .codex/
+.serena/
+.playwright-cli/
+
+# Audit and plan docs — local only
+docs/audits/
+docs/plans/
 
 .DS_Store
 

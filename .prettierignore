@@ -5,3 +5,7 @@ bun.lock
 *.min.js
 drizzle/
 *.sh
+.serena/
+.playwright-cli/
+docs/audits/
+docs/plans/

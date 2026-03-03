@@ -1,14 +1,13 @@
 'use client'
 
-import { APP_CONFIG, CHAT_MODES, LIMITS, MOTION, UI_TEXT, UX } from '@/config/constants'
+import { APP_CONFIG, CHAT_MODES, LIMITS, MOTION, UI_TEXT } from '@/config/constants'
 import { TeamModelPicker } from '@/features/team/components/team-model-picker'
 import { useTeamMode } from '@/features/team/context/team-context'
 import { MicButton } from '@/features/voice/components/mic-button'
 import { cn } from '@/lib/utils/cn'
 import { scaleIn } from '@/lib/utils/motion'
-import type { TeamStreamInput } from '@/schemas/team'
 import type { ChatInput as ChatInputType } from '@/schemas/message'
-import { trpc } from '@/trpc/provider'
+import type { TeamStreamInput } from '@/schemas/team'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ArrowRight, Globe, Paperclip } from 'lucide-react'
 import {
@@ -72,21 +71,6 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
   const { mode, webSearchEnabled, setWebSearchEnabled } = useChatMode()
   const { teamModels } = useTeamMode()
 
-  const { data: models = [] } = trpc.model.list.useQuery(undefined, {
-    staleTime: UX.QUERY_STALE_TIME_FOREVER,
-  })
-
-  const selectedModelSupportsTools = useMemo(() => {
-    if (!selectedModel) return true
-    if (models.length === 0) return true
-    const model = models.find((m) => m.id === selectedModel)
-    return model?.supportsTools ?? true
-  }, [selectedModel, models])
-
-  const isSelectedModelIncompatibleForSearch =
-    mode === CHAT_MODES.CHAT && !!selectedModel && !selectedModelSupportsTools
-  const isGlobeDisabled = isSelectedModelIncompatibleForSearch && !webSearchEnabled
-
   const {
     uploadFile,
     uploadFileInline,
@@ -122,6 +106,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     if (mode === CHAT_MODES.TEAM) {
       if (onTeamSubmit) {
         onTeamSubmit({
+          clientRequestId: crypto.randomUUID(),
           content: content.trim(),
           models: teamModels,
           conversationId,
@@ -287,28 +272,16 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
 
               <button
                 type="button"
-                onClick={() => !isGlobeDisabled && setWebSearchEnabled(!webSearchEnabled)}
-                disabled={isGlobeDisabled}
+                onClick={() => setWebSearchEnabled(!webSearchEnabled)}
                 className={cn(
                   'flex size-8 items-center justify-center rounded-lg transition-colors',
-                  isGlobeDisabled
-                    ? 'cursor-not-allowed text-(--text-ghost)'
-                    : webSearchEnabled
-                      ? 'bg-(--accent-muted) text-(--accent) hover:bg-(--accent-muted)'
-                      : 'text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)',
+                  webSearchEnabled
+                    ? 'bg-(--accent-muted) text-(--accent) hover:bg-(--accent-muted)'
+                    : 'text-(--text-muted) hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)',
                 )}
-                aria-pressed={!isGlobeDisabled && webSearchEnabled}
+                aria-pressed={webSearchEnabled}
                 aria-label={
-                  isSelectedModelIncompatibleForSearch && !webSearchEnabled
-                    ? UI_TEXT.WEB_SEARCH_MODEL_INCOMPATIBLE
-                    : webSearchEnabled
-                      ? UI_TEXT.WEB_SEARCH_DISABLE
-                      : UI_TEXT.WEB_SEARCH_ENABLE
-                }
-                title={
-                  isSelectedModelIncompatibleForSearch && !webSearchEnabled
-                    ? UI_TEXT.WEB_SEARCH_MODEL_INCOMPATIBLE
-                    : undefined
+                  webSearchEnabled ? UI_TEXT.WEB_SEARCH_DISABLE : UI_TEXT.WEB_SEARCH_ENABLE
                 }
               >
                 <Globe size={15} />

@@ -80,6 +80,7 @@ export function MessageList({
       !lastMessageIsAssistant)
 
   const renderItems = useMemo((): RenderItem[] => {
+    const activeLiveTeamId = liveTeam?.teamId
     const teamMessages = new Map<
       string,
       {
@@ -112,6 +113,10 @@ export function MessageList({
       }
       const teamId = msg.metadata?.teamId
       if (msg.role === MESSAGE_ROLES.ASSISTANT && teamId && !msg.metadata?.isTeamSynthesis) {
+        if (activeLiveTeamId && teamId === activeLiveTeamId) {
+          i++
+          continue
+        }
         if (!renderedTeamIds.has(teamId)) {
           renderedTeamIds.add(teamId)
           const grouped = teamMessages.get(teamId)
@@ -127,6 +132,10 @@ export function MessageList({
           }
         }
       } else if (msg.role === MESSAGE_ROLES.ASSISTANT && teamId && msg.metadata?.isTeamSynthesis) {
+        if (activeLiveTeamId && teamId === activeLiveTeamId) {
+          i++
+          continue
+        }
         if (!renderedTeamIds.has(teamId)) {
           items.push({ type: 'single', message: msg })
         }
@@ -136,7 +145,7 @@ export function MessageList({
       i++
     }
     return items
-  }, [messages])
+  }, [liveTeam?.teamId, messages])
 
   const dividerLabel = useMemo(() => {
     if (messages.length === 0) return null

@@ -4,6 +4,7 @@ import { StreamChunkSchema } from './message'
 
 export const TeamStreamInputSchema = z.object({
   conversationId: z.string().uuid().optional(),
+  clientRequestId: z.string().uuid().optional(),
   content: z.string().min(1),
   models: z.array(z.string()).min(TEAM_LIMITS.MIN_MODELS).max(TEAM_LIMITS.MAX_MODELS),
   webSearchEnabled: z.boolean().default(false),

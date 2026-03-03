@@ -48,7 +48,6 @@ export function AssistantMessage({ streamState }: AssistantMessageProps) {
                   confidence={streamState.modelSelection.confidence}
                   factors={streamState.modelSelection.factors}
                   reasoning={streamState.modelSelection.reasoning}
-                  defaultExpanded
                   className="mb-0"
                 />
               )}

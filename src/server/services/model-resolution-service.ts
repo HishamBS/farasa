@@ -133,6 +133,31 @@ function buildFactors(params: {
   ]
 }
 
+async function resolveResponseFormat(
+  input: ResolveModelDecisionInput,
+  initialFormat: ModelResponseFormat,
+): Promise<ModelResponseFormat> {
+  if (!input.runtimeConfig.features.a2uiEnabled) {
+    return RESPONSE_FORMATS.MARKDOWN
+  }
+
+  if (initialFormat === RESPONSE_FORMATS.A2UI) {
+    return initialFormat
+  }
+
+  try {
+    const { decideResponseFormat } = await import('@/lib/ai/router')
+    return await decideResponseFormat(
+      input.prompt,
+      input.registry,
+      input.runtimeConfig,
+      input.signal,
+    )
+  } catch {
+    return initialFormat
+  }
+}
+
 export async function resolveModelDecision(
   input: ResolveModelDecisionInput,
 ): Promise<ResolvedModelDecision> {
@@ -141,6 +166,7 @@ export async function resolveModelDecision(
   if (source !== 'auto_router' && modelId) {
     const model = findModelById(input.registry, modelId)
     ensureSearchCompatible(model, input.requestedWebSearchEnabled)
+    const responseFormat = await resolveResponseFormat(input, RESPONSE_FORMATS.MARKDOWN)
     return {
       selectedModel: model.id,
       source,
@@ -155,9 +181,9 @@ export async function resolveModelDecision(
         selectedModel: model.id,
         requestedMode: input.requestedMode,
         requiresSearch: input.requestedWebSearchEnabled,
-        responseFormat: RESPONSE_FORMATS.MARKDOWN,
+        responseFormat,
       }),
-      responseFormat: RESPONSE_FORMATS.MARKDOWN,
+      responseFormat,
       requiresSearch: input.requestedWebSearchEnabled,
       requestedMode: input.requestedMode,
       confidence: 1,
@@ -181,12 +207,13 @@ export async function resolveModelDecision(
 
       const selectedModel = findModelById(input.registry, selection.selectedModel)
       ensureSearchCompatible(selectedModel, requiresSearch)
+      const responseFormat = await resolveResponseFormat(input, selection.responseFormat)
       const baseFactors = buildFactors({
         source: 'auto_router',
         selectedModel: selectedModel.id,
         requestedMode: input.requestedMode,
         requiresSearch,
-        responseFormat: selection.responseFormat,
+        responseFormat,
       })
       const knownFactorKeys = new Set(baseFactors.map((factor) => factor.key))
       const mergedFactors = [
@@ -201,7 +228,7 @@ export async function resolveModelDecision(
         category: selection.category,
         confidence: selection.confidence,
         factors: mergedFactors,
-        responseFormat: selection.responseFormat,
+        responseFormat,
         requiresSearch,
         requestedMode: input.requestedMode,
       }

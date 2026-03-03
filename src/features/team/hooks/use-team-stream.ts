@@ -1,21 +1,21 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { trpcClient } from '@/trpc/client'
 import {
-  TEAM_EVENTS,
-  TEAM_STREAM_PHASES,
+  CHAT_STREAM_STATUS,
   STREAM_ACTIONS,
   STREAM_EVENTS,
-  CHAT_STREAM_STATUS,
+  TEAM_EVENTS,
+  TEAM_STREAM_PHASES,
 } from '@/config/constants'
 import {
-  streamStateReducer,
   initialStreamState,
+  streamStateReducer,
 } from '@/features/stream-phases/hooks/use-stream-state'
-import type { StreamState } from '@/types/stream'
-import type { TeamStreamInput, TeamOutputChunk } from '@/schemas/team'
 import type { TeamStreamPhase } from '@/features/team/types'
+import type { TeamOutputChunk, TeamStreamInput } from '@/schemas/team'
+import { trpcClient } from '@/trpc/client'
+import type { StreamState } from '@/types/stream'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 type UseTeamStreamReturn = {
   modelStates: Map<string, StreamState>
@@ -64,8 +64,11 @@ export function useTeamStream({
       input
         ? JSON.stringify({
             c: input.conversationId,
+            r: input.clientRequestId,
             m: input.models,
             content: input.content,
+            s: input.webSearchEnabled,
+            a: input.attachmentIds,
           })
         : null,
     [input],

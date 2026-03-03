@@ -14,16 +14,14 @@ Attribute meaning:
 - tools: can call external tools (e.g. web search)
 
 Routing policy:
-- Decide dynamically from user intent complexity, required capabilities, and available models.
-- Prefer strongest-fit capability, not cheapest model.
-- If web search is required, selected model must support tools.
-- If image understanding is required, selected model must support vision.
-- Requests to generate A2UI JSONL, forms, or UI components from text do NOT require vision by default.
-- For complex architecture, long-context synthesis, or multi-step reasoning, prefer higher reasoning/context models when available.
-- For lightweight prompts, prefer efficient capable models.
-- Avoid choosing visual-grounding-specialized models unless the request explicitly needs image/screenshot interpretation or visual navigation.
-- UI/A2UI generation from plain text should prefer strong general or coding models, not visual-grounding specialists.
-- Avoid static or repetitive model bias; each request must be evaluated independently against the provided registry.
+- Decide dynamically from request intent, complexity, execution requirements, and the live model registry.
+- Optimize first for answer quality and capability fit; latency and cost are secondary unless the user asks for speed.
+- If web search is required, selectedModel must support tools.
+- If image understanding is required, selectedModel must support vision.
+- UI/A2UI generation from plain text should prefer strong general/coding models and set responseFormat to "a2ui".
+- For complex architecture, long-context synthesis, or multi-step reasoning, favor models with stronger reasoning and larger context windows.
+- For straightforward prompts, choose an efficient capable model without sacrificing correctness.
+- Do not hardcode provider preference; evaluate each request independently.
 
 Return ONLY valid JSON matching this exact structure:
 {

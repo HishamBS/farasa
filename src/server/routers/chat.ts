@@ -9,7 +9,7 @@ import {
   TRPC_CODES,
 } from '@/config/constants'
 import { PROMPTS } from '@/config/prompts'
-import { type attachments, conversations, messages } from '@/lib/db/schema'
+import { conversations, messages, type attachments } from '@/lib/db/schema'
 import { AppError, getErrorMessage } from '@/lib/utils/errors'
 import type { StreamChunk, ToolCall, Usage } from '@/schemas/message'
 import {
@@ -24,6 +24,11 @@ import type { SearchImage, SearchResult } from '@/schemas/search'
 import { parseA2UIFencePayloadToJsonLines } from '@/server/services/a2ui-message-service'
 import { resolveModelDecision } from '@/server/services/model-resolution-service'
 import { executeSearchEnrichment } from '@/server/services/search-enrichment-service'
+import {
+  mergeSearchImages,
+  mergeSearchResults,
+  parseSearchToolQuery,
+} from '@/server/services/search-tool-service'
 import type { ChatMessageContentItem, ChatMessageToolCall, Message } from '@openrouter/sdk/models'
 import { ChatMessageContentItemTextType, ToolChoiceOptionAuto } from '@openrouter/sdk/models'
 import { TRPCError } from '@trpc/server'
@@ -207,40 +212,6 @@ function buildCombinedAbortSignal(signals: AbortSignal[], timeoutMs: number): Ab
   )
 
   return controller.signal
-}
-
-function parseSearchToolQuery(rawArguments: string, fallbackQuery: string): string {
-  try {
-    const parsed = JSON.parse(rawArguments) as { query?: unknown }
-    if (typeof parsed.query === 'string' && parsed.query.trim().length > 0) {
-      return parsed.query
-    }
-  } catch {
-    // If arguments are malformed, use the user prompt as the safest fallback.
-  }
-  return fallbackQuery
-}
-
-function mergeSearchResults(existing: SearchResult[], incoming: SearchResult[]): SearchResult[] {
-  const byUrl = new Map<string, SearchResult>()
-  for (const result of existing) {
-    byUrl.set(result.url, result)
-  }
-  for (const result of incoming) {
-    byUrl.set(result.url, result)
-  }
-  return [...byUrl.values()]
-}
-
-function mergeSearchImages(existing: SearchImage[], incoming: SearchImage[]): SearchImage[] {
-  const byUrl = new Map<string, SearchImage>()
-  for (const image of existing) {
-    byUrl.set(image.url, image)
-  }
-  for (const image of incoming) {
-    byUrl.set(image.url, image)
-  }
-  return [...byUrl.values()]
 }
 
 export const chatRouter = router({
@@ -518,7 +489,9 @@ export const chatRouter = router({
       }
 
       const { buildEnrichedHistory } = await import('@/server/services/history-builder')
-      const historyMessages = await buildEnrichedHistory(ctx.db, conversationId)
+      const historyMessages = await buildEnrichedHistory(ctx.db, conversationId, {
+        excludeMessageIds: userMessageId ? [userMessageId] : [],
+      })
 
       const baseMessages: Message[] = [
         ...historyMessages,

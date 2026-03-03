@@ -3,9 +3,9 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   CHAT_STREAM_STATUS,
-  TEAM_TAB_VALUES,
   PROVIDER_ALIASES,
   PROVIDER_DOT_CLASSES,
+  TEAM_TAB_VALUES,
 } from '@/config/constants'
 import type { UseSynthesisReturn } from '@/features/team/hooks/use-team-synthesis'
 import type { ModelMeta } from '@/features/team/types'
@@ -13,8 +13,8 @@ import { cn } from '@/lib/utils/cn'
 import { extractModelName, resolveProviderKey } from '@/lib/utils/model'
 import type { StreamState } from '@/types/stream'
 import { useMemo } from 'react'
-import { TeamResponsePanel } from './team-response-panel'
 import { SynthesisPanel } from './synthesis-panel'
+import { TeamResponsePanel } from './team-response-panel'
 
 type TeamTabsProps = {
   modelStates: Map<string, StreamState>
@@ -119,9 +119,7 @@ export function TeamTabs({
             </TabsTrigger>
           )
         })}
-        <TabsTrigger value={TEAM_TAB_VALUES.SYNTHESIS} disabled={!teamDone}>
-          Synthesis
-        </TabsTrigger>
+        <TabsTrigger value={TEAM_TAB_VALUES.SYNTHESIS}>Synthesis</TabsTrigger>
       </TabsList>
       <div className="mt-2 flex items-center gap-3 px-1 text-[0.6875rem] text-(--text-ghost)">
         <span>Left dot = provider</span>
@@ -145,7 +143,7 @@ export function TeamTabs({
       })}
 
       <TabsContent value={TEAM_TAB_VALUES.SYNTHESIS}>
-        {teamDone && teamId && (
+        {teamId && (
           <SynthesisPanel
             comparisonModelIds={modelOrder}
             conversationId={conversationId}

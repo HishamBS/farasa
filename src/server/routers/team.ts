@@ -1,23 +1,29 @@
 import {
   AI_REASONING,
   CHAT_MODES,
-  TEAM_EVENTS,
+  LIMITS,
   MESSAGE_ROLES,
   NEW_CHAT_TITLE,
   STREAM_EVENTS,
   STREAM_PHASES,
+  TEAM_EVENTS,
   TRPC_CODES,
 } from '@/config/constants'
 import { conversations, messages } from '@/lib/db/schema'
 import { getErrorMessage } from '@/lib/utils/errors'
-import type { TeamOutputChunk, TeamSynthesisOutputChunk } from '@/schemas/team'
-import { TeamStreamInputSchema, TeamSynthesizeInputSchema } from '@/schemas/team'
 import type { StreamChunk } from '@/schemas/message'
 import { MessageMetadataSchema } from '@/schemas/message'
 import type { SearchImage, SearchResult } from '@/schemas/search'
+import type { TeamOutputChunk, TeamSynthesisOutputChunk } from '@/schemas/team'
+import { TeamStreamInputSchema, TeamSynthesizeInputSchema } from '@/schemas/team'
 import { executeSearchEnrichment } from '@/server/services/search-enrichment-service'
-import type { ChatMessageContentItem, Message } from '@openrouter/sdk/models'
-import { ChatMessageContentItemTextType } from '@openrouter/sdk/models'
+import {
+  mergeSearchImages,
+  mergeSearchResults,
+  parseSearchToolQuery,
+} from '@/server/services/search-tool-service'
+import type { ChatMessageContentItem, ChatMessageToolCall, Message } from '@openrouter/sdk/models'
+import { ChatMessageContentItemTextType, ToolChoiceOptionAuto } from '@openrouter/sdk/models'
 import { TRPCError } from '@trpc/server'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { rateLimitedChatProcedure, router } from '../trpc'
@@ -28,6 +34,14 @@ type QueueItem =
 
 type ModelStreamOutcome = {
   content: string
+  searchResults: SearchResult[]
+  searchImages: SearchImage[]
+  toolCalls: Array<{
+    name: string
+    input: unknown
+    result: unknown
+    durationMs?: number
+  }>
   error?: string
 }
 
@@ -43,15 +57,22 @@ export const teamRouter = router({
     const registry = await getModelRegistry({ runtimeConfig })
 
     for (const modelId of input.models) {
-      if (!registry.some((m) => m.id === modelId)) {
+      const model = registry.find((entry) => entry.id === modelId)
+      if (!model) {
         throw new TRPCError({
           code: TRPC_CODES.BAD_REQUEST,
           message: `Invalid model ID: ${modelId}`,
         })
       }
+      if (input.webSearchEnabled && !model.supportsTools) {
+        throw new TRPCError({
+          code: TRPC_CODES.BAD_REQUEST,
+          message: `Model does not support web search tools: ${modelId}`,
+        })
+      }
     }
 
-    const streamRequestId = crypto.randomUUID()
+    const streamRequestId = input.clientRequestId ?? crypto.randomUUID()
 
     let conversationId = input.conversationId
 
@@ -90,7 +111,7 @@ export const teamRouter = router({
         throw new TRPCError({ code: TRPC_CODES.NOT_FOUND })
       }
 
-      const userMessageClientId = crypto.randomUUID()
+      const userMessageClientId = streamRequestId
       const [existingUserMessage] = await ctx.db
         .select({ id: messages.id })
         .from(messages)
@@ -151,6 +172,7 @@ export const teamRouter = router({
       }
 
       const teamId = crypto.randomUUID()
+      const searchToolName = runtimeConfig.search.toolName
       let searchContext = ''
       let searchResults: SearchResult[] = []
       let searchImages: SearchImage[] = []
@@ -181,7 +203,6 @@ export const teamRouter = router({
             message: runtimeConfig.chat.statusMessages.searching,
           } satisfies StreamChunk,
         }
-        const searchToolName = runtimeConfig.search.toolName
         yield {
           type: TEAM_EVENTS.STREAM_EVENT,
           chunk: {
@@ -213,7 +234,9 @@ export const teamRouter = router({
       }
 
       const { buildEnrichedHistory } = await import('@/server/services/history-builder')
-      const historyMessages = await buildEnrichedHistory(ctx.db, conversationId)
+      const historyMessages = await buildEnrichedHistory(ctx.db, conversationId, {
+        excludeMessageIds: [userMessageId],
+      })
 
       const systemPrompt = searchContext
         ? `${runtimeConfig.prompts.chatSystem}\n\n${searchContext}`
@@ -225,6 +248,7 @@ export const teamRouter = router({
       ]
 
       const { openrouter } = await import('@/lib/ai/client')
+      const { ALL_TOOLS } = await import('@/lib/ai/tools')
 
       const queue: QueueItem[] = []
       let resolver: (() => void) | null = null
@@ -269,54 +293,89 @@ export const teamRouter = router({
               ],
             } satisfies StreamChunk,
           })
-          const stream = await openrouter.chat.send(
-            {
-              chatGenerationParams: {
-                model: modelId,
-                messages: sdkMessages,
-                stream: true,
-                maxCompletionTokens: getModelMaxCompletionTokens(registry, modelId),
-              },
-            },
-            { signal: signal ?? undefined },
-          )
 
           let fullText = ''
+          let toolRoundCount = 0
           let thinkingStatusEmitted = false
-          for await (const streamChunk of stream) {
-            const delta = streamChunk.choices[0]?.delta
-            if (!delta) continue
+          let modelSearchResults = [...searchResults]
+          let modelSearchImages = [...searchImages]
+          const modelToolCalls: ModelStreamOutcome['toolCalls'] = []
+          const attemptMessages: Message[] = [...sdkMessages]
 
-            if (delta.reasoning) {
-              if (!thinkingStatusEmitted) {
+          while (true) {
+            const stream = await openrouter.chat.send(
+              {
+                chatGenerationParams: {
+                  model: modelId,
+                  messages: attemptMessages,
+                  stream: true,
+                  maxCompletionTokens: getModelMaxCompletionTokens(registry, modelId),
+                  ...(input.webSearchEnabled
+                    ? { tools: ALL_TOOLS, toolChoice: ToolChoiceOptionAuto.Auto }
+                    : {}),
+                },
+              },
+              { signal: signal ?? undefined },
+            )
+
+            const toolCallDeltas = new Map<
+              number,
+              { id?: string; name?: string; argsJson: string }
+            >()
+            let roundAssistantText = ''
+
+            for await (const streamChunk of stream) {
+              const delta = streamChunk.choices[0]?.delta
+              if (!delta) continue
+
+              if (delta.toolCalls && delta.toolCalls.length > 0) {
+                for (const toolCallDelta of delta.toolCalls) {
+                  const current = toolCallDeltas.get(toolCallDelta.index) ?? { argsJson: '' }
+                  if (toolCallDelta.id) {
+                    current.id = toolCallDelta.id
+                  }
+                  if (toolCallDelta.function?.name) {
+                    current.name = toolCallDelta.function.name
+                  }
+                  if (toolCallDelta.function?.arguments) {
+                    current.argsJson += toolCallDelta.function.arguments
+                  }
+                  toolCallDeltas.set(toolCallDelta.index, current)
+                }
+              }
+
+              if (delta.reasoning) {
+                if (!thinkingStatusEmitted) {
+                  push({
+                    done: false,
+                    modelId,
+                    modelIndex,
+                    chunk: {
+                      type: STREAM_EVENTS.STATUS,
+                      streamRequestId: modelStreamRequestId,
+                      phase: STREAM_PHASES.THINKING,
+                      message: runtimeConfig.chat.statusMessages.thinking,
+                    } satisfies StreamChunk,
+                  })
+                  thinkingStatusEmitted = true
+                }
                 push({
                   done: false,
                   modelId,
                   modelIndex,
                   chunk: {
-                    type: STREAM_EVENTS.STATUS,
+                    type: STREAM_EVENTS.THINKING,
                     streamRequestId: modelStreamRequestId,
-                    phase: STREAM_PHASES.THINKING,
-                    message: runtimeConfig.chat.statusMessages.thinking,
+                    content: delta.reasoning,
+                    isComplete: false,
                   } satisfies StreamChunk,
                 })
-                thinkingStatusEmitted = true
               }
-              push({
-                done: false,
-                modelId,
-                modelIndex,
-                chunk: {
-                  type: STREAM_EVENTS.THINKING,
-                  streamRequestId: modelStreamRequestId,
-                  content: delta.reasoning,
-                  isComplete: false,
-                } satisfies StreamChunk,
-              })
-            }
 
-            if (delta.content) {
+              if (!delta.content) continue
+
               fullText += delta.content
+              roundAssistantText += delta.content
               push({
                 done: false,
                 modelId,
@@ -325,10 +384,112 @@ export const teamRouter = router({
                   type: STREAM_EVENTS.TEXT,
                   content: delta.content,
                   streamRequestId: modelStreamRequestId,
-                  attempt: 0,
+                  attempt: toolRoundCount,
                 } satisfies StreamChunk,
               })
             }
+
+            if (toolCallDeltas.size === 0) {
+              break
+            }
+
+            if (toolRoundCount >= LIMITS.SEARCH_MAX_TOOL_CALL_ROUNDS) {
+              throw new TRPCError({
+                code: TRPC_CODES.BAD_REQUEST,
+                message: runtimeConfig.chat.errors.processing,
+              })
+            }
+
+            const roundToolCalls: ChatMessageToolCall[] = [...toolCallDeltas.entries()]
+              .sort(([a], [b]) => a - b)
+              .map(([index, value]) => ({
+                id: value.id ?? `tool_${index}_${crypto.randomUUID()}`,
+                type: 'function' as const,
+                function: {
+                  name: value.name ?? '',
+                  arguments: value.argsJson,
+                },
+              }))
+              .filter((call) => call.function.name.length > 0)
+
+            if (roundToolCalls.length === 0) {
+              break
+            }
+
+            attemptMessages.push({
+              role: MESSAGE_ROLES.ASSISTANT,
+              content: roundAssistantText,
+              toolCalls: roundToolCalls,
+            })
+
+            for (const call of roundToolCalls) {
+              if (call.function.name !== searchToolName) {
+                attemptMessages.push({
+                  role: 'tool',
+                  toolCallId: call.id,
+                  content: JSON.stringify({ error: 'Unsupported tool call' }),
+                })
+                continue
+              }
+
+              const toolQuery = parseSearchToolQuery(call.function.arguments, input.content)
+              const startedAt = Date.now()
+              push({
+                done: false,
+                modelId,
+                modelIndex,
+                chunk: {
+                  type: STREAM_EVENTS.TOOL_START,
+                  streamRequestId: modelStreamRequestId,
+                  toolName: searchToolName,
+                  input: { query: toolQuery },
+                } satisfies StreamChunk,
+              })
+
+              const enrichment = await executeSearchEnrichment(toolQuery, runtimeConfig)
+              modelSearchResults = mergeSearchResults(modelSearchResults, enrichment.results)
+              modelSearchImages = mergeSearchImages(modelSearchImages, enrichment.images)
+              searchResults = mergeSearchResults(searchResults, enrichment.results)
+              searchImages = mergeSearchImages(searchImages, enrichment.images)
+              push({
+                done: false,
+                modelId,
+                modelIndex,
+                chunk: {
+                  type: STREAM_EVENTS.TOOL_RESULT,
+                  streamRequestId: modelStreamRequestId,
+                  toolName: searchToolName,
+                  result: {
+                    query: enrichment.query,
+                    results: enrichment.results,
+                    images: enrichment.images,
+                  },
+                } satisfies StreamChunk,
+              })
+
+              modelToolCalls.push({
+                name: searchToolName,
+                input: { query: toolQuery },
+                result: {
+                  query: enrichment.query,
+                  results: enrichment.results,
+                  images: enrichment.images,
+                },
+                durationMs: Date.now() - startedAt,
+              })
+
+              attemptMessages.push({
+                role: 'tool',
+                toolCallId: call.id,
+                content: JSON.stringify({
+                  query: enrichment.query,
+                  results: enrichment.results,
+                  images: enrichment.images,
+                }),
+              })
+            }
+
+            toolRoundCount += 1
           }
 
           push({
@@ -365,12 +526,23 @@ export const teamRouter = router({
                 recoverable: false,
               } satisfies StreamChunk,
             })
-            modelOutcomes.set(modelId, { content: '', error: errorMessage })
+            modelOutcomes.set(modelId, {
+              content: '',
+              searchResults: modelSearchResults,
+              searchImages: modelSearchImages,
+              toolCalls: modelToolCalls,
+              error: errorMessage,
+            })
             push({ done: true, modelId })
             return
           }
 
-          modelOutcomes.set(modelId, { content: fullText })
+          modelOutcomes.set(modelId, {
+            content: fullText,
+            searchResults: modelSearchResults,
+            searchImages: modelSearchImages,
+            toolCalls: modelToolCalls,
+          })
         } catch (error) {
           const errorMessage = getErrorMessage(error, runtimeConfig.chat.errors.providerUnavailable)
           push({
@@ -384,7 +556,13 @@ export const teamRouter = router({
               recoverable: false,
             } satisfies StreamChunk,
           })
-          modelOutcomes.set(modelId, { content: '', error: errorMessage })
+          modelOutcomes.set(modelId, {
+            content: '',
+            searchResults: [...searchResults],
+            searchImages: [...searchImages],
+            toolCalls: [],
+            error: errorMessage,
+          })
         }
         push({ done: true, modelId })
       }
@@ -417,19 +595,24 @@ export const teamRouter = router({
 
       const successfulModels: string[] = []
       for (const modelId of input.models) {
-        const content = modelOutcomes.get(modelId)?.content.trim() ?? ''
+        const outcome = modelOutcomes.get(modelId)
+        const content = outcome?.content.trim() ?? ''
         if (content.length === 0) {
           continue
         }
         successfulModels.push(modelId)
         const metadata = MessageMetadataSchema.parse({
+          streamRequestId,
           teamId,
           modelUsed: modelId,
           userMessageId,
           requiresSearch: input.webSearchEnabled,
           searchQuery: input.webSearchEnabled ? input.content : undefined,
-          searchResults: searchResults.length > 0 ? searchResults : undefined,
-          searchImages: searchImages.length > 0 ? searchImages : undefined,
+          searchResults:
+            outcome && outcome.searchResults.length > 0 ? outcome.searchResults : undefined,
+          searchImages:
+            outcome && outcome.searchImages.length > 0 ? outcome.searchImages : undefined,
+          toolCalls: outcome && outcome.toolCalls.length > 0 ? outcome.toolCalls : undefined,
         })
         await ctx.db.insert(messages).values({
           conversationId,

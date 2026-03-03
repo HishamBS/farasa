@@ -72,7 +72,12 @@ export async function linkAttachmentsToMessage(
 export async function buildEnrichedHistory(
   dbClient: typeof db,
   conversationId: string,
+  options?: {
+    excludeMessageIds?: string[]
+  },
 ): Promise<Message[]> {
+  const excludedMessageIds = new Set(options?.excludeMessageIds ?? [])
+
   const historyRows = await dbClient
     .select({
       id: messages.id,
@@ -110,32 +115,34 @@ export async function buildEnrichedHistory(
     attachmentsByMessageId.set(att.messageId, existing)
   }
 
-  return historyRows.map((row) => {
-    if (row.role === MESSAGE_ROLES.USER) {
-      const rowAttachments = attachmentsByMessageId.get(row.id)
-      if (rowAttachments && rowAttachments.length > 0) {
-        const blocks: ChatMessageContentItem[] = [
-          { type: ChatMessageContentItemTextType.Text, text: row.content },
-          ...buildAttachmentBlocks(rowAttachments),
-        ]
-        return { role: row.role, content: blocks }
+  return historyRows
+    .filter((row) => !excludedMessageIds.has(row.id))
+    .map((row) => {
+      if (row.role === MESSAGE_ROLES.USER) {
+        const rowAttachments = attachmentsByMessageId.get(row.id)
+        if (rowAttachments && rowAttachments.length > 0) {
+          const blocks: ChatMessageContentItem[] = [
+            { type: ChatMessageContentItemTextType.Text, text: row.content },
+            ...buildAttachmentBlocks(rowAttachments),
+          ]
+          return { role: row.role, content: blocks }
+        }
+        return { role: row.role, content: row.content }
       }
-      return { role: row.role, content: row.content }
-    }
 
-    let enrichedContent = row.content
-    const meta = row.metadata
+      let enrichedContent = row.content
+      const meta = row.metadata
 
-    if (meta?.searchQuery && meta?.searchResults?.length) {
-      const safeQuery = escapeXmlForPrompt(meta.searchQuery)
-      enrichedContent = `[This response used web search for: "${safeQuery}"]\n${enrichedContent}`
-    }
-    if (meta?.teamId && meta?.modelUsed) {
-      const safeModel = escapeXmlForPrompt(meta.modelUsed)
-      const label = meta.isTeamSynthesis ? 'Synthesis by' : 'Response from'
-      enrichedContent = `[${label}: ${safeModel}]\n${enrichedContent}`
-    }
+      if (meta?.searchQuery && meta?.searchResults?.length) {
+        const safeQuery = escapeXmlForPrompt(meta.searchQuery)
+        enrichedContent = `[This response used web search for: "${safeQuery}"]\n${enrichedContent}`
+      }
+      if (meta?.teamId && meta?.modelUsed) {
+        const safeModel = escapeXmlForPrompt(meta.modelUsed)
+        const label = meta.isTeamSynthesis ? 'Synthesis by' : 'Response from'
+        enrichedContent = `[${label}: ${safeModel}]\n${enrichedContent}`
+      }
 
-    return { role: row.role, content: enrichedContent }
-  })
+      return { role: row.role, content: enrichedContent }
+    })
 }

@@ -1,9 +1,9 @@
-import { openrouter } from './client'
-import { ModelSelectionSchema } from '@/schemas/model'
+import { MODEL_IDS } from '@/config/constants'
 import { buildRouterPrompt } from '@/config/prompts'
-import type { ModelSelection, ModelConfig, ModelCapability } from '@/schemas/model'
+import type { ModelConfig, ModelSelection } from '@/schemas/model'
+import { ModelSelectionSchema } from '@/schemas/model'
 import type { RuntimeConfig } from '@/schemas/runtime-config'
-import { MODEL_CATEGORIES, MODEL_IDS } from '@/config/constants'
+import { openrouter } from './client'
 
 function extractFirstJsonObject(raw: string): string {
   const start = raw.indexOf('{')
@@ -75,23 +75,6 @@ function selectRoutingEngineModel(registry: ReadonlyArray<ModelConfig>): string 
   return required.id
 }
 
-function hasCategory(model: ModelConfig, category: ModelCapability): boolean {
-  switch (category) {
-    case MODEL_CATEGORIES.VISION:
-      return model.supportsVision
-    case MODEL_CATEGORIES.ANALYSIS:
-      return model.supportsThinking || model.capabilities.includes(MODEL_CATEGORIES.ANALYSIS)
-    case MODEL_CATEGORIES.CODE:
-      return model.capabilities.includes(MODEL_CATEGORIES.CODE)
-    case MODEL_CATEGORIES.CREATIVE:
-      return model.capabilities.includes(MODEL_CATEGORIES.CREATIVE)
-    case MODEL_CATEGORIES.FAST:
-      return model.capabilities.includes(MODEL_CATEGORIES.FAST)
-    case MODEL_CATEGORIES.GENERAL:
-      return true
-  }
-}
-
 function validateModelSelection(
   selection: ModelSelection,
   registry: ReadonlyArray<ModelConfig>,
@@ -100,12 +83,6 @@ function validateModelSelection(
   const selectedModel = registry.find((model) => model.id === selection.selectedModel)
   if (!selectedModel) {
     throw new Error(`[router] Selected model is unavailable: ${selection.selectedModel}`)
-  }
-
-  if (!hasCategory(selectedModel, selection.category)) {
-    throw new Error(
-      `[router] Selected model does not satisfy category ${selection.category}: ${selection.selectedModel}`,
-    )
   }
 
   if (webSearchEnabled && !selectedModel.supportsTools) {

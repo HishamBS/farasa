@@ -77,7 +77,7 @@ export function UserMessage({ content, attachments }: UserMessageProps) {
               exit={{ opacity: 0, scale: MOTION.SCALE_SUBTLE_EXIT }}
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {/* eslint-disable-next-line @next/next/no-img-element -- Dynamic external URL from user attachments; next/image requires configured remote patterns */}
               <img
                 src={lightboxSrc}
                 alt=""

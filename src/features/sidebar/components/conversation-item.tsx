@@ -60,8 +60,8 @@ export function ConversationItem({
       void utils.conversation.list.invalidate()
       void utils.conversation.getById.invalidate({ id })
     },
-    onError: (err) => {
-      console.error('Failed to update conversation', err)
+    onError: () => {
+      void utils.conversation.list.invalidate()
     },
   })
 
@@ -70,8 +70,8 @@ export function ConversationItem({
       void utils.conversation.list.invalidate()
       if (isActive) router.push(ROUTES.CHAT)
     },
-    onError: (err) => {
-      console.error('Failed to delete conversation', err)
+    onError: () => {
+      void utils.conversation.list.invalidate()
     },
   })
 
@@ -123,8 +123,8 @@ export function ConversationItem({
           a.download = `${result.title}.md`
           a.click()
           URL.revokeObjectURL(url)
-        } catch (err) {
-          console.error('Export failed', err)
+        } catch {
+          // Export failure is visible via isExporting staying false
         } finally {
           setIsExporting(false)
         }

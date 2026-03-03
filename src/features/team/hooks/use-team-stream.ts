@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { trpcClient } from '@/trpc/client'
 import {
-  GROUP_EVENTS,
-  GROUP_STREAM_PHASES,
+  TEAM_EVENTS,
+  TEAM_STREAM_PHASES,
   STREAM_ACTIONS,
   STREAM_EVENTS,
   CHAT_STREAM_STATUS,
@@ -14,22 +14,22 @@ import {
   initialStreamState,
 } from '@/features/stream-phases/hooks/use-stream-state'
 import type { StreamState } from '@/types/stream'
-import type { GroupStreamInput, GroupOutputChunk } from '@/schemas/group'
-import type { GroupStreamPhase } from '@/features/group/types'
+import type { TeamStreamInput, TeamOutputChunk } from '@/schemas/team'
+import type { TeamStreamPhase } from '@/features/team/types'
 
-type UseGroupStreamReturn = {
+type UseTeamStreamReturn = {
   modelStates: Map<string, StreamState>
   modelOrder: string[]
-  phase: GroupStreamPhase
-  groupId: string | undefined
-  groupDone: boolean
+  phase: TeamStreamPhase
+  teamId: string | undefined
+  teamDone: boolean
   error: string | undefined
   abort: () => void
 }
 
-type UseGroupStreamOptions = {
+type UseTeamStreamOptions = {
   enabled: boolean
-  input: GroupStreamInput | null
+  input: TeamStreamInput | null
   onConversationCreated?: (conversationId: string) => void
 }
 
@@ -38,16 +38,16 @@ type ActiveSubscription = {
   sessionId: string
 }
 
-export function useGroupStream({
+export function useTeamStream({
   enabled,
   input,
   onConversationCreated,
-}: UseGroupStreamOptions): UseGroupStreamReturn {
+}: UseTeamStreamOptions): UseTeamStreamReturn {
   const [modelStates, setModelStates] = useState<Map<string, StreamState>>(new Map())
   const [modelOrder, setModelOrder] = useState<string[]>([])
-  const [phase, setPhase] = useState<GroupStreamPhase>(GROUP_STREAM_PHASES.IDLE)
-  const [groupId, setGroupId] = useState<string | undefined>(undefined)
-  const [groupDone, setGroupDone] = useState(false)
+  const [phase, setPhase] = useState<TeamStreamPhase>(TEAM_STREAM_PHASES.IDLE)
+  const [teamId, setTeamId] = useState<string | undefined>(undefined)
+  const [teamDone, setTeamDone] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
 
   const activeSubRef = useRef<ActiveSubscription | null>(null)
@@ -76,12 +76,12 @@ export function useGroupStream({
     if (!active) return
     active.unsubscribe()
     activeSubRef.current = null
-    setPhase(GROUP_STREAM_PHASES.IDLE)
+    setPhase(TEAM_STREAM_PHASES.IDLE)
   }, [])
 
   const applyChunkToModelState = useCallback(
-    (prev: Map<string, StreamState>, chunk: GroupOutputChunk) => {
-      if (chunk.type !== GROUP_EVENTS.MODEL_CHUNK) return prev
+    (prev: Map<string, StreamState>, chunk: TeamOutputChunk) => {
+      if (chunk.type !== TEAM_EVENTS.MODEL_CHUNK) return prev
 
       const { modelId, chunk: streamChunk } = chunk
       const next = new Map(prev)
@@ -191,34 +191,34 @@ export function useGroupStream({
     }
     setModelStates(new Map(initialStates))
     setModelOrder(initialOrder)
-    setPhase(GROUP_STREAM_PHASES.ACTIVE)
-    setGroupId(undefined)
-    setGroupDone(false)
+    setPhase(TEAM_STREAM_PHASES.ACTIVE)
+    setTeamId(undefined)
+    setTeamDone(false)
     setError(undefined)
 
     const newSub: ActiveSubscription = { sessionId, unsubscribe: () => {} }
     activeSubRef.current = newSub
 
-    const subscription = trpcClient.group.stream.subscribe(currentInput, {
-      onData(chunk: GroupOutputChunk) {
+    const subscription = trpcClient.team.stream.subscribe(currentInput, {
+      onData(chunk: TeamOutputChunk) {
         const active = activeSubRef.current
         if (!active || active.sessionId !== sessionId) return
 
-        if (chunk.type === GROUP_EVENTS.MODEL_CHUNK) {
+        if (chunk.type === TEAM_EVENTS.MODEL_CHUNK) {
           setModelStates((prev) => applyChunkToModelState(prev, chunk))
-        } else if (chunk.type === GROUP_EVENTS.STREAM_EVENT) {
+        } else if (chunk.type === TEAM_EVENTS.STREAM_EVENT) {
           const eventChunk = chunk.chunk
 
           if (eventChunk.type === STREAM_EVENTS.CONVERSATION_CREATED) {
             onConversationCreatedRef.current?.(eventChunk.conversationId)
           } else if (eventChunk.type === STREAM_EVENTS.ERROR) {
-            setPhase(GROUP_STREAM_PHASES.ERROR)
+            setPhase(TEAM_STREAM_PHASES.ERROR)
             setError(eventChunk.message)
           }
-        } else if (chunk.type === GROUP_EVENTS.DONE) {
-          setGroupDone(true)
-          setGroupId(chunk.groupId)
-          setPhase(GROUP_STREAM_PHASES.DONE)
+        } else if (chunk.type === TEAM_EVENTS.DONE) {
+          setTeamDone(true)
+          setTeamId(chunk.teamId)
+          setPhase(TEAM_STREAM_PHASES.DONE)
           setModelStates((prev) => {
             const next = new Map(prev)
             for (const [modelId, state] of next) {
@@ -236,7 +236,7 @@ export function useGroupStream({
       onError(err: Error) {
         const active = activeSubRef.current
         if (!active || active.sessionId !== sessionId) return
-        setPhase(GROUP_STREAM_PHASES.ERROR)
+        setPhase(TEAM_STREAM_PHASES.ERROR)
         setError(err.message || 'Connection error.')
         activeSubRef.current = null
       },
@@ -261,8 +261,8 @@ export function useGroupStream({
     modelStates,
     modelOrder,
     phase,
-    groupId,
-    groupDone,
+    teamId,
+    teamDone,
     error,
     abort,
   }

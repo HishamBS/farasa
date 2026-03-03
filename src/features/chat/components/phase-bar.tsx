@@ -1,33 +1,62 @@
 'use client'
 
-import { AnimatePresence, motion } from 'framer-motion'
-import { useStreamPhase } from '../context/stream-phase-context'
 import { MOTION, STREAM_PHASES, STREAM_PROGRESS, TITLEBAR_PHASE } from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
+import { AnimatePresence, motion } from 'framer-motion'
+import { useStreamPhase } from '../context/stream-phase-context'
 
-const PHASE_ORDER = [
+const PHASE_RENDER_ORDER = [
   STREAM_PHASES.ROUTING,
-  STREAM_PHASES.THINKING,
-  STREAM_PHASES.SEARCHING,
   STREAM_PHASES.READING_FILES,
+  STREAM_PHASES.SEARCHING,
+  STREAM_PHASES.THINKING,
   STREAM_PHASES.GENERATING_UI,
+  STREAM_PHASES.GENERATING_TITLE,
+  'STREAMING',
 ] as const
 
-const ACTIVE_PHASE_INDEX = {
-  [TITLEBAR_PHASE.IDLE]: -1,
-  [TITLEBAR_PHASE.THINKING]: 1,
-  [TITLEBAR_PHASE.STREAMING]: 4, // generating UI is the last phase before done
-  [TITLEBAR_PHASE.DONE]: 5,
-}
+type RenderPhaseKey = (typeof PHASE_RENDER_ORDER)[number]
+const STREAMING_PHASE_KEY: RenderPhaseKey = 'STREAMING'
 
 export function PhaseBar({ model }: { model?: string }) {
-  const { phase } = useStreamPhase()
+  const { phase, modelSelection, hasText, statusMessages, hasThinking, hasToolActivity } =
+    useStreamPhase()
   const isActive = phase !== TITLEBAR_PHASE.IDLE && phase !== TITLEBAR_PHASE.DONE
-  const currentIndex = ACTIVE_PHASE_INDEX[phase] ?? 0
+
+  const seenPhases = new Set(statusMessages.map((statusMessage) => statusMessage.phase))
+  if (hasThinking) {
+    seenPhases.add(STREAM_PHASES.THINKING)
+  }
+  if (hasToolActivity) {
+    seenPhases.add(STREAM_PHASES.SEARCHING)
+  }
+  if (modelSelection?.source === 'auto_router') {
+    seenPhases.add(STREAM_PHASES.ROUTING)
+  }
+
+  const renderedPhases = PHASE_RENDER_ORDER.filter((phaseKey) => {
+    if (phaseKey === STREAMING_PHASE_KEY) {
+      return hasText
+    }
+    return seenPhases.has(phaseKey as (typeof STREAM_PHASES)[keyof typeof STREAM_PHASES])
+  })
+
+  const currentPhase: RenderPhaseKey | null = (() => {
+    if (renderedPhases.length === 0) return null
+    if (phase === TITLEBAR_PHASE.DONE) return renderedPhases[renderedPhases.length - 1] ?? null
+    if (hasText) return STREAMING_PHASE_KEY
+    if (hasThinking) return STREAM_PHASES.THINKING
+    const lastStatusPhase = statusMessages[statusMessages.length - 1]?.phase
+    if (lastStatusPhase && renderedPhases.includes(lastStatusPhase as RenderPhaseKey)) {
+      return lastStatusPhase as RenderPhaseKey
+    }
+    return renderedPhases[0] ?? null
+  })()
+  const currentIndex = currentPhase ? renderedPhases.indexOf(currentPhase) : -1
 
   return (
     <AnimatePresence>
-      {isActive && (
+      {isActive && renderedPhases.length > 0 && (
         <motion.div
           initial={{ height: 0, opacity: 0 }}
           animate={{ height: 'auto', opacity: 1 }}
@@ -37,15 +66,18 @@ export function PhaseBar({ model }: { model?: string }) {
         >
           <div className="flex items-center gap-3 border-b border-(--border-subtle) bg-linear-to-r from-(--accent-muted) to-transparent px-5 py-2.5">
             <div className="flex items-center gap-2 flex-1">
-              {PHASE_ORDER.map((p, idx) => {
-                const label = STREAM_PROGRESS.LABELS[p]
+              {renderedPhases.map((phaseKey, idx) => {
+                const label =
+                  phaseKey === STREAMING_PHASE_KEY
+                    ? STREAM_PROGRESS.LABELS.STREAMING
+                    : STREAM_PROGRESS.LABELS[phaseKey]
                 const isPassed = currentIndex > idx
                 const isCurrent = currentIndex === idx
-                const isThinking = isCurrent && p === STREAM_PHASES.THINKING
+                const isThinking = isCurrent && phaseKey === STREAM_PHASES.THINKING
 
                 return (
                   <div
-                    key={p}
+                    key={phaseKey}
                     className={cn(
                       'flex items-center gap-1.5 text-xs transition-colors duration-300',
                       isPassed && 'text-(--success)',

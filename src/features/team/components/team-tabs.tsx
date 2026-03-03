@@ -3,24 +3,24 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   CHAT_STREAM_STATUS,
-  GROUP_TAB_VALUES,
+  TEAM_TAB_VALUES,
   PROVIDER_ALIASES,
   PROVIDER_DOT_CLASSES,
 } from '@/config/constants'
-import type { UseSynthesisReturn } from '@/features/group/hooks/use-group-synthesis'
-import type { ModelMeta } from '@/features/group/types'
+import type { UseSynthesisReturn } from '@/features/team/hooks/use-team-synthesis'
+import type { ModelMeta } from '@/features/team/types'
 import { cn } from '@/lib/utils/cn'
 import { extractModelName, resolveProviderKey } from '@/lib/utils/model'
 import type { StreamState } from '@/types/stream'
 import { useMemo } from 'react'
-import { GroupResponsePanel } from './group-response-panel'
+import { TeamResponsePanel } from './team-response-panel'
 import { SynthesisPanel } from './synthesis-panel'
 
-type GroupTabsProps = {
+type TeamTabsProps = {
   modelStates: Map<string, StreamState>
   modelOrder: string[]
-  groupDone: boolean
-  groupId: string | undefined
+  teamDone: boolean
+  teamId: string | undefined
   conversationId: string
   synthesis: UseSynthesisReturn
   models: ModelMeta[]
@@ -64,15 +64,15 @@ function ModelTabTrigger({ providerKey, label, status }: ModelTabTriggerProps) {
   )
 }
 
-export function GroupTabs({
+export function TeamTabs({
   modelStates,
   modelOrder,
-  groupDone,
-  groupId,
+  teamDone,
+  teamId,
   conversationId,
   synthesis,
   models,
-}: GroupTabsProps) {
+}: TeamTabsProps) {
   const modelMetaMap = useMemo(() => {
     const map = new Map<string, ModelMeta>()
     for (const m of models) {
@@ -93,7 +93,7 @@ export function GroupTabs({
     return map
   }, [modelMetaMap, modelOrder])
 
-  const defaultTab = modelOrder[0] ?? GROUP_TAB_VALUES.SYNTHESIS
+  const defaultTab = modelOrder[0] ?? TEAM_TAB_VALUES.SYNTHESIS
 
   return (
     <Tabs defaultValue={defaultTab} className="w-full">
@@ -119,7 +119,7 @@ export function GroupTabs({
             </TabsTrigger>
           )
         })}
-        <TabsTrigger value={GROUP_TAB_VALUES.SYNTHESIS} disabled={!groupDone}>
+        <TabsTrigger value={TEAM_TAB_VALUES.SYNTHESIS} disabled={!teamDone}>
           Synthesis
         </TabsTrigger>
       </TabsList>
@@ -134,7 +134,7 @@ export function GroupTabs({
         return (
           <TabsContent key={modelId} value={modelId}>
             {streamState && (
-              <GroupResponsePanel
+              <TeamResponsePanel
                 modelLabel={resolved?.label ?? modelId}
                 providerKey={resolved?.providerKey ?? ''}
                 streamState={streamState}
@@ -144,13 +144,13 @@ export function GroupTabs({
         )
       })}
 
-      <TabsContent value={GROUP_TAB_VALUES.SYNTHESIS}>
-        {groupDone && groupId && (
+      <TabsContent value={TEAM_TAB_VALUES.SYNTHESIS}>
+        {teamDone && teamId && (
           <SynthesisPanel
             comparisonModelIds={modelOrder}
             conversationId={conversationId}
-            groupId={groupId}
-            groupDone={groupDone}
+            teamId={teamId}
+            teamDone={teamDone}
             synthesis={synthesis}
           />
         )}

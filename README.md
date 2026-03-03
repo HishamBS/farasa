@@ -123,7 +123,7 @@ platform distinct.
 | **Web search**          | Tavily — structured result cards with source attribution and image gallery                                                                                                                                                     |
 | **File attachments**    | Multi-modal uploads via GCS presigned URLs (images, PDFs, text)                                                                                                                                                                |
 | **Voice I/O**           | Browser-native STT via SpeechRecognition + server-side TTS via `openai/gpt-audio-mini` on OpenRouter; explicit typed errors when unsupported/unavailable                                                                       |
-| **Group Mode**          | Compare 2–5 models simultaneously; real-time tabbed streaming per model; AI synthesis via user-selected judge model                                                                                                            |
+| **Team Mode**           | Compare 2–5 models simultaneously; real-time tabbed streaming per model; AI synthesis via user-selected synthesizer model                                                                                                      |
 | **Agent UI (A2UI)**     | AI generates interactive React components via `@a2ui-sdk`                                                                                                                                                                      |
 | **Conversation mgmt**   | Full CRUD, sidebar navigation, pinning, Markdown export                                                                                                                                                                        |
 | **Auth & security**     | Google OAuth, per-user DB isolation, sliding-window rate limiting, AES-GCM token crypto                                                                                                                                        |
@@ -149,7 +149,7 @@ graph LR
         model["model"]
         srch["search"]
         upl["upload"]
-        grp["group"]
+        team["team"]
     end
 
     subgraph INFRA ["Infrastructure"]
@@ -166,14 +166,14 @@ graph LR
     tRPC --> model
     tRPC --> srch
     tRPC --> upl
-    tRPC --> grp
+    tRPC --> team
     chat --> OR
     chat --> PG
     conv --> PG
     srch --> TV
     upl --> GCS
-    grp --> OR
-    grp --> PG
+    team --> OR
+    team --> PG
 
     classDef client fill:#1a1a2e,stroke:#e94560,color:#e0e0e0
     classDef server fill:#16213e,stroke:#0f3460,color:#e0e0e0
@@ -182,7 +182,7 @@ graph LR
 
     class Browser client
     class MW,tRPC server
-    class chat,conv,model,srch,upl,grp router
+    class chat,conv,model,srch,upl,team router
     class OR,PG,TV,GCS infra
 ```
 
@@ -268,7 +268,7 @@ src/
 │   ├── sidebar/                 # Conversation list, navigation, user menu
 │   ├── markdown/                # Renderer, Shiki blocks, copy button
 │   ├── voice/                   # STT input, TTS playback
-│   ├── group/                   # Multi-model comparison, tabs, synthesis
+│   ├── team/                   # Multi-model comparison, tabs, synthesis
 │   └── pwa/                     # Install prompt, offline banner
 │
 ├── lib/
@@ -302,7 +302,7 @@ Nine tables in `src/lib/db/schema.ts`. All foreign keys use `onDelete: 'cascade'
 | `conversations`      | Chat sessions                  | userId FK, title, model, isPinned. Index: (userId, updatedAt)                                                                                 |
 | `messages`           | Chat messages + metadata       | conversationId FK, role, content, metadata JSONB, clientRequestId, streamSequenceMax, tokenCount. Index: (conversationId, createdAt)          |
 | `runtimeConfigs`     | Runtime config overrides       | scope (`system\|tenant\|user`), scopeKey, payload JSONB. Resolved in precedence order: user → tenant → system → `RUNTIME_CONFIG_JSON` env var |
-| `userPreferences`    | Per-user UI settings           | userId PK FK, theme, sidebarExpanded, defaultModel, groupModels (jsonb, string[]), groupJudgeModel (text)                                     |
+| `userPreferences`    | Per-user UI settings           | userId PK FK, theme, sidebarExpanded, defaultModel, teamModels (jsonb, string[]), teamSynthesizerModel (text)                                 |
 | `attachments`        | File uploads                   | userId FK, messageId FK, fileName, storageUrl, confirmedAt                                                                                    |
 
 ---
@@ -316,12 +316,12 @@ All procedures are type-safe tRPC at `/api/trpc/[trpc]`.
 ```ts
 // SSE subscription — emits StreamChunk discriminated union
 chat.stream({
-  model: string | 'auto', // model ID or 'auto' to invoke the LLM router
-  messages: Message[],
-  sessionId: string,
-  mode: 'chat' | 'search',
-  streamRequestId: string, // required request lineage ID
-  attempt: number, // required internal retry attempt counter
+  conversationId?: string,   // omit for new conversation
+  content: string,
+  mode: 'chat' | 'team',    // default 'chat'
+  model?: string | null,     // null or omit for auto-routing
+  clientRequestId?: string,  // idempotency key
+  webSearchEnabled?: boolean,// default false
   attachmentIds?: string[],
   skipUserInsert?: boolean,
 })
@@ -359,25 +359,25 @@ conversation.generateTitle({ conversationId })    // LLM-generated title
 conversation.exportMarkdown({ id })               // Markdown string
 ```
 
-### Group Mode
+### Team Mode
 
 ```ts
-group.stream({              // SSE subscription — rate-limited
+team.stream({              // SSE subscription — rate-limited
   conversationId?: string,
   content: string,
   models: string[],         // 2–5 model IDs validated against registry
   attachmentIds?: string[],
 })
-// Emits (in order): group_stream_event (conversation_created, user_message_saved)
-//                   group_model_chunk (per model, interleaved)
-//                   group_done (groupId, completedModels)
+// Emits (in order): team_stream_event (conversation_created, user_message_saved)
+//                   team_model_chunk (per model, interleaved)
+//                   team_done (teamId, completedModels)
 
-group.synthesize({          // SSE subscription
-  groupId: string,
+team.synthesize({          // SSE subscription — rate-limited
+  teamId: string,
   conversationId: string,
-  judgeModel: string,       // validated against registry
+  synthesisModel: string,   // validated against registry
 })
-// Emits: group_synthesis_chunk (content) → group_synthesis_done (groupId)
+// Emits: team_synthesis_chunk (content) → team_synthesis_done (teamId)
 ```
 
 ### Models, Search & Upload
@@ -537,14 +537,9 @@ custom properties in `src/styles/themes.css`. Components reference `var(--bg-sur
 `var(--accent)`, never hardcoded hex values or Tailwind color utilities. Dark/light mode is a
 single class toggle on `:root` with zero JavaScript layout flash.
 
-**Whisper UI language** — The protected chat experience follows the `mockups/1-whisper.html`
-visual grammar: glass sidebar shell, editorial assistant prose, compact titlebar, and explicit
-phase rail (`Routed → Thinking → Responding → Done`). Parity checkpoints and capture workflow are
-documented in:
-
-- `docs/WHISPER_UI_PARITY_CHECKLIST.md`
-- `docs/WHISPER_VISUAL_REGRESSION.md`
-- `scripts/whisper-visual-regression.mjs`
+**Whisper UI language** — The protected chat experience follows a glass-morphism visual grammar:
+glass sidebar shell, editorial assistant prose, compact titlebar, and explicit phase rail
+(`Routed → Thinking → Responding → Done`).
 
 ### Trade-offs
 

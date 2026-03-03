@@ -533,7 +533,7 @@ Trigger pill (flex items-center gap-2 ... cursor-pointer):
   px-3 py-2 w-fit
   hover: bg-[--thinking-bg] brightness-125 transition-all
 
-  Dot group (flex gap-1 items-center):
+  Dot team (flex gap-1 items-center):
     3× span: size-[5px] rounded-full bg-[--thinking]
     each animates with staggered bounce (MOTION.STAGGER_CHILDREN)
     only when isActive (no completedAt); static when complete
@@ -729,7 +729,7 @@ Multiple phases visible simultaneously — thinking block stays visible while te
 
 ### F3. Multi-Model Support via OpenRouter
 
-Native `@openrouter/sdk`. Dynamic registry from `/api/v1/models`, cached. Fallback static config. Models grouped by provider. Each entry: id, name, provider, capabilities, contextWindow, pricing, supportsVision, supportsTools.
+Native `@openrouter/sdk`. Dynamic registry from `/api/v1/models`, cached. Models grouped by provider. Each entry: id, name, provider, capabilities, contextWindow, pricing, supportsVision, supportsTools.
 
 **Model Selector UI**: Trigger shows current model + provider dot, or "Auto ✨". Dropdown: `fadeInDown` + backdrop blur, grouped by provider. Each section: provider name + colored dot header. Each item: model name, context badge, pricing indicator. "Auto" at top with sparkle icon. Selected item: accent highlight. Keyboard navigable. Persisted per conversation.
 
@@ -771,7 +771,7 @@ react-markdown + remark-gfm + rehype-sanitize + rehype-katex. Shiki for code: VS
 - `conversations` — (userId FK, title, model, isPinned, timestamps). Index: (userId, updatedAt)
 - `messages` — (conversationId FK, role, content, metadata JSONB, clientRequestId, streamSequenceMax, tokenCount). Indexes: (conversationId, createdAt), unique(conversationId, role, clientRequestId)
 - `runtimeConfigs` — (scope enum[system|tenant|user], scopeKey, payload JSONB). Stores runtime config overrides resolved in precedence order: user → tenant → system → `RUNTIME_CONFIG_JSON` env var
-- `userPreferences` — (userId PK FK, theme, sidebarExpanded, defaultModel, `groupModels` jsonb (nullable `string[]`, last-used group model IDs), `groupJudgeModel` text (nullable, last-used judge model ID)). Per-user UI settings persisted to DB and served via `user-preferences` tRPC router
+- `userPreferences` — (userId PK FK, theme, sidebarExpanded, defaultModel, `teamModels` jsonb (nullable `string[]`, last-used team model IDs), `teamSynthesizerModel` text (nullable, last-used synthesizer model ID)). Per-user UI settings persisted to DB and served via `user-preferences` tRPC router
 - `attachments` — (userId FK, messageId FK, fileName, fileType, fileSize, storageUrl, confirmedAt). Indexes: userId, messageId
 
 **Message Metadata** (JSONB): modelUsed, routerReasoning, thinkingContent, thinkingDurationMs, toolCalls, a2uiMessages, searchResults, usage. Enables full phase reconstruction when loading history — thinking blocks expandable, model badges visible, tool calls shown.
@@ -788,15 +788,15 @@ Upload: attachment button or drag-drop -> validate -> tRPC presigned URL -> clie
 
 `@a2ui-sdk/react` with custom catalog extending `standardCatalog`. Adapters map A2UI types to shadcn/ui: Text, Button, Card, TextField, Image, Row, Column, List, Divider, CodeBlock. All adapters use app design tokens. Streaming via `processMessage`. Actions route through tRPC. System prompt includes catalog schema. AI decides A2UI vs markdown based on response type. Messages can contain both. A2UI surfaces remain interactive in history.
 
-### F9b. Multi-Model Group Mode
+### F9b. Multi-Model Team Mode
 
-Send a single prompt to 2–5 models simultaneously and compare responses side by side in real-time tabs. After all models complete, a user-selected judge model synthesizes the best elements into a unified answer.
+Send a single prompt to 2–5 models simultaneously and compare responses side by side in real-time tabs. After all models complete, a user-selected synthesizer model synthesizes the best elements into a unified answer.
 
-**Group stream** (`group.stream`): validates model IDs against registry, creates conversation if needed, saves user message (idempotent via `clientRequestId`), generates a `groupId` UUID, fetches shared history, spawns N parallel OpenRouter streams via a shared in-memory queue (producer-consumer), saves N assistant messages with `metadata.groupId`, `metadata.modelUsed`, `metadata.userMessageId`, then yields `group_done`. Rate-limited via `rateLimitedChatProcedure` — one slot for the entire group request regardless of N.
+**Team stream** (`team.stream`): validates model IDs against registry, creates conversation if needed, saves user message (idempotent via `clientRequestId`), generates a `teamId` UUID, fetches shared history, spawns N parallel OpenRouter streams via a shared in-memory queue (producer-consumer), saves N assistant messages with `metadata.teamId`, `metadata.modelUsed`, `metadata.userMessageId`, then yields `team_done`. Rate-limited via `rateLimitedChatProcedure` — one slot for the entire team request regardless of N.
 
-**Synthesis** (`group.synthesize`): SQL JSONB filter fetches only the N messages for `groupId` (excluding prior syntheses via `IS DISTINCT FROM 'true'`), builds XML-delimited multi-model prompt, streams response via judge model, saves synthesis message with `isGroupSynthesis: true`.
+**Synthesis** (`team.synthesize`): SQL JSONB filter fetches only the N messages for `teamId` (excluding prior syntheses via `IS DISTINCT FROM 'true'`), builds XML-delimited multi-model prompt, streams response via synthesizer model, saves synthesis message with `isTeamSynthesis: true`. Also rate-limited via `rateLimitedChatProcedure`.
 
-**Client**: `GroupModelPicker` (multi-select dialog, 2–5 models), `GroupTabs` (shadcn Tabs), `GroupResponsePanel` (per-model streaming, reuses `ThinkingBlock`/`MarkdownRenderer`/`ToolExecution`), `SynthesisPanel` (judge picker + Synthesize button + streaming result), `GroupMessageGroup` (live + historical container). `useGroupStream` manages `Map<modelId, StreamState>`; `useGroupSynthesis` accumulates synthesis text. Selected models and judge persisted to `userPreferences.groupModels` / `userPreferences.groupJudgeModel`.
+**Client**: `TeamModelPicker` (multi-select dialog, 2–5 models), `TeamTabs` (shadcn Tabs), `TeamResponsePanel` (per-model streaming, reuses `ThinkingBlock`/`MarkdownRenderer`/`ToolExecution`), `SynthesisPanel` (synthesizer picker + Synthesize button + streaming result), `TeamMessageGroup` (live + historical container). `useTeamStream` manages `Map<modelId, StreamState>`; `useTeamSynthesis` accumulates synthesis text. Selected models and synthesizer persisted to `userPreferences.teamModels` / `userPreferences.teamSynthesizerModel`.
 
 ### F10. Mobile-First Responsive UI
 
@@ -816,9 +816,9 @@ Dark default. Toggle in sidebar/menu. System preference detection. CSS custom pr
 
 ### F14. TTS/STT
 
-Browser-native STT via the Web Speech API (`SpeechRecognition`) — 1-click start begins listening with real-time interim transcripts, 1-click stop finalizes. Falls back to unsupported state in browsers without `SpeechRecognition` (Firefox, some mobile). Server-side TTS via `openai/gpt-audio-mini` on OpenRouter — text POSTed to `/api/voice/synthesize`, server sends a streaming chat completion with `modalities: ["text", "audio"]`, collects base64 audio chunks, decodes, and returns audio blob played via `<audio>` element. Markdown is stripped from text before TTS synthesis. Unsupported or unavailable voice paths fail explicitly with typed UI errors.
+Browser-native STT via the Web Speech API (`SpeechRecognition`) — 1-click start begins listening with real-time interim transcripts, 1-click stop finalizes. Falls back to unsupported state in browsers without `SpeechRecognition` (Firefox, some mobile). Server-side TTS via `openai/gpt-audio-mini` on OpenRouter — text POSTed to `/api/voice/synthesize`, server sends a streaming chat completion with `modalities: ["text", "audio"]` and `format: pcm16`, collects base64 PCM16 audio chunks (each decoded independently), prepends a 44-byte RIFF/WAV header (mono, 24 kHz, 16-bit), and returns `audio/wav` played via `<audio>` element. Markdown is stripped from text before TTS synthesis. Unsupported or unavailable voice paths fail explicitly with typed UI errors.
 
-Mic button in chat input. TTS play button on assistant messages. Constants: `VOICE.TTS_MODEL` (`openai/gpt-audio-mini`), `VOICE.TTS_VOICE` (`alloy`), `VOICE.TTS_FORMAT` (`mp3`), `VOICE.TTS_MAX_CHARS` (4096), `VOICE.STT_LANG` (`en-US`). Routes: `POST /api/voice/synthesize` (proxies to OpenRouter chat completions). Hooks: `use-speech-to-text.ts` (browser-native SpeechRecognition), `use-text-to-speech.ts` (server-proxied) in `src/features/voice/hooks/`.
+Mic button in chat input. TTS play button on assistant messages. Constants: `VOICE.TTS_MODEL` (`openai/gpt-audio-mini`), `VOICE.TTS_VOICE` (`alloy`), `VOICE.TTS_FORMAT` (`pcm16`), `VOICE.TTS_SAMPLE_RATE` (24000), `VOICE.TTS_MAX_CHARS` (4096), `VOICE.STT_LANG` (`en-US`). Routes: `POST /api/voice/synthesize` (proxies to OpenRouter chat completions). Hooks: `use-speech-to-text.ts` (browser-native SpeechRecognition), `use-text-to-speech.ts` (server-proxied) in `src/features/voice/hooks/`.
 
 ---
 
@@ -848,15 +848,15 @@ UX: STATUS_MIN_DISPLAY_MS (500), THINKING_COLLAPSE_DEFAULT (true), STREAM_BUFFER
 
 MOTION: DURATION_FAST (0.15), DURATION_NORMAL (0.2), DURATION_MEDIUM (0.25), DURATION_SLOW (0.3), STAGGER_CHILDREN (0.05), SPRING_STIFFNESS (400), SPRING_DAMPING (25), EASING [0.4, 0, 0.2, 1].
 
-GROUP_LIMITS: MAX_MODELS (3), MIN_MODELS (2).
+TEAM_LIMITS: MAX_MODELS (5), MIN_MODELS (2).
 
-GROUP_EVENTS: MODEL_CHUNK ('group_model_chunk'), STREAM_EVENT ('group_stream_event'), DONE ('group_done'), SYNTHESIS_CHUNK ('group_synthesis_chunk'), SYNTHESIS_DONE ('group_synthesis_done').
+TEAM_EVENTS: MODEL_CHUNK ('team_model_chunk'), STREAM_EVENT ('team_stream_event'), DONE ('team_done'), SYNTHESIS_CHUNK ('team_synthesis_chunk'), SYNTHESIS_DONE ('team_synthesis_done').
 
-GROUP_STREAM_PHASES: IDLE ('idle'), ACTIVE ('active'), DONE ('done'), ERROR ('error').
+TEAM_STREAM_PHASES: IDLE ('idle'), ACTIVE ('active'), DONE ('done'), ERROR ('error').
 
-GROUP_STATUS_MESSAGES: SYNTHESIZING ('Synthesizing responses...'), STARTING ('Starting group comparison...').
+TEAM_STATUS_MESSAGES: SYNTHESIZING ('Synthesizing responses...'), STARTING ('Starting team comparison...').
 
-GROUP_TAB_VALUES: SYNTHESIS ('synthesis').
+TEAM_TAB_VALUES: SYNTHESIS ('synthesis').
 
 **Separation note**: `constants.ts` contains compile-time static values only (measurements, provider colors, stream event names, markdown sanitization rules, motion durations). Runtime business behavior — limits, timeouts, prompts, retry policy, feature flags — lives in `src/schemas/runtime-config.ts` (Zod schema) and is resolved at runtime via `src/lib/runtime-config/service.ts` from the `runtimeConfigs` DB table.
 
@@ -874,7 +874,7 @@ ROUTER_SYSTEM_PROMPT, A2UI_SYSTEM_PROMPT, TITLE_GENERATION_PROMPT, CHAT_SYSTEM_P
 
 ### message.ts
 
-MessageRoleSchema, AttachmentSchema, UsageSchema, StreamPhaseSchema, StreamChunkSchema (full discriminated union with status/thinking/model_selected/tool_start/tool_result/text/a2ui/error/done), ChatInputSchema (with mode: chat|search), MessageMetadataSchema (with thinkingContent, thinkingDurationMs, toolCalls, routerReasoning, `groupId?: uuid`, `isGroupSynthesis?: boolean`, `userMessageId?: uuid`, etc.). All types derived via z.infer.
+MessageRoleSchema, AttachmentSchema, UsageSchema, StreamPhaseSchema, StreamChunkSchema (full discriminated union with status/thinking/model_selected/tool_start/tool_result/text/a2ui/error/done), ChatInputSchema (with mode: chat|team), MessageMetadataSchema (with thinkingContent, thinkingDurationMs, toolCalls, routerReasoning, `teamId?: uuid`, `isTeamSynthesis?: boolean`, `userMessageId?: uuid`, etc.). All types derived via z.infer.
 
 ### conversation.ts
 
@@ -896,9 +896,9 @@ UploadRequestSchema, UploadResponseSchema. Derived types.
 
 SessionUserSchema. Derived type.
 
-### group.ts
+### team.ts
 
-`GroupStreamInputSchema` (conversationId?, content, models string[2-5], attachmentIds?), `GroupOutputChunkSchema` (discriminated union: `group_model_chunk` | `group_stream_event` | `group_done`), `GroupSynthesizeInputSchema` (groupId, conversationId, judgeModel), `GroupSynthesisOutputChunkSchema` (discriminated union: `group_synthesis_chunk` | `group_synthesis_done`).
+`TeamStreamInputSchema` (conversationId?, content, models string[2-5], attachmentIds?), `TeamOutputChunkSchema` (discriminated union: `team_model_chunk` | `team_stream_event` | `team_done`), `TeamSynthesizeInputSchema` (teamId, conversationId, synthesisModel), `TeamSynthesisOutputChunkSchema` (discriminated union: `team_synthesis_chunk` | `team_synthesis_done`).
 
 ### index.ts
 
@@ -916,19 +916,19 @@ src/
 │   ├── api/trpc/[trpc]/route.ts, auth/[...nextauth]/route.ts, health/route.ts
 │   ├── layout.tsx, manifest.ts, globals.css
 ├── server/
-│   ├── routers/_app.ts, chat.ts, conversation.ts, group.ts, model.ts, search.ts, upload.ts
+│   ├── routers/_app.ts, chat.ts, conversation.ts, team.ts, model.ts, search.ts, upload.ts
 │   ├── trpc.ts, context.ts
 ├── schemas/
-│   ├── message.ts, conversation.ts, group.ts, model.ts, search.ts, upload.ts, auth.ts, index.ts
+│   ├── message.ts, conversation.ts, team.ts, model.ts, search.ts, upload.ts, auth.ts, index.ts
 ├── features/
 │   ├── chat/
 │   │   ├── components/chat-container, message-list, message-bubble, chat-input,
 │   │   │   model-selector, mode-toggle, attachment-preview, stop-button, empty-state
 │   │   ├── hooks/use-chat-stream, use-auto-scroll, use-chat-input
-│   ├── group/
-│   │   ├── components/   # group-model-picker, group-tabs, group-response-panel, synthesis-panel, group-message-group
-│   │   ├── context/      # group-context.tsx
-│   │   ├── hooks/        # use-group-stream, use-group-synthesis
+│   ├── team/
+│   │   ├── components/   # team-model-picker, team-tabs, team-response-panel, synthesis-panel, team-message-group
+│   │   ├── context/      # team-context.tsx
+│   │   ├── hooks/        # use-team-stream, use-team-synthesis
 │   │   └── types.ts
 │   ├── stream-phases/
 │   │   ├── components/stream-progress, thinking-block, model-badge, tool-execution

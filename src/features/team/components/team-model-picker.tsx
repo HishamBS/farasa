@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, Plus, X } from 'lucide-react'
 import { trpc } from '@/trpc/provider'
-import { useGroupMode } from '@/features/group/context/group-context'
-import { GROUP_LIMITS, PROVIDER_ALIASES, PROVIDER_DOT_CLASSES, UI_TEXT } from '@/config/constants'
+import { useTeamMode } from '@/features/team/context/team-context'
+import { TEAM_LIMITS, PROVIDER_ALIASES, PROVIDER_DOT_CLASSES, UI_TEXT } from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
 import { resolveProviderKey, extractModelName } from '@/lib/utils/model'
 import {
@@ -50,7 +50,7 @@ function SelectedChip({
           type="button"
           onClick={() => onRemove(modelId)}
           className="flex size-4 items-center justify-center rounded-full text-(--text-ghost) hover:bg-(--bg-surface-hover) hover:text-(--text-muted)"
-          aria-label={`${UI_TEXT.GROUP_MODEL_REMOVE_ARIA_PREFIX} ${modelLabel}`}
+          aria-label={`${UI_TEXT.TEAM_MODEL_REMOVE_ARIA_PREFIX} ${modelLabel}`}
         >
           <X className="size-3" />
         </button>
@@ -59,8 +59,8 @@ function SelectedChip({
   )
 }
 
-export function GroupModelPicker() {
-  const { groupModels, setGroupModels } = useGroupMode()
+export function TeamModelPicker() {
+  const { teamModels, setTeamModels } = useTeamMode()
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const { data: modelList = [] } = trpc.model.list.useQuery()
@@ -75,11 +75,11 @@ export function GroupModelPicker() {
 
   useEffect(() => {
     if (modelList.length === 0) return
-    const stale = groupModels.filter((id) => !modelMetaMap.has(id))
+    const stale = teamModels.filter((id) => !modelMetaMap.has(id))
     if (stale.length > 0) {
-      setGroupModels(groupModels.filter((id) => modelMetaMap.has(id)))
+      setTeamModels(teamModels.filter((id) => modelMetaMap.has(id)))
     }
-  }, [groupModels, modelList.length, modelMetaMap, setGroupModels])
+  }, [teamModels, modelList.length, modelMetaMap, setTeamModels])
 
   const filteredModels = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
@@ -90,33 +90,33 @@ export function GroupModelPicker() {
     })
   }, [modelList, searchQuery])
 
-  const canRemove = groupModels.length > GROUP_LIMITS.MIN_MODELS
-  const canAddMore = groupModels.length < GROUP_LIMITS.MAX_MODELS
+  const canRemove = teamModels.length > TEAM_LIMITS.MIN_MODELS
+  const canAddMore = teamModels.length < TEAM_LIMITS.MAX_MODELS
 
   const toggleModel = useCallback(
     (modelId: string) => {
-      if (groupModels.includes(modelId)) {
+      if (teamModels.includes(modelId)) {
         if (!canRemove) return
-        setGroupModels(groupModels.filter((id) => id !== modelId))
+        setTeamModels(teamModels.filter((id) => id !== modelId))
         return
       }
       if (!canAddMore) return
-      setGroupModels([...groupModels, modelId])
+      setTeamModels([...teamModels, modelId])
     },
-    [canAddMore, canRemove, groupModels, setGroupModels],
+    [canAddMore, canRemove, teamModels, setTeamModels],
   )
 
   const handleRemove = useCallback(
     (modelId: string) => {
       if (!canRemove) return
-      setGroupModels(groupModels.filter((id) => id !== modelId))
+      setTeamModels(teamModels.filter((id) => id !== modelId))
     },
-    [canRemove, groupModels, setGroupModels],
+    [canRemove, teamModels, setTeamModels],
   )
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      {groupModels.map((modelId) => {
+      {teamModels.map((modelId) => {
         const meta = modelMetaMap.get(modelId)
         const isStale = modelList.length > 0 && !meta
         const label = meta?.name ?? extractModelName(modelId)
@@ -138,19 +138,19 @@ export function GroupModelPicker() {
         type="button"
         onClick={() => setIsOpen(true)}
         className="flex min-h-8 items-center gap-1 rounded-full border border-dashed border-(--border-default) px-2.5 py-1 text-xs text-(--text-ghost) transition-colors hover:border-(--border-subtle) hover:text-(--text-muted)"
-        aria-label={UI_TEXT.GROUP_MODEL_PICKER_OPEN_ARIA}
+        aria-label={UI_TEXT.TEAM_MODEL_PICKER_OPEN_ARIA}
       >
         <Plus className="size-3" />
-        {groupModels.length === 0
-          ? UI_TEXT.GROUP_MODEL_HINT
-          : `${groupModels.length}/${GROUP_LIMITS.MAX_MODELS}`}
+        {teamModels.length === 0
+          ? UI_TEXT.TEAM_MODEL_HINT
+          : `${teamModels.length}/${TEAM_LIMITS.MAX_MODELS}`}
       </button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-h-[80vh] overflow-hidden">
           <DialogHeader>
-            <DialogTitle>{UI_TEXT.GROUP_MODEL_PICKER_TITLE}</DialogTitle>
-            <DialogDescription>{UI_TEXT.GROUP_MODEL_HINT}</DialogDescription>
+            <DialogTitle>{UI_TEXT.TEAM_MODEL_PICKER_TITLE}</DialogTitle>
+            <DialogDescription>{UI_TEXT.TEAM_MODEL_HINT}</DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-3 overflow-hidden">
@@ -158,13 +158,13 @@ export function GroupModelPicker() {
               type="text"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder={UI_TEXT.GROUP_MODEL_SEARCH_PLACEHOLDER}
+              placeholder={UI_TEXT.MODEL_SEARCH_PLACEHOLDER}
               className="w-full rounded-lg border border-(--border-default) bg-(--bg-input) px-3 py-2 text-sm text-(--text-primary) placeholder:text-(--text-ghost) outline-none focus:border-(--accent)"
             />
 
             <div className="max-h-72 overflow-y-auto rounded-lg border border-(--border-subtle)">
               {filteredModels.map((model) => {
-                const isSelected = groupModels.includes(model.id)
+                const isSelected = teamModels.includes(model.id)
                 const providerDot = PROVIDER_DOT_CLASSES[model.provider] ?? 'bg-(--text-ghost)'
                 const selectionLocked = isSelected && !canRemove
                 const disabled = !isSelected && !canAddMore
@@ -197,7 +197,7 @@ export function GroupModelPicker() {
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
-              {UI_TEXT.GROUP_MODEL_PICKER_DONE}
+              {UI_TEXT.TEAM_MODEL_PICKER_DONE}
             </Button>
           </DialogFooter>
         </DialogContent>

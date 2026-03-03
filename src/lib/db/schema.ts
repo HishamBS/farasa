@@ -153,8 +153,8 @@ export const userPreferences = pgTable('user_preferences', {
   theme: text('theme').notNull().default('dark'),
   sidebarExpanded: boolean('sidebar_expanded').notNull().default(true),
   defaultModel: text('default_model'),
-  groupModels: jsonb('group_models').$type<string[]>(),
-  groupJudgeModel: text('group_judge_model'),
+  teamModels: jsonb('team_models').$type<string[]>(),
+  teamSynthesizerModel: text('team_synthesizer_model'),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 })
 

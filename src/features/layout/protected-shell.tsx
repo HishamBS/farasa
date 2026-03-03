@@ -1,17 +1,17 @@
 'use client'
 
-import { useCallback, useState } from 'react'
-import type { ReactNode } from 'react'
-import { SidebarContainer } from '@/features/sidebar/components/sidebar-container'
-import { SidebarHeader } from '@/features/sidebar/components/sidebar-header'
-import { ConversationList } from '@/features/sidebar/components/conversation-list'
-import { UserMenu } from '@/features/sidebar/components/user-menu'
-import { useSidebar } from '@/features/sidebar/hooks/use-sidebar'
-import { Titlebar } from '@/features/chat/components/titlebar'
 import { PhaseBar } from '@/features/chat/components/phase-bar'
+import { Titlebar } from '@/features/chat/components/titlebar'
 import { ChatModeProvider } from '@/features/chat/context/chat-mode-context'
 import { StreamPhaseProvider, useStreamPhase } from '@/features/chat/context/stream-phase-context'
-import { GroupModeProvider } from '@/features/group/context/group-context'
+import { TeamModeProvider } from '@/features/team/context/team-context'
+import { ConversationList } from '@/features/sidebar/components/conversation-list'
+import { SidebarContainer } from '@/features/sidebar/components/sidebar-container'
+import { SidebarHeader } from '@/features/sidebar/components/sidebar-header'
+import { UserMenu } from '@/features/sidebar/components/user-menu'
+import { useSidebar } from '@/features/sidebar/hooks/use-sidebar'
+import type { ReactNode } from 'react'
+import { useCallback, useState } from 'react'
 
 type ProtectedShellProps = {
   children: ReactNode
@@ -22,15 +22,8 @@ type TitlebarWithPhaseProps = {
 }
 
 function TitlebarWithPhase({ onMenuClick }: TitlebarWithPhaseProps) {
-  const { phase, modelSelection, hasText } = useStreamPhase()
-  return (
-    <Titlebar
-      onMenuClick={onMenuClick}
-      streamPhase={phase}
-      modelSelection={modelSelection}
-      hasText={hasText}
-    />
-  )
+  const { phase } = useStreamPhase()
+  return <Titlebar onMenuClick={onMenuClick} streamPhase={phase} />
 }
 
 export function ProtectedShell({ children }: ProtectedShellProps) {
@@ -45,7 +38,7 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
 
   return (
     <ChatModeProvider>
-      <GroupModeProvider>
+      <TeamModeProvider>
         <StreamPhaseProvider>
           <div className="flex h-screen overflow-hidden bg-[--bg-root]">
             <SidebarContainer isOpen={isOpen} onClose={close} onOpen={open}>
@@ -69,7 +62,7 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
             </div>
           </div>
         </StreamPhaseProvider>
-      </GroupModeProvider>
+      </TeamModeProvider>
     </ChatModeProvider>
   )
 }

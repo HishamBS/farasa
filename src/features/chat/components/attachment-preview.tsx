@@ -35,7 +35,7 @@ export function AttachmentPreview({ fileName, uploadState, onRemove }: Attachmen
       }}
     >
       {isImage && uploadState.previewUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
+        // eslint-disable-next-line @next/next/no-img-element -- Dynamic blob URL; next/image requires configured remote patterns
         <img
           src={uploadState.previewUrl}
           alt={fileName}

@@ -1,6 +1,6 @@
 export * from './auth'
 export * from './conversation'
-export * from './group'
+export * from './team'
 export * from './message'
 export * from './model'
 export * from './runtime-config'

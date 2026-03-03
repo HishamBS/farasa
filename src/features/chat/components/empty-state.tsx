@@ -15,7 +15,7 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { fadeInUp } from '@/lib/utils/motion'
-import { EMPTY_STATE_SUGGESTIONS, UI_TEXT, MOTION, LIMITS } from '@/config/constants'
+import { EMPTY_STATE_SUGGESTIONS, UI_TEXT, MOTION, LIMITS, UX } from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
 
 type EmptyStateProps = {
@@ -68,7 +68,7 @@ export function EmptyState({ onSelect }: EmptyStateProps) {
     refreshTimerRef.current = setTimeout(() => {
       setCurrentSuggestions(getShuffledItems(LIMITS.EMPTY_STATE_CHIP_COUNT))
       setIsRefreshing(false)
-    }, 500)
+    }, UX.STATUS_MIN_DISPLAY_MS)
   }, [])
 
   return (
@@ -97,7 +97,7 @@ export function EmptyState({ onSelect }: EmptyStateProps) {
         className="mb-3 flex w-full max-w-3xl justify-end"
         initial={shouldReduce ? {} : { opacity: 0 }}
         animate={shouldReduce ? {} : { opacity: 1 }}
-        transition={{ delay: 2 * MOTION.STAGGER_CHILDREN, duration: MOTION.DURATION_SLOW }}
+        transition={{ delay: MOTION.EXPLORE_REVEAL_DELAY, duration: MOTION.DURATION_SLOW }}
       >
         <button
           type="button"

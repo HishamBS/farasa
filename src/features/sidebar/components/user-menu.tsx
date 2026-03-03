@@ -31,7 +31,7 @@ export function UserMenu() {
     if ((theme === 'dark' || theme === 'light') && theme !== resolvedTheme) {
       setTheme(theme)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setTheme and resolvedTheme are stable refs from next-themes; including them causes infinite re-render loops
   }, [isMounted, prefsQuery.data])
 
   const handleSignOut = useCallback(() => {

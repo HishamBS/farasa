@@ -1,8 +1,7 @@
 import {
-  AI_PARAMS,
   AI_REASONING,
   CHAT_MODES,
-  GROUP_EVENTS,
+  TEAM_EVENTS,
   LIMITS,
   MESSAGE_ROLES,
   NEW_CHAT_TITLE,
@@ -13,8 +12,8 @@ import {
 } from '@/config/constants'
 import { conversations, messages } from '@/lib/db/schema'
 import { getErrorMessage } from '@/lib/utils/errors'
-import type { GroupOutputChunk, GroupSynthesisOutputChunk } from '@/schemas/group'
-import { GroupStreamInputSchema, GroupSynthesizeInputSchema } from '@/schemas/group'
+import type { TeamOutputChunk, TeamSynthesisOutputChunk } from '@/schemas/team'
+import { TeamStreamInputSchema, TeamSynthesizeInputSchema } from '@/schemas/team'
 import type { StreamChunk } from '@/schemas/message'
 import { MessageMetadataSchema } from '@/schemas/message'
 import type { SearchImage, SearchResult } from '@/schemas/search'
@@ -22,7 +21,7 @@ import { executeSearchEnrichment } from '@/server/services/search-enrichment-ser
 import type { Message } from '@openrouter/sdk/models'
 import { TRPCError } from '@trpc/server'
 import { and, asc, eq, or, sql } from 'drizzle-orm'
-import { protectedProcedure, rateLimitedChatProcedure, router } from '../trpc'
+import { rateLimitedChatProcedure, router } from '../trpc'
 
 type QueueItem =
   | { done: false; modelId: string; modelIndex: number; chunk: StreamChunk }
@@ -33,12 +32,12 @@ type ModelStreamOutcome = {
   error?: string
 }
 
-export const groupRouter = router({
-  stream: rateLimitedChatProcedure.input(GroupStreamInputSchema).subscription(async function* ({
+export const teamRouter = router({
+  stream: rateLimitedChatProcedure.input(TeamStreamInputSchema).subscription(async function* ({
     ctx,
     input,
     signal,
-  }): AsyncGenerator<GroupOutputChunk> {
+  }): AsyncGenerator<TeamOutputChunk> {
     const runtimeConfig = ctx.runtimeConfig
 
     const { getModelRegistry } = await import('@/lib/ai/registry')
@@ -64,7 +63,7 @@ export const groupRouter = router({
           .values({
             userId: ctx.userId,
             model: input.models[0],
-            mode: CHAT_MODES.GROUP,
+            mode: CHAT_MODES.TEAM,
             webSearchEnabled: input.webSearchEnabled,
           })
           .returning({ id: conversations.id })
@@ -73,7 +72,7 @@ export const groupRouter = router({
         }
         conversationId = created.id
         yield {
-          type: GROUP_EVENTS.STREAM_EVENT,
+          type: TEAM_EVENTS.STREAM_EVENT,
           chunk: {
             type: STREAM_EVENTS.CONVERSATION_CREATED,
             streamRequestId,
@@ -125,7 +124,7 @@ export const groupRouter = router({
       }
 
       yield {
-        type: GROUP_EVENTS.STREAM_EVENT,
+        type: TEAM_EVENTS.STREAM_EVENT,
         chunk: {
           type: STREAM_EVENTS.USER_MESSAGE_SAVED,
           streamRequestId,
@@ -133,7 +132,7 @@ export const groupRouter = router({
         } satisfies StreamChunk,
       }
 
-      const groupId = crypto.randomUUID()
+      const teamId = crypto.randomUUID()
       let searchContext = ''
       let searchResults: SearchResult[] = []
       let searchImages: SearchImage[] = []
@@ -141,7 +140,7 @@ export const groupRouter = router({
       await ctx.db
         .update(conversations)
         .set({
-          mode: CHAT_MODES.GROUP,
+          mode: CHAT_MODES.TEAM,
           webSearchEnabled: input.webSearchEnabled,
           updatedAt: new Date(),
         })
@@ -156,7 +155,7 @@ export const groupRouter = router({
         }
 
         yield {
-          type: GROUP_EVENTS.STREAM_EVENT,
+          type: TEAM_EVENTS.STREAM_EVENT,
           chunk: {
             type: STREAM_EVENTS.STATUS,
             streamRequestId,
@@ -165,7 +164,7 @@ export const groupRouter = router({
           } satisfies StreamChunk,
         }
         yield {
-          type: GROUP_EVENTS.STREAM_EVENT,
+          type: TEAM_EVENTS.STREAM_EVENT,
           chunk: {
             type: STREAM_EVENTS.TOOL_START,
             streamRequestId,
@@ -180,7 +179,7 @@ export const groupRouter = router({
         searchImages = enrichment.images
 
         yield {
-          type: GROUP_EVENTS.STREAM_EVENT,
+          type: TEAM_EVENTS.STREAM_EVENT,
           chunk: {
             type: STREAM_EVENTS.TOOL_RESULT,
             streamRequestId,
@@ -265,17 +264,6 @@ export const groupRouter = router({
               ],
             } satisfies StreamChunk,
           })
-          push({
-            done: false,
-            modelId,
-            modelIndex,
-            chunk: {
-              type: STREAM_EVENTS.STATUS,
-              streamRequestId: modelStreamRequestId,
-              phase: STREAM_PHASES.THINKING,
-              message: runtimeConfig.chat.statusMessages.thinking,
-            } satisfies StreamChunk,
-          })
           const stream = await openrouter.chat.send(
             {
               chatGenerationParams: {
@@ -289,11 +277,26 @@ export const groupRouter = router({
           )
 
           let fullText = ''
+          let thinkingStatusEmitted = false
           for await (const streamChunk of stream) {
             const delta = streamChunk.choices[0]?.delta
             if (!delta) continue
 
             if (delta.reasoning) {
+              if (!thinkingStatusEmitted) {
+                push({
+                  done: false,
+                  modelId,
+                  modelIndex,
+                  chunk: {
+                    type: STREAM_EVENTS.STATUS,
+                    streamRequestId: modelStreamRequestId,
+                    phase: STREAM_PHASES.THINKING,
+                    message: runtimeConfig.chat.statusMessages.thinking,
+                  } satisfies StreamChunk,
+                })
+                thinkingStatusEmitted = true
+              }
               push({
                 done: false,
                 modelId,
@@ -400,7 +403,7 @@ export const groupRouter = router({
           continue
         }
         yield {
-          type: GROUP_EVENTS.MODEL_CHUNK,
+          type: TEAM_EVENTS.MODEL_CHUNK,
           modelId: item.modelId,
           modelIndex: item.modelIndex,
           chunk: item.chunk,
@@ -415,7 +418,7 @@ export const groupRouter = router({
         }
         successfulModels.push(modelId)
         const metadata = MessageMetadataSchema.parse({
-          groupId,
+          teamId,
           modelUsed: modelId,
           userMessageId,
           requiresSearch: input.webSearchEnabled,
@@ -511,14 +514,14 @@ export const groupRouter = router({
       }
 
       yield {
-        type: GROUP_EVENTS.DONE,
-        groupId,
+        type: TEAM_EVENTS.DONE,
+        teamId,
         completedModels: input.models,
       }
     } catch (err: unknown) {
       const message = getErrorMessage(err, 'An unexpected error occurred')
       yield {
-        type: GROUP_EVENTS.STREAM_EVENT,
+        type: TEAM_EVENTS.STREAM_EVENT,
         chunk: {
           type: STREAM_EVENTS.ERROR,
           streamRequestId,
@@ -529,76 +532,96 @@ export const groupRouter = router({
     }
   }),
 
-  synthesize: protectedProcedure.input(GroupSynthesizeInputSchema).subscription(async function* ({
-    ctx,
-    input,
-    signal,
-  }): AsyncGenerator<GroupSynthesisOutputChunk> {
-    const { getModelRegistry } = await import('@/lib/ai/registry')
-    const registry = await getModelRegistry({ userId: ctx.userId })
+  synthesize: rateLimitedChatProcedure
+    .input(TeamSynthesizeInputSchema)
+    .subscription(async function* ({
+      ctx,
+      input,
+      signal,
+    }): AsyncGenerator<TeamSynthesisOutputChunk> {
+      const runtimeConfig = ctx.runtimeConfig
+      const { getModelRegistry } = await import('@/lib/ai/registry')
+      const registry = await getModelRegistry({ runtimeConfig })
 
-    if (!registry.some((m) => m.id === input.judgeModel)) {
-      throw new TRPCError({
-        code: TRPC_CODES.BAD_REQUEST,
-        message: `Invalid model ID: ${input.judgeModel}`,
-      })
-    }
+      if (!registry.some((m) => m.id === input.synthesisModel)) {
+        throw new TRPCError({
+          code: TRPC_CODES.BAD_REQUEST,
+          message: `Invalid model ID: ${input.synthesisModel}`,
+        })
+      }
 
-    const [conversation] = await ctx.db
-      .select({ id: conversations.id })
-      .from(conversations)
-      .where(and(eq(conversations.id, input.conversationId), eq(conversations.userId, ctx.userId)))
-      .limit(1)
+      const [conversation] = await ctx.db
+        .select({ id: conversations.id })
+        .from(conversations)
+        .where(
+          and(eq(conversations.id, input.conversationId), eq(conversations.userId, ctx.userId)),
+        )
+        .limit(1)
 
-    if (!conversation) {
-      throw new TRPCError({ code: TRPC_CODES.NOT_FOUND })
-    }
+      if (!conversation) {
+        throw new TRPCError({ code: TRPC_CODES.NOT_FOUND })
+      }
 
-    const filteredGroupMessages = await ctx.db
-      .select({ role: messages.role, content: messages.content, metadata: messages.metadata })
-      .from(messages)
-      .where(
-        and(
-          eq(messages.conversationId, input.conversationId),
-          eq(messages.role, MESSAGE_ROLES.ASSISTANT),
-          sql`${messages.metadata}->>'groupId' = ${input.groupId}`,
-          sql`(${messages.metadata}->>'isGroupSynthesis') IS DISTINCT FROM 'true'`,
-        ),
-      )
-      .orderBy(asc(messages.createdAt))
-
-    if (filteredGroupMessages.length === 0) {
-      throw new TRPCError({
-        code: TRPC_CODES.NOT_FOUND,
-        message: 'No group messages found',
-      })
-    }
-
-    const storedUserMessageId = filteredGroupMessages[0]?.metadata?.userMessageId ?? null
-
-    let userMessageContent = ''
-    if (storedUserMessageId) {
-      const [userMsg] = await ctx.db
-        .select({ content: messages.content })
+      const filteredTeamMessages = await ctx.db
+        .select({ role: messages.role, content: messages.content, metadata: messages.metadata })
         .from(messages)
         .where(
           and(
-            eq(messages.id, storedUserMessageId),
             eq(messages.conversationId, input.conversationId),
+            eq(messages.role, MESSAGE_ROLES.ASSISTANT),
+            sql`${messages.metadata}->>'teamId' = ${input.teamId}`,
+            sql`(${messages.metadata}->>'isTeamSynthesis') IS DISTINCT FROM 'true'`,
           ),
         )
-        .limit(1)
-      userMessageContent = userMsg?.content ?? ''
-    }
+        .orderBy(asc(messages.createdAt))
 
-    const modelResponsesXml = filteredGroupMessages
-      .map((m) => {
-        const modelId = m.metadata?.modelUsed ?? 'unknown'
-        return `<model_response model="${modelId}">\n${m.content}\n</model_response>`
-      })
-      .join('\n\n')
+      if (filteredTeamMessages.length === 0) {
+        throw new TRPCError({
+          code: TRPC_CODES.NOT_FOUND,
+          message: 'No team messages found',
+        })
+      }
 
-    const synthesisPrompt = `You are synthesizing responses from multiple AI models.
+      const comparisonModelIds = new Set(
+        filteredTeamMessages
+          .map((message) => message.metadata?.modelUsed)
+          .filter(
+            (modelId): modelId is string => typeof modelId === 'string' && modelId.length > 0,
+          ),
+      )
+
+      if (comparisonModelIds.has(input.synthesisModel)) {
+        throw new TRPCError({
+          code: TRPC_CODES.BAD_REQUEST,
+          message: 'Synthesis model must be different from selected team models.',
+        })
+      }
+
+      const storedUserMessageId = filteredTeamMessages[0]?.metadata?.userMessageId ?? null
+
+      let userMessageContent = ''
+      if (storedUserMessageId) {
+        const [userMsg] = await ctx.db
+          .select({ content: messages.content })
+          .from(messages)
+          .where(
+            and(
+              eq(messages.id, storedUserMessageId),
+              eq(messages.conversationId, input.conversationId),
+            ),
+          )
+          .limit(1)
+        userMessageContent = userMsg?.content ?? ''
+      }
+
+      const modelResponsesXml = filteredTeamMessages
+        .map((m) => {
+          const modelId = m.metadata?.modelUsed ?? 'unknown'
+          return `<model_response model="${modelId}">\n${m.content}\n</model_response>`
+        })
+        .join('\n\n')
+
+      const synthesisPrompt = `You are synthesizing responses from multiple AI models.
 The user asked: <user_request>${userMessageContent}</user_request>
 
 Here are the responses from each model:
@@ -607,52 +630,54 @@ ${modelResponsesXml}
 
 Your task: write a single unified response that combines the strongest elements from all responses above. Do not mention which model said what. Write as if you are giving the definitive best answer.`
 
-    const { openrouter } = await import('@/lib/ai/client')
+      const { openrouter } = await import('@/lib/ai/client')
 
-    const stream = await openrouter.chat.send(
-      {
-        chatGenerationParams: {
-          model: input.judgeModel,
-          messages: [{ role: MESSAGE_ROLES.USER, content: synthesisPrompt }],
-          stream: true,
-          maxTokens: AI_PARAMS.CHAT_MAX_TOKENS,
+      const stream = await openrouter.chat.send(
+        {
+          chatGenerationParams: {
+            model: input.synthesisModel,
+            messages: [{ role: MESSAGE_ROLES.USER, content: synthesisPrompt }],
+            stream: true,
+            maxTokens: runtimeConfig.ai.chatMaxTokens,
+          },
         },
-      },
-      { signal: signal ?? undefined },
-    )
+        { signal: signal ?? undefined },
+      )
 
-    let synthesisText = ''
-    for await (const streamChunk of stream) {
-      const delta = streamChunk.choices[0]?.delta
-      if (!delta?.content) continue
-      synthesisText += delta.content
-      yield {
-        type: GROUP_EVENTS.SYNTHESIS_CHUNK,
-        content: delta.content,
+      let synthesisText = ''
+      for await (const streamChunk of stream) {
+        const delta = streamChunk.choices[0]?.delta
+        if (!delta?.content) continue
+        synthesisText += delta.content
+        yield {
+          type: TEAM_EVENTS.SYNTHESIS_CHUNK,
+          content: delta.content,
+        }
       }
-    }
 
-    const synthesisMetadata = MessageMetadataSchema.parse({
-      groupId: input.groupId,
-      isGroupSynthesis: true,
-      modelUsed: input.judgeModel,
-    })
+      const synthesisMetadata = MessageMetadataSchema.parse({
+        teamId: input.teamId,
+        isTeamSynthesis: true,
+        modelUsed: input.synthesisModel,
+      })
 
-    await ctx.db.insert(messages).values({
-      conversationId: input.conversationId,
-      role: MESSAGE_ROLES.ASSISTANT,
-      content: synthesisText,
-      metadata: synthesisMetadata,
-    })
+      await ctx.db.insert(messages).values({
+        conversationId: input.conversationId,
+        role: MESSAGE_ROLES.ASSISTANT,
+        content: synthesisText,
+        metadata: synthesisMetadata,
+      })
 
-    await ctx.db
-      .update(conversations)
-      .set({ updatedAt: new Date() })
-      .where(and(eq(conversations.id, input.conversationId), eq(conversations.userId, ctx.userId)))
+      await ctx.db
+        .update(conversations)
+        .set({ updatedAt: new Date() })
+        .where(
+          and(eq(conversations.id, input.conversationId), eq(conversations.userId, ctx.userId)),
+        )
 
-    yield {
-      type: GROUP_EVENTS.SYNTHESIS_DONE,
-      groupId: input.groupId,
-    }
-  }),
+      yield {
+        type: TEAM_EVENTS.SYNTHESIS_DONE,
+        teamId: input.teamId,
+      }
+    }),
 })

@@ -1,8 +1,8 @@
 'use client'
 
 import { CHAT_STREAM_STATUS, MESSAGE_ROLES, MOTION, UI_TEXT } from '@/config/constants'
-import { GroupMessageGroup } from '@/features/group/components/group-message-group'
-import type { LiveGroupData } from '@/features/group/types'
+import { TeamMessageGroup } from '@/features/team/components/team-message-group'
+import type { LiveTeamData } from '@/features/team/types'
 import { formatCost, formatTokenCount } from '@/lib/utils/format'
 import { fadeIn } from '@/lib/utils/motion'
 import type { MessageWithAttachments } from '@/schemas/conversation'
@@ -23,15 +23,15 @@ type MessageListProps = {
   pendingUserMessage?: string | null
   onSuggestionSelect?: (text: string) => void
   conversationId?: string
-  liveGroup?: LiveGroupData | null
+  liveTeam?: LiveTeamData | null
 }
 
 type RenderItem =
   | { type: 'single'; message: MessageWithAttachments }
   | {
-      type: 'group'
+      type: 'team'
       messages: MessageWithAttachments[]
-      groupId: string
+      teamId: string
       synthesis?: MessageWithAttachments
     }
 
@@ -42,7 +42,7 @@ export function MessageList({
   pendingUserMessage,
   onSuggestionSelect,
   conversationId,
-  liveGroup,
+  liveTeam,
 }: MessageListProps) {
   const shouldReduce = useReducedMotion()
   const parentRef = useRef<HTMLDivElement>(null)
@@ -51,7 +51,7 @@ export function MessageList({
     messages.length === 0 &&
     streamState.phase === CHAT_STREAM_STATUS.IDLE &&
     !pendingUserMessage &&
-    !liveGroup
+    !liveTeam
 
   const showPendingBubble = useMemo(() => {
     if (!pendingUserMessage) return false
@@ -80,7 +80,7 @@ export function MessageList({
       !lastMessageIsAssistant)
 
   const renderItems = useMemo((): RenderItem[] => {
-    const groupedMessages = new Map<
+    const teamMessages = new Map<
       string,
       {
         messages: MessageWithAttachments[]
@@ -89,20 +89,20 @@ export function MessageList({
     >()
 
     for (const message of messages) {
-      const groupId = message.metadata?.groupId
-      if (message.role !== MESSAGE_ROLES.ASSISTANT || !groupId) continue
+      const teamId = message.metadata?.teamId
+      if (message.role !== MESSAGE_ROLES.ASSISTANT || !teamId) continue
 
-      const current = groupedMessages.get(groupId) ?? { messages: [] }
-      if (message.metadata?.isGroupSynthesis) {
+      const current = teamMessages.get(teamId) ?? { messages: [] }
+      if (message.metadata?.isTeamSynthesis) {
         current.synthesis = message
       } else {
         current.messages.push(message)
       }
-      groupedMessages.set(groupId, current)
+      teamMessages.set(teamId, current)
     }
 
     const items: RenderItem[] = []
-    const renderedGroupIds = new Set<string>()
+    const renderedTeamIds = new Set<string>()
     let i = 0
     while (i < messages.length) {
       const msg = messages[i]
@@ -110,28 +110,24 @@ export function MessageList({
         i++
         continue
       }
-      const groupId = msg.metadata?.groupId
-      if (msg.role === MESSAGE_ROLES.ASSISTANT && groupId && !msg.metadata?.isGroupSynthesis) {
-        if (!renderedGroupIds.has(groupId)) {
-          renderedGroupIds.add(groupId)
-          const grouped = groupedMessages.get(groupId)
+      const teamId = msg.metadata?.teamId
+      if (msg.role === MESSAGE_ROLES.ASSISTANT && teamId && !msg.metadata?.isTeamSynthesis) {
+        if (!renderedTeamIds.has(teamId)) {
+          renderedTeamIds.add(teamId)
+          const grouped = teamMessages.get(teamId)
           if (grouped && grouped.messages.length > 0) {
             items.push({
-              type: 'group',
+              type: 'team',
               messages: grouped.messages,
-              groupId,
+              teamId,
               synthesis: grouped.synthesis,
             })
           } else {
             items.push({ type: 'single', message: msg })
           }
         }
-      } else if (
-        msg.role === MESSAGE_ROLES.ASSISTANT &&
-        groupId &&
-        msg.metadata?.isGroupSynthesis
-      ) {
-        if (!renderedGroupIds.has(groupId)) {
+      } else if (msg.role === MESSAGE_ROLES.ASSISTANT && teamId && msg.metadata?.isTeamSynthesis) {
+        if (!renderedTeamIds.has(teamId)) {
           items.push({ type: 'single', message: msg })
         }
       } else {
@@ -160,7 +156,7 @@ export function MessageList({
     })
   }, [shouldReduce])
 
-  const isAnyStreaming = isChatStreaming || (!!liveGroup && !liveGroup.groupDone)
+  const isAnyStreaming = isChatStreaming || (!!liveTeam && !liveTeam.teamDone)
   const { isPaused, resume } = useAutoScroll(isAnyStreaming, parentRef, scrollToBottom)
   const { totalCostUsd, totalTokens } = useConversationCost()
 
@@ -180,19 +176,19 @@ export function MessageList({
 
           <div className="flex flex-col gap-9">
             {renderItems.map((item) => {
-              if (item.type === 'group') {
+              if (item.type === 'team') {
                 const historicalMessages = item.messages.map((msg) => ({
                   modelId: msg.metadata?.modelUsed ?? '',
                   content: msg.content,
                 }))
                 return (
-                  <GroupMessageGroup
-                    key={item.groupId}
+                  <TeamMessageGroup
+                    key={item.teamId}
                     mode="historical"
                     historicalMessages={historicalMessages}
                     synthesisText={item.synthesis?.content}
                     synthesisModelId={item.synthesis?.metadata?.modelUsed}
-                    groupId={item.groupId}
+                    teamId={item.teamId}
                     conversationId={conversationId ?? ''}
                   />
                 )
@@ -207,16 +203,16 @@ export function MessageList({
               </div>
             )}
             {showStreaming && <AssistantMessage streamState={streamState} />}
-            {liveGroup && (
-              <GroupMessageGroup
+            {liveTeam && (
+              <TeamMessageGroup
                 mode="live"
-                modelStates={liveGroup.modelStates}
-                modelOrder={liveGroup.modelOrder}
-                groupDone={liveGroup.groupDone}
-                groupId={liveGroup.groupId}
-                conversationId={liveGroup.conversationId}
-                synthesis={liveGroup.synthesis}
-                models={liveGroup.models}
+                modelStates={liveTeam.modelStates}
+                modelOrder={liveTeam.modelOrder}
+                teamDone={liveTeam.teamDone}
+                teamId={liveTeam.teamId}
+                conversationId={liveTeam.conversationId}
+                synthesis={liveTeam.synthesis}
+                models={liveTeam.models}
               />
             )}
           </div>

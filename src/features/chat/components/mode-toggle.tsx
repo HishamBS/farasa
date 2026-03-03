@@ -1,11 +1,11 @@
 'use client'
 
-import { useCallback } from 'react'
-import { motion, useReducedMotion } from 'framer-motion'
-import { springBounce } from '@/lib/utils/motion'
 import { CHAT_MODES } from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
+import { springBounce } from '@/lib/utils/motion'
 import type { ChatMode } from '@/schemas/message'
+import { motion, useReducedMotion } from 'framer-motion'
+import { useCallback } from 'react'
 
 type ModeToggleProps = {
   value: ChatMode
@@ -14,7 +14,7 @@ type ModeToggleProps = {
 
 const MODES: ReadonlyArray<{ value: ChatMode; label: string }> = [
   { value: CHAT_MODES.CHAT, label: 'Chat' },
-  { value: CHAT_MODES.GROUP, label: 'Group' },
+  { value: CHAT_MODES.TEAM, label: 'Team' },
 ]
 
 export function ModeToggle({ value, onChange }: ModeToggleProps) {

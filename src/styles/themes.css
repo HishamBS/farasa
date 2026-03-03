@@ -38,6 +38,25 @@
   --thinking-bg: rgba(139, 92, 246, 0.06);
   --thinking-border: rgba(139, 92, 246, 0.15);
 
+  --routing-reasoning: rgba(99, 102, 241, 0.85);
+  --routing-reasoning-bg: rgba(99, 102, 241, 0.06);
+  --routing-reasoning-border: rgba(99, 102, 241, 0.18);
+  --routing-tool: rgba(16, 185, 129, 0.85);
+  --routing-tool-bg: rgba(16, 185, 129, 0.06);
+  --routing-tool-border: rgba(16, 185, 129, 0.2);
+  --routing-source: rgba(14, 165, 233, 0.85);
+  --routing-source-bg: rgba(14, 165, 233, 0.06);
+  --routing-source-border: rgba(14, 165, 233, 0.2);
+  --routing-mode: rgba(245, 158, 11, 0.85);
+  --routing-mode-bg: rgba(245, 158, 11, 0.06);
+  --routing-mode-border: rgba(245, 158, 11, 0.2);
+  --routing-response: rgba(6, 182, 212, 0.85);
+  --routing-response-bg: rgba(6, 182, 212, 0.06);
+  --routing-response-border: rgba(6, 182, 212, 0.2);
+  --routing-model: rgba(139, 92, 246, 0.85);
+  --routing-model-bg: rgba(139, 92, 246, 0.06);
+  --routing-model-border: rgba(139, 92, 246, 0.2);
+
   --provider-anthropic-border: rgba(249, 115, 22, 0.18);
   --provider-anthropic-muted: rgba(249, 115, 22, 0.09);
 
@@ -139,6 +158,25 @@
   --thinking: #a78bfa;
   --thinking-bg: rgba(167, 139, 250, 0.1);
   --thinking-border: rgba(167, 139, 250, 0.16);
+
+  --routing-reasoning: rgba(129, 140, 248, 0.95);
+  --routing-reasoning-bg: rgba(129, 140, 248, 0.1);
+  --routing-reasoning-border: rgba(129, 140, 248, 0.25);
+  --routing-tool: rgba(52, 211, 153, 0.95);
+  --routing-tool-bg: rgba(52, 211, 153, 0.1);
+  --routing-tool-border: rgba(52, 211, 153, 0.3);
+  --routing-source: rgba(56, 189, 248, 0.95);
+  --routing-source-bg: rgba(56, 189, 248, 0.1);
+  --routing-source-border: rgba(56, 189, 248, 0.3);
+  --routing-mode: rgba(251, 191, 36, 0.95);
+  --routing-mode-bg: rgba(251, 191, 36, 0.1);
+  --routing-mode-border: rgba(251, 191, 36, 0.3);
+  --routing-response: rgba(34, 211, 238, 0.95);
+  --routing-response-bg: rgba(34, 211, 238, 0.1);
+  --routing-response-border: rgba(34, 211, 238, 0.3);
+  --routing-model: rgba(167, 139, 250, 0.95);
+  --routing-model-bg: rgba(167, 139, 250, 0.1);
+  --routing-model-border: rgba(167, 139, 250, 0.3);
 
   --provider-anthropic-border: rgba(251, 146, 60, 0.18);
 

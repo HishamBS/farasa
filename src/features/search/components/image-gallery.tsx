@@ -42,7 +42,7 @@ export function ImageGallery({ images }: ImageGalleryProps) {
             className="relative aspect-square min-h-11 min-w-11 overflow-hidden rounded-xl border border-(--border-subtle) bg-(--bg-surface)"
             {...(shouldReduce ? {} : fadeInUp)}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {/* eslint-disable-next-line @next/next/no-img-element -- Dynamic external URL from search results; next/image requires configured remote patterns */}
             <img
               src={img.url}
               alt={img.description ?? ''}

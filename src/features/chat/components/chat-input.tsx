@@ -1,32 +1,32 @@
 'use client'
 
-import {
-  useCallback,
-  useMemo,
-  useEffect,
-  useRef,
-  useState,
-  forwardRef,
-  useImperativeHandle,
-} from 'react'
+import { APP_CONFIG, CHAT_MODES, LIMITS, MOTION, UI_TEXT, UX } from '@/config/constants'
+import { TeamModelPicker } from '@/features/team/components/team-model-picker'
+import { useTeamMode } from '@/features/team/context/team-context'
+import { MicButton } from '@/features/voice/components/mic-button'
+import { cn } from '@/lib/utils/cn'
+import { scaleIn } from '@/lib/utils/motion'
+import type { TeamStreamInput } from '@/schemas/team'
+import type { ChatInput as ChatInputType } from '@/schemas/message'
+import { trpc } from '@/trpc/provider'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ArrowRight, Globe, Paperclip } from 'lucide-react'
-import { scaleIn } from '@/lib/utils/motion'
-import { StopButton } from './stop-button'
-import { cn } from '@/lib/utils/cn'
-import { APP_CONFIG, UI_TEXT, MOTION, LIMITS, CHAT_MODES, UX } from '@/config/constants'
-import { trpc } from '@/trpc/provider'
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import { useChatMode } from '../context/chat-mode-context'
 import { useChatInput } from '../hooks/use-chat-input'
 import { useFileUpload } from '../hooks/use-file-upload'
-import { useChatMode } from '../context/chat-mode-context'
-import { ModelSelector } from './model-selector'
 import { AttachmentPreview } from './attachment-preview'
-import { MicButton } from '@/features/voice/components/mic-button'
-import { GroupModelPicker } from '@/features/group/components/group-model-picker'
-import { useGroupMode } from '@/features/group/context/group-context'
 import type { ModelSelectorHandle } from './model-selector'
-import type { ChatInput as ChatInputType } from '@/schemas/message'
-import type { GroupStreamInput } from '@/schemas/group'
+import { ModelSelector } from './model-selector'
+import { StopButton } from './stop-button'
 
 export type ChatInputHandle = {
   setContent: (text: string) => void
@@ -38,11 +38,11 @@ type ChatInputProps = {
   isStreaming: boolean
   conversationId?: string
   initialModel?: string | null
-  onGroupSubmit?: (input: GroupStreamInput) => void
+  onTeamSubmit?: (input: TeamStreamInput) => void
 }
 
 export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput(
-  { onSend, onAbort, isStreaming, conversationId, initialModel, onGroupSubmit },
+  { onSend, onAbort, isStreaming, conversationId, initialModel, onTeamSubmit },
   ref,
 ) {
   const shouldReduce = useReducedMotion()
@@ -70,7 +70,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
   } = useChatInput(initialModel, conversationId)
 
   const { mode, webSearchEnabled, setWebSearchEnabled } = useChatMode()
-  const { groupModels } = useGroupMode()
+  const { teamModels } = useTeamMode()
 
   const { data: models = [] } = trpc.model.list.useQuery(undefined, {
     staleTime: UX.QUERY_STALE_TIME_FOREVER,
@@ -83,13 +83,9 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     return model?.supportsTools ?? true
   }, [selectedModel, models])
 
-  const isGlobeDisabled = mode === CHAT_MODES.CHAT && !!selectedModel && !selectedModelSupportsTools
-
-  useEffect(() => {
-    if (isGlobeDisabled && webSearchEnabled) {
-      setWebSearchEnabled(false)
-    }
-  }, [isGlobeDisabled, webSearchEnabled, setWebSearchEnabled])
+  const isSelectedModelIncompatibleForSearch =
+    mode === CHAT_MODES.CHAT && !!selectedModel && !selectedModelSupportsTools
+  const isGlobeDisabled = isSelectedModelIncompatibleForSearch && !webSearchEnabled
 
   const {
     uploadFile,
@@ -123,11 +119,11 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
   const handleSubmit = useCallback(() => {
     if (!content.trim() || isStreaming || isTooLong) return
     const modelForSubmission = getSelectedModel()
-    if (mode === CHAT_MODES.GROUP) {
-      if (onGroupSubmit) {
-        onGroupSubmit({
+    if (mode === CHAT_MODES.TEAM) {
+      if (onTeamSubmit) {
+        onTeamSubmit({
           content: content.trim(),
-          models: groupModels,
+          models: teamModels,
           conversationId,
           attachmentIds,
           webSearchEnabled,
@@ -156,9 +152,9 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     attachmentIds,
     webSearchEnabled,
     isStreaming,
-    groupModels,
+    teamModels,
     onSend,
-    onGroupSubmit,
+    onTeamSubmit,
     clear,
     clearFiles,
   ])
@@ -303,13 +299,17 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
                 )}
                 aria-pressed={!isGlobeDisabled && webSearchEnabled}
                 aria-label={
-                  isGlobeDisabled
+                  isSelectedModelIncompatibleForSearch && !webSearchEnabled
                     ? UI_TEXT.WEB_SEARCH_MODEL_INCOMPATIBLE
                     : webSearchEnabled
                       ? UI_TEXT.WEB_SEARCH_DISABLE
                       : UI_TEXT.WEB_SEARCH_ENABLE
                 }
-                title={isGlobeDisabled ? UI_TEXT.WEB_SEARCH_MODEL_INCOMPATIBLE : undefined}
+                title={
+                  isSelectedModelIncompatibleForSearch && !webSearchEnabled
+                    ? UI_TEXT.WEB_SEARCH_MODEL_INCOMPATIBLE
+                    : undefined
+                }
               >
                 <Globe size={15} />
               </button>
@@ -373,8 +373,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
         </div>
 
         <div className="mt-1.5 flex items-center gap-2.5">
-          {mode === CHAT_MODES.GROUP ? (
-            <GroupModelPicker />
+          {mode === CHAT_MODES.TEAM ? (
+            <TeamModelPicker />
           ) : (
             <>
               <ModelSelector
@@ -418,8 +418,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           </span>
         </div>
 
-        {mode === CHAT_MODES.GROUP && (
-          <div className="mt-1 px-1 text-xs text-(--text-muted)">Group mode is active.</div>
+        {mode === CHAT_MODES.TEAM && (
+          <div className="mt-1 px-1 text-xs text-(--text-muted)">Team mode is active.</div>
         )}
         {webSearchEnabled && (
           <div className="mt-1 px-1 text-xs text-(--text-muted)">{UI_TEXT.WEB_SEARCH_ACTIVE}</div>

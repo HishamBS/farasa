@@ -1,16 +1,18 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { expand, collapse } from '@/lib/utils/motion'
-import { UX, STATUS_MESSAGES, MOTION } from '@/config/constants'
+import { MOTION, STATUS_MESSAGES, UX } from '@/config/constants'
+import { cn } from '@/lib/utils/cn'
+import { collapse, expand } from '@/lib/utils/motion'
 import type { ThinkingState } from '@/types/stream'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { useCallback, useState } from 'react'
 
 type ThinkingBlockProps = {
   thinking: ThinkingState
+  className?: string
 }
 
-export function ThinkingBlock({ thinking }: ThinkingBlockProps) {
+export function ThinkingBlock({ thinking, className }: ThinkingBlockProps) {
   const shouldReduce = useReducedMotion()
   const [isExpanded, setIsExpanded] = useState(!UX.THINKING_COLLAPSE_DEFAULT)
 
@@ -24,7 +26,7 @@ export function ThinkingBlock({ thinking }: ThinkingBlockProps) {
   const toggle = useCallback(() => setIsExpanded((p) => !p), [])
 
   return (
-    <div className="mb-3">
+    <div className={cn('mb-3', className)}>
       <button
         type="button"
         onClick={toggle}

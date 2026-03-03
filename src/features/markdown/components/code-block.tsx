@@ -5,7 +5,7 @@ import { codeToHtml } from 'shiki'
 import { SHIKI_LANGS } from '../config/shiki-config'
 import {
   LIMITS,
-  CODE_BLOCK_FALLBACK_LANG,
+  CODE_BLOCK_DEFAULT_LANG,
   SHIKI_DARK_THEME,
   SHIKI_LIGHT_THEME,
 } from '@/config/constants'
@@ -20,10 +20,10 @@ type CodeBlockProps = {
 export function CodeBlock({ children, className }: CodeBlockProps) {
   const code = String(children ?? '').replace(/\n$/, '')
   const match = /language-(\w+)/.exec(className ?? '')
-  const lang = match?.[1] ?? CODE_BLOCK_FALLBACK_LANG
+  const lang = match?.[1] ?? CODE_BLOCK_DEFAULT_LANG
   const validLang = (SHIKI_LANGS as readonly string[]).includes(lang)
     ? lang
-    : CODE_BLOCK_FALLBACK_LANG
+    : CODE_BLOCK_DEFAULT_LANG
 
   const lines = code.split('\n')
   const showLineNumbers = lines.length > LIMITS.CODE_BLOCK_LINE_NUMBER_THRESHOLD

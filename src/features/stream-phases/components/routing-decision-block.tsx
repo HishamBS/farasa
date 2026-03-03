@@ -1,5 +1,6 @@
 'use client'
 
+import { STREAM_PHASES, STREAM_PROGRESS } from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
 import { ChevronDown } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
@@ -20,11 +21,16 @@ type RoutingDecisionBlockProps = {
 }
 
 function factorClass(key: string): string {
-  if (key.includes('tool')) return 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200'
-  if (key.includes('source')) return 'border-sky-400/30 bg-sky-500/10 text-sky-200'
-  if (key.includes('mode')) return 'border-amber-400/30 bg-amber-500/10 text-amber-200'
-  if (key.includes('response')) return 'border-cyan-400/30 bg-cyan-500/10 text-cyan-200'
-  if (key.includes('model')) return 'border-violet-400/30 bg-violet-500/10 text-violet-200'
+  if (key.includes('tool'))
+    return 'border-(--routing-tool-border) bg-(--routing-tool-bg) text-(--routing-tool)'
+  if (key.includes('source'))
+    return 'border-(--routing-source-border) bg-(--routing-source-bg) text-(--routing-source)'
+  if (key.includes('mode'))
+    return 'border-(--routing-mode-border) bg-(--routing-mode-bg) text-(--routing-mode)'
+  if (key.includes('response'))
+    return 'border-(--routing-response-border) bg-(--routing-response-bg) text-(--routing-response)'
+  if (key.includes('model'))
+    return 'border-(--routing-model-border) bg-(--routing-model-bg) text-(--routing-model)'
   return 'border-(--border-subtle) bg-(--bg-surface-active) text-(--text-muted)'
 }
 
@@ -50,7 +56,9 @@ export function RoutingDecisionBlock({
         aria-expanded={isExpanded}
       >
         <span className="size-1.5 rounded-full bg-(--accent)" />
-        <span className="text-sm font-medium text-(--accent)">Routing</span>
+        <span className="text-sm font-medium text-(--accent)">
+          {STREAM_PROGRESS.LABELS[STREAM_PHASES.ROUTING]}
+        </span>
         <span className="max-w-36 truncate text-xs text-(--text-secondary)">{modelLabel}</span>
         {typeof confidence === 'number' && (
           <span className="rounded-full border border-(--border-subtle) bg-(--bg-surface-active) px-1.5 py-0.5 text-[0.625rem] text-(--text-muted)">
@@ -81,7 +89,7 @@ export function RoutingDecisionBlock({
             </div>
           )}
           {reasoning && (
-            <p className="rounded-lg border border-indigo-400/25 bg-indigo-500/10 px-2.5 py-2 text-xs leading-relaxed text-indigo-100/95">
+            <p className="rounded-lg border border-(--routing-reasoning-border) bg-(--routing-reasoning-bg) px-2.5 py-2 text-xs leading-relaxed text-(--routing-reasoning)">
               {reasoning}
             </p>
           )}

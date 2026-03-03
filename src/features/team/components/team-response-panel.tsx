@@ -10,17 +10,17 @@ import { CHAT_STREAM_STATUS, PROVIDER_DOT_CLASSES } from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
 import type { StreamState } from '@/types/stream'
 
-type GroupResponsePanelProps = {
+type TeamResponsePanelProps = {
   modelLabel: string
   providerKey: string
   streamState: StreamState
 }
 
-export function GroupResponsePanel({
+export function TeamResponsePanel({
   modelLabel,
   providerKey,
   streamState,
-}: GroupResponsePanelProps) {
+}: TeamResponsePanelProps) {
   const shouldReduce = useReducedMotion()
   const isStreaming = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
 

@@ -1,16 +1,17 @@
 'use client'
 
-import { motion, useReducedMotion } from 'framer-motion'
-import { fadeInUp, staggerContainer } from '@/lib/utils/motion'
+import { CHAT_STREAM_STATUS, STATUS_MESSAGES } from '@/config/constants'
+import { A2UIMessage } from '@/features/a2ui/components/a2ui-message'
+import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
+import { RoutingDecisionBlock } from '@/features/stream-phases/components/routing-decision-block'
 import { ThinkingBlock } from '@/features/stream-phases/components/thinking-block'
 import { ToolExecution } from '@/features/stream-phases/components/tool-execution'
-import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
-import { A2UIMessage } from '@/features/a2ui/components/a2ui-message'
 import { TTSControls } from '@/features/voice/components/tts-controls'
-import { CHAT_STREAM_STATUS, STATUS_MESSAGES } from '@/config/constants'
-import { AssistantFrame } from './assistant-frame'
 import { extractModelName } from '@/lib/utils/model'
+import { fadeInUp, staggerContainer } from '@/lib/utils/motion'
 import type { StreamState } from '@/types/stream'
+import { motion, useReducedMotion } from 'framer-motion'
+import { AssistantFrame } from './assistant-frame'
 
 type AssistantMessageProps = {
   streamState: StreamState
@@ -24,6 +25,7 @@ export function AssistantMessage({ streamState }: AssistantMessageProps) {
     ? extractModelName(streamState.modelSelection.model)
     : null
   const showRouterDecision = streamState.modelSelection?.source === 'auto_router'
+  const hasRoutingDecision = !!streamState.modelSelection && showRouterDecision
 
   return (
     <motion.div {...(shouldReduce ? {} : fadeInUp)}>
@@ -38,34 +40,23 @@ export function AssistantMessage({ streamState }: AssistantMessageProps) {
             </div>
           )}
 
-          {streamState.modelSelection && showRouterDecision && (
-            <div className="rounded-xl border border-(--border-subtle) bg-(--bg-surface) px-3 py-2 text-xs">
-              <div className="flex items-center gap-2 text-(--text-secondary)">
-                <span className="font-medium">{modelLabel}</span>
-                {typeof streamState.modelSelection.confidence === 'number' && (
-                  <span className="rounded-full bg-(--bg-surface-active) px-2 py-0.5 text-[0.625rem] text-(--text-muted)">
-                    {Math.round(streamState.modelSelection.confidence * 100)}% confidence
-                  </span>
-                )}
-              </div>
-              {streamState.modelSelection.factors &&
-                streamState.modelSelection.factors.length > 0 && (
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {streamState.modelSelection.factors.map((factor) => (
-                      <span
-                        key={factor.key}
-                        className="rounded-full bg-(--bg-surface-active) px-2 py-0.5 text-[0.625rem] text-(--text-muted)"
-                      >
-                        {factor.label}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              <p className="mt-1 text-(--text-muted)">{streamState.modelSelection.reasoning}</p>
+          {(hasRoutingDecision || streamState.thinking) && (
+            <div className="flex flex-wrap items-start gap-2">
+              {hasRoutingDecision && streamState.modelSelection && (
+                <RoutingDecisionBlock
+                  modelLabel={modelLabel ?? streamState.modelSelection.model}
+                  confidence={streamState.modelSelection.confidence}
+                  factors={streamState.modelSelection.factors}
+                  reasoning={streamState.modelSelection.reasoning}
+                  defaultExpanded
+                  className="mb-0"
+                />
+              )}
+              {streamState.thinking && (
+                <ThinkingBlock thinking={streamState.thinking} className="mb-0" />
+              )}
             </div>
           )}
-
-          {streamState.thinking && <ThinkingBlock thinking={streamState.thinking} />}
 
           {streamState.toolExecutions.length > 0 && (
             <motion.div className="flex flex-col gap-2" {...(shouldReduce ? {} : staggerContainer)}>

@@ -1,5 +1,5 @@
 {
-  "id": "0311ee9b-82f8-4257-a956-7fbb340a617b",
+  "id": "1ee33626-5b8d-4bd0-860f-8c2e938e765a",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -626,14 +626,14 @@
           "primaryKey": false,
           "notNull": false
         },
-        "group_models": {
-          "name": "group_models",
+        "team_models": {
+          "name": "team_models",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },
-        "group_judge_model": {
-          "name": "group_judge_model",
+        "team_synthesizer_model": {
+          "name": "team_synthesizer_model",
           "type": "text",
           "primaryKey": false,
           "notNull": false

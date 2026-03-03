@@ -7,7 +7,7 @@ import {
 } from './model'
 import { SearchImageSchema, SearchResultSchema } from './search'
 
-export const ChatModeSchema = z.enum([CHAT_MODES.CHAT, CHAT_MODES.GROUP])
+export const ChatModeSchema = z.enum([CHAT_MODES.CHAT, CHAT_MODES.TEAM])
 
 export const MessageRoleSchema = z.enum(['user', 'assistant', 'system'])
 
@@ -155,8 +155,8 @@ export const MessageMetadataSchema = z.object({
   searchResults: z.array(SearchResultSchema).optional(),
   searchImages: z.array(SearchImageSchema).optional(),
   usage: UsageSchema.optional(),
-  groupId: z.string().uuid().optional(),
-  isGroupSynthesis: z.boolean().optional(),
+  teamId: z.string().uuid().optional(),
+  isTeamSynthesis: z.boolean().optional(),
   userMessageId: z.string().uuid().optional(),
 })
 

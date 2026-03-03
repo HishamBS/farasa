@@ -1,15 +1,15 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { TEAM_EVENTS } from '@/config/constants'
+import type { TeamSynthesisOutputChunk } from '@/schemas/team'
 import { trpcClient } from '@/trpc/client'
 import { trpc } from '@/trpc/provider'
-import { GROUP_EVENTS } from '@/config/constants'
-import type { GroupSynthesisOutputChunk } from '@/schemas/group'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 type SynthesisParams = {
-  groupId: string
+  teamId: string
   conversationId: string
-  judgeModel: string
+  synthesisModel: string
 }
 
 export type UseSynthesisReturn = {
@@ -25,7 +25,7 @@ type ActiveSubscription = {
   sessionId: string
 }
 
-export function useGroupSynthesis(): UseSynthesisReturn {
+export function useTeamSynthesis(): UseSynthesisReturn {
   const utils = trpc.useUtils()
   const [synthesisText, setSynthesisText] = useState('')
   const [isSynthesizing, setIsSynthesizing] = useState(false)
@@ -49,14 +49,14 @@ export function useGroupSynthesis(): UseSynthesisReturn {
 
       const sessionId = crypto.randomUUID()
 
-      const subscription = trpcClient.group.synthesize.subscribe(params, {
-        onData(chunk: GroupSynthesisOutputChunk) {
+      const subscription = trpcClient.team.synthesize.subscribe(params, {
+        onData(chunk: TeamSynthesisOutputChunk) {
           const currentSub = activeSubRef.current
           if (!currentSub || currentSub.sessionId !== sessionId) return
 
-          if (chunk.type === GROUP_EVENTS.SYNTHESIS_CHUNK) {
+          if (chunk.type === TEAM_EVENTS.SYNTHESIS_CHUNK) {
             setSynthesisText((prev) => prev + chunk.content)
-          } else if (chunk.type === GROUP_EVENTS.SYNTHESIS_DONE) {
+          } else if (chunk.type === TEAM_EVENTS.SYNTHESIS_DONE) {
             setIsDone(true)
             setIsSynthesizing(false)
             void utils.conversation.messages.invalidate({ conversationId: params.conversationId })

@@ -1,22 +1,22 @@
 'use client'
 
-import {
-  useState,
-  useCallback,
-  useRef,
-  useEffect,
-  useMemo,
-  forwardRef,
-  useImperativeHandle,
-} from 'react'
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { ChevronDown, Sparkles, Search, Check } from 'lucide-react'
-import Fuse from 'fuse.js'
-import { trpc } from '@/trpc/provider'
-import { fadeInDown, chevronSpin } from '@/lib/utils/motion'
-import { LIMITS, PROVIDER_DOT_CLASSES } from '@/config/constants'
+import { LIMITS, PROVIDER_DOT_CLASSES, UI_TEXT } from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
+import { chevronSpin, fadeInDown } from '@/lib/utils/motion'
 import type { ModelConfig } from '@/schemas/model'
+import { trpc } from '@/trpc/provider'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import Fuse from 'fuse.js'
+import { Check, ChevronDown, Search, Sparkles } from 'lucide-react'
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 
 export type ModelSelectorHandle = {
   open: () => void
@@ -25,10 +25,16 @@ export type ModelSelectorHandle = {
 type ModelSelectorProps = {
   value: string | undefined
   onChange: (modelId: string | undefined) => void
+  includeAuto?: boolean
+  excludedModelIds?: string[]
+  emptyLabel?: string
 }
 
 export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>(
-  function ModelSelector({ value, onChange }, ref) {
+  function ModelSelector(
+    { value, onChange, includeAuto = true, excludedModelIds = [], emptyLabel },
+    ref,
+  ) {
     const shouldReduce = useReducedMotion()
     const [open, setOpen] = useState(false)
     const [focusedIndex, setFocusedIndex] = useState(-1)
@@ -67,25 +73,33 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
     )
 
     const filteredModels = useMemo(() => {
-      const base = searchQuery ? fuse.search(searchQuery).map((r) => r.item) : models
+      const exclusion = new Set(excludedModelIds)
+      const baseCandidates = searchQuery ? fuse.search(searchQuery).map((r) => r.item) : models
+      const base = baseCandidates.filter((model) => !exclusion.has(model.id))
       if (!value || searchQuery) return base
       const idx = base.findIndex((m) => m.id === value)
       if (idx <= 0) return base
-      return [base[idx]!, ...base.slice(0, idx), ...base.slice(idx + 1)]
-    }, [fuse, models, searchQuery, value])
+      const selected = base[idx]
+      if (!selected) return base
+      return [selected, ...base.slice(0, idx), ...base.slice(idx + 1)]
+    }, [excludedModelIds, fuse, models, searchQuery, value])
 
     // Flat ordered list for keyboard navigation: Auto at index 0, then all filtered models
     const flatItems = useMemo(
-      () => [undefined as string | undefined, ...filteredModels.map((m) => m.id)],
-      [filteredModels],
+      () =>
+        includeAuto
+          ? [undefined as string | undefined, ...filteredModels.map((m) => m.id)]
+          : filteredModels.map((m) => m.id),
+      [filteredModels, includeAuto],
     )
 
     // Pre-computed global nav index for each model (Auto occupies index 0)
     const modelIndexMap = useMemo(() => {
       const map = new Map<string, number>()
-      filteredModels.forEach((m, i) => map.set(m.id, i + 1))
+      const offset = includeAuto ? 1 : 0
+      filteredModels.forEach((m, i) => map.set(m.id, i + offset))
       return map
-    }, [filteredModels])
+    }, [filteredModels, includeAuto])
 
     const grouped = useMemo(
       () =>
@@ -212,7 +226,13 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
           onClick={handleToggle}
           aria-haspopup="listbox"
           aria-expanded={open}
-          aria-label={value ? `Model: ${selected?.name ?? value}` : 'Model: Auto'}
+          aria-label={
+            value
+              ? `Model: ${selected?.name ?? value}`
+              : includeAuto
+                ? 'Model: Auto'
+                : 'Model: none selected'
+          }
           className="flex min-h-8 items-center gap-1.5 rounded-md px-2 py-1 text-xs text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)"
         >
           {value ? (
@@ -222,8 +242,8 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
             </>
           ) : (
             <>
-              <Sparkles className="size-3" />
-              <span>Auto</span>
+              {includeAuto ? <Sparkles className="size-3" /> : null}
+              <span>{includeAuto ? 'Auto' : (emptyLabel ?? 'Select model')}</span>
             </>
           )}
           <motion.span
@@ -251,7 +271,7 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search models..."
+                    placeholder={UI_TEXT.MODEL_SEARCH_PLACEHOLDER}
                     className="w-full rounded-md bg-(--bg-surface) py-1.5 pl-8 pr-3 text-sm text-(--text-primary) placeholder:text-(--text-ghost) outline-none border border-transparent focus:border-(--border-default) focus:ring-1 focus:ring-(--accent-muted)"
                     // Prevent closing on space bar when searching
                     onKeyDown={(e) => e.stopPropagation()}
@@ -260,7 +280,7 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
               </div>
 
               <div className="overflow-y-auto p-1">
-                {(!searchQuery || 'auto'.includes(searchQuery.toLowerCase())) && (
+                {includeAuto && (!searchQuery || 'auto'.includes(searchQuery.toLowerCase())) && (
                   <button
                     ref={(el) => {
                       itemRefs.current[0] = el
@@ -281,7 +301,7 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
                   </button>
                 )}
 
-                <div className="mx-1 border-t border-(--border-subtle)" />
+                {includeAuto && <div className="mx-1 border-t border-(--border-subtle)" />}
 
                 {Object.entries(grouped).map(([provider, providerModels]) => (
                   <div key={provider} className="p-1">

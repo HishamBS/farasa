@@ -16,7 +16,7 @@ export function ImageAdapter({ surfaceId, url, fit }: BaseComponentProps & Image
   const objectFit = fit ?? 'contain'
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
+    // eslint-disable-next-line @next/next/no-img-element -- Dynamic URL from A2UI message payload; next/image requires configured remote patterns
     <img src={resolvedUrl} alt="" className="max-w-full rounded-xl" style={{ objectFit }} />
   )
 }

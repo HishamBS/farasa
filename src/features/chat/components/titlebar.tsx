@@ -21,28 +21,20 @@ import { MOTION, UI_TEXT, UX } from '@/config/constants'
 import { PATTERNS, ROUTES } from '@/config/routes'
 import { ChatModeSchema } from '@/schemas/message'
 import { trpc } from '@/trpc/provider'
-import type { ModelSelectionState, TitlebarPhase } from '@/types/stream'
+import type { TitlebarPhase } from '@/types/stream'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Check, Menu, MoreHorizontal, Pin, PinOff, Trash2 } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useChatMode } from '../context/chat-mode-context'
 import { ModeToggle } from './mode-toggle'
-import { RoutingPanel } from './routing-panel'
 
 type TitlebarProps = {
   onMenuClick: () => void
   streamPhase?: TitlebarPhase
-  modelSelection?: ModelSelectionState | null
-  hasText?: boolean
 }
 
-export function Titlebar({
-  onMenuClick,
-  streamPhase = 'idle',
-  modelSelection = null,
-  hasText = false,
-}: TitlebarProps) {
+export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { mode, setMode, setWebSearchEnabled } = useChatMode()
@@ -70,10 +62,6 @@ export function Titlebar({
     { id: conversationId ?? '' },
     { enabled: !!conversationId, staleTime: UX.QUERY_STALE_TIME_FOREVER },
   )
-
-  const { data: models = [] } = trpc.model.list.useQuery(undefined, {
-    staleTime: UX.QUERY_STALE_TIME_FOREVER,
-  })
 
   useEffect(() => {
     if (!conversationId) {
@@ -179,13 +167,6 @@ export function Titlebar({
         </div>
 
         <div className="flex-1" />
-
-        <RoutingPanel
-          modelSelection={modelSelection}
-          streamPhase={streamPhase}
-          hasText={hasText}
-          models={models}
-        />
 
         <AnimatePresence mode="wait">
           {pillInfo && isPillVisible && (

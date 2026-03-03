@@ -5,8 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1772489487949,
-      "tag": "0001_farasa_release_baseline",
+      "when": 1772562643870,
+      "tag": "0000_initial_schema",
       "breakpoints": true
     }
   ]

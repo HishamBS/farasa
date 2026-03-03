@@ -3,15 +3,15 @@
 import {
   CHAT_MODES,
   CHAT_STREAM_STATUS,
-  GROUP_STREAM_PHASES,
+  TEAM_STREAM_PHASES,
   TITLEBAR_PHASE,
   UX,
 } from '@/config/constants'
 import { ROUTES } from '@/config/routes'
-import { useGroupStream } from '@/features/group/hooks/use-group-stream'
-import { useGroupSynthesis } from '@/features/group/hooks/use-group-synthesis'
-import type { LiveGroupData, ModelMeta } from '@/features/group/types'
-import type { GroupStreamInput } from '@/schemas/group'
+import { useTeamStream } from '@/features/team/hooks/use-team-stream'
+import { useTeamSynthesis } from '@/features/team/hooks/use-team-synthesis'
+import type { LiveTeamData, ModelMeta } from '@/features/team/types'
+import type { TeamStreamInput } from '@/schemas/team'
 import { trpc } from '@/trpc/provider'
 import type { TitlebarPhase } from '@/types/stream'
 import { AlertCircle } from 'lucide-react'
@@ -38,21 +38,28 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   const effectiveConversationId = streamState.resolvedConversationId ?? conversationId
   const isStreaming = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
   const chatInputRef = useRef<ChatInputHandle>(null)
-  const { setPhase, setModelSelection, setHasText } = useStreamPhase()
+  const {
+    setPhase,
+    setModelSelection,
+    setHasText,
+    setStatusMessages,
+    setHasThinking,
+    setHasToolActivity,
+  } = useStreamPhase()
   const { mode } = useChatMode()
   const utils = trpc.useUtils()
 
-  const [groupStreamInput, setGroupStreamInput] = useState<GroupStreamInput | null>(null)
-  const groupConversationIdRef = useRef<string | undefined>(conversationId)
-  const synthesis = useGroupSynthesis()
+  const [teamStreamInput, setTeamStreamInput] = useState<TeamStreamInput | null>(null)
+  const teamConversationIdRef = useRef<string | undefined>(conversationId)
+  const synthesis = useTeamSynthesis()
 
   useEffect(() => {
-    groupConversationIdRef.current = conversationId
+    teamConversationIdRef.current = conversationId
   }, [conversationId])
 
-  const handleGroupConversationCreated = useCallback(
+  const handleTeamConversationCreated = useCallback(
     (createdId: string) => {
-      groupConversationIdRef.current = createdId
+      teamConversationIdRef.current = createdId
       window.history.replaceState(window.history.state, '', ROUTES.CHAT_BY_ID(createdId))
       void utils.conversation.invalidate()
     },
@@ -62,45 +69,45 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   const {
     modelStates,
     modelOrder,
-    phase: groupPhase,
-    groupId,
-    groupDone,
-    error: groupError,
-    abort: abortGroup,
-  } = useGroupStream({
-    enabled: groupStreamInput !== null,
-    input: groupStreamInput,
-    onConversationCreated: handleGroupConversationCreated,
+    phase: teamPhase,
+    teamId,
+    teamDone,
+    error: teamError,
+    abort: abortTeam,
+  } = useTeamStream({
+    enabled: teamStreamInput !== null,
+    input: teamStreamInput,
+    onConversationCreated: handleTeamConversationCreated,
   })
 
   useEffect(() => {
-    if (groupDone) {
-      const convId = groupConversationIdRef.current
+    if (teamDone) {
+      const convId = teamConversationIdRef.current
       if (convId) {
         router.replace(ROUTES.CHAT_BY_ID(convId))
         void utils.conversation.messages.invalidate({ conversationId: convId })
         void utils.conversation.getById.invalidate({ id: convId })
       }
     }
-  }, [groupDone, router, utils])
+  }, [teamDone, router, utils])
 
-  const handleGroupSubmit = useCallback((input: GroupStreamInput) => {
-    setGroupStreamInput(input)
+  const handleTeamSubmit = useCallback((input: TeamStreamInput) => {
+    setTeamStreamInput(input)
   }, [])
 
   const { data: modelList = [] } = trpc.model.list.useQuery(undefined, {
     staleTime: UX.QUERY_STALE_TIME_FOREVER,
-    enabled: mode === CHAT_MODES.GROUP,
+    enabled: mode === CHAT_MODES.TEAM,
   })
 
-  const activeGroupModels = useMemo((): ModelMeta[] => {
-    if (!groupStreamInput) return []
+  const activeTeamModels = useMemo((): ModelMeta[] => {
+    if (!teamStreamInput) return []
     const modelMap = new Map(modelList.map((m) => [m.id, m]))
-    return groupStreamInput.models.map((modelId) => {
+    return teamStreamInput.models.map((modelId) => {
       const reg = modelMap.get(modelId)
       return { id: modelId, name: reg?.name ?? modelId, provider: reg?.provider }
     })
-  }, [groupStreamInput, modelList])
+  }, [teamStreamInput, modelList])
 
   const titlebarPhase = useMemo((): TitlebarPhase => {
     if (streamState.phase === CHAT_STREAM_STATUS.COMPLETE) return TITLEBAR_PHASE.DONE
@@ -124,6 +131,20 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     setHasText(streamState.textContent.length > 0)
   }, [streamState.textContent, setHasText])
 
+  useEffect(() => {
+    setStatusMessages(streamState.statusMessages)
+  }, [streamState.statusMessages, setStatusMessages])
+
+  useEffect(() => {
+    const isThinkingActive =
+      streamState.thinking !== null && streamState.thinking.completedAt === undefined
+    setHasThinking(isThinkingActive)
+  }, [streamState.thinking, setHasThinking])
+
+  useEffect(() => {
+    setHasToolActivity(streamState.toolExecutions.length > 0)
+  }, [streamState.toolExecutions.length, setHasToolActivity])
+
   const { data: conversation } = trpc.conversation.getById.useQuery(
     { id: effectiveConversationId ?? '' },
     { staleTime: UX.QUERY_STALE_TIME_FOREVER, enabled: !!effectiveConversationId },
@@ -135,16 +156,16 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   )
   const messages = useMemo(() => messagesData?.messages ?? [], [messagesData])
 
-  const messagesHaveGroup = useMemo(() => {
-    if (!groupId) return false
-    return messages.some((m) => m.metadata?.groupId === groupId)
-  }, [messages, groupId])
+  const messagesHaveTeam = useMemo(() => {
+    if (!teamId) return false
+    return messages.some((m) => m.metadata?.teamId === teamId)
+  }, [messages, teamId])
 
   useEffect(() => {
-    if (groupDone && messagesHaveGroup && groupStreamInput !== null) {
-      setGroupStreamInput(null)
+    if (teamDone && messagesHaveTeam && teamStreamInput !== null) {
+      setTeamStreamInput(null)
     }
-  }, [groupDone, messagesHaveGroup, groupStreamInput])
+  }, [teamDone, messagesHaveTeam, teamStreamInput])
 
   const handleSuggestionSelect = useCallback((text: string) => {
     chatInputRef.current?.setContent(text)
@@ -156,44 +177,34 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     chatInputRef.current?.setContent(streamState.lastInput.content)
   }, [streamState.phase, streamState.lastInput])
 
-  const liveGroup = useMemo((): LiveGroupData | null => {
-    const isGroupActive =
-      (groupPhase === GROUP_STREAM_PHASES.ACTIVE || groupPhase === GROUP_STREAM_PHASES.DONE) &&
-      !messagesHaveGroup
-    const isSynthesisInFlight = synthesis.isSynthesizing
-    const synthesisJustCompleted =
-      synthesis.isDone &&
-      !messages.some(
-        (m) => m.metadata?.groupId === groupId && m.metadata?.isGroupSynthesis === true,
+  const liveTeam = useMemo((): LiveTeamData | null => {
+    const hasPersistedTeamMessages =
+      !!teamId &&
+      messages.some(
+        (message) => message.metadata?.teamId === teamId && !message.metadata?.isTeamSynthesis,
       )
-    const awaitingSynthesis =
-      groupDone &&
-      !synthesis.isDone &&
-      !synthesis.isSynthesizing &&
-      !messages.some(
-        (m) => m.metadata?.groupId === groupId && m.metadata?.isGroupSynthesis === true,
-      )
-    if (!isGroupActive && !isSynthesisInFlight && !synthesisJustCompleted && !awaitingSynthesis)
-      return null
+    const shouldRenderLiveTeam =
+      teamPhase === TEAM_STREAM_PHASES.ACTIVE ||
+      (teamPhase === TEAM_STREAM_PHASES.DONE && !hasPersistedTeamMessages)
+    if (!shouldRenderLiveTeam) return null
     return {
       modelStates,
       modelOrder,
-      groupDone,
-      groupId,
-      conversationId: groupConversationIdRef.current ?? conversationId ?? '',
+      teamDone,
+      teamId,
+      conversationId: teamConversationIdRef.current ?? conversationId ?? '',
       synthesis,
-      models: activeGroupModels,
+      models: activeTeamModels,
     }
   }, [
-    groupPhase,
-    messagesHaveGroup,
+    teamPhase,
     modelStates,
     modelOrder,
-    groupDone,
-    groupId,
+    teamDone,
+    teamId,
     conversationId,
     synthesis,
-    activeGroupModels,
+    activeTeamModels,
     messages,
   ])
 
@@ -207,7 +218,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
           pendingUserMessage={streamState.pendingUserMessage}
           onSuggestionSelect={handleSuggestionSelect}
           conversationId={effectiveConversationId}
-          liveGroup={liveGroup}
+          liveTeam={liveTeam}
         />
       </ConversationCostProvider>
       {streamState.phase === CHAT_STREAM_STATUS.ERROR && streamState.error && (
@@ -218,22 +229,22 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
           </div>
         </div>
       )}
-      {groupPhase === GROUP_STREAM_PHASES.ERROR && groupError && (
+      {teamPhase === TEAM_STREAM_PHASES.ERROR && teamError && (
         <div className="mx-auto w-full max-w-240 px-4 py-2">
           <div className="flex items-center gap-2 rounded-lg border border-(--error)/20 bg-(--error)/5 px-3 py-2 text-sm text-(--error)">
             <AlertCircle className="size-4 shrink-0" />
-            <span className="flex-1">{groupError}</span>
+            <span className="flex-1">{teamError}</span>
           </div>
         </div>
       )}
       <ChatInput
         ref={chatInputRef}
         onSend={sendMessage}
-        onAbort={groupPhase === GROUP_STREAM_PHASES.ACTIVE ? abortGroup : abort}
-        isStreaming={isStreaming || groupPhase === GROUP_STREAM_PHASES.ACTIVE}
+        onAbort={teamPhase === TEAM_STREAM_PHASES.ACTIVE ? abortTeam : abort}
+        isStreaming={isStreaming || teamPhase === TEAM_STREAM_PHASES.ACTIVE}
         conversationId={effectiveConversationId}
         initialModel={conversation?.model ?? undefined}
-        onGroupSubmit={handleGroupSubmit}
+        onTeamSubmit={handleTeamSubmit}
       />
     </div>
   )

@@ -3,6 +3,7 @@
 import { AI_PARAMS, TOOL_NAMES } from '@/config/constants'
 import { A2UIMessage } from '@/features/a2ui/components/a2ui-message'
 import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
+import { RoutingDecisionBlock } from '@/features/stream-phases/components/routing-decision-block'
 import { ThinkingBlock } from '@/features/stream-phases/components/thinking-block'
 import { ToolExecution } from '@/features/stream-phases/components/tool-execution'
 import { TTSControls } from '@/features/voice/components/tts-controls'
@@ -104,19 +105,22 @@ export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessa
       <AssistantFrame modelLabel={modelLabel} tokenLabel={tokenLabel} costLabel={costLabel}>
         <div className="space-y-3">
           {metadata?.routerSource === 'auto_router' && (
-            <div className="flex flex-wrap items-center gap-1 text-[0.625rem] text-(--text-muted)">
-              {typeof metadata.routerConfidence === 'number' && (
-                <span className="rounded-full bg-(--bg-surface-active) px-1.5 py-0.5">
-                  {Math.round(metadata.routerConfidence * 100)}% confidence
-                </span>
-              )}
-              {metadata.routerReasoning && (
-                <span className="max-w-xs truncate">{metadata.routerReasoning}</span>
-              )}
+            <div className="flex flex-wrap items-start gap-2">
+              <RoutingDecisionBlock
+                modelLabel={modelLabel ?? 'Selected model'}
+                confidence={metadata.routerConfidence}
+                factors={metadata.routerFactors}
+                reasoning={metadata.routerReasoning}
+                defaultExpanded={false}
+                className="mb-0"
+              />
+              {thinking && <ThinkingBlock thinking={thinking} className="mb-0" />}
             </div>
           )}
 
-          {thinking && <ThinkingBlock thinking={thinking} />}
+          {metadata?.routerSource !== 'auto_router' && thinking && (
+            <ThinkingBlock thinking={thinking} />
+          )}
 
           {toolExecutions.length > 0 && (
             <div className="flex flex-col gap-2">

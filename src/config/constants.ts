@@ -163,7 +163,7 @@ export const TRPC_CODES = {
 
 export const CHAT_MODES = {
   CHAT: 'chat',
-  GROUP: 'group',
+  TEAM: 'team',
 } as const
 
 export const TOOL_NAMES = {
@@ -291,6 +291,7 @@ export const MOTION = {
   DURATION_LOOP: 1.5,
   DURATION_BACKGROUND_LOOP: 4,
   STAGGER_CHILDREN: 0.05,
+  EXPLORE_REVEAL_DELAY: 0.1,
   SPRING_STIFFNESS: 400,
   SPRING_DAMPING: 25,
   EASING: [0.4, 0, 0.2, 1] as const,
@@ -319,7 +320,7 @@ export const MODEL_REGISTRY_CACHE_KEY = 'models' as const
 
 export const NEW_CHAT_TITLE = 'New Chat' as const
 export const NEW_CONVERSATION_TITLE = 'New Conversation' as const
-export const CODE_BLOCK_FALLBACK_LANG = 'text' as const
+export const CODE_BLOCK_DEFAULT_LANG = 'text' as const
 export const SHIKI_DARK_THEME = 'tokyo-night' as const
 export const SHIKI_LIGHT_THEME = 'github-light' as const
 
@@ -427,13 +428,13 @@ export const UI_TEXT = {
   MORE_OPTIONS_ARIA: 'More options',
   SET_DEFAULT_MODEL: 'Set default',
   DEFAULT_MODEL_SET: 'Default',
-  GROUP_MODEL_HINT: 'Select 2–5 models to compare as a team',
-  GROUP_MODEL_PICKER_OPEN_ARIA: 'Select team models',
-  GROUP_MODEL_PICKER_TITLE: 'Select team comparison models',
-  GROUP_MODEL_PICKER_DONE: 'Done',
-  GROUP_MODEL_SEARCH_PLACEHOLDER: 'Search models...',
-  GROUP_MODEL_REMOVE_ARIA_PREFIX: 'Remove',
-  GROUP_JUDGE_SELECT_ARIA_PREFIX: 'Select synthesizer',
+  TEAM_MODEL_HINT: 'Select 2–5 models to compare as a team',
+  TEAM_MODEL_PICKER_OPEN_ARIA: 'Select team models',
+  TEAM_MODEL_PICKER_TITLE: 'Select team comparison models',
+  TEAM_MODEL_PICKER_DONE: 'Done',
+  MODEL_SEARCH_PLACEHOLDER: 'Search models...',
+  TEAM_MODEL_REMOVE_ARIA_PREFIX: 'Remove',
+  TEAM_SYNTHESIZER_SELECT_ARIA_PREFIX: 'Select synthesizer',
   WEB_SEARCH_ENABLE: 'Enable web search',
   WEB_SEARCH_DISABLE: 'Disable web search',
   WEB_SEARCH_ACTIVE: 'Web search on',
@@ -449,29 +450,29 @@ export const UI_TEXT = {
   TTS_LOADING: 'Loading audio...',
 } as const
 
-export const GROUP_LIMITS = {
+export const TEAM_LIMITS = {
   MAX_MODELS: 5,
   MIN_MODELS: 2,
 } as const
 
-export const GROUP_EVENTS = {
-  MODEL_CHUNK: 'group_model_chunk',
-  STREAM_EVENT: 'group_stream_event',
-  DONE: 'group_done',
-  SYNTHESIS_CHUNK: 'group_synthesis_chunk',
-  SYNTHESIS_DONE: 'group_synthesis_done',
+export const TEAM_EVENTS = {
+  MODEL_CHUNK: 'team_model_chunk',
+  STREAM_EVENT: 'team_stream_event',
+  DONE: 'team_done',
+  SYNTHESIS_CHUNK: 'team_synthesis_chunk',
+  SYNTHESIS_DONE: 'team_synthesis_done',
 } as const
 
-export const GROUP_STATUS_MESSAGES = {
+export const TEAM_STATUS_MESSAGES = {
   SYNTHESIZING: 'Synthesizing responses...',
   STARTING: 'Starting team comparison...',
 } as const
 
-export const GROUP_TAB_VALUES = {
+export const TEAM_TAB_VALUES = {
   SYNTHESIS: 'synthesis',
 } as const
 
-export const GROUP_STREAM_PHASES = {
+export const TEAM_STREAM_PHASES = {
   IDLE: 'idle',
   ACTIVE: 'active',
   DONE: 'done',

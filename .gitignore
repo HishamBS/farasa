@@ -44,6 +44,10 @@ bun-error.log*
 tsconfig.tsbuildinfo
 *.tsbuildinfo
 
+# Development artifacts
+mockups/
+test_image.png
+
 # Misc
 *.pem
 .vercel

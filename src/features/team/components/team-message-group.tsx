@@ -1,16 +1,16 @@
 'use client'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { GROUP_TAB_VALUES, PROVIDER_ALIASES, PROVIDER_DOT_CLASSES } from '@/config/constants'
-import type { UseSynthesisReturn } from '@/features/group/hooks/use-group-synthesis'
-import { useGroupSynthesis } from '@/features/group/hooks/use-group-synthesis'
-import type { ModelMeta } from '@/features/group/types'
+import { TEAM_TAB_VALUES, PROVIDER_ALIASES, PROVIDER_DOT_CLASSES } from '@/config/constants'
+import type { UseSynthesisReturn } from '@/features/team/hooks/use-team-synthesis'
+import { useTeamSynthesis } from '@/features/team/hooks/use-team-synthesis'
+import type { ModelMeta } from '@/features/team/types'
 import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
 import { cn } from '@/lib/utils/cn'
 import { extractModelName, resolveProviderKey } from '@/lib/utils/model'
 import type { StreamState } from '@/types/stream'
 import { useMemo } from 'react'
-import { GroupTabs } from './group-tabs'
+import { TeamTabs } from './team-tabs'
 import { SynthesisPanel } from './synthesis-panel'
 
 type HistoricalMessage = {
@@ -19,33 +19,33 @@ type HistoricalMessage = {
   modelLabel?: string
 }
 
-type LiveGroupProps = {
+type LiveTeamProps = {
   mode: 'live'
   modelStates: Map<string, StreamState>
   modelOrder: string[]
-  groupDone: boolean
-  groupId?: string
+  teamDone: boolean
+  teamId?: string
   conversationId: string
   synthesis: UseSynthesisReturn
   models: ModelMeta[]
 }
 
-type HistoricalGroupProps = {
+type HistoricalTeamProps = {
   mode: 'historical'
   historicalMessages: HistoricalMessage[]
   synthesisText?: string
   synthesisModelId?: string
-  groupId: string
+  teamId: string
   conversationId: string
 }
 
-export type GroupMessageGroupProps = LiveGroupProps | HistoricalGroupProps
+export type TeamMessageGroupProps = LiveTeamProps | HistoricalTeamProps
 
 type HistoricalTabsProps = {
   messages: HistoricalMessage[]
   synthesisText?: string
   synthesisModelId?: string
-  groupId: string
+  teamId: string
   conversationId: string
 }
 
@@ -53,11 +53,11 @@ function HistoricalTabs({
   messages,
   synthesisText,
   synthesisModelId,
-  groupId,
+  teamId,
   conversationId,
 }: HistoricalTabsProps) {
-  const synthesis = useGroupSynthesis()
-  const defaultTab = messages[0]?.modelId ?? GROUP_TAB_VALUES.SYNTHESIS
+  const synthesis = useTeamSynthesis()
+  const defaultTab = messages[0]?.modelId ?? TEAM_TAB_VALUES.SYNTHESIS
 
   const tabMetas = useMemo(
     () =>
@@ -84,7 +84,7 @@ function HistoricalTabs({
             <span className="max-w-40 truncate">{label}</span>
           </TabsTrigger>
         ))}
-        <TabsTrigger value={GROUP_TAB_VALUES.SYNTHESIS}>Synthesis</TabsTrigger>
+        <TabsTrigger value={TEAM_TAB_VALUES.SYNTHESIS}>Synthesis</TabsTrigger>
       </TabsList>
 
       {tabMetas.map(({ modelId, content }) => (
@@ -95,12 +95,12 @@ function HistoricalTabs({
         </TabsContent>
       ))}
 
-      <TabsContent value={GROUP_TAB_VALUES.SYNTHESIS}>
+      <TabsContent value={TEAM_TAB_VALUES.SYNTHESIS}>
         <SynthesisPanel
           comparisonModelIds={comparisonModelIds}
           conversationId={conversationId}
-          groupId={groupId}
-          groupDone
+          teamId={teamId}
+          teamDone
           synthesis={synthesis}
           initialSynthesisText={synthesisText}
           initialSynthesisModelId={synthesisModelId}
@@ -110,15 +110,15 @@ function HistoricalTabs({
   )
 }
 
-export function GroupMessageGroup(props: GroupMessageGroupProps) {
+export function TeamMessageGroup(props: TeamMessageGroupProps) {
   if (props.mode === 'live') {
     return (
       <div className="rounded-2xl border border-(--border-subtle) bg-(--bg-surface) p-4">
-        <GroupTabs
+        <TeamTabs
           modelStates={props.modelStates}
           modelOrder={props.modelOrder}
-          groupDone={props.groupDone}
-          groupId={props.groupId}
+          teamDone={props.teamDone}
+          teamId={props.teamId}
           conversationId={props.conversationId}
           synthesis={props.synthesis}
           models={props.models}
@@ -134,7 +134,7 @@ export function GroupMessageGroup(props: GroupMessageGroupProps) {
           messages={props.historicalMessages}
           synthesisText={props.synthesisText}
           synthesisModelId={props.synthesisModelId}
-          groupId={props.groupId}
+          teamId={props.teamId}
           conversationId={props.conversationId}
         />
       </div>

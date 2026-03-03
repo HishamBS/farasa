@@ -40,7 +40,7 @@
     "@serwist/next": "^9.0.9",
     "@tanstack/react-query": "^5.0.0",
     "@tanstack/react-virtual": "^3.10.8",
-    "@tavily/core": "^0.3.0",
+    "@tavily/core": "^0.7.2",
     "@trpc/client": "^11.0.0",
     "@trpc/next": "^11.0.0",
     "@trpc/react-query": "^11.0.0",

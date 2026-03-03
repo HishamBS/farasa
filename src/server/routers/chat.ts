@@ -9,7 +9,7 @@ import {
   TRPC_CODES,
 } from '@/config/constants'
 import { PROMPTS } from '@/config/prompts'
-import { conversations, messages } from '@/lib/db/schema'
+import { type attachments, conversations, messages } from '@/lib/db/schema'
 import { AppError, getErrorMessage } from '@/lib/utils/errors'
 import type { StreamChunk, ToolCall, Usage } from '@/schemas/message'
 import {
@@ -342,9 +342,15 @@ export const chatRouter = router({
         messageId: userMessageId,
       })
 
+      let linkedAttachmentRows: (typeof attachments.$inferSelect)[] = []
       if (input.attachmentIds.length > 0 && userMessageId) {
         const { linkAttachmentsToMessage } = await import('@/server/services/history-builder')
-        await linkAttachmentsToMessage(ctx.db, ctx.userId, input.attachmentIds, userMessageId)
+        linkedAttachmentRows = await linkAttachmentsToMessage(
+          ctx.db,
+          ctx.userId,
+          input.attachmentIds,
+          userMessageId,
+        )
       }
 
       let selectedModel: string | undefined
@@ -436,18 +442,11 @@ export const chatRouter = router({
           message: runtimeConfig.chat.statusMessages.readingFiles,
         })
 
+        const { buildAttachmentBlocks } = await import('@/server/services/history-builder')
         const blocks: ChatMessageContentItem[] = [
           { type: ChatMessageContentItemTextType.Text, text: wrappedContent },
+          ...buildAttachmentBlocks(linkedAttachmentRows),
         ]
-
-        const { fetchConfirmedAttachments, buildAttachmentBlocks } =
-          await import('@/server/services/history-builder')
-        const attachmentRows = await fetchConfirmedAttachments(
-          ctx.db,
-          ctx.userId,
-          input.attachmentIds,
-        )
-        blocks.push(...buildAttachmentBlocks(attachmentRows))
 
         userContent = blocks
       }

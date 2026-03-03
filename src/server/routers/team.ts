@@ -133,13 +133,13 @@ export const teamRouter = router({
 
       let userContent: string | ChatMessageContentItem[] = input.content
       if (input.attachmentIds.length > 0) {
-        const { linkAttachmentsToMessage, fetchConfirmedAttachments, buildAttachmentBlocks } =
+        const { linkAttachmentsToMessage, buildAttachmentBlocks } =
           await import('@/server/services/history-builder')
-        await linkAttachmentsToMessage(ctx.db, ctx.userId, input.attachmentIds, userMessageId)
-        const attachmentRows = await fetchConfirmedAttachments(
+        const attachmentRows = await linkAttachmentsToMessage(
           ctx.db,
           ctx.userId,
           input.attachmentIds,
+          userMessageId,
         )
 
         if (attachmentRows.length > 0) {

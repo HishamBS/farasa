@@ -14,11 +14,10 @@ import { and, asc, eq, inArray, isNotNull, or } from 'drizzle-orm'
 type AttachmentRow = typeof attachments.$inferSelect
 
 const DATA_URL_SEPARATOR = ','
-const DATA_URL_SEPARATOR_NOT_FOUND = -1
 
 function decodeDataUrlToText(dataUrl: string): string {
   const commaIndex = dataUrl.indexOf(DATA_URL_SEPARATOR)
-  if (commaIndex === DATA_URL_SEPARATOR_NOT_FOUND) return dataUrl
+  if (commaIndex === -1) return dataUrl
   const base64 = dataUrl.slice(commaIndex + 1)
   return Buffer.from(base64, 'base64').toString('utf-8')
 }
@@ -47,7 +46,7 @@ export async function linkAttachmentsToMessage(
   userId: string,
   attachmentIds: string[],
   messageId: string,
-): Promise<void> {
+): Promise<AttachmentRow[]> {
   const linked = await dbClient
     .update(attachments)
     .set({ messageId })
@@ -58,7 +57,7 @@ export async function linkAttachmentsToMessage(
         isNotNull(attachments.confirmedAt),
       ),
     )
-    .returning({ id: attachments.id })
+    .returning()
 
   if (linked.length !== attachmentIds.length) {
     throw new TRPCError({
@@ -66,23 +65,8 @@ export async function linkAttachmentsToMessage(
       message: AppError.ATTACHMENT_ACCESS_DENIED,
     })
   }
-}
 
-export async function fetchConfirmedAttachments(
-  dbClient: typeof db,
-  userId: string,
-  attachmentIds: string[],
-): Promise<AttachmentRow[]> {
-  return dbClient
-    .select()
-    .from(attachments)
-    .where(
-      and(
-        inArray(attachments.id, attachmentIds),
-        eq(attachments.userId, userId),
-        isNotNull(attachments.confirmedAt),
-      ),
-    )
+  return linked
 }
 
 export async function buildEnrichedHistory(
@@ -146,13 +130,10 @@ export async function buildEnrichedHistory(
       const safeQuery = escapeXmlForPrompt(meta.searchQuery)
       enrichedContent = `[This response used web search for: "${safeQuery}"]\n${enrichedContent}`
     }
-    if (meta?.teamId && meta?.modelUsed && !meta?.isTeamSynthesis) {
+    if (meta?.teamId && meta?.modelUsed) {
       const safeModel = escapeXmlForPrompt(meta.modelUsed)
-      enrichedContent = `[Response from: ${safeModel}]\n${enrichedContent}`
-    }
-    if (meta?.isTeamSynthesis && meta?.modelUsed) {
-      const safeModel = escapeXmlForPrompt(meta.modelUsed)
-      enrichedContent = `[Synthesis by: ${safeModel}]\n${enrichedContent}`
+      const label = meta.isTeamSynthesis ? 'Synthesis by' : 'Response from'
+      enrichedContent = `[${label}: ${safeModel}]\n${enrichedContent}`
     }
 
     return { role: row.role, content: enrichedContent }

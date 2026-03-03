@@ -55,6 +55,11 @@ bun install
 ### 3. Start
 
 ```bash
+./start.sh and use the interactive shell to select options
+```
+
+```bash
+# If you prefer to specify options directly, use:
 ./start.sh dev:hybrid
 ```
 
@@ -150,6 +155,8 @@ graph LR
         srch["search"]
         upl["upload"]
         team["team"]
+        rc["runtime-config"]
+        uprefs["user-preferences"]
     end
 
     subgraph INFRA ["Infrastructure"]
@@ -167,13 +174,20 @@ graph LR
     tRPC --> srch
     tRPC --> upl
     tRPC --> team
+    tRPC --> rc
+    tRPC --> uprefs
     chat --> OR
     chat --> PG
+    chat --> TV
     conv --> PG
+    model --> OR
     srch --> TV
     upl --> GCS
+    upl --> PG
     team --> OR
     team --> PG
+    team --> TV
+    uprefs --> PG
 
     classDef client fill:#1a1a2e,stroke:#e94560,color:#e0e0e0
     classDef server fill:#16213e,stroke:#0f3460,color:#e0e0e0
@@ -182,7 +196,7 @@ graph LR
 
     class Browser client
     class MW,tRPC server
-    class chat,conv,model,srch,upl,team router
+    class chat,conv,model,srch,upl,team,rc,uprefs router
     class OR,PG,TV,GCS infra
 ```
 
@@ -252,12 +266,19 @@ src/
 │
 ├── server/
 │   ├── routers/
-│   │   ├── chat.ts              # 7-phase SSE streaming
+│   │   ├── chat.ts              # 7-phase SSE streaming with tool call loop
 │   │   ├── conversation.ts      # CRUD, pagination, pin, Markdown export
 │   │   ├── model.ts             # Live registry — OpenRouter with 1h cache
 │   │   ├── runtime-config.ts    # Runtime config read/invalidate procedures
 │   │   ├── search.ts            # Tavily web search
-│   │   └── upload.ts            # GCS presigned URL + confirmation
+│   │   ├── team.ts              # Multi-model comparison + synthesis streaming
+│   │   ├── upload.ts            # GCS presigned URL + confirmation
+│   │   └── user-preferences.ts  # Per-user UI settings (theme, defaults)
+│   ├── services/
+│   │   ├── history-builder.ts   # Enriched conversation history + attachment helpers
+│   │   ├── model-resolution-service.ts  # Hierarchical model selection + auto-router
+│   │   ├── search-enrichment-service.ts # Tavily search execution + result merging
+│   │   └── search-tool-service.ts       # Tool call parsing for web search
 │   └── trpc.ts                  # Context, auth middleware, rate limiting
 │
 ├── features/
@@ -473,34 +494,44 @@ CI runs on every push and PR. CD deploys to Cloud Run on every push to `main`.
 
 ```bash
 export PROJECT_ID=your-project-id
+export SA_EMAIL=your-sa@$PROJECT_ID.iam.gserviceaccount.com
 
-gcloud services enable run.googleapis.com artifactregistry.googleapis.com
+gcloud services enable run.googleapis.com artifactregistry.googleapis.com iamcredentials.googleapis.com
 
 gcloud artifacts repositories create farasa \
   --repository-format=docker --location=me-central1
 
-gcloud iam service-accounts create farasa-gh-actions
+# SA roles: storage.objectAdmin, run.admin, artifactregistry.writer, iam.serviceAccountUser
 gcloud projects add-iam-policy-binding $PROJECT_ID \
-  --member="serviceAccount:farasa-gh-actions@$PROJECT_ID.iam.gserviceaccount.com" \
-  --role="roles/run.admin"
+  --member="serviceAccount:$SA_EMAIL" --role="roles/run.admin"
 gcloud projects add-iam-policy-binding $PROJECT_ID \
-  --member="serviceAccount:farasa-gh-actions@$PROJECT_ID.iam.gserviceaccount.com" \
-  --role="roles/artifactregistry.writer"
+  --member="serviceAccount:$SA_EMAIL" --role="roles/artifactregistry.writer"
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:$SA_EMAIL" --role="roles/iam.serviceAccountUser"
 
-gcloud iam service-accounts keys create key.json \
-  --iam-account=farasa-gh-actions@$PROJECT_ID.iam.gserviceaccount.com
-# Copy key.json contents to GitHub secret GCP_SA_KEY, then:
-rm key.json
+# Workload Identity Federation (keyless auth for GitHub Actions)
+gcloud iam workload-identity-pools create github-actions \
+  --location=global --display-name="GitHub Actions Pool"
+gcloud iam workload-identity-pools providers create-oidc github-provider \
+  --location=global --workload-identity-pool=github-actions \
+  --issuer-uri="https://token.actions.githubusercontent.com" \
+  --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
+  --attribute-condition="assertion.repository == 'YOUR_ORG/YOUR_REPO'"
+gcloud iam service-accounts add-iam-policy-binding $SA_EMAIL \
+  --role="roles/iam.workloadIdentityUser" \
+  --member="principalSet://iam.googleapis.com/projects/YOUR_PROJECT_NUMBER/locations/global/workloadIdentityPools/github-actions/attribute.repository/YOUR_ORG/YOUR_REPO"
 ```
 
 ### GitHub configuration
 
-**Secrets**: `GCP_SA_KEY`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`,
+**Secrets**: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`,
 `OPENROUTER_API_KEY`, `DATABASE_URL`, `TAVILY_API_KEY`, `GCS_BUCKET_NAME`, `GCS_PROJECT_ID`
 
 **Variables**: `GCP_PROJECT_ID`, `GCP_REGION=me-central1`,
 `GCP_ARTIFACT_REGISTRY=me-central1-docker.pkg.dev`, `CLOUD_RUN_SERVICE_NAME=farasa`,
-`NEXT_PUBLIC_APP_URL=<your Cloud Run URL>`
+`NEXT_PUBLIC_APP_URL=<your Cloud Run URL>`,
+`GCP_WIF_PROVIDER=<WIF provider resource name>`,
+`GCP_SERVICE_ACCOUNT=<service account email>`
 
 ---
 

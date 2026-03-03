@@ -326,6 +326,7 @@ export const AI_REASONING = {
 
 export const EXTERNAL_URLS = {
   OPENROUTER_MODELS: 'https://openrouter.ai/api/v1/models',
+  OPENROUTER_CHAT_COMPLETIONS: 'https://openrouter.ai/api/v1/chat/completions',
   GCS_BASE: 'https://storage.googleapis.com',
 } as const
 

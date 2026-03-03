@@ -262,34 +262,29 @@ graceful_cleanup() {
     echo ""
     echo "Stopping services gracefully..."
 
-    local docker_was_running=false
+    if check_docker_running 2>/dev/null; then
+        local compose_file
+        for compose_file in "${COMPOSE_DEV_FILE}" "${COMPOSE_PROD_FILE}"; do
+            if [[ -f "$compose_file" ]]; then
+                echo "Stopping Docker containers ($compose_file)..."
+                docker compose -f "$compose_file" down --remove-orphans --timeout 10 2>/dev/null || true
+            fi
+        done
+    fi
 
-    local compose_file
-    for compose_file in "${COMPOSE_DEV_FILE}" "${COMPOSE_PROD_FILE}"; do
-        if [[ -f "$compose_file" ]]; then
-            docker_was_running=true
-            echo "Stopping Docker containers ($compose_file)..."
-            docker compose -f "$compose_file" down --remove-orphans --timeout 10 2>/dev/null || true
+    kill_tracked_pids
+
+    local remaining=0
+    local port
+    for port in "${FARASA_APP_PORTS[@]}"; do
+        if lsof -ti:"$port" > /dev/null 2>&1; then
+            ((remaining++)) || true
         fi
     done
 
-    if [[ "$docker_was_running" == "false" ]]; then
-        kill_tracked_pids
-
-        local remaining=0
-        local port
-        for port in "${FARASA_APP_PORTS[@]}"; do
-            if lsof -ti:"$port" > /dev/null 2>&1; then
-                ((remaining++)) || true
-            fi
-        done
-
-        if [[ $remaining -gt 0 ]]; then
-            kill_by_app_ports
-            kill_by_patterns
-        fi
-    else
-        echo "Skipped native cleanup (Docker mode was active)"
+    if [[ $remaining -gt 0 ]]; then
+        kill_by_app_ports
+        kill_by_patterns
     fi
 
     clear_process_tracking

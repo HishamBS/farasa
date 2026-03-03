@@ -1,8 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth/config'
 import { env } from '@/config/env'
-import { VOICE, APP_CONFIG } from '@/config/constants'
+import { VOICE, APP_CONFIG, EXTERNAL_URLS } from '@/config/constants'
 import { AppError } from '@/lib/utils/errors'
+import { escapeXmlForPrompt } from '@/lib/security/runtime-safety'
 
 export const dynamic = 'force-dynamic'
 
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch(EXTERNAL_URLS.OPENROUTER_CHAT_COMPLETIONS, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
@@ -104,7 +105,7 @@ export async function POST(req: NextRequest) {
         messages: [
           {
             role: 'user',
-            content: `Read the following text aloud exactly as written, without adding any commentary:\n\n${text}`,
+            content: `Read the following text aloud exactly as written, without adding any commentary:\n\n<message>${escapeXmlForPrompt(text)}</message>`,
           },
         ],
         modalities: ['text', 'audio'],

@@ -1,7 +1,11 @@
+import { CHAT_MODES, STREAM_EVENTS, STREAM_PHASES } from '@/config/constants'
 import { z } from 'zod'
-import { STREAM_EVENTS, STREAM_PHASES, CHAT_MODES } from '@/config/constants'
+import {
+  ModelCapabilitySchema,
+  ModelResponseFormatSchema,
+  ModelSelectionSourceSchema,
+} from './model'
 import { SearchImageSchema, SearchResultSchema } from './search'
-import { ModelCapabilitySchema, ModelSelectionSourceSchema } from './model'
 
 export const ChatModeSchema = z.enum([CHAT_MODES.CHAT, CHAT_MODES.GROUP])
 
@@ -54,6 +58,7 @@ export const StreamChunkSchema = z.discriminatedUnion('type', [
     reasoning: z.string(),
     source: ModelSelectionSourceSchema,
     category: ModelCapabilitySchema.optional(),
+    responseFormat: ModelResponseFormatSchema.optional(),
     confidence: z.number().min(0).max(1).optional(),
     factors: z
       .array(
@@ -130,6 +135,7 @@ export const MessageMetadataSchema = z.object({
   routerReasoning: z.string().optional(),
   routerSource: ModelSelectionSourceSchema.optional(),
   routerCategory: ModelCapabilitySchema.optional(),
+  routerResponseFormat: ModelResponseFormatSchema.optional(),
   routerConfidence: z.number().min(0).max(1).optional(),
   routerFactors: z
     .array(

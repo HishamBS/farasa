@@ -9,6 +9,7 @@ const CSP_DIRECTIVES = [
   "img-src 'self' data: blob: https://* https://openrouter.ai https://*.openrouter.ai https://storage.googleapis.com https://lh3.googleusercontent.com",
   "font-src 'self'",
   "connect-src 'self' https://openrouter.ai https://*.openrouter.ai https://api.tavily.com https://storage.googleapis.com",
+  "media-src 'self' blob:",
   "worker-src blob: 'self'",
   "frame-ancestors 'none'",
 ].join('; ')

@@ -1,6 +1,6 @@
-import { useReducer, useCallback } from 'react'
 import { CHAT_STREAM_STATUS, STREAM_ACTIONS, TOOL_NAMES } from '@/config/constants'
-import type { StreamState, StreamAction } from '@/types/stream'
+import type { StreamAction, StreamState } from '@/types/stream'
+import { useCallback, useReducer } from 'react'
 
 export const initialStreamState: StreamState = {
   phase: CHAT_STREAM_STATUS.IDLE,
@@ -22,19 +22,13 @@ export function streamStateReducer(state: StreamState, action: StreamAction): St
   switch (action.type) {
     case STREAM_ACTIONS.STATUS: {
       const now = Date.now()
-      const existing = state.statusMessages.findIndex((s) => s.phase === action.phase)
-      if (existing >= 0) {
-        const updated = [...state.statusMessages]
-        const current = updated[existing]
-        if (current) {
-          updated[existing] = { ...current, completedAt: now }
-        }
-        return { ...state, statusMessages: updated }
-      }
+      const markedComplete = state.statusMessages.map((statusMessage) =>
+        statusMessage.completedAt ? statusMessage : { ...statusMessage, completedAt: now },
+      )
       return {
         ...state,
         phase: CHAT_STREAM_STATUS.ACTIVE,
-        statusMessages: [...state.statusMessages, { phase: action.phase, message: action.message }],
+        statusMessages: [...markedComplete, { phase: action.phase, message: action.message }],
       }
     }
 
@@ -50,6 +44,7 @@ export function streamStateReducer(state: StreamState, action: StreamAction): St
           reasoning: action.reasoning,
           source: action.source,
           category: action.category,
+          responseFormat: action.responseFormat,
           confidence: action.confidence,
           factors: action.factors,
         },
@@ -107,26 +102,32 @@ export function streamStateReducer(state: StreamState, action: StreamAction): St
     }
 
     case STREAM_ACTIONS.ERROR: {
+      const now = Date.now()
       return {
         ...state,
         phase: CHAT_STREAM_STATUS.ERROR,
         error: action.error,
-        pendingUserMessage: null,
-        pendingClientRequestId: null,
+        statusMessages: state.statusMessages.map((statusMessage) =>
+          statusMessage.completedAt ? statusMessage : { ...statusMessage, completedAt: now },
+        ),
         thinking:
           state.thinking && !state.thinking.completedAt
-            ? { ...state.thinking, completedAt: Date.now() }
+            ? { ...state.thinking, completedAt: now }
             : state.thinking,
       }
     }
 
     case STREAM_ACTIONS.DONE: {
+      const now = Date.now()
       return {
         ...state,
         phase: CHAT_STREAM_STATUS.COMPLETE,
+        statusMessages: state.statusMessages.map((statusMessage) =>
+          statusMessage.completedAt ? statusMessage : { ...statusMessage, completedAt: now },
+        ),
         thinking:
           state.thinking && !state.thinking.completedAt
-            ? { ...state.thinking, completedAt: Date.now() }
+            ? { ...state.thinking, completedAt: now }
             : state.thinking,
         pendingUserMessage: null,
         pendingClientRequestId: null,

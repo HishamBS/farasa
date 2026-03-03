@@ -1,7 +1,7 @@
-import type { v0_8 } from '@a2ui-sdk/types'
 import type { CHAT_STREAM_STATUS, STREAM_ACTIONS, TITLEBAR_PHASE } from '@/config/constants'
-import type { StreamPhase, ChatInput } from '@/schemas'
-import type { ModelCapability, ModelSelectionSource } from '@/schemas/model'
+import type { ChatInput, StreamPhase } from '@/schemas'
+import type { ModelCapability, ModelResponseFormat, ModelSelectionSource } from '@/schemas/model'
+import type { v0_8 } from '@a2ui-sdk/types'
 
 export type ChatStreamStatus = (typeof CHAT_STREAM_STATUS)[keyof typeof CHAT_STREAM_STATUS]
 
@@ -22,6 +22,7 @@ export type ModelSelectionState = {
   reasoning: string
   source: ModelSelectionSource
   category?: ModelCapability
+  responseFormat?: ModelResponseFormat
   confidence?: number
   factors?: Array<{
     key: string
@@ -67,6 +68,7 @@ export type StreamAction =
       reasoning: string
       source: ModelSelectionSource
       category?: ModelCapability
+      responseFormat?: ModelResponseFormat
       confidence?: number
       factors?: Array<{
         key: string

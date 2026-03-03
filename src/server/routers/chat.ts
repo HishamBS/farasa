@@ -3,12 +3,14 @@ import {
   LIMITS,
   MESSAGE_ROLES,
   NEW_CHAT_TITLE,
+  RESPONSE_FORMATS,
   STREAM_EVENTS,
   STREAM_PHASES,
   TRPC_CODES,
 } from '@/config/constants'
+import { PROMPTS } from '@/config/prompts'
 import { attachments, conversations, messages } from '@/lib/db/schema'
-import { escapeXmlForPrompt, sanitizeA2UIJsonLine } from '@/lib/security/runtime-safety'
+import { escapeXmlForPrompt } from '@/lib/security/runtime-safety'
 import { AppError, getErrorMessage } from '@/lib/utils/errors'
 import type { StreamChunk, ToolCall, Usage } from '@/schemas/message'
 import {
@@ -17,9 +19,10 @@ import {
   MessageMetadataSchema,
   UsageSchema,
 } from '@/schemas/message'
-import type { ModelCapability, ModelSelectionSource } from '@/schemas/model'
+import type { ModelCapability, ModelResponseFormat, ModelSelectionSource } from '@/schemas/model'
 import type { RuntimeConfig } from '@/schemas/runtime-config'
 import type { SearchImage, SearchResult } from '@/schemas/search'
+import { parseA2UIFencePayloadToJsonLines } from '@/server/services/a2ui-message-service'
 import { resolveModelDecision } from '@/server/services/model-resolution-service'
 import { executeSearchEnrichment } from '@/server/services/search-enrichment-service'
 import type { ChatMessageContentItem, ChatMessageToolCall, Message } from '@openrouter/sdk/models'
@@ -363,6 +366,7 @@ export const chatRouter = router({
       let routerReasoning: string | undefined
       let routerSource: ModelSelectionSource | undefined
       let routerCategory: ModelCapability | undefined
+      let routerResponseFormat: ModelResponseFormat | undefined
       let routerConfidence: number | undefined
       let routerFactors:
         | Array<{
@@ -404,6 +408,7 @@ export const chatRouter = router({
       routerReasoning = resolvedDecision.reasoning
       routerSource = resolvedDecision.source
       routerCategory = resolvedDecision.category
+      routerResponseFormat = resolvedDecision.responseFormat
       routerConfidence = resolvedDecision.confidence
       routerFactors = resolvedDecision.factors
 
@@ -413,6 +418,7 @@ export const chatRouter = router({
         reasoning: resolvedDecision.reasoning,
         source: resolvedDecision.source,
         category: resolvedDecision.category,
+        responseFormat: resolvedDecision.responseFormat,
         confidence: resolvedDecision.confidence,
         factors: resolvedDecision.factors,
       })
@@ -527,15 +533,15 @@ export const chatRouter = router({
         searchContext = enrichment.context
       }
 
-      yield emit({
-        type: STREAM_EVENTS.STATUS,
-        phase: STREAM_PHASES.THINKING,
-        message: runtimeConfig.chat.statusMessages.thinking,
-      })
-
-      const systemSections = [runtimeConfig.prompts.chatSystem]
+      const systemSections = [PROMPTS.CHAT_SYSTEM_PROMPT, runtimeConfig.prompts.chatSystem]
       if (runtimeConfig.features.a2uiEnabled) {
+        systemSections.push(PROMPTS.A2UI_SYSTEM_PROMPT)
         systemSections.push(runtimeConfig.prompts.a2uiSystem)
+        if (routerResponseFormat === RESPONSE_FORMATS.A2UI) {
+          systemSections.push(
+            `Response format policy: For this request, provide a concise explanation followed by valid A2UI JSONL inside an \`${RESPONSE_FORMATS.A2UI}\` fenced block.`,
+          )
+        }
       }
       if (searchContext) {
         systemSections.push(searchContext)
@@ -576,6 +582,24 @@ export const chatRouter = router({
       let a2uiBuffer = ''
       let usage: Usage | undefined
       let streamSequenceMax = 0
+      let thinkingStatusEmitted = false
+
+      const emitA2UIFromPayload = (payload: string): StreamChunk[] => {
+        const parsedLines = parseA2UIFencePayloadToJsonLines(payload, runtimeConfig.safety.a2ui)
+        const events: StreamChunk[] = []
+        for (const line of parsedLines) {
+          a2uiLines.push(line)
+          const a2uiEvent = emit({
+            type: STREAM_EVENTS.A2UI,
+            jsonl: line,
+          })
+          if (typeof a2uiEvent.sequence === 'number') {
+            streamSequenceMax = Math.max(streamSequenceMax, a2uiEvent.sequence)
+          }
+          events.push(a2uiEvent)
+        }
+        return events
+      }
 
       let toolRoundCount = 0
       while (true) {
@@ -629,6 +653,18 @@ export const chatRouter = router({
           }
 
           if (delta.reasoning) {
+            if (!thinkingStatusEmitted) {
+              const thinkingStatusEvent = emit({
+                type: STREAM_EVENTS.STATUS,
+                phase: STREAM_PHASES.THINKING,
+                message: runtimeConfig.chat.statusMessages.thinking,
+              })
+              if (typeof thinkingStatusEvent.sequence === 'number') {
+                streamSequenceMax = Math.max(streamSequenceMax, thinkingStatusEvent.sequence)
+              }
+              yield thinkingStatusEvent
+              thinkingStatusEmitted = true
+            }
             if (!thinkingStartedAt) thinkingStartedAt = Date.now()
             thinkingContent += delta.reasoning
             const thinkingEvent = emit({
@@ -645,77 +681,79 @@ export const chatRouter = router({
 
           if (!delta.content) continue
 
-          const text = delta.content
-          if (text.includes(AI_MARKUP.A2UI_FENCE_START)) {
-            inA2UI = true
-            a2uiBuffer = ''
-            const generatingUiEvent = emit({
-              type: STREAM_EVENTS.STATUS,
-              phase: STREAM_PHASES.GENERATING_UI,
-              message: runtimeConfig.chat.statusMessages.generatingUi,
-            })
-            if (typeof generatingUiEvent.sequence === 'number') {
-              streamSequenceMax = Math.max(streamSequenceMax, generatingUiEvent.sequence)
-            }
-            yield generatingUiEvent
-            continue
-          }
-
-          if (inA2UI && text.includes(AI_MARKUP.CODE_FENCE_END)) {
-            if (a2uiBuffer.trim()) {
-              const sanitizedLine = sanitizeA2UIJsonLine(
-                a2uiBuffer.trim(),
-                runtimeConfig.safety.a2ui,
-              )
-              if (sanitizedLine) {
-                a2uiLines.push(sanitizedLine)
-                const a2uiEvent = emit({
-                  type: STREAM_EVENTS.A2UI,
-                  jsonl: sanitizedLine,
+          let remaining = delta.content
+          while (remaining.length > 0) {
+            if (!inA2UI) {
+              const fenceStartIndex = remaining.indexOf(AI_MARKUP.A2UI_FENCE_START)
+              if (fenceStartIndex < 0) {
+                roundAssistantText += remaining
+                fullText += remaining
+                const textEvent = emit({
+                  type: STREAM_EVENTS.TEXT,
+                  content: remaining,
                 })
-                if (typeof a2uiEvent.sequence === 'number') {
-                  streamSequenceMax = Math.max(streamSequenceMax, a2uiEvent.sequence)
+                if (typeof textEvent.sequence === 'number') {
+                  streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
                 }
-                yield a2uiEvent
+                yield textEvent
+                remaining = ''
+                continue
               }
-            }
-            inA2UI = false
-            a2uiBuffer = ''
-            continue
-          }
 
-          if (inA2UI) {
-            a2uiBuffer += text
-            const lines = a2uiBuffer.split('\n')
-            a2uiBuffer = lines.pop() ?? ''
-            for (const line of lines) {
-              const trimmed = line.trim()
-              if (!trimmed) continue
-              const sanitizedLine = sanitizeA2UIJsonLine(trimmed, runtimeConfig.safety.a2ui)
-              if (!sanitizedLine) continue
-              a2uiLines.push(sanitizedLine)
-              const a2uiEvent = emit({
-                type: STREAM_EVENTS.A2UI,
-                jsonl: sanitizedLine,
-              })
-              if (typeof a2uiEvent.sequence === 'number') {
-                streamSequenceMax = Math.max(streamSequenceMax, a2uiEvent.sequence)
+              const visiblePrefix = remaining.slice(0, fenceStartIndex)
+              if (visiblePrefix.length > 0) {
+                roundAssistantText += visiblePrefix
+                fullText += visiblePrefix
+                const textEvent = emit({
+                  type: STREAM_EVENTS.TEXT,
+                  content: visiblePrefix,
+                })
+                if (typeof textEvent.sequence === 'number') {
+                  streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
+                }
+                yield textEvent
               }
+
+              remaining = remaining.slice(fenceStartIndex + AI_MARKUP.A2UI_FENCE_START.length)
+              inA2UI = true
+              a2uiBuffer = ''
+              const generatingUiEvent = emit({
+                type: STREAM_EVENTS.STATUS,
+                phase: STREAM_PHASES.GENERATING_UI,
+                message: runtimeConfig.chat.statusMessages.generatingUi,
+              })
+              if (typeof generatingUiEvent.sequence === 'number') {
+                streamSequenceMax = Math.max(streamSequenceMax, generatingUiEvent.sequence)
+              }
+              yield generatingUiEvent
+              continue
+            }
+
+            const fenceEndIndex = remaining.indexOf(AI_MARKUP.CODE_FENCE_END)
+            if (fenceEndIndex < 0) {
+              a2uiBuffer += remaining
+              remaining = ''
+              continue
+            }
+
+            a2uiBuffer += remaining.slice(0, fenceEndIndex)
+            const a2uiEvents = emitA2UIFromPayload(a2uiBuffer)
+            for (const a2uiEvent of a2uiEvents) {
               yield a2uiEvent
             }
-            continue
+            a2uiBuffer = ''
+            inA2UI = false
+            remaining = remaining.slice(fenceEndIndex + AI_MARKUP.CODE_FENCE_END.length)
           }
+        }
 
-          roundAssistantText += text
-          fullText += text
-          const textEvent = emit({
-            type: STREAM_EVENTS.TEXT,
-            content: text,
-          })
-          if (typeof textEvent.sequence === 'number') {
-            streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
+        if (inA2UI && a2uiBuffer.trim().length > 0) {
+          const a2uiEvents = emitA2UIFromPayload(a2uiBuffer)
+          for (const a2uiEvent of a2uiEvents) {
+            yield a2uiEvent
           }
-          yield textEvent
+          inA2UI = false
+          a2uiBuffer = ''
         }
 
         if (toolCallDeltas.size === 0) {
@@ -804,11 +842,6 @@ export const chatRouter = router({
         }
 
         toolRoundCount += 1
-        yield emit({
-          type: STREAM_EVENTS.STATUS,
-          phase: STREAM_PHASES.THINKING,
-          message: runtimeConfig.chat.statusMessages.thinking,
-        })
       }
 
       if (thinkingContent) {
@@ -847,6 +880,7 @@ export const chatRouter = router({
         routerReasoning,
         routerSource,
         routerCategory,
+        routerResponseFormat,
         routerConfidence,
         routerFactors,
         requiresSearch: webSearchEnabled,

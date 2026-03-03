@@ -12,7 +12,7 @@ export const LIMITS = {
   STREAM_TIMEOUT_MS: 60_000,
   ROUTER_TIMEOUT_MS: 15_000,
   SEARCH_MAX_RESULTS: 10,
-  SEARCH_MAX_TOOL_CALL_ROUNDS: 4,
+  SEARCH_MAX_TOOL_CALL_ROUNDS: 12,
   CODE_BLOCK_LINE_NUMBER_THRESHOLD: 5,
   TOKENS_PER_K: 1_000,
   CONVERSATION_HISTORY_LIMIT: 20,
@@ -44,6 +44,11 @@ export const MODEL_CATEGORIES = {
   VISION: 'vision',
   GENERAL: 'general',
   FAST: 'fast',
+} as const
+
+export const RESPONSE_FORMATS = {
+  MARKDOWN: 'markdown',
+  A2UI: 'a2ui',
 } as const
 
 export const MODEL_IDS = {
@@ -323,8 +328,6 @@ export const AI_REASONING = {
   MODEL_CONVERSATION_DEFAULT: 'Using the model configured for this conversation.',
   MODEL_USER_DEFAULT: 'Using your default model preference.',
   MODEL_AUTO_ROUTER: 'Model selected by the auto router.',
-  MODEL_AUTO_ROUTER_FALLBACK:
-    'Primary router decision failed; selected the best available compatible model.',
 } as const
 
 export const EXTERNAL_URLS = {
@@ -424,13 +427,13 @@ export const UI_TEXT = {
   MORE_OPTIONS_ARIA: 'More options',
   SET_DEFAULT_MODEL: 'Set default',
   DEFAULT_MODEL_SET: 'Default',
-  GROUP_MODEL_HINT: 'Select 2–5 models to compare',
-  GROUP_MODEL_PICKER_OPEN_ARIA: 'Select group models',
-  GROUP_MODEL_PICKER_TITLE: 'Select comparison models',
+  GROUP_MODEL_HINT: 'Select 2–5 models to compare as a team',
+  GROUP_MODEL_PICKER_OPEN_ARIA: 'Select team models',
+  GROUP_MODEL_PICKER_TITLE: 'Select team comparison models',
   GROUP_MODEL_PICKER_DONE: 'Done',
   GROUP_MODEL_SEARCH_PLACEHOLDER: 'Search models...',
   GROUP_MODEL_REMOVE_ARIA_PREFIX: 'Remove',
-  GROUP_JUDGE_SELECT_ARIA_PREFIX: 'Select judge',
+  GROUP_JUDGE_SELECT_ARIA_PREFIX: 'Select synthesizer',
   WEB_SEARCH_ENABLE: 'Enable web search',
   WEB_SEARCH_DISABLE: 'Disable web search',
   WEB_SEARCH_ACTIVE: 'Web search on',
@@ -461,7 +464,7 @@ export const GROUP_EVENTS = {
 
 export const GROUP_STATUS_MESSAGES = {
   SYNTHESIZING: 'Synthesizing responses...',
-  STARTING: 'Starting group comparison...',
+  STARTING: 'Starting team comparison...',
 } as const
 
 export const GROUP_TAB_VALUES = {

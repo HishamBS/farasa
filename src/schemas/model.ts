@@ -1,6 +1,6 @@
-import { z } from 'zod'
-import { MODEL_CATEGORIES, PROVIDERS, PROVIDER_ALIASES } from '@/config/constants'
+import { MODEL_CATEGORIES, PROVIDERS, PROVIDER_ALIASES, RESPONSE_FORMATS } from '@/config/constants'
 import { extractProviderKey } from '@/lib/utils/model'
+import { z } from 'zod'
 
 export const ModelCapabilitySchema = z.enum([
   MODEL_CATEGORIES.CODE,
@@ -45,6 +45,9 @@ export const ModelSelectionSchema = z.object({
   category: ModelCapabilitySchema,
   reasoning: z.string(),
   selectedModel: z.string(),
+  responseFormat: z
+    .enum([RESPONSE_FORMATS.MARKDOWN, RESPONSE_FORMATS.A2UI])
+    .default(RESPONSE_FORMATS.MARKDOWN),
   confidence: z.number().min(0).max(1),
   factors: z
     .array(
@@ -64,6 +67,8 @@ export const ModelSelectionSourceSchema = z.enum([
   'auto_router',
 ])
 
+export const ModelResponseFormatSchema = z.enum([RESPONSE_FORMATS.MARKDOWN, RESPONSE_FORMATS.A2UI])
+
 export const ModelByIdSchema = z.object({
   id: z.string(),
 })
@@ -78,5 +83,6 @@ export type ModelPricing = z.infer<typeof ModelPricingSchema>
 export type ModelConfig = z.infer<typeof ModelConfigSchema>
 export type ModelSelection = z.infer<typeof ModelSelectionSchema>
 export type ModelSelectionSource = z.infer<typeof ModelSelectionSourceSchema>
+export type ModelResponseFormat = z.infer<typeof ModelResponseFormatSchema>
 export type ModelById = z.infer<typeof ModelByIdSchema>
 export type RefreshModels = z.infer<typeof RefreshModelsSchema>

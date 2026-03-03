@@ -26,11 +26,14 @@ type ActiveStreamSession = {
 }
 
 function isA2UIMessage(value: unknown): value is v0_8.A2UIMessage {
-  if (value === null || typeof value !== 'object') return false
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
   const obj = value as Record<string, unknown>
-  if (typeof obj['type'] !== 'string') return false
-  if (!('id' in obj) || typeof obj['id'] !== 'string') return false
-  return true
+  return (
+    'beginRendering' in obj ||
+    'surfaceUpdate' in obj ||
+    'dataModelUpdate' in obj ||
+    'deleteSurface' in obj
+  )
 }
 
 export function useChatStream(conversationId?: string) {
@@ -148,6 +151,7 @@ export function useChatStream(conversationId?: string) {
                 )
                 break
               case STREAM_EVENTS.USER_MESSAGE_SAVED: {
+                dispatch({ type: STREAM_ACTIONS.CLEAR_PENDING_USER_MESSAGE })
                 const convId = resolvedConversationIdRef.current
                 if (convId) {
                   const userMessage: MessageWithAttachments = {
@@ -201,6 +205,7 @@ export function useChatStream(conversationId?: string) {
                   reasoning: chunk.reasoning,
                   source: chunk.source,
                   category: chunk.category,
+                  responseFormat: chunk.responseFormat,
                   confidence: chunk.confidence,
                   factors: chunk.factors,
                 })

@@ -1,9 +1,9 @@
-import { AI_REASONING, MODEL_CATEGORIES, TRPC_CODES } from '@/config/constants'
+import { AI_REASONING, RESPONSE_FORMATS, TRPC_CODES } from '@/config/constants'
 import type { db } from '@/lib/db/client'
 import { conversations, userPreferences } from '@/lib/db/schema'
 import { AppError } from '@/lib/utils/errors'
 import type { ChatMode } from '@/schemas/message'
-import type { ModelConfig, ModelSelectionSource } from '@/schemas/model'
+import type { ModelConfig, ModelResponseFormat, ModelSelectionSource } from '@/schemas/model'
 import type { RuntimeConfig } from '@/schemas/runtime-config'
 import { TRPCError } from '@trpc/server'
 import { and, eq } from 'drizzle-orm'
@@ -21,6 +21,7 @@ type ResolvedModelDecision = {
   category?: ModelConfig['capabilities'][number]
   confidence?: number
   factors: RouterFactor[]
+  responseFormat: ModelResponseFormat
   requiresSearch: boolean
   requestedMode: ChatMode
 }
@@ -38,19 +39,7 @@ type ResolveModelDecisionInput = {
   signal: AbortSignal
 }
 
-const ROUTER_FALLBACK_FACTOR_VALUE_MAX_LENGTH = 120
-const ROUTER_FALLBACK_COMPLEX_PROMPT_MIN_CHARS = 220
-const ROUTER_COMPLEXITY_HINTS = [
-  'analyze',
-  'architecture',
-  'compare',
-  'debug',
-  'design',
-  'evaluate',
-  'explain',
-  'optimize',
-  'strategy',
-] as const
+const ROUTER_MAX_ATTEMPTS = 2
 
 function findModelById(registry: ReadonlyArray<ModelConfig>, modelId: string): ModelConfig {
   const model = registry.find((entry) => entry.id === modelId)
@@ -113,6 +102,7 @@ function buildFactors(params: {
   selectedModel: string
   requestedMode: ChatMode
   requiresSearch: boolean
+  responseFormat: ModelResponseFormat
 }): RouterFactor[] {
   return [
     {
@@ -135,55 +125,12 @@ function buildFactors(params: {
       label: 'Selected Model',
       value: params.selectedModel,
     },
+    {
+      key: 'response_format',
+      label: 'Response Format',
+      value: params.responseFormat,
+    },
   ]
-}
-
-function truncateFactorValue(value: string): string {
-  if (value.length <= ROUTER_FALLBACK_FACTOR_VALUE_MAX_LENGTH) return value
-  return `${value.slice(0, ROUTER_FALLBACK_FACTOR_VALUE_MAX_LENGTH - 1)}…`
-}
-
-function isComplexPrompt(prompt: string): boolean {
-  const normalized = prompt.trim().toLowerCase()
-  if (normalized.length >= ROUTER_FALLBACK_COMPLEX_PROMPT_MIN_CHARS) return true
-  return ROUTER_COMPLEXITY_HINTS.some((hint) => normalized.includes(hint))
-}
-
-function selectAutoRouterFallbackModel(input: ResolveModelDecisionInput): ModelConfig {
-  const requiresSearch = input.requestedWebSearchEnabled
-  const complexPrompt = isComplexPrompt(input.prompt)
-
-  const compatible = input.registry.filter((model) => (requiresSearch ? model.supportsTools : true))
-  if (compatible.length === 0) {
-    throw new TRPCError({
-      code: TRPC_CODES.BAD_REQUEST,
-      message: AppError.ROUTER_FAILED,
-    })
-  }
-
-  const sorted = [...compatible].sort((a, b) => {
-    if (complexPrompt && a.supportsThinking !== b.supportsThinking) {
-      return a.supportsThinking ? -1 : 1
-    }
-    if (!complexPrompt) {
-      const aFast = a.capabilities.includes(MODEL_CATEGORIES.FAST)
-      const bFast = b.capabilities.includes(MODEL_CATEGORIES.FAST)
-      if (aFast !== bFast) return aFast ? -1 : 1
-    }
-
-    if (a.contextWindow !== b.contextWindow) return b.contextWindow - a.contextWindow
-    if (a.supportsTools !== b.supportsTools) return a.supportsTools ? -1 : 1
-    return a.id.localeCompare(b.id)
-  })
-
-  const selected = sorted[0]
-  if (!selected) {
-    throw new TRPCError({
-      code: TRPC_CODES.BAD_REQUEST,
-      message: AppError.ROUTER_FAILED,
-    })
-  }
-  return selected
 }
 
 export async function resolveModelDecision(
@@ -208,7 +155,9 @@ export async function resolveModelDecision(
         selectedModel: model.id,
         requestedMode: input.requestedMode,
         requiresSearch: input.requestedWebSearchEnabled,
+        responseFormat: RESPONSE_FORMATS.MARKDOWN,
       }),
+      responseFormat: RESPONSE_FORMATS.MARKDOWN,
       requiresSearch: input.requestedWebSearchEnabled,
       requestedMode: input.requestedMode,
       confidence: 1,
@@ -217,59 +166,55 @@ export async function resolveModelDecision(
 
   const requiresSearch = input.requestedWebSearchEnabled
 
-  try {
-    const { routeModel } = await import('@/lib/ai/router')
-    const selection = await routeModel(
-      input.prompt,
-      input.registry,
-      input.runtimeConfig,
-      requiresSearch,
-      input.signal,
-    )
+  const { routeModel } = await import('@/lib/ai/router')
+  const attemptErrors: string[] = []
 
-    const selectedModel = findModelById(input.registry, selection.selectedModel)
-    ensureSearchCompatible(selectedModel, requiresSearch)
+  for (let attempt = 1; attempt <= ROUTER_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const selection = await routeModel(
+        input.prompt,
+        input.registry,
+        input.runtimeConfig,
+        requiresSearch,
+        input.signal,
+      )
 
-    return {
-      selectedModel: selectedModel.id,
-      source: 'auto_router',
-      reasoning: selection.reasoning || AI_REASONING.MODEL_AUTO_ROUTER,
-      category: selection.category,
-      confidence: selection.confidence,
-      factors: selection.factors,
-      requiresSearch,
-      requestedMode: input.requestedMode,
-    }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    console.error('[router] auto router failed, using deterministic fallback:', errorMessage)
-    const fallbackModel = selectAutoRouterFallbackModel(input)
+      const selectedModel = findModelById(input.registry, selection.selectedModel)
+      ensureSearchCompatible(selectedModel, requiresSearch)
+      const baseFactors = buildFactors({
+        source: 'auto_router',
+        selectedModel: selectedModel.id,
+        requestedMode: input.requestedMode,
+        requiresSearch,
+        responseFormat: selection.responseFormat,
+      })
+      const knownFactorKeys = new Set(baseFactors.map((factor) => factor.key))
+      const mergedFactors = [
+        ...baseFactors,
+        ...selection.factors.filter((factor) => !knownFactorKeys.has(factor.key)),
+      ]
 
-    return {
-      selectedModel: fallbackModel.id,
-      source: 'auto_router',
-      reasoning: AI_REASONING.MODEL_AUTO_ROUTER_FALLBACK,
-      confidence: 0.6,
-      factors: [
-        ...buildFactors({
-          source: 'auto_router',
-          selectedModel: fallbackModel.id,
-          requestedMode: input.requestedMode,
-          requiresSearch,
-        }),
-        {
-          key: 'router_path',
-          label: 'Router Path',
-          value: 'deterministic_fallback',
-        },
-        {
-          key: 'fallback_trigger',
-          label: 'Fallback Trigger',
-          value: truncateFactorValue(errorMessage),
-        },
-      ],
-      requiresSearch,
-      requestedMode: input.requestedMode,
+      return {
+        selectedModel: selectedModel.id,
+        source: 'auto_router',
+        reasoning: selection.reasoning || AI_REASONING.MODEL_AUTO_ROUTER,
+        category: selection.category,
+        confidence: selection.confidence,
+        factors: mergedFactors,
+        responseFormat: selection.responseFormat,
+        requiresSearch,
+        requestedMode: input.requestedMode,
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      attemptErrors.push(`attempt_${attempt}:${message}`)
+      console.error(`[router] auto router failed on attempt ${attempt}:`, message)
     }
   }
+
+  console.error('[router] auto router exhausted retries:', attemptErrors.join(' | '))
+  throw new TRPCError({
+    code: TRPC_CODES.BAD_REQUEST,
+    message: AppError.ROUTER_FAILED,
+  })
 }

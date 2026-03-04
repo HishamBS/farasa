@@ -63,7 +63,8 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Audit dependencies
-        run: bun audit --audit-level=high
+        # Ignore hono advisories: transitive dev dep of shadcn CLI, never reaches production
+        run: bun audit --audit-level=high --ignore=GHSA-q5qw-h33p-qvwr --ignore=GHSA-wc8c-qw6v-h7f6
 
   build:
     name: Build & Bundle Analysis

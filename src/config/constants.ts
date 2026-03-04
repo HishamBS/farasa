@@ -404,8 +404,6 @@ export const AI_REASONING = {
   MODEL_CONVERSATION_DEFAULT: 'Using the model configured for this conversation.',
   MODEL_USER_DEFAULT: 'Using your default model preference.',
   MODEL_AUTO_ROUTER: 'Model selected by the auto router.',
-  MODEL_AUTO_ROUTER_FALLBACK:
-    'Auto-router unavailable; using a compatible fallback model to keep your request moving.',
 } as const
 
 export const EXTERNAL_URLS = {

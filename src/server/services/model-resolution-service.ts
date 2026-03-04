@@ -273,8 +273,41 @@ export async function resolveModelDecision(
   }
 
   console.error('[router] auto router exhausted retries:', attemptErrors.join(' | '))
-  throw new TRPCError({
-    code: TRPC_CODES.BAD_REQUEST,
-    message: AppError.ROUTER_FAILED,
-  })
+
+  const fallbackModel = requiresSearch
+    ? input.registry.find((m) => m.supportsTools)
+    : input.registry[0]
+
+  if (!fallbackModel) {
+    throw new TRPCError({
+      code: TRPC_CODES.BAD_REQUEST,
+      message: AppError.ROUTER_FAILED,
+    })
+  }
+
+  console.warn('[router] falling back to model:', fallbackModel.id)
+  const responseFormat = await resolveResponseFormat(input, RESPONSE_FORMATS.MARKDOWN)
+  return {
+    selectedModel: fallbackModel.id,
+    source: 'auto_router',
+    reasoning: AI_REASONING.MODEL_AUTO_ROUTER_FALLBACK,
+    confidence: 0,
+    factors: [
+      ...buildFactors({
+        source: 'auto_router',
+        selectedModel: fallbackModel.id,
+        requestedMode: input.requestedMode,
+        requiresSearch,
+        responseFormat,
+      }),
+      {
+        key: 'router_fallback',
+        label: 'Router Fallback',
+        value: `exhausted_${ROUTER_MAX_ATTEMPTS}_attempts`,
+      },
+    ],
+    responseFormat,
+    requiresSearch,
+    requestedMode: input.requestedMode,
+  }
 }

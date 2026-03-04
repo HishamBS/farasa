@@ -26,5 +26,5 @@ export async function verifyAccessCode(
     maxAge: GATE_COOKIE_MAX_AGE,
   })
 
-  redirect(ROUTES.HOME)
+  redirect(ROUTES.LOGIN)
 }

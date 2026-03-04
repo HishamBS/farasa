@@ -5,8 +5,10 @@ import {
   MESSAGE_ROLES,
   NEW_CHAT_TITLE,
   RESPONSE_FORMATS,
+  MODEL_SELECTION_SOURCES,
   STREAM_EVENTS,
   STREAM_PHASES,
+  STREAM_REASON_CODES,
   TRPC_CODES,
 } from '@/config/constants'
 import { PROMPTS } from '@/config/prompts'
@@ -91,7 +93,7 @@ function beginStreamSession(params: {
   }
 
   if (existing) {
-    existing.abortController.abort('superseded_by_new_stream')
+    existing.abortController.abort(STREAM_REASON_CODES.SUPERSEDED)
     endStreamSession(existing)
   }
 
@@ -132,7 +134,7 @@ function classifyTerminalError(
       return {
         message: runtimeConfig.chat.errors.unauthorized,
         code: error.code,
-        reasonCode: 'authorization_expired',
+        reasonCode: STREAM_REASON_CODES.AUTHORIZATION_EXPIRED,
         recoverable: false,
       }
     }
@@ -153,19 +155,19 @@ function classifyTerminalError(
                 : runtimeConfig.chat.errors.processing,
         code: error.code,
         reasonCode: routerFailed
-          ? 'router_failed'
+          ? STREAM_REASON_CODES.ROUTER_FAILED
           : a2uiContractFailed
-            ? 'a2ui_contract_violation'
+            ? STREAM_REASON_CODES.A2UI_CONTRACT_VIOLATION
             : imageGenIncompatible
-              ? 'image_gen_incompatible'
-              : 'validation_rejected',
+              ? STREAM_REASON_CODES.IMAGE_GEN_INCOMPATIBLE
+              : STREAM_REASON_CODES.VALIDATION_REJECTED,
         recoverable: routerFailed || a2uiContractFailed || imageGenIncompatible,
       }
     }
     return {
       message: runtimeConfig.chat.errors.processing,
       code: error.code,
-      reasonCode: 'provider_unavailable',
+      reasonCode: STREAM_REASON_CODES.PROVIDER_UNAVAILABLE,
       recoverable: true,
     }
   }
@@ -176,7 +178,7 @@ function classifyTerminalError(
       return {
         message: runtimeConfig.chat.errors.connection,
         code: error.name,
-        reasonCode: 'transient_network',
+        reasonCode: STREAM_REASON_CODES.TRANSIENT_NETWORK,
         recoverable: true,
       }
     }
@@ -184,7 +186,7 @@ function classifyTerminalError(
 
   return {
     message: runtimeConfig.chat.errors.providerUnavailable,
-    reasonCode: 'provider_unavailable',
+    reasonCode: STREAM_REASON_CODES.PROVIDER_UNAVAILABLE,
     recoverable: true,
   }
 }
@@ -443,7 +445,8 @@ export const chatRouter = router({
       await ctx.db
         .update(conversations)
         .set({
-          model: resolvedDecision.source === 'auto_router' ? null : selectedModel,
+          model:
+            resolvedDecision.source === MODEL_SELECTION_SOURCES.AUTO_ROUTER ? null : selectedModel,
           mode: conversationMode,
           webSearchEnabled: input.webSearchEnabled,
           updatedAt: new Date(),

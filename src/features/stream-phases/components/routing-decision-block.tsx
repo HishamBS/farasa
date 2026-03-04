@@ -7,6 +7,8 @@ import {
   PROVIDER_ALIASES,
   PROVIDER_DISPLAY_NAMES,
   PROVIDER_DOT_CLASSES,
+  ROUTING_PHASE_FALLBACKS,
+  ROUTING_PHASE_LABELS,
   STREAM_PHASES,
   STREAM_PROGRESS,
 } from '@/config/constants'
@@ -40,6 +42,8 @@ type RoutingDecisionBlockProps = {
   defaultExpanded?: boolean
   compact?: boolean
   autoCollapse?: boolean
+  isExpanded?: boolean
+  onToggle?: () => void
   className?: string
 }
 
@@ -57,12 +61,6 @@ const CATEGORY_ICON_COMPONENTS: Record<string, LucideIcon> = {
 }
 
 const STEP_COUNT = 3
-
-const STEP_REVEAL = {
-  initial: { opacity: 0, y: 6 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.2 },
-}
 
 function groupFactors(factors: RouterFactor[]): GroupedFactors {
   const result: GroupedFactors = {}
@@ -103,18 +101,7 @@ function StepDots({ shouldReduce }: { shouldReduce: boolean | null }) {
   )
 }
 
-function StepConnector({ shouldReduce }: { shouldReduce: boolean | null }) {
-  return (
-    <motion.div
-      className="mt-2.5 hidden h-px flex-1 bg-(--accent)/20 sm:block"
-      initial={shouldReduce ? false : { scaleX: 0 }}
-      animate={{ scaleX: 1 }}
-      transition={shouldReduce ? undefined : { duration: 0.3 }}
-    />
-  )
-}
-
-function HorizontalStep({
+function PhaseStep({
   icon: Icon,
   label,
   shouldReduce,
@@ -129,58 +116,28 @@ function HorizontalStep({
 }) {
   return (
     <motion.div
-      className="min-w-0 flex-1"
-      initial={shouldReduce ? false : STEP_REVEAL.initial}
-      animate={STEP_REVEAL.animate}
-      transition={shouldReduce ? undefined : { ...STEP_REVEAL.transition, delay }}
+      className="flex min-w-0 flex-1 flex-col items-center text-center"
+      initial={shouldReduce ? false : { opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={shouldReduce ? undefined : { duration: 0.2, delay }}
     >
-      <div className="flex items-center gap-1.5">
-        <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-(--accent)/15 ring-1 ring-(--accent)/30">
-          <Icon size={10} className="text-(--accent)" />
-        </div>
-        <span className="text-[0.6875rem] font-medium text-(--text-secondary)">{label}</span>
+      <div className="flex size-6 items-center justify-center rounded-full bg-(--accent)/12 ring-1 ring-(--accent)/25">
+        <Icon size={11} className="text-(--accent)" />
       </div>
-      <div className="mt-1.5 pl-6.5">{children}</div>
+      <span className="mt-1 text-[0.625rem] font-medium text-(--text-muted)">{label}</span>
+      <div className="mt-1.5 w-full">{children}</div>
     </motion.div>
   )
 }
 
-function ResultBadge({
-  modelLabel,
-  provider,
-  shouldReduce,
-}: {
-  modelLabel: string
-  provider: string | null
-  shouldReduce: boolean | null
-}) {
-  const dotClass = provider ? PROVIDER_DOT_CLASSES[provider] : undefined
-  const displayName = provider ? PROVIDER_DISPLAY_NAMES[provider] : undefined
-
+function StepLine({ shouldReduce }: { shouldReduce: boolean | null }) {
   return (
     <motion.div
-      className="min-w-0 flex-1"
-      initial={shouldReduce ? false : { opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={shouldReduce ? undefined : { duration: 0.2, delay: 0.25 }}
-    >
-      <div className="flex items-center gap-1.5">
-        <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-(--accent)/15 ring-1 ring-(--accent)/30">
-          <CheckCircle size={10} className="text-(--accent)" />
-        </div>
-        <span className="text-[0.6875rem] font-medium text-(--text-secondary)">Result</span>
-      </div>
-      <div className="mt-1.5 pl-6.5">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-(--accent)/25 bg-(--accent)/8 px-2.5 py-1 text-xs">
-          <span className={cn('size-1.5 rounded-full', dotClass ?? 'bg-(--accent)')} />
-          <span className="font-medium text-(--text-primary)">{modelLabel}</span>
-          <CheckCircle size={11} className="text-(--accent)" />
-        </span>
-        {displayName && (
-          <span className="mt-0.5 block text-[0.6rem] text-(--text-muted)">by {displayName}</span>
-        )}
-      </div>
-    </motion.div>
+      className="mt-3 h-px w-6 shrink-0 bg-(--accent)/20 sm:w-8"
+      initial={shouldReduce ? false : { scaleX: 0 }}
+      animate={{ scaleX: 1 }}
+      transition={shouldReduce ? undefined : { duration: 0.25 }}
+    />
   )
 }
 
@@ -188,21 +145,30 @@ export function RoutingDecisionBlock({
   modelLabel,
   model,
   category,
-  confidence,
   reasoning,
   factors,
   defaultExpanded = true,
   compact = false,
   autoCollapse,
+  isExpanded: controlledExpanded,
+  onToggle: controlledToggle,
   className,
 }: RoutingDecisionBlockProps) {
   const shouldReduce = useReducedMotion()
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded)
-  const toggle = useCallback(() => setIsExpanded((prev) => !prev), [])
+  const isControlled = controlledExpanded !== undefined
+  const [internalExpanded, setInternalExpanded] = useState(defaultExpanded)
+  const isExpanded = isControlled ? controlledExpanded : internalExpanded
+  const toggle = useCallback(() => {
+    if (controlledToggle) {
+      controlledToggle()
+    } else {
+      setInternalExpanded((prev) => !prev)
+    }
+  }, [controlledToggle])
 
   useEffect(() => {
-    if (autoCollapse && isExpanded) {
-      setIsExpanded(false)
+    if (!isControlled && autoCollapse && internalExpanded) {
+      setInternalExpanded(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to autoCollapse transitions
   }, [autoCollapse])
@@ -220,22 +186,14 @@ export function RoutingDecisionBlock({
     return CATEGORY_ICON_COMPONENTS[iconName] ?? null
   }, [category])
 
-  const analyzeFactors = useMemo(() => {
-    const taskFactors = grouped.task ?? []
-    const capabilityFactors = grouped.capability ?? []
-    return [...taskFactors, ...capabilityFactors]
-  }, [grouped])
-
-  const matchFactors = useMemo(() => {
+  const matchSummary = useMemo(() => {
     const modelFactors = grouped.model ?? []
-    const responseFactors = grouped.response ?? []
-    return [...modelFactors, ...responseFactors]
+    const first = modelFactors[0]
+    return first?.value ?? null
   }, [grouped])
-
-  const hasAnalyze = category || analyzeFactors.length > 0
-  const hasMatch = typeof confidence === 'number' || matchFactors.length > 0
 
   const providerDotClass = provider ? PROVIDER_DOT_CLASSES[provider] : undefined
+  const displayName = provider ? PROVIDER_DISPLAY_NAMES[provider] : undefined
 
   return (
     <div className={cn('mb-3', className)}>
@@ -267,64 +225,65 @@ export function RoutingDecisionBlock({
       <AnimatePresence initial={false}>
         {isExpanded && (
           <motion.div key="steps" {...(shouldReduce ? {} : expand)} className="overflow-hidden">
-            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-2">
-              {hasAnalyze && (
-                <>
-                  <HorizontalStep
-                    icon={Search}
-                    label="Analyze"
-                    shouldReduce={shouldReduce}
-                    delay={0}
-                  >
-                    <div className="flex flex-wrap gap-1">
-                      {category && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-(--routing-mode-border) bg-(--routing-mode-bg) px-2 py-0.5 text-[0.625rem] text-(--routing-mode)">
-                          {CategoryBadgeIcon && <CategoryBadgeIcon size={9} />}
-                          {CATEGORY_LABELS[category]}
-                        </span>
-                      )}
-                      {analyzeFactors.map((f) => (
-                        <span
-                          key={f.key}
-                          className="inline-flex items-center gap-1 rounded-full border border-(--routing-tool-border) bg-(--routing-tool-bg) px-2 py-0.5 text-[0.625rem] text-(--routing-tool)"
-                        >
-                          {f.value}
-                        </span>
-                      ))}
-                    </div>
-                  </HorizontalStep>
-                  <StepConnector shouldReduce={shouldReduce} />
-                </>
-              )}
-
-              {hasMatch && (
-                <>
-                  <HorizontalStep
-                    icon={Sparkles}
-                    label="Match"
-                    shouldReduce={shouldReduce}
-                    delay={0.12}
-                  >
-                    <div className="flex flex-wrap gap-1">
-                      {matchFactors.map((f) => (
-                        <span
-                          key={f.key}
-                          className="text-[0.625rem] leading-relaxed text-(--text-muted)"
-                        >
-                          {f.value}
-                        </span>
-                      ))}
-                    </div>
-                  </HorizontalStep>
-                  <StepConnector shouldReduce={shouldReduce} />
-                </>
-              )}
-
-              <ResultBadge
-                modelLabel={modelLabel}
-                provider={provider}
+            <div className="mt-3 flex items-start justify-center gap-0">
+              <PhaseStep
+                icon={Search}
+                label={ROUTING_PHASE_LABELS.ANALYZE}
                 shouldReduce={shouldReduce}
-              />
+                delay={0}
+              >
+                {category ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-(--routing-mode-border) bg-(--routing-mode-bg) px-2 py-0.5 text-[0.625rem] text-(--routing-mode)">
+                    {CategoryBadgeIcon && <CategoryBadgeIcon size={9} />}
+                    {CATEGORY_LABELS[category]}
+                  </span>
+                ) : (
+                  <span className="text-[0.625rem] text-(--text-muted)">
+                    {ROUTING_PHASE_FALLBACKS.ANALYZED}
+                  </span>
+                )}
+              </PhaseStep>
+
+              <StepLine shouldReduce={shouldReduce} />
+
+              <PhaseStep
+                icon={Sparkles}
+                label={ROUTING_PHASE_LABELS.MATCH}
+                shouldReduce={shouldReduce}
+                delay={0.1}
+              >
+                {matchSummary ? (
+                  <p className="line-clamp-2 text-[0.625rem] leading-relaxed text-(--text-secondary)">
+                    {matchSummary}
+                  </p>
+                ) : (
+                  <span className="text-[0.625rem] text-(--text-muted)">
+                    {ROUTING_PHASE_FALLBACKS.MATCHED}
+                  </span>
+                )}
+              </PhaseStep>
+
+              <StepLine shouldReduce={shouldReduce} />
+
+              <PhaseStep
+                icon={CheckCircle}
+                label={ROUTING_PHASE_LABELS.RESULT}
+                shouldReduce={shouldReduce}
+                delay={0.2}
+              >
+                <span className="inline-flex items-center gap-1 rounded-full border border-(--accent)/25 bg-(--accent)/8 px-2 py-0.5 text-[0.625rem]">
+                  <span
+                    className={cn('size-1.5 rounded-full', providerDotClass ?? 'bg-(--accent)')}
+                  />
+                  <span className="font-medium text-(--text-primary)">{modelLabel}</span>
+                  <CheckCircle size={10} className="text-(--accent)" />
+                </span>
+                {displayName && (
+                  <span className="mt-0.5 block text-[0.5625rem] text-(--text-muted)">
+                    {displayName}
+                  </span>
+                )}
+              </PhaseStep>
             </div>
 
             {reasoning && (

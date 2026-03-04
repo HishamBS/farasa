@@ -1,4 +1,10 @@
-import { AI_REASONING, LIMITS, RESPONSE_FORMATS, TRPC_CODES } from '@/config/constants'
+import {
+  AI_REASONING,
+  LIMITS,
+  MODEL_SELECTION_SOURCES,
+  RESPONSE_FORMATS,
+  TRPC_CODES,
+} from '@/config/constants'
 import type { db } from '@/lib/db/client'
 import { conversations, userPreferences } from '@/lib/db/schema'
 import { AppError } from '@/lib/utils/errors'
@@ -66,11 +72,11 @@ async function resolveSourceModel(input: ResolveModelDecisionInput): Promise<{
 }> {
   const { dbClient, userId, conversationId, requestedModel } = input
   if (requestedModel === null) {
-    return { source: 'auto_router' }
+    return { source: MODEL_SELECTION_SOURCES.AUTO_ROUTER }
   }
 
   if (typeof requestedModel === 'string') {
-    return { modelId: requestedModel, source: 'explicit_request' }
+    return { modelId: requestedModel, source: MODEL_SELECTION_SOURCES.EXPLICIT_REQUEST }
   }
 
   const [conversation] = await dbClient
@@ -80,7 +86,7 @@ async function resolveSourceModel(input: ResolveModelDecisionInput): Promise<{
     .limit(1)
 
   if (conversation?.model) {
-    return { modelId: conversation.model, source: 'conversation_default' }
+    return { modelId: conversation.model, source: MODEL_SELECTION_SOURCES.CONVERSATION_DEFAULT }
   }
 
   const [preferences] = await dbClient
@@ -90,10 +96,10 @@ async function resolveSourceModel(input: ResolveModelDecisionInput): Promise<{
     .limit(1)
 
   if (preferences?.defaultModel) {
-    return { modelId: preferences.defaultModel, source: 'user_default' }
+    return { modelId: preferences.defaultModel, source: MODEL_SELECTION_SOURCES.USER_DEFAULT }
   }
 
-  return { source: 'auto_router' }
+  return { source: MODEL_SELECTION_SOURCES.AUTO_ROUTER }
 }
 
 function buildFactors(params: {
@@ -137,7 +143,7 @@ export async function resolveModelDecision(
 ): Promise<ResolvedModelDecision> {
   const { source, modelId } = await resolveSourceModel(input)
 
-  if (source !== 'auto_router' && modelId) {
+  if (source !== MODEL_SELECTION_SOURCES.AUTO_ROUTER && modelId) {
     const model = findModelById(input.registry, modelId)
     ensureSearchCompatible(model, input.requestedWebSearchEnabled)
     const responseFormat = RESPONSE_FORMATS.MARKDOWN
@@ -145,9 +151,9 @@ export async function resolveModelDecision(
       selectedModel: model.id,
       source,
       reasoning:
-        source === 'explicit_request'
+        source === MODEL_SELECTION_SOURCES.EXPLICIT_REQUEST
           ? AI_REASONING.MODEL_EXPLICIT
-          : source === 'conversation_default'
+          : source === MODEL_SELECTION_SOURCES.CONVERSATION_DEFAULT
             ? AI_REASONING.MODEL_CONVERSATION_DEFAULT
             : AI_REASONING.MODEL_USER_DEFAULT,
       factors: buildFactors({
@@ -191,7 +197,7 @@ export async function resolveModelDecision(
         : RESPONSE_FORMATS.MARKDOWN
 
       const baseFactors = buildFactors({
-        source: 'auto_router',
+        source: MODEL_SELECTION_SOURCES.AUTO_ROUTER,
         selectedModel: selectedModel.id,
         requestedMode: input.requestedMode,
         requiresSearch,
@@ -205,7 +211,7 @@ export async function resolveModelDecision(
 
       return {
         selectedModel: selectedModel.id,
-        source: 'auto_router',
+        source: MODEL_SELECTION_SOURCES.AUTO_ROUTER,
         reasoning: selection.reasoning || AI_REASONING.MODEL_AUTO_ROUTER,
         category: selection.category,
         confidence: selection.confidence,

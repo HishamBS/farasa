@@ -10,16 +10,26 @@ import { useCallback, useEffect, useState } from 'react'
 type ThinkingBlockProps = {
   thinking: ThinkingState
   autoCollapse?: boolean
+  isExpanded?: boolean
+  onToggle?: () => void
   className?: string
 }
 
-export function ThinkingBlock({ thinking, autoCollapse, className }: ThinkingBlockProps) {
+export function ThinkingBlock({
+  thinking,
+  autoCollapse,
+  isExpanded: controlledExpanded,
+  onToggle: controlledToggle,
+  className,
+}: ThinkingBlockProps) {
   const shouldReduce = useReducedMotion()
-  const [isExpanded, setIsExpanded] = useState(!UX.THINKING_COLLAPSE_DEFAULT)
+  const isControlled = controlledExpanded !== undefined
+  const [internalExpanded, setInternalExpanded] = useState(!UX.THINKING_COLLAPSE_DEFAULT)
+  const isExpanded = isControlled ? controlledExpanded : internalExpanded
 
   useEffect(() => {
-    if (autoCollapse && isExpanded) {
-      setIsExpanded(false)
+    if (!isControlled && autoCollapse && internalExpanded) {
+      setInternalExpanded(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to autoCollapse transitions
   }, [autoCollapse])
@@ -31,7 +41,13 @@ export function ThinkingBlock({ thinking, autoCollapse, className }: ThinkingBlo
       ? Math.max(1, Math.round((completedAt - thinking.startedAt) / 1000))
       : null
 
-  const toggle = useCallback(() => setIsExpanded((p) => !p), [])
+  const toggle = useCallback(() => {
+    if (controlledToggle) {
+      controlledToggle()
+    } else {
+      setInternalExpanded((p) => !p)
+    }
+  }, [controlledToggle])
 
   return (
     <div className={cn('mb-3', className)}>

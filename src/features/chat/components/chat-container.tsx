@@ -169,7 +169,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     { staleTime: UX.QUERY_STALE_TIME_FOREVER, enabled: !!effectiveConversationId },
   )
 
-  const { data: messagesData } = trpc.conversation.messages.useQuery(
+  const { data: messagesData, isLoading: isLoadingMessages } = trpc.conversation.messages.useQuery(
     { conversationId: effectiveConversationId ?? '' },
     { staleTime: UX.QUERY_STALE_TIME_FOREVER, enabled: !!effectiveConversationId },
   )
@@ -240,6 +240,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
           onSuggestionSelect={handleSuggestionSelect}
           conversationId={effectiveConversationId}
           liveTeam={liveTeam}
+          isLoading={isLoadingMessages && !!effectiveConversationId}
         />
       </ConversationCostProvider>
       {streamState.phase === CHAT_STREAM_STATUS.ERROR && streamState.error && (

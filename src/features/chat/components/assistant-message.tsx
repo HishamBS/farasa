@@ -1,6 +1,11 @@
 'use client'
 
-import { CHAT_STREAM_STATUS, STATUS_MESSAGES } from '@/config/constants'
+import {
+  CHAT_STREAM_STATUS,
+  EXPANDABLE_BLOCKS,
+  MODEL_SELECTION_SOURCES,
+  STATUS_MESSAGES,
+} from '@/config/constants'
 import { A2UIMessage } from '@/features/a2ui/components/a2ui-message'
 import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
 import { RoutingDecisionBlock } from '@/features/stream-phases/components/routing-decision-block'
@@ -11,7 +16,10 @@ import { extractModelName } from '@/lib/utils/model'
 import { fadeInUp, staggerContainer } from '@/lib/utils/motion'
 import type { StreamState } from '@/types/stream'
 import { motion, useReducedMotion } from 'framer-motion'
+import { useCallback, useState } from 'react'
 import { AssistantFrame } from './assistant-frame'
+
+type ActiveBlock = (typeof EXPANDABLE_BLOCKS)[keyof typeof EXPANDABLE_BLOCKS] | null
 
 type AssistantMessageProps = {
   streamState: StreamState
@@ -20,11 +28,28 @@ type AssistantMessageProps = {
 export function AssistantMessage({ streamState }: AssistantMessageProps) {
   const shouldReduce = useReducedMotion()
   const isStreaming = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
+  const [activeBlock, setActiveBlock] = useState<ActiveBlock>(null)
+
+  const toggleRouting = useCallback(
+    () =>
+      setActiveBlock((prev) =>
+        prev === EXPANDABLE_BLOCKS.ROUTING ? null : EXPANDABLE_BLOCKS.ROUTING,
+      ),
+    [],
+  )
+  const toggleThinking = useCallback(
+    () =>
+      setActiveBlock((prev) =>
+        prev === EXPANDABLE_BLOCKS.THINKING ? null : EXPANDABLE_BLOCKS.THINKING,
+      ),
+    [],
+  )
 
   const modelLabel = streamState.modelSelection
     ? extractModelName(streamState.modelSelection.model)
     : null
-  const showRouterDecision = streamState.modelSelection?.source === 'auto_router'
+  const showRouterDecision =
+    streamState.modelSelection?.source === MODEL_SELECTION_SOURCES.AUTO_ROUTER
   const hasRoutingDecision = !!streamState.modelSelection && showRouterDecision
 
   return (
@@ -52,14 +77,16 @@ export function AssistantMessage({ streamState }: AssistantMessageProps) {
                   reasoning={streamState.modelSelection.reasoning}
                   compact
                   defaultExpanded={false}
-                  autoCollapse={!!streamState.textContent || streamState.toolExecutions.length > 0}
+                  isExpanded={activeBlock === EXPANDABLE_BLOCKS.ROUTING}
+                  onToggle={toggleRouting}
                   className="mb-0"
                 />
               )}
               {streamState.thinking && (
                 <ThinkingBlock
                   thinking={streamState.thinking}
-                  autoCollapse={!!streamState.thinking.completedAt}
+                  isExpanded={activeBlock === EXPANDABLE_BLOCKS.THINKING}
+                  onToggle={toggleThinking}
                   className="mb-0"
                 />
               )}

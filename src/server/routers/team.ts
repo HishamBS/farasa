@@ -3,6 +3,7 @@ import {
   CHAT_MODES,
   LIMITS,
   MESSAGE_ROLES,
+  MODEL_SELECTION_SOURCES,
   NEW_CHAT_TITLE,
   STREAM_EVENTS,
   STREAM_PHASES,
@@ -377,13 +378,13 @@ export const teamRouter = router({
               streamRequestId: modelStreamRequestId,
               model: modelId,
               reasoning: AI_REASONING.MODEL_EXPLICIT,
-              source: 'explicit_request',
+              source: MODEL_SELECTION_SOURCES.EXPLICIT_REQUEST,
               confidence: 1,
               factors: [
                 {
                   key: 'selection_source',
                   label: 'Selection Source',
-                  value: 'explicit_request',
+                  value: MODEL_SELECTION_SOURCES.EXPLICIT_REQUEST,
                 },
               ],
             } satisfies StreamChunk,

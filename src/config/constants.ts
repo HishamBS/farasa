@@ -398,6 +398,41 @@ export const AI_PARAMS = {
   REASONING_EFFORT: 'high' as const,
 } as const
 
+export const MODEL_SELECTION_SOURCES = {
+  EXPLICIT_REQUEST: 'explicit_request',
+  CONVERSATION_DEFAULT: 'conversation_default',
+  USER_DEFAULT: 'user_default',
+  AUTO_ROUTER: 'auto_router',
+} as const
+
+export const ROUTING_PHASE_LABELS = {
+  ANALYZE: 'Analyze',
+  MATCH: 'Match',
+  RESULT: 'Result',
+} as const
+
+export const ROUTING_PHASE_FALLBACKS = {
+  ANALYZED: 'Assessed request',
+  MATCHED: 'Best fit found',
+} as const
+
+export const EXPANDABLE_BLOCKS = {
+  ROUTING: 'routing',
+  THINKING: 'thinking',
+} as const
+
+export const STREAM_REASON_CODES = {
+  AUTHORIZATION_EXPIRED: 'authorization_expired',
+  ROUTER_FAILED: 'router_failed',
+  A2UI_CONTRACT_VIOLATION: 'a2ui_contract_violation',
+  IMAGE_GEN_INCOMPATIBLE: 'image_gen_incompatible',
+  VALIDATION_REJECTED: 'validation_rejected',
+  PROVIDER_UNAVAILABLE: 'provider_unavailable',
+  TRANSIENT_NETWORK: 'transient_network',
+  SUPERSEDED: 'superseded_by_new_stream',
+  STREAM_CLOSED: 'stream_closed_unexpectedly',
+} as const
+
 export const MODEL_REGISTRY_CACHE_KEY = 'models' as const
 
 export const NEW_CHAT_TITLE = 'New Chat' as const
@@ -530,6 +565,7 @@ export const UI_TEXT = {
   TTS_READ_ALOUD: 'Read aloud',
   TTS_STOP: 'Stop reading',
   TTS_LOADING: 'Loading audio...',
+  DEFAULT_MODEL_LABEL: 'Selected model',
 } as const
 
 export const TEAM_LIMITS = {

@@ -1,6 +1,12 @@
 'use client'
 
-import { AI_PARAMS, TOOL_NAMES } from '@/config/constants'
+import {
+  AI_PARAMS,
+  EXPANDABLE_BLOCKS,
+  MODEL_SELECTION_SOURCES,
+  TOOL_NAMES,
+  UI_TEXT,
+} from '@/config/constants'
 import { A2UIMessage } from '@/features/a2ui/components/a2ui-message'
 import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
 import { RoutingDecisionBlock } from '@/features/stream-phases/components/routing-decision-block'
@@ -15,8 +21,10 @@ import { MessageMetadataSchema } from '@/schemas/message'
 import type { ThinkingState, ToolExecutionState } from '@/types/stream'
 import type { v0_8 } from '@a2ui-sdk/types'
 import { motion, useReducedMotion } from 'framer-motion'
-import { useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { AssistantFrame } from './assistant-frame'
+
+type ActiveBlock = (typeof EXPANDABLE_BLOCKS)[keyof typeof EXPANDABLE_BLOCKS] | null
 
 type HistoricalAssistantMessageProps = {
   message: Message
@@ -92,6 +100,22 @@ export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessa
 
   const a2uiMessages = useMemo(() => parseA2UIMessages(metadata?.a2uiMessages), [metadata])
 
+  const [activeBlock, setActiveBlock] = useState<ActiveBlock>(null)
+  const toggleRouting = useCallback(
+    () =>
+      setActiveBlock((prev) =>
+        prev === EXPANDABLE_BLOCKS.ROUTING ? null : EXPANDABLE_BLOCKS.ROUTING,
+      ),
+    [],
+  )
+  const toggleThinking = useCallback(
+    () =>
+      setActiveBlock((prev) =>
+        prev === EXPANDABLE_BLOCKS.THINKING ? null : EXPANDABLE_BLOCKS.THINKING,
+      ),
+    [],
+  )
+
   const modelLabel = metadata?.modelUsed ? extractModelName(metadata.modelUsed) : null
   const tokenLabel =
     metadata?.usage?.totalTokens && metadata.usage.totalTokens > 0
@@ -100,29 +124,38 @@ export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessa
   const costLabel =
     metadata?.usage?.cost && metadata.usage.cost > 0 ? formatCost(metadata.usage.cost) : null
 
+  const hasRouting = metadata?.routerSource === MODEL_SELECTION_SOURCES.AUTO_ROUTER
+
   return (
     <motion.div {...(shouldReduce ? {} : fadeInUp)}>
       <AssistantFrame modelLabel={modelLabel} tokenLabel={tokenLabel} costLabel={costLabel}>
         <div className="space-y-3">
-          {metadata?.routerSource === 'auto_router' && (
+          {(hasRouting || thinking) && (
             <div className="flex flex-wrap items-start gap-2">
-              <RoutingDecisionBlock
-                modelLabel={modelLabel ?? 'Selected model'}
-                model={metadata.modelUsed}
-                category={metadata.routerCategory}
-                confidence={metadata.routerConfidence}
-                factors={metadata.routerFactors}
-                reasoning={metadata.routerReasoning}
-                compact
-                defaultExpanded={false}
-                className="mb-0"
-              />
-              {thinking && <ThinkingBlock thinking={thinking} className="mb-0" />}
+              {hasRouting && metadata && (
+                <RoutingDecisionBlock
+                  modelLabel={modelLabel ?? UI_TEXT.DEFAULT_MODEL_LABEL}
+                  model={metadata.modelUsed}
+                  category={metadata.routerCategory}
+                  confidence={metadata.routerConfidence}
+                  factors={metadata.routerFactors}
+                  reasoning={metadata.routerReasoning}
+                  compact
+                  defaultExpanded={false}
+                  isExpanded={activeBlock === EXPANDABLE_BLOCKS.ROUTING}
+                  onToggle={toggleRouting}
+                  className="mb-0"
+                />
+              )}
+              {thinking && (
+                <ThinkingBlock
+                  thinking={thinking}
+                  isExpanded={activeBlock === EXPANDABLE_BLOCKS.THINKING}
+                  onToggle={toggleThinking}
+                  className="mb-0"
+                />
+              )}
             </div>
-          )}
-
-          {metadata?.routerSource !== 'auto_router' && thinking && (
-            <ThinkingBlock thinking={thinking} />
           )}
 
           {toolExecutions.length > 0 && (

@@ -24,6 +24,29 @@ type MessageListProps = {
   onSuggestionSelect?: (text: string) => void
   conversationId?: string
   liveTeam?: LiveTeamData | null
+  isLoading?: boolean
+}
+
+function MessageListSkeleton() {
+  return (
+    <div className="mx-auto flex w-full max-w-240 flex-col gap-9 px-4 py-6">
+      <div className="flex justify-end">
+        <div className="h-10 w-48 animate-pulse rounded-2xl bg-(--bg-surface-hover)" />
+      </div>
+      <div className="flex flex-col gap-3">
+        <div className="h-4 w-64 animate-pulse rounded bg-(--bg-surface-hover)" />
+        <div className="h-4 w-80 animate-pulse rounded bg-(--bg-surface-hover)" />
+        <div className="h-4 w-56 animate-pulse rounded bg-(--bg-surface-hover)" />
+      </div>
+      <div className="flex justify-end">
+        <div className="h-10 w-36 animate-pulse rounded-2xl bg-(--bg-surface-hover)" />
+      </div>
+      <div className="flex flex-col gap-3">
+        <div className="h-4 w-72 animate-pulse rounded bg-(--bg-surface-hover)" />
+        <div className="h-4 w-60 animate-pulse rounded bg-(--bg-surface-hover)" />
+      </div>
+    </div>
+  )
 }
 
 type RenderItem =
@@ -43,6 +66,7 @@ export function MessageList({
   onSuggestionSelect,
   conversationId,
   liveTeam,
+  isLoading,
 }: MessageListProps) {
   const shouldReduce = useReducedMotion()
   const parentRef = useRef<HTMLDivElement>(null)
@@ -166,7 +190,9 @@ export function MessageList({
 
   return (
     <div ref={parentRef} className="flex-1 overflow-y-auto px-0 py-6">
-      {isEmpty ? (
+      {isLoading ? (
+        <MessageListSkeleton />
+      ) : isEmpty ? (
         <EmptyState onSelect={onSuggestionSelect} />
       ) : (
         <div className="mx-auto flex w-full max-w-240 flex-col px-4">

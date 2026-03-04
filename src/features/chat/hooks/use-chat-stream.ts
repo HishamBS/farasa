@@ -7,6 +7,7 @@ import {
   STREAM_ACTIONS,
   STREAM_EVENTS,
   STREAM_PHASES,
+  STREAM_REASON_CODES,
 } from '@/config/constants'
 import { ROUTES } from '@/config/routes'
 import { shouldReplaceConversationRoute } from '@/features/chat/utils/conversation-route'
@@ -119,7 +120,7 @@ export function useChatStream(conversationId?: string) {
           error: {
             message: chunk.message,
             code: chunk.code,
-            reasonCode: chunk.reasonCode ?? 'provider_unavailable',
+            reasonCode: chunk.reasonCode ?? STREAM_REASON_CODES.PROVIDER_UNAVAILABLE,
             recoverable: chunk.recoverable ?? false,
             attempt: chunk.attempt ?? 0,
           },
@@ -285,7 +286,7 @@ export function useChatStream(conversationId?: string) {
             sendLockRef.current = false
             settleWithError({
               message: error.message || 'Connection error.',
-              reasonCode: 'transient_network',
+              reasonCode: STREAM_REASON_CODES.TRANSIENT_NETWORK,
               recoverable: false,
               code: error.name,
               attempt: 0,
@@ -300,7 +301,7 @@ export function useChatStream(conversationId?: string) {
                 type: STREAM_ACTIONS.ERROR,
                 error: {
                   message: 'Connection interrupted. Please try again.',
-                  reasonCode: 'stream_closed_unexpectedly',
+                  reasonCode: STREAM_REASON_CODES.STREAM_CLOSED,
                   recoverable: true,
                   code: 'STREAM_INCOMPLETE',
                   attempt: 0,

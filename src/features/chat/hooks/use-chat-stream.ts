@@ -9,6 +9,7 @@ import {
   STREAM_PHASES,
 } from '@/config/constants'
 import { ROUTES } from '@/config/routes'
+import { shouldReplaceConversationRoute } from '@/features/chat/utils/conversation-route'
 import { useStreamState } from '@/features/stream-phases/hooks/use-stream-state'
 import type { MessageWithAttachments } from '@/schemas/conversation'
 import type { ChatInput, StreamChunk } from '@/schemas/message'
@@ -268,7 +269,14 @@ export function useChatStream(conversationId?: string) {
                 const pendingRouteId = pendingRouteConversationIdRef.current
                 if (pendingRouteId) {
                   pendingRouteConversationIdRef.current = undefined
-                  router.replace(ROUTES.CHAT_BY_ID(pendingRouteId))
+                  if (
+                    shouldReplaceConversationRoute({
+                      currentPathname: window.location.pathname,
+                      pendingConversationId: pendingRouteId,
+                    })
+                  ) {
+                    router.replace(ROUTES.CHAT_BY_ID(pendingRouteId))
+                  }
                 }
                 break
               }

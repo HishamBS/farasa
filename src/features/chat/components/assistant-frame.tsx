@@ -1,7 +1,8 @@
 'use client'
 
-import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils/cn'
+import Image from 'next/image'
+import type { ReactNode } from 'react'
 
 type AssistantFrameProps = {
   modelLabel: string | null
@@ -21,9 +22,13 @@ export function AssistantFrame({
   return (
     <article className="mb-0.5 flex flex-col pt-2">
       <div className="mb-2 flex items-center gap-2.5">
-        <div className="flex size-6 items-center justify-center rounded-md bg-linear-to-br from-(--assistant-avatar-from) to-(--thinking) text-xs font-bold text-(--bg-root) shadow-inner shadow-white/20">
-          f
-        </div>
+        <Image
+          src="/farasa-avatar.png"
+          alt="Farasa assistant avatar"
+          width={24}
+          height={24}
+          className="size-6 rounded-full object-cover ring-1 ring-(--border-subtle)"
+        />
         <span className="text-sm font-medium text-(--text-secondary)">farasa</span>
         {isStreaming && <span className="size-1.5 animate-pulse rounded-full bg-(--thinking)" />}
 

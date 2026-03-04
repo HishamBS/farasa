@@ -13,12 +13,21 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
     selectedModelRef.current,
   )
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const utils = trpc.useUtils()
 
   const prefsQuery = trpc.userPreferences.get.useQuery(undefined, {
     staleTime: UX.QUERY_STALE_TIME_FOREVER,
   })
   const updatePrefsMutation = trpc.userPreferences.update.useMutation()
-  const updateConversationMutation = trpc.conversation.update.useMutation()
+  const updateConversationMutation = trpc.conversation.update.useMutation({
+    onSuccess: (_data, variables) => {
+      if (variables.model !== undefined) {
+        utils.conversation.getById.setData({ id: variables.id }, (old) =>
+          old ? { ...old, model: variables.model ?? null } : old,
+        )
+      }
+    },
+  })
 
   // Only reset selection when conversation identity changes.
   // This prevents stale server echoes from overwriting a freshly selected model.

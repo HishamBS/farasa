@@ -1,16 +1,17 @@
-# Personal agent config — never push
-*.md
-!README.md
+# Local hidden directories — ignore by default
+.*/
 
+# Repository-managed hidden directories
+!.github/
+!.github/**
+!.husky/
+!.husky/**
+
+# Personal agent/workbench directories — never push
 .claude/
 .codex/
 .serena/
 .playwright-cli/
-
-# Audit and plan docs — local only
-docs/audits/
-docs/plans/
-
 .DS_Store
 
 # Dependencies

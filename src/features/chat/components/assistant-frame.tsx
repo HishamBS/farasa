@@ -3,6 +3,7 @@
 import { cn } from '@/lib/utils/cn'
 import Image from 'next/image'
 import type { ReactNode } from 'react'
+import farasaAvatar from '@/app/icon.png'
 
 type AssistantFrameProps = {
   modelLabel: string | null
@@ -23,7 +24,7 @@ export function AssistantFrame({
     <article className="mb-0.5 flex flex-col pt-2">
       <div className="mb-2 flex items-center gap-2.5">
         <Image
-          src="/farasa-avatar.png"
+          src={farasaAvatar}
           alt="Farasa assistant avatar"
           width={24}
           height={24}

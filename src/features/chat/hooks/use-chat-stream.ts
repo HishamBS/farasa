@@ -8,6 +8,7 @@ import {
   STREAM_EVENTS,
   STREAM_PHASES,
   STREAM_REASON_CODES,
+  UX,
 } from '@/config/constants'
 import { ROUTES } from '@/config/routes'
 import { shouldReplaceConversationRoute } from '@/features/chat/utils/conversation-route'
@@ -266,6 +267,15 @@ export function useChatStream(conversationId?: string) {
                   void utils.conversation.getById.invalidate({ id: convId })
                 }
                 void utils.conversation.list.invalidate()
+                // Title generation is fire-and-forget on the server and completes
+                // after this initial invalidation. Re-invalidate after a delay so
+                // the sidebar picks up the generated title without a page refresh.
+                setTimeout(() => {
+                  void utils.conversation.list.invalidate()
+                  if (convId) {
+                    void utils.conversation.getById.invalidate({ id: convId })
+                  }
+                }, UX.TITLE_REVALIDATION_DELAY_MS)
                 const pendingRouteId = pendingRouteConversationIdRef.current
                 if (pendingRouteId) {
                   pendingRouteConversationIdRef.current = undefined

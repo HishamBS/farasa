@@ -6,6 +6,8 @@ import { collapse, expand } from '@/lib/utils/motion'
 import type { ThinkingState } from '@/types/stream'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useCallback, useEffect, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 type ThinkingBlockProps = {
   thinking: ThinkingState
@@ -90,9 +92,9 @@ export function ThinkingBlock({
             {...(shouldReduce ? {} : expand)}
             className="order-1 basis-full overflow-hidden"
           >
-            <p className="mt-1 max-h-48 overflow-y-auto whitespace-pre-wrap rounded-lg border border-(--thinking-border) bg-(--thinking-bg) p-3 font-mono text-xs leading-relaxed text-(--thinking) shadow-inner">
-              {thinking.content}
-            </p>
+            <div className="thinking-prose mt-1 max-h-48 overflow-y-auto rounded-lg border border-(--thinking-border) bg-(--thinking-bg) p-3 font-mono text-xs leading-relaxed text-(--thinking) shadow-inner">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{thinking.content}</ReactMarkdown>
+            </div>
           </motion.div>
         )}
         {!isExpanded && (

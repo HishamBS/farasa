@@ -6,6 +6,7 @@ import {
   MODEL_SELECTION_SOURCES,
   STATUS_MESSAGES,
 } from '@/config/constants'
+import { useActiveBlock } from '@/features/stream-phases/hooks/use-active-block'
 import { A2UIMessage } from '@/features/a2ui/components/a2ui-message'
 import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
 import { RoutingDecisionBlock } from '@/features/stream-phases/components/routing-decision-block'
@@ -16,10 +17,7 @@ import { extractModelName } from '@/lib/utils/model'
 import { fadeInUp, staggerContainer } from '@/lib/utils/motion'
 import type { StreamState } from '@/types/stream'
 import { motion, useReducedMotion } from 'framer-motion'
-import { useCallback, useState } from 'react'
 import { AssistantFrame } from './assistant-frame'
-
-type ActiveBlock = (typeof EXPANDABLE_BLOCKS)[keyof typeof EXPANDABLE_BLOCKS] | null
 
 type AssistantMessageProps = {
   streamState: StreamState
@@ -28,22 +26,7 @@ type AssistantMessageProps = {
 export function AssistantMessage({ streamState }: AssistantMessageProps) {
   const shouldReduce = useReducedMotion()
   const isStreaming = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
-  const [activeBlock, setActiveBlock] = useState<ActiveBlock>(null)
-
-  const toggleRouting = useCallback(
-    () =>
-      setActiveBlock((prev) =>
-        prev === EXPANDABLE_BLOCKS.ROUTING ? null : EXPANDABLE_BLOCKS.ROUTING,
-      ),
-    [],
-  )
-  const toggleThinking = useCallback(
-    () =>
-      setActiveBlock((prev) =>
-        prev === EXPANDABLE_BLOCKS.THINKING ? null : EXPANDABLE_BLOCKS.THINKING,
-      ),
-    [],
-  )
+  const { activeBlock, toggleRouting, toggleThinking } = useActiveBlock()
 
   const modelLabel = streamState.modelSelection
     ? extractModelName(streamState.modelSelection.model)

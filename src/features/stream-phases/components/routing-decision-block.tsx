@@ -7,6 +7,7 @@ import {
   PROVIDER_ALIASES,
   PROVIDER_DISPLAY_NAMES,
   PROVIDER_DOT_CLASSES,
+  MOTION,
   ROUTING_PHASE_FALLBACKS,
   ROUTING_PHASE_LABELS,
   STREAM_PHASES,
@@ -89,7 +90,11 @@ function StepDots({ shouldReduce }: { shouldReduce: boolean | null }) {
           className="flex items-center gap-1"
           initial={shouldReduce ? false : { opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={shouldReduce ? undefined : { delay: i * 0.12, duration: 0.25 }}
+          transition={
+            shouldReduce
+              ? undefined
+              : { delay: i * MOTION.STAGGER_DOTS, duration: MOTION.DURATION_MEDIUM }
+          }
         >
           <div className="flex size-3.5 items-center justify-center rounded-full bg-(--accent)/20">
             <CheckCircle size={8} className="text-(--accent)" />
@@ -119,7 +124,7 @@ function PhaseStep({
       className="flex min-w-0 flex-1 flex-col items-center text-center"
       initial={shouldReduce ? false : { opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={shouldReduce ? undefined : { duration: 0.2, delay }}
+      transition={shouldReduce ? undefined : { duration: MOTION.DURATION_NORMAL, delay }}
     >
       <div className="flex size-6 items-center justify-center rounded-full bg-(--accent)/12 ring-1 ring-(--accent)/25">
         <Icon size={11} className="text-(--accent)" />
@@ -136,7 +141,7 @@ function StepLine({ shouldReduce }: { shouldReduce: boolean | null }) {
       className="mt-3 h-px w-6 shrink-0 bg-(--accent)/20 sm:w-8"
       initial={shouldReduce ? false : { scaleX: 0 }}
       animate={{ scaleX: 1 }}
-      transition={shouldReduce ? undefined : { duration: 0.25 }}
+      transition={shouldReduce ? undefined : { duration: MOTION.DURATION_MEDIUM }}
     />
   )
 }
@@ -196,7 +201,7 @@ export function RoutingDecisionBlock({
   const displayName = provider ? PROVIDER_DISPLAY_NAMES[provider] : undefined
 
   return (
-    <div className={cn('mb-3', className)}>
+    <div className={cn('mb-3 w-fit', className)}>
       <button
         type="button"
         onClick={toggle}
@@ -250,7 +255,7 @@ export function RoutingDecisionBlock({
                 icon={Sparkles}
                 label={ROUTING_PHASE_LABELS.MATCH}
                 shouldReduce={shouldReduce}
-                delay={0.1}
+                delay={MOTION.EXPLORE_REVEAL_DELAY}
               >
                 {matchSummary ? (
                   <p className="line-clamp-2 text-[0.625rem] leading-relaxed text-(--text-secondary)">
@@ -269,7 +274,7 @@ export function RoutingDecisionBlock({
                 icon={CheckCircle}
                 label={ROUTING_PHASE_LABELS.RESULT}
                 shouldReduce={shouldReduce}
-                delay={0.2}
+                delay={MOTION.EXPLORE_REVEAL_DELAY * 2}
               >
                 <span className="inline-flex items-center gap-1 rounded-full border border-(--accent)/25 bg-(--accent)/8 px-2 py-0.5 text-[0.625rem]">
                   <span

@@ -50,7 +50,7 @@ export function ThinkingBlock({
   }, [controlledToggle])
 
   return (
-    <div className={cn('mb-3', className)}>
+    <div className={cn('mb-3 w-fit', className)}>
       <button
         type="button"
         onClick={toggle}

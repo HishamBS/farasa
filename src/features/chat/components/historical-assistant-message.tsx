@@ -7,6 +7,7 @@ import {
   TOOL_NAMES,
   UI_TEXT,
 } from '@/config/constants'
+import { useActiveBlock } from '@/features/stream-phases/hooks/use-active-block'
 import { A2UIMessage } from '@/features/a2ui/components/a2ui-message'
 import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
 import { RoutingDecisionBlock } from '@/features/stream-phases/components/routing-decision-block'
@@ -21,10 +22,8 @@ import { MessageMetadataSchema } from '@/schemas/message'
 import type { ThinkingState, ToolExecutionState } from '@/types/stream'
 import type { v0_8 } from '@a2ui-sdk/types'
 import { motion, useReducedMotion } from 'framer-motion'
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { AssistantFrame } from './assistant-frame'
-
-type ActiveBlock = (typeof EXPANDABLE_BLOCKS)[keyof typeof EXPANDABLE_BLOCKS] | null
 
 type HistoricalAssistantMessageProps = {
   message: Message
@@ -100,21 +99,7 @@ export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessa
 
   const a2uiMessages = useMemo(() => parseA2UIMessages(metadata?.a2uiMessages), [metadata])
 
-  const [activeBlock, setActiveBlock] = useState<ActiveBlock>(null)
-  const toggleRouting = useCallback(
-    () =>
-      setActiveBlock((prev) =>
-        prev === EXPANDABLE_BLOCKS.ROUTING ? null : EXPANDABLE_BLOCKS.ROUTING,
-      ),
-    [],
-  )
-  const toggleThinking = useCallback(
-    () =>
-      setActiveBlock((prev) =>
-        prev === EXPANDABLE_BLOCKS.THINKING ? null : EXPANDABLE_BLOCKS.THINKING,
-      ),
-    [],
-  )
+  const { activeBlock, toggleRouting, toggleThinking } = useActiveBlock()
 
   const modelLabel = metadata?.modelUsed ? extractModelName(metadata.modelUsed) : null
   const tokenLabel =

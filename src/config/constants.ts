@@ -45,6 +45,7 @@ export const MODEL_CATEGORIES = {
   ANALYSIS: 'analysis',
   CREATIVE: 'creative',
   VISION: 'vision',
+  IMAGE_GENERATION: 'image_generation',
   GENERAL: 'general',
   FAST: 'fast',
 } as const
@@ -64,6 +65,7 @@ export const ROUTER_CAPABILITY_PATTERNS = {
   CODE: ['code', 'coder', 'codex', 'starcoder'] as const,
   FAST: ['flash', 'lite', 'mini', 'haiku', 'nano'] as const,
   ANALYSIS: ['o1', 'o3', 'o4', 'sonnet', 'opus', 'ultra'] as const,
+  IMAGE_GENERATION: ['dall-e', 'stable-diffusion', 'sdxl', 'flux', 'imagen'] as const,
 } as const
 
 type ModelCategoryValue = (typeof MODEL_CATEGORIES)[keyof typeof MODEL_CATEGORIES]
@@ -73,6 +75,7 @@ export const CATEGORY_ICONS: Record<ModelCategoryValue, string> = {
   [MODEL_CATEGORIES.ANALYSIS]: 'Brain',
   [MODEL_CATEGORIES.CREATIVE]: 'Sparkles',
   [MODEL_CATEGORIES.VISION]: 'Eye',
+  [MODEL_CATEGORIES.IMAGE_GENERATION]: 'Image',
   [MODEL_CATEGORIES.GENERAL]: 'Globe',
   [MODEL_CATEGORIES.FAST]: 'Zap',
 }
@@ -82,6 +85,7 @@ export const CATEGORY_LABELS: Record<ModelCategoryValue, string> = {
   [MODEL_CATEGORIES.ANALYSIS]: 'Deep analysis',
   [MODEL_CATEGORIES.CREATIVE]: 'Creative writing',
   [MODEL_CATEGORIES.VISION]: 'Image understanding',
+  [MODEL_CATEGORIES.IMAGE_GENERATION]: 'Image generation',
   [MODEL_CATEGORIES.GENERAL]: 'General purpose',
   [MODEL_CATEGORIES.FAST]: 'Quick response',
 }
@@ -213,6 +217,8 @@ export const CHAT_ERRORS = {
   CONNECTION: 'Connection lost. Please try again.',
   PROCESSING: 'Something went wrong. Please try again.',
   INVALID_MODEL: 'The selected model is unavailable.',
+  IMAGE_GEN_INCOMPATIBLE:
+    'This model does not support image generation. Please select an image-capable model.',
   PROVIDER_UNAVAILABLE: 'The AI provider is temporarily unavailable. Please try again shortly.',
 } as const
 
@@ -584,5 +590,6 @@ export const MARKDOWN_SANITIZE = {
     MATH: ['xmlns', 'display'] as const,
     ANNOTATION: ['encoding'] as const,
     MSPACE: ['width'] as const,
+    IMG: ['src', 'alt', 'width', 'height'] as const,
   },
 } as const

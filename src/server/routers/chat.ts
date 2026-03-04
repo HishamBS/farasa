@@ -139,21 +139,26 @@ function classifyTerminalError(
       const invalidModel = error.message === AppError.INVALID_MODEL
       const routerFailed = error.message === AppError.ROUTER_FAILED
       const a2uiContractFailed = error.message === AppError.A2UI_CONTRACT_FAILED
+      const imageGenIncompatible = error.message === AppError.IMAGE_GEN_INCOMPATIBLE
       return {
         message: routerFailed
           ? AppError.ROUTER_FAILED
           : a2uiContractFailed
             ? AppError.A2UI_CONTRACT_FAILED
-            : invalidModel
-              ? runtimeConfig.chat.errors.invalidModel
-              : runtimeConfig.chat.errors.processing,
+            : imageGenIncompatible
+              ? runtimeConfig.chat.errors.imageGenIncompatible
+              : invalidModel
+                ? runtimeConfig.chat.errors.invalidModel
+                : runtimeConfig.chat.errors.processing,
         code: error.code,
         reasonCode: routerFailed
           ? 'router_failed'
           : a2uiContractFailed
             ? 'a2ui_contract_violation'
-            : 'validation_rejected',
-        recoverable: routerFailed || a2uiContractFailed,
+            : imageGenIncompatible
+              ? 'image_gen_incompatible'
+              : 'validation_rejected',
+        recoverable: routerFailed || a2uiContractFailed || imageGenIncompatible,
       }
     }
     return {

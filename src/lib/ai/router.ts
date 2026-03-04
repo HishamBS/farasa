@@ -155,9 +155,10 @@ function buildModelSummaryLines(registry: ReadonlyArray<ModelConfig>): string {
       const vision = model.supportsVision ? 'y' : 'n'
       const think = model.supportsThinking ? 'y' : 'n'
       const tools = model.supportsTools ? 'y' : 'n'
+      const imggen = model.supportsImageGeneration ? 'y' : 'n'
       const promptCost = model.pricing.promptPerMillion.toFixed(3)
       const completionCost = model.pricing.completionPerMillion.toFixed(3)
-      return `${model.id} | ${model.name} | ctx:${ctxK}k | vision:${vision} | think:${think} | tools:${tools} | prompt_cost:${promptCost} | completion_cost:${completionCost}`
+      return `${model.id} | ${model.name} | ctx:${ctxK}k | vision:${vision} | think:${think} | tools:${tools} | imggen:${imggen} | prompt_cost:${promptCost} | completion_cost:${completionCost}`
     })
     .join('\n')
 }
@@ -187,6 +188,15 @@ function validateModelSelection(
   if (webSearchEnabled && !selectedModel.supportsTools) {
     throw new Error(
       `[router] Selected model does not support tools for web-search-enabled request: ${selection.selectedModel}`,
+    )
+  }
+
+  if (
+    selection.category === MODEL_CATEGORIES.IMAGE_GENERATION &&
+    !selectedModel.supportsImageGeneration
+  ) {
+    throw new Error(
+      `[router] Selected model does not support image generation: ${selection.selectedModel}`,
     )
   }
 

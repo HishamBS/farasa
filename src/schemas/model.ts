@@ -7,6 +7,7 @@ export const ModelCapabilitySchema = z.enum([
   MODEL_CATEGORIES.ANALYSIS,
   MODEL_CATEGORIES.CREATIVE,
   MODEL_CATEGORIES.VISION,
+  MODEL_CATEGORIES.IMAGE_GENERATION,
   MODEL_CATEGORIES.GENERAL,
   MODEL_CATEGORIES.FAST,
 ])
@@ -34,6 +35,7 @@ export const ModelConfigSchema = z
     supportsVision: z.boolean(),
     supportsTools: z.boolean(),
     supportsThinking: z.boolean().default(false),
+    supportsImageGeneration: z.boolean().default(false),
     maxCompletionTokens: z.number().int().min(0).default(0),
     pricing: ModelPricingSchema,
   })

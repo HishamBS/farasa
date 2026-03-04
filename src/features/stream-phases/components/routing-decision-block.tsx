@@ -33,6 +33,7 @@ import {
   Eye,
   FileText,
   Globe,
+  Image,
   ShieldCheck,
   Sparkles,
   Zap,
@@ -62,6 +63,7 @@ const CATEGORY_ICON_COMPONENTS: Record<string, LucideIcon> = {
   Brain,
   Sparkles,
   Eye,
+  Image,
   Globe,
   Zap,
 }

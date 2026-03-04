@@ -76,6 +76,21 @@ const staticComponents: Components = {
     <strong className="font-semibold text-(--text-primary)">{children}</strong>
   ),
   hr: () => <hr className="my-4 border-(--border-subtle)" />,
+  img: ({ src, alt }) => {
+    if (!src || typeof src !== 'string') return null
+    const isSafe =
+      /^https?:\/\//i.test(src) || /^data:image\/(png|jpeg|gif|webp|svg\+xml);base64,/i.test(src)
+    if (!isSafe) return null
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- dynamic base64/external URLs from AI models
+      <img
+        src={src}
+        alt={alt ?? 'Generated image'}
+        className="my-3 max-w-full rounded-xl"
+        loading="lazy"
+      />
+    )
+  },
 }
 
 export function MarkdownRenderer({ content, autoCollapse }: MarkdownRendererProps) {
@@ -110,8 +125,13 @@ export function MarkdownRenderer({ content, autoCollapse }: MarkdownRendererProp
           {
             ...defaultSchema,
             tagNames: [...(defaultSchema.tagNames ?? []), ...MARKDOWN_SANITIZE.TAG_NAMES],
+            protocols: {
+              ...defaultSchema.protocols,
+              src: [...(defaultSchema.protocols?.src ?? []), 'data'],
+            },
             attributes: {
               ...defaultSchema.attributes,
+              img: [...(defaultSchema.attributes?.img ?? []), ...MARKDOWN_SANITIZE.ATTRIBUTES.IMG],
               code: [
                 ...(defaultSchema.attributes?.code ?? []),
                 ...MARKDOWN_SANITIZE.ATTRIBUTES.CODE,

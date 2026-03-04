@@ -22,14 +22,37 @@ type OpenRouterModel = {
   top_provider?: { max_completion_tokens?: number | null }
 }
 
+function parseModality(modality: string): {
+  supportsVision: boolean
+  supportsImageGeneration: boolean
+} {
+  const parts = modality.split('->')
+  const input = parts[0] ?? ''
+  const output = parts[1] ?? ''
+  return {
+    supportsVision: input.includes('image'),
+    supportsImageGeneration: output.includes('image'),
+  }
+}
+
 function inferCapabilities(model: OpenRouterModel): ModelCapability[] {
   const id = model.id.toLowerCase()
   const name = (model.name ?? '').toLowerCase()
   const params = model.supported_parameters ?? []
-  const supportsVision = model.architecture?.modality?.includes('image') ?? false
+  const { supportsVision, supportsImageGeneration } = parseModality(
+    model.architecture?.modality ?? '',
+  )
   const supportsThinking = params.includes('reasoning')
 
   const caps = new Set<ModelCapability>()
+
+  if (supportsImageGeneration) {
+    caps.add(MODEL_CATEGORIES.IMAGE_GENERATION)
+  }
+
+  if (ROUTER_CAPABILITY_PATTERNS.IMAGE_GENERATION.some((p) => id.includes(p) || name.includes(p))) {
+    caps.add(MODEL_CATEGORIES.IMAGE_GENERATION)
+  }
 
   if (ROUTER_CAPABILITY_PATTERNS.CODE.some((p) => id.includes(p) || name.includes(p))) {
     caps.add(MODEL_CATEGORIES.CODE)
@@ -84,16 +107,17 @@ async function fetchFromOpenRouter(runtimeConfig: RuntimeConfig): Promise<ModelC
   for (const raw of json.data) {
     const params = raw.supported_parameters ?? []
 
-    const supportsVision = raw.architecture?.modality?.includes('image') ?? false
+    const modality = parseModality(raw.architecture?.modality ?? '')
     const supportsThinking = params.includes('reasoning')
     const parsed = ModelConfigSchema.safeParse({
       id: raw.id,
       name: raw.name,
       capabilities: inferCapabilities(raw),
       contextWindow: raw.context_length ?? 0,
-      supportsVision,
+      supportsVision: modality.supportsVision,
       supportsTools: params.includes('tools'),
       supportsThinking,
+      supportsImageGeneration: modality.supportsImageGeneration,
       maxCompletionTokens: raw.top_provider?.max_completion_tokens ?? 0,
       pricing: {
         promptPerMillion: parseFloat(raw.pricing?.prompt ?? '0') * 1_000_000,

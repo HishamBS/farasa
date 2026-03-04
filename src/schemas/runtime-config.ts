@@ -39,6 +39,7 @@ const ChatErrorsSchema = z
     connection: z.string().min(1).default(CHAT_ERRORS.CONNECTION),
     processing: z.string().min(1).default(CHAT_ERRORS.PROCESSING),
     invalidModel: z.string().min(1).default(CHAT_ERRORS.INVALID_MODEL),
+    imageGenIncompatible: z.string().min(1).default(CHAT_ERRORS.IMAGE_GEN_INCOMPATIBLE),
     rateLimited: z.string().min(1).default(RATE_LIMITS.ERROR_MESSAGE),
     providerUnavailable: z.string().min(1).default(CHAT_ERRORS.PROVIDER_UNAVAILABLE),
   })

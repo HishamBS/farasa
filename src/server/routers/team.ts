@@ -31,6 +31,7 @@ import type { ChatMessageContentItem, ChatMessageToolCall, Message } from '@open
 import { ChatMessageContentItemTextType, ToolChoiceOptionAuto } from '@openrouter/sdk/models'
 import { TRPCError } from '@trpc/server'
 import { and, asc, eq, sql } from 'drizzle-orm'
+import { createHash } from 'node:crypto'
 import { rateLimitedChatProcedure, router } from '../trpc'
 
 type QueueItem =
@@ -57,6 +58,22 @@ type TeamPolicyModelOption = {
   selected: boolean
   selectable: boolean
   reasonCode?: string
+}
+
+function buildDeterministicClientRequestId(seed: string): string {
+  const bytes = Array.from(createHash('sha256').update(seed).digest().subarray(0, 16))
+  const b6 = bytes[6]
+  const b8 = bytes[8]
+  if (typeof b6 !== 'number' || typeof b8 !== 'number') {
+    throw new TRPCError({
+      code: TRPC_CODES.INTERNAL_SERVER_ERROR,
+      message: 'Unable to derive deterministic request id.',
+    })
+  }
+  bytes[6] = (b6 & 0x0f) | 0x40
+  bytes[8] = (b8 & 0x3f) | 0x80
+  const hex = bytes.map((byte) => byte.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`
 }
 
 function buildTeamPolicy(
@@ -697,7 +714,9 @@ export const teamRouter = router({
             outcome && outcome.searchImages.length > 0 ? outcome.searchImages : undefined,
           toolCalls: outcome && outcome.toolCalls.length > 0 ? outcome.toolCalls : undefined,
         })
-        const assistantClientRequestId = `${streamRequestId}:${modelId}`
+        const assistantClientRequestId = buildDeterministicClientRequestId(
+          `${streamRequestId}:${modelId}:assistant`,
+        )
         const [existingAssistantMessage] = await ctx.db
           .select({ id: messages.id })
           .from(messages)
@@ -968,7 +987,9 @@ Your task: write a single unified response that combines the strongest elements 
         userMessageId: storedUserMessageId ?? undefined,
       })
 
-      const synthesisClientRequestId = `${input.teamId}:synthesis:${input.synthesisModel}`
+      const synthesisClientRequestId = buildDeterministicClientRequestId(
+        `${input.teamId}:${input.synthesisModel}:synthesis`,
+      )
       const [existingSynthesisMessage] = await ctx.db
         .select({ id: messages.id })
         .from(messages)

@@ -166,7 +166,7 @@ export const MessageSchema = z.object({
   role: MessageRoleSchema,
   content: z.string(),
   metadata: MessageMetadataSchema.nullable(),
-  clientRequestId: z.string().uuid().nullable(),
+  clientRequestId: z.string().nullable(),
   streamSequenceMax: z.number().int().nonnegative().nullable(),
   tokenCount: z.number().int().nonnegative().nullable(),
   createdAt: z.date(),

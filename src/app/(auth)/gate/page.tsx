@@ -1,8 +1,10 @@
 'use client'
 
 import { useActionState } from 'react'
+import Image from 'next/image'
 import { motion, useReducedMotion } from 'framer-motion'
 import { fadeInUp, scaleIn } from '@/lib/utils/motion'
+import appIcon from '@/app/icon.png'
 import { verifyAccessCode } from './actions'
 
 export default function GatePage() {
@@ -19,9 +21,14 @@ export default function GatePage() {
           className="mb-8 flex flex-col items-center gap-2"
           {...(shouldReduce ? {} : scaleIn)}
         >
-          <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-xl bg-(--accent-muted)">
-            <span className="text-lg font-bold text-(--accent)">f</span>
-          </div>
+          <Image
+            src={appIcon}
+            alt="farasa"
+            width={40}
+            height={40}
+            className="mb-1 rounded-xl"
+            priority
+          />
 
           <h1 className="text-2xl font-semibold tracking-tight text-(--text-primary)">farasa</h1>
           <p className="text-sm text-(--text-muted)">Your intelligent AI workspace</p>

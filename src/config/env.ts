@@ -22,23 +22,39 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 })
 
+/**
+ * Build-phase seed values for Docker builds (SKIP_ENV_VALIDATION=1).
+ * Merged UNDER process.env so real values always win.
+ * Validated through envSchema like any other input.
+ */
+const BUILD_ENV_DEFAULTS: Partial<Record<keyof z.infer<typeof envSchema>, string>> = {
+  AUTH_SECRET: 'build-placeholder-at-least-32-characters',
+  DATABASE_URL: 'postgresql://localhost/build',
+  TAVILY_API_KEY: 'tvly-build',
+  AUTH_GOOGLE_ID: 'build',
+  AUTH_GOOGLE_SECRET: 'build',
+  OPENROUTER_API_KEY: 'build',
+  GCS_BUCKET_NAME: 'build',
+  GCS_PROJECT_ID: 'build',
+  NEXT_PUBLIC_APP_URL: 'http://localhost:3010',
+  NODE_ENV: 'production',
+}
+
 function loadEnv(): z.infer<typeof envSchema> {
-  const parsed = envSchema.safeParse(process.env)
+  const source =
+    process.env.SKIP_ENV_VALIDATION === '1'
+      ? { ...BUILD_ENV_DEFAULTS, ...process.env }
+      : process.env
 
-  if (!parsed.success) {
-    if (process.env.SKIP_ENV_VALIDATION === '1') {
-      console.warn('[env] Skipping validation during build phase')
-      // Build phase skips validation (SKIP_ENV_VALIDATION=1); runtime always validates via the parsed result above.
-      return process.env as unknown as z.infer<typeof envSchema>
-    }
-    console.error('Invalid environment variables:')
-    for (const error of parsed.error.errors) {
-      console.error(`  ${error.path.join('.')}: ${error.message}`)
-    }
-    throw new Error('Invalid environment configuration. Check .env.example for required variables.')
+  const parsed = envSchema.safeParse(source)
+
+  if (parsed.success) return parsed.data
+
+  console.error('Invalid environment variables:')
+  for (const error of parsed.error.errors) {
+    console.error(`  ${error.path.join('.')}: ${error.message}`)
   }
-
-  return parsed.data
+  throw new Error('Invalid environment configuration. Check .env.example for required variables.')
 }
 
 export const env = loadEnv()

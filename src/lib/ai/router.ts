@@ -1,7 +1,7 @@
-import { RESPONSE_FORMATS } from '@/config/constants'
+import { MODEL_CATEGORIES, RESPONSE_FORMATS } from '@/config/constants'
 import { buildRouterPrompt } from '@/config/prompts'
 import type { ModelConfig, ModelSelection } from '@/schemas/model'
-import { ModelSelectionSchema } from '@/schemas/model'
+import { ModelCapabilitySchema, ModelSelectionSchema } from '@/schemas/model'
 import type { RuntimeConfig } from '@/schemas/runtime-config'
 import { z } from 'zod'
 import { openrouter } from './client'
@@ -68,6 +68,84 @@ function parseJsonObject(raw: string): unknown {
     throw new Error('[router] Routing model returned non-object JSON')
   }
   return parsed
+}
+
+function parseSelectionFactors(raw: unknown): ModelSelection['factors'] {
+  if (!Array.isArray(raw)) {
+    return []
+  }
+
+  const normalized: ModelSelection['factors'] = []
+  for (const factor of raw) {
+    if (typeof factor !== 'object' || factor === null || Array.isArray(factor)) continue
+    const value = factor as Record<string, unknown>
+    const key = typeof value.key === 'string' ? value.key.trim() : ''
+    const label = typeof value.label === 'string' ? value.label.trim() : ''
+    const content = typeof value.value === 'string' ? value.value.trim() : ''
+    if (!key || !label || !content) continue
+    normalized.push({ key, label, value: content })
+  }
+  return normalized
+}
+
+function parseModelSelectionResponse(raw: string): ModelSelection {
+  const parsedObject = parseJsonObject(raw)
+  if (typeof parsedObject !== 'object' || parsedObject === null || Array.isArray(parsedObject)) {
+    throw new Error('[router] Routing model returned invalid selection payload')
+  }
+  const payload = parsedObject as Record<string, unknown>
+
+  const selectedModel =
+    typeof payload.selectedModel === 'string' ? payload.selectedModel.trim() : ''
+  if (!selectedModel) {
+    throw new Error('[router] Routing model response is missing selectedModel')
+  }
+
+  const reasoningRaw = typeof payload.reasoning === 'string' ? payload.reasoning.trim() : ''
+  const reasoning =
+    reasoningRaw.length > 0 ? reasoningRaw : 'Selected the best available model for this request.'
+
+  const categoryParsed = ModelCapabilitySchema.safeParse(payload.category)
+  const category = categoryParsed.success ? categoryParsed.data : MODEL_CATEGORIES.GENERAL
+
+  const responseFormatRaw =
+    typeof payload.responseFormat === 'string' ? payload.responseFormat.toLowerCase() : ''
+  const responseFormat =
+    responseFormatRaw === RESPONSE_FORMATS.A2UI ? RESPONSE_FORMATS.A2UI : RESPONSE_FORMATS.MARKDOWN
+
+  const confidenceRaw = typeof payload.confidence === 'number' ? payload.confidence : 0.75
+  const confidence = Math.min(1, Math.max(0, confidenceRaw))
+
+  const parsedFactors = parseSelectionFactors(payload.factors)
+  const factors =
+    parsedFactors.length > 0
+      ? parsedFactors
+      : [
+          {
+            key: 'task_type',
+            label: 'Task Type',
+            value: `Routed as ${category} based on detected request intent.`,
+          },
+          {
+            key: 'tool_need',
+            label: 'Tool Capability Fit',
+            value: 'Validated compatibility with requested execution requirements.',
+          },
+          {
+            key: 'model_fit',
+            label: 'Model Fit',
+            value: `Selected model: ${selectedModel}.`,
+          },
+        ]
+
+  return ModelSelectionSchema.parse({
+    category,
+    reasoning,
+    selectedModel,
+    responseFormat,
+    confidence,
+    factors,
+  })
 }
 
 function buildModelSummaryLines(registry: ReadonlyArray<ModelConfig>): string {
@@ -274,7 +352,7 @@ export async function routeModel(
 
   const raw = response.choices[0]?.message.content
   if (typeof raw !== 'string') throw new Error('[router] No content in routing model response')
-  const parsed = ModelSelectionSchema.parse(parseJsonObject(raw))
+  const parsed = parseModelSelectionResponse(raw)
   return validateModelSelection(parsed, registry, webSearchEnabled)
 }
 
@@ -303,7 +381,7 @@ export async function decideResponseFormat(
         messages: [
           {
             role: 'system',
-            content: `${runtimeConfig.prompts.routerSystem}\n\nYou are selecting output format only.\nReturn JSON: {"responseFormat":"${markdownFormat}"|"${a2uiFormat}"}.\nUse "${a2uiFormat}" for UI-generation requests (forms, components, dashboards, interactive layout output).\nUse "${markdownFormat}" for all other requests.\nReturn only JSON.`,
+            content: `${runtimeConfig.prompts.routerSystem}\n\nYou are selecting output format only.\nReturn JSON: {"responseFormat":"${markdownFormat}"|"${a2uiFormat}"}.\nChoose "${a2uiFormat}" whenever the user asks to generate/build/create UI artifacts (forms, pages, sections, components, dashboards, cards, tables, navigation, layout).\nChoose "${markdownFormat}" for analysis, explanations, coding guidance, and non-UI prose.\nIf uncertain between formats for a UI-building request, choose "${a2uiFormat}".\nReturn only JSON.`,
           },
           { role: 'user', content: wrappedPrompt },
         ],

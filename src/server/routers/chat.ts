@@ -19,7 +19,7 @@ import {
   UsageSchema,
 } from '@/schemas/message'
 import type { ModelCapability, ModelResponseFormat, ModelSelectionSource } from '@/schemas/model'
-import type { RuntimeConfig } from '@/schemas/runtime-config'
+import type { RuntimeA2UIPolicy, RuntimeConfig } from '@/schemas/runtime-config'
 import type { SearchImage, SearchResult } from '@/schemas/search'
 import { parseA2UIFencePayloadToJsonLines } from '@/server/services/a2ui-message-service'
 import { resolveModelDecision } from '@/server/services/model-resolution-service'
@@ -212,6 +212,46 @@ function buildCombinedAbortSignal(signals: AbortSignal[], timeoutMs: number): Ab
   )
 
   return controller.signal
+}
+
+function findA2UIFenceStart(source: string): { index: number; length: number } | null {
+  const match = new RegExp(`\\\`\\\`\\\`[ \\t]*${RESPONSE_FORMATS.A2UI}\\b`, 'i').exec(source)
+  if (!match || typeof match.index !== 'number') {
+    return null
+  }
+  return {
+    index: match.index,
+    length: match[0].length,
+  }
+}
+
+function extractA2UILinesFromAnyCodeFence(
+  source: string,
+  policy: RuntimeA2UIPolicy,
+): { lines: string[]; strippedText: string } {
+  const fencePattern = /```[^\n`]*\n?([\s\S]*?)```/g
+  let stripped = ''
+  let cursor = 0
+  const lines: string[] = []
+  let match: RegExpExecArray | null = null
+
+  while ((match = fencePattern.exec(source)) !== null) {
+    const blockStart = match.index
+    const blockEnd = blockStart + match[0].length
+    const payload = match[1] ?? ''
+
+    stripped += source.slice(cursor, blockStart)
+    const parsed = parseA2UIFencePayloadToJsonLines(payload, policy)
+    if (parsed.length > 0) {
+      lines.push(...parsed)
+    } else {
+      stripped += match[0]
+    }
+    cursor = blockEnd
+  }
+
+  stripped += source.slice(cursor)
+  return { lines, strippedText: stripped }
 }
 
 export const chatRouter = router({
@@ -639,8 +679,8 @@ export const chatRouter = router({
             let remaining = delta.content
             while (remaining.length > 0) {
               if (!inA2UI) {
-                const fenceStartIndex = remaining.indexOf(AI_MARKUP.A2UI_FENCE_START)
-                if (fenceStartIndex < 0) {
+                const fenceStartMatch = findA2UIFenceStart(remaining)
+                if (!fenceStartMatch) {
                   roundAssistantText += remaining
                   fullText += remaining
                   if (!enforceA2UIContract) {
@@ -657,7 +697,7 @@ export const chatRouter = router({
                   continue
                 }
 
-                const visiblePrefix = remaining.slice(0, fenceStartIndex)
+                const visiblePrefix = remaining.slice(0, fenceStartMatch.index)
                 if (visiblePrefix.length > 0) {
                   roundAssistantText += visiblePrefix
                   fullText += visiblePrefix
@@ -673,7 +713,7 @@ export const chatRouter = router({
                   }
                 }
 
-                remaining = remaining.slice(fenceStartIndex + AI_MARKUP.A2UI_FENCE_START.length)
+                remaining = remaining.slice(fenceStartMatch.index + fenceStartMatch.length)
                 inA2UI = true
                 a2uiBuffer = ''
                 const generatingUiEvent = emit({
@@ -814,6 +854,24 @@ export const chatRouter = router({
             streamSequenceMax = Math.max(streamSequenceMax, thinkingCompleteEvent.sequence)
           }
           yield thinkingCompleteEvent
+        }
+
+        if (a2uiLines.length === 0 && runtimeConfig.features.a2uiEnabled && fullText.length > 0) {
+          const extracted = extractA2UILinesFromAnyCodeFence(fullText, runtimeConfig.safety.a2ui)
+          if (extracted.lines.length > 0) {
+            fullText = extracted.strippedText.trim()
+            for (const line of extracted.lines) {
+              a2uiLines.push(line)
+              const a2uiEvent = emit({
+                type: STREAM_EVENTS.A2UI,
+                jsonl: line,
+              })
+              if (typeof a2uiEvent.sequence === 'number') {
+                streamSequenceMax = Math.max(streamSequenceMax, a2uiEvent.sequence)
+              }
+              yield a2uiEvent
+            }
+          }
         }
 
         if (a2uiLines.length === 0 && runtimeConfig.features.a2uiEnabled) {

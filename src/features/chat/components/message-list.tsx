@@ -55,16 +55,11 @@ export function MessageList({
 
   const showPendingBubble = useMemo(() => {
     if (!pendingUserMessage) return false
-    if (streamState.pendingClientRequestId) {
-      const hasMatchingRequest = messages.some(
-        (m) =>
-          m.role === MESSAGE_ROLES.USER && m.clientRequestId === streamState.pendingClientRequestId,
-      )
-      if (hasMatchingRequest) return false
-    }
-    const lastUserContent =
-      messages.length > 0 ? messages.findLast((m) => m.role === MESSAGE_ROLES.USER)?.content : null
-    return pendingUserMessage !== lastUserContent
+    const pendingRequestId = streamState.pendingClientRequestId
+    if (!pendingRequestId) return true
+    return !messages.some(
+      (m) => m.role === MESSAGE_ROLES.USER && m.clientRequestId === pendingRequestId,
+    )
   }, [pendingUserMessage, messages, streamState.pendingClientRequestId])
 
   const hasStreamedContent =

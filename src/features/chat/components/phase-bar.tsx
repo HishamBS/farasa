@@ -3,36 +3,40 @@
 import { MOTION, STREAM_PHASES, STREAM_PROGRESS, TITLEBAR_PHASE } from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useMemo } from 'react'
 import { useStreamPhase } from '../context/stream-phase-context'
 
-const PHASE_RENDER_ORDER = [
+const STATUS_PHASES = [
   STREAM_PHASES.ROUTING,
   STREAM_PHASES.READING_FILES,
   STREAM_PHASES.SEARCHING,
   STREAM_PHASES.THINKING,
   STREAM_PHASES.GENERATING_UI,
   STREAM_PHASES.GENERATING_TITLE,
-  'STREAMING',
 ] as const
 
-type RenderPhaseKey = (typeof PHASE_RENDER_ORDER)[number]
+type RenderPhaseKey = (typeof STATUS_PHASES)[number] | 'STREAMING'
 const STREAMING_PHASE_KEY: RenderPhaseKey = 'STREAMING'
 
 export function PhaseBar({ model }: { model?: string }) {
-  const { phase, modelSelection, hasText, statusMessages } = useStreamPhase()
+  const { phase, hasText, statusMessages } = useStreamPhase()
   const isActive = phase !== TITLEBAR_PHASE.IDLE && phase !== TITLEBAR_PHASE.DONE
 
-  const seenPhases = new Set(statusMessages.map((statusMessage) => statusMessage.phase))
-  if (modelSelection?.source === 'auto_router') {
-    seenPhases.add(STREAM_PHASES.ROUTING)
-  }
-
-  const renderedPhases = PHASE_RENDER_ORDER.filter((phaseKey) => {
-    if (phaseKey === STREAMING_PHASE_KEY) {
-      return hasText
+  const renderedPhases = useMemo(() => {
+    const deduped: RenderPhaseKey[] = []
+    const seen = new Set<RenderPhaseKey>()
+    for (const statusMessage of statusMessages) {
+      const phaseKey = statusMessage.phase as (typeof STATUS_PHASES)[number]
+      if (!STATUS_PHASES.includes(phaseKey)) continue
+      if (seen.has(phaseKey)) continue
+      deduped.push(phaseKey)
+      seen.add(phaseKey)
     }
-    return seenPhases.has(phaseKey as (typeof STREAM_PHASES)[keyof typeof STREAM_PHASES])
-  })
+    if (hasText) {
+      deduped.push(STREAMING_PHASE_KEY)
+    }
+    return deduped
+  }, [hasText, statusMessages])
 
   const currentPhase: RenderPhaseKey | null = (() => {
     if (renderedPhases.length === 0) return null

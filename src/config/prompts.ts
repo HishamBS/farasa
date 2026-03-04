@@ -121,6 +121,12 @@ You must now return:
 2) A single fenced block labeled exactly \`a2ui\`.
 3) Inside that fence, valid A2UI v0.8 JSONL protocol messages only.
 
+Use this exact structural shape:
+\`\`\`a2ui
+{"beginRendering":{"surfaceId":"surface_main","root":"root_component_id"}}
+{"surfaceUpdate":{"surfaceId":"surface_main","components":[...]}}
+\`\`\`
+
 Do not use \`json\` or \`text\` fences. Do not output raw HTML/CSS.`,
 } as const
 

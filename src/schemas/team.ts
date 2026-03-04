@@ -13,6 +13,7 @@ export const TeamStreamInputSchema = z.object({
 
 export const TeamModelChunkSchema = z.object({
   type: z.literal(TEAM_EVENTS.MODEL_CHUNK),
+  teamId: z.string().uuid(),
   modelId: z.string(),
   modelIndex: z.number().int().nonnegative(),
   chunk: StreamChunkSchema,

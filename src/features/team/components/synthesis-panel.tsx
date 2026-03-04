@@ -1,5 +1,7 @@
 'use client'
 
+import { UI_TEXT } from '@/config/constants'
+import { ModelSelector } from '@/features/chat/components/model-selector'
 import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
 import { useTeamMode } from '@/features/team/context/team-context'
 import type { UseSynthesisReturn } from '@/features/team/hooks/use-team-synthesis'
@@ -33,6 +35,7 @@ export function SynthesisPanel({
     () => policyQuery.data?.synthesisModelOptions ?? [],
     [policyQuery.data?.synthesisModelOptions],
   )
+  const { data: allModels = [] } = trpc.model.list.useQuery()
   const { trigger, isSynthesizing, synthesisText, error: synthesisError } = synthesis
 
   const hasSelectedSynthesisModel = useMemo(
@@ -74,28 +77,32 @@ export function SynthesisPanel({
   }, [initialSynthesisModelId, selectedSynthesisLabel, synthesisText])
 
   const hasSelectableSynthesisModel = synthesisModelOptions.length > 0
+  const selectableSynthesisModelIds = useMemo(
+    () => new Set(synthesisModelOptions.map((model) => model.id)),
+    [synthesisModelOptions],
+  )
+  const excludedModelIds = useMemo(
+    () =>
+      allModels
+        .filter((model) => !selectableSynthesisModelIds.has(model.id))
+        .map((model) => model.id),
+    [allModels, selectableSynthesisModelIds],
+  )
 
   return (
     <div className="space-y-4 py-1">
       <div className="space-y-2">
-        <p className="text-xs font-medium text-(--text-muted)">Select synthesizer model</p>
+        <p className="text-xs font-medium text-(--text-muted)">
+          {UI_TEXT.TEAM_SYNTHESIZER_SELECT_ARIA_PREFIX} model
+        </p>
         {hasSelectableSynthesisModel ? (
-          <select
-            value={effectiveSynthesisModel ?? ''}
-            onChange={(event) => {
-              const value = event.target.value.trim()
-              handleSynthesisModelChange(value.length > 0 ? value : undefined)
-            }}
-            className="h-9 w-full rounded-lg border border-(--border-default) bg-(--bg-input) px-3 text-sm text-(--text-primary) outline-none focus:border-(--accent)"
-            aria-label="Select synthesizer model"
-          >
-            <option value="">Select synthesizer</option>
-            {synthesisModelOptions.map((model) => (
-              <option key={model.id} value={model.id}>
-                {model.name}
-              </option>
-            ))}
-          </select>
+          <ModelSelector
+            value={effectiveSynthesisModel}
+            onChange={handleSynthesisModelChange}
+            includeAuto={false}
+            excludedModelIds={excludedModelIds}
+            emptyLabel={UI_TEXT.TEAM_SYNTHESIZER_SELECT_ARIA_PREFIX}
+          />
         ) : (
           <p className="text-xs text-(--text-ghost)">
             No additional synthesizer model available outside selected team models.

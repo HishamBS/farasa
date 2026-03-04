@@ -697,12 +697,36 @@ export const teamRouter = router({
             outcome && outcome.searchImages.length > 0 ? outcome.searchImages : undefined,
           toolCalls: outcome && outcome.toolCalls.length > 0 ? outcome.toolCalls : undefined,
         })
-        await ctx.db.insert(messages).values({
-          conversationId,
-          role: MESSAGE_ROLES.ASSISTANT,
-          content,
-          metadata,
-        })
+        const assistantClientRequestId = `${streamRequestId}:${modelId}`
+        const [existingAssistantMessage] = await ctx.db
+          .select({ id: messages.id })
+          .from(messages)
+          .where(
+            and(
+              eq(messages.conversationId, conversationId),
+              eq(messages.role, MESSAGE_ROLES.ASSISTANT),
+              eq(messages.clientRequestId, assistantClientRequestId),
+            ),
+          )
+          .limit(1)
+
+        if (existingAssistantMessage) {
+          await ctx.db
+            .update(messages)
+            .set({
+              content,
+              metadata,
+            })
+            .where(eq(messages.id, existingAssistantMessage.id))
+        } else {
+          await ctx.db.insert(messages).values({
+            conversationId,
+            role: MESSAGE_ROLES.ASSISTANT,
+            content,
+            metadata,
+            clientRequestId: assistantClientRequestId,
+          })
+        }
       }
 
       if (successfulModels.length === 0) {
@@ -937,17 +961,43 @@ Your task: write a single unified response that combines the strongest elements 
       }
 
       const synthesisMetadata = MessageMetadataSchema.parse({
+        streamRequestId: crypto.randomUUID(),
         teamId: input.teamId,
         isTeamSynthesis: true,
         modelUsed: input.synthesisModel,
+        userMessageId: storedUserMessageId ?? undefined,
       })
 
-      await ctx.db.insert(messages).values({
-        conversationId: input.conversationId,
-        role: MESSAGE_ROLES.ASSISTANT,
-        content: synthesisText,
-        metadata: synthesisMetadata,
-      })
+      const synthesisClientRequestId = `${input.teamId}:synthesis:${input.synthesisModel}`
+      const [existingSynthesisMessage] = await ctx.db
+        .select({ id: messages.id })
+        .from(messages)
+        .where(
+          and(
+            eq(messages.conversationId, input.conversationId),
+            eq(messages.role, MESSAGE_ROLES.ASSISTANT),
+            eq(messages.clientRequestId, synthesisClientRequestId),
+          ),
+        )
+        .limit(1)
+
+      if (existingSynthesisMessage) {
+        await ctx.db
+          .update(messages)
+          .set({
+            content: synthesisText,
+            metadata: synthesisMetadata,
+          })
+          .where(eq(messages.id, existingSynthesisMessage.id))
+      } else {
+        await ctx.db.insert(messages).values({
+          conversationId: input.conversationId,
+          role: MESSAGE_ROLES.ASSISTANT,
+          content: synthesisText,
+          metadata: synthesisMetadata,
+          clientRequestId: synthesisClientRequestId,
+        })
+      }
 
       await ctx.db
         .update(conversations)

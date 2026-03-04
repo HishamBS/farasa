@@ -3,6 +3,7 @@
 import {
   CHAT_MODES,
   CHAT_STREAM_STATUS,
+  MESSAGE_ROLES,
   TEAM_STREAM_PHASES,
   TITLEBAR_PHASE,
   UX,
@@ -170,12 +171,18 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     { staleTime: UX.QUERY_STALE_TIME_FOREVER, enabled: !!effectiveConversationId },
   )
   const messages = useMemo(() => messagesData?.messages ?? [], [messagesData])
+  const hasPersistedTeamMessages = useMemo(() => {
+    if (!teamId) return false
+    return messages.some(
+      (message) => message.role === MESSAGE_ROLES.ASSISTANT && message.metadata?.teamId === teamId,
+    )
+  }, [messages, teamId])
 
   useEffect(() => {
-    if (teamPersisted && teamStreamInput !== null) {
+    if (teamPersisted && teamStreamInput !== null && hasPersistedTeamMessages) {
       setTeamStreamInput(null)
     }
-  }, [teamPersisted, teamStreamInput])
+  }, [teamPersisted, teamStreamInput, hasPersistedTeamMessages])
 
   const handleSuggestionSelect = useCallback((text: string) => {
     chatInputRef.current?.setContent(text)

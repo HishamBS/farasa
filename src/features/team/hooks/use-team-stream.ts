@@ -211,6 +211,7 @@ export function useTeamStream({
         if (!active || active.sessionId !== sessionId) return
 
         if (chunk.type === TEAM_EVENTS.MODEL_CHUNK) {
+          setTeamId(chunk.teamId)
           setModelStates((prev) => applyChunkToModelState(prev, chunk))
         } else if (chunk.type === TEAM_EVENTS.STREAM_EVENT) {
           const eventChunk = chunk.chunk

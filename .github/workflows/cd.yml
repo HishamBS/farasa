@@ -90,5 +90,3 @@ jobs:
             --allow-unauthenticated
             --execution-environment=gen2
 
-      - name: Print deployed URL
-        run: echo "Deployed to ${{ steps.deploy.outputs.url }}"

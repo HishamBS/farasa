@@ -20,6 +20,7 @@ ENV SKIP_ENV_VALIDATION=1
 ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 
 RUN bun run build
+RUN rm -f .next/standalone/.env .next/standalone/.env.local
 
 # Production image, copy all files and run
 FROM base AS runner

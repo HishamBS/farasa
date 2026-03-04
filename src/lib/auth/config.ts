@@ -1,11 +1,12 @@
-import NextAuth, { type DefaultSession } from 'next-auth'
-import type { Adapter, AdapterAccount } from '@auth/core/adapters'
-import { DrizzleAdapter } from '@auth/drizzle-adapter'
 import { env } from '@/config/env'
+import { authSharedConfig } from '@/lib/auth/shared-config'
 import { db } from '@/lib/db/client'
 import * as schema from '@/lib/db/schema'
-import { encryptToken, decryptToken } from '@/lib/security/token-crypto'
-import { authSharedConfig } from '@/lib/auth/shared-config'
+import { decryptToken, encryptToken } from '@/lib/security/token-crypto'
+import type { Adapter, AdapterAccount } from '@auth/core/adapters'
+import { DrizzleAdapter } from '@auth/drizzle-adapter'
+import { eq } from 'drizzle-orm'
+import NextAuth, { type DefaultSession } from 'next-auth'
 
 declare module 'next-auth' {
   interface Session {
@@ -54,6 +55,26 @@ async function decryptAccountTokens(
 function withEncryptedTokens(adapter: Adapter): Adapter {
   return {
     ...adapter,
+    getUserByEmail: adapter.getUserByEmail
+      ? async (email) => {
+          const user = await adapter.getUserByEmail!(email)
+          if (!user) return null
+
+          const [linkedAccount] = await db
+            .select({ userId: schema.accounts.userId })
+            .from(schema.accounts)
+            .where(eq(schema.accounts.userId, user.id))
+            .limit(1)
+
+          if (linkedAccount) {
+            return user
+          }
+
+          // Repair orphaned OAuth state: user row exists without provider linkage.
+          await db.delete(schema.users).where(eq(schema.users.id, user.id))
+          return null
+        }
+      : undefined,
     linkAccount: adapter.linkAccount
       ? async (account) => {
           await adapter.linkAccount!(await encryptAccountTokens(account))

@@ -89,4 +89,3 @@ jobs:
             --cpu=1
             --allow-unauthenticated
             --execution-environment=gen2
-

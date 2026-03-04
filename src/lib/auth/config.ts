@@ -89,26 +89,6 @@ async function cleanupOrphanUserAfterLinkFailure(userId: string): Promise<void> 
 function withEncryptedTokens(adapter: Adapter): Adapter {
   return {
     ...adapter,
-    getUserByEmail: adapter.getUserByEmail
-      ? async (email) => {
-          const user = await adapter.getUserByEmail!(email)
-          if (!user) return null
-
-          const [linkedAccount] = await db
-            .select({ userId: schema.accounts.userId })
-            .from(schema.accounts)
-            .where(eq(schema.accounts.userId, user.id))
-            .limit(1)
-
-          if (linkedAccount) {
-            return user
-          }
-
-          // Repair orphaned OAuth state: user row exists without provider linkage.
-          await db.delete(schema.users).where(eq(schema.users.id, user.id))
-          return null
-        }
-      : undefined,
     linkAccount: adapter.linkAccount
       ? async (account) => {
           try {

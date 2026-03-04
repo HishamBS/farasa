@@ -12,6 +12,7 @@ import { ROUTES } from '@/config/routes'
 import { useTeamStream } from '@/features/team/hooks/use-team-stream'
 import { useTeamSynthesis } from '@/features/team/hooks/use-team-synthesis'
 import type { LiveTeamData, ModelMeta } from '@/features/team/types'
+import { shouldRenderLiveTeam } from '@/features/team/utils/live-team-visibility'
 import type { TeamStreamInput } from '@/schemas/team'
 import { trpc } from '@/trpc/provider'
 import type { TitlebarPhase } from '@/types/stream'
@@ -79,12 +80,14 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     if (teamDone) {
       const convId = teamConversationIdRef.current
       if (convId) {
-        router.replace(ROUTES.CHAT_BY_ID(convId))
+        if (conversationId !== convId) {
+          router.replace(ROUTES.CHAT_BY_ID(convId))
+        }
         void utils.conversation.messages.invalidate({ conversationId: convId })
         void utils.conversation.getById.invalidate({ id: convId })
       }
     }
-  }, [teamDone, router, utils])
+  }, [teamDone, conversationId, router, utils])
 
   const handleTeamSubmit = useCallback((input: TeamStreamInput) => {
     setTeamStreamInput(input)
@@ -195,10 +198,15 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   }, [streamState.phase, streamState.lastInput])
 
   const liveTeam = useMemo((): LiveTeamData | null => {
-    const shouldRenderLiveTeam =
-      teamPhase === TEAM_STREAM_PHASES.ACTIVE ||
-      (teamPhase === TEAM_STREAM_PHASES.DONE && !teamPersisted)
-    if (!shouldRenderLiveTeam) return null
+    if (
+      !shouldRenderLiveTeam({
+        teamPhase,
+        teamPersisted,
+        hasPersistedTeamMessages,
+      })
+    ) {
+      return null
+    }
     return {
       modelStates,
       modelOrder,
@@ -218,6 +226,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     synthesis,
     activeTeamModels,
     teamPersisted,
+    hasPersistedTeamMessages,
   ])
 
   return (

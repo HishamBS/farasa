@@ -7,6 +7,7 @@ import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import { CodeBlock } from './code-block'
+import { GeneratedImage, isGeneratedImageContent } from './generated-image'
 import type { Components } from 'react-markdown'
 import { MARKDOWN_SANITIZE } from '@/config/constants'
 
@@ -115,6 +116,10 @@ export function MarkdownRenderer({ content, autoCollapse }: MarkdownRendererProp
     }),
     [autoCollapse],
   )
+
+  if (isGeneratedImageContent(content)) {
+    return <GeneratedImage content={content} />
+  }
 
   return (
     <ReactMarkdown

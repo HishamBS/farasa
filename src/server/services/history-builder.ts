@@ -25,16 +25,16 @@ function decodeDataUrlToText(dataUrl: string): string {
 export function buildAttachmentBlocks(attachmentRows: AttachmentRow[]): ChatMessageContentItem[] {
   const blocks: ChatMessageContentItem[] = []
   for (const att of attachmentRows) {
-    if (att.fileType.startsWith('text/')) {
+    if (att.fileType.startsWith('image/')) {
+      blocks.push({
+        type: ChatMessageContentItemImageType.ImageUrl,
+        imageUrl: { url: att.storageUrl },
+      })
+    } else {
       const decoded = decodeDataUrlToText(att.storageUrl)
       blocks.push({
         type: ChatMessageContentItemTextType.Text,
         text: `<file name="${escapeXmlForPrompt(att.fileName)}">\n${decoded}\n</file>`,
-      })
-    } else {
-      blocks.push({
-        type: ChatMessageContentItemImageType.ImageUrl,
-        imageUrl: { url: att.storageUrl },
       })
     }
   }
@@ -69,6 +69,12 @@ export async function linkAttachmentsToMessage(
   return linked
 }
 
+function buildHistoryAttachmentAnnotation(rows: { fileName: string; fileType: string }[]): string {
+  return rows
+    .map((att) => `[Attached file: ${escapeXmlForPrompt(att.fileName)} (${att.fileType})]`)
+    .join('\n')
+}
+
 export async function buildEnrichedHistory(
   dbClient: typeof db,
   conversationId: string,
@@ -100,7 +106,12 @@ export async function buildEnrichedHistory(
   const historyAttachmentRows =
     userMessageIds.length > 0
       ? await dbClient
-          .select()
+          .select({
+            id: attachments.id,
+            messageId: attachments.messageId,
+            fileName: attachments.fileName,
+            fileType: attachments.fileType,
+          })
           .from(attachments)
           .where(
             and(inArray(attachments.messageId, userMessageIds), isNotNull(attachments.confirmedAt)),
@@ -121,11 +132,8 @@ export async function buildEnrichedHistory(
       if (row.role === MESSAGE_ROLES.USER) {
         const rowAttachments = attachmentsByMessageId.get(row.id)
         if (rowAttachments && rowAttachments.length > 0) {
-          const blocks: ChatMessageContentItem[] = [
-            { type: ChatMessageContentItemTextType.Text, text: row.content },
-            ...buildAttachmentBlocks(rowAttachments),
-          ]
-          return { role: row.role, content: blocks }
+          const annotation = buildHistoryAttachmentAnnotation(rowAttachments)
+          return { role: row.role, content: `${row.content}\n${annotation}` }
         }
         return { role: row.role, content: row.content }
       }

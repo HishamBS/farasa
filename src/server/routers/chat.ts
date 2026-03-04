@@ -1,5 +1,6 @@
 import {
   AI_MARKUP,
+  AI_PARAMS,
   LIMITS,
   MESSAGE_ROLES,
   NEW_CHAT_TITLE,
@@ -683,6 +684,9 @@ export const chatRouter = router({
                 maxCompletionTokens: getModelMaxCompletionTokens(registry, selectedModel),
                 ...(webSearchEnabled
                   ? { tools: ALL_TOOLS, toolChoice: ToolChoiceOptionAuto.Auto }
+                  : {}),
+                ...(registry.find((m) => m.id === selectedModel)?.supportsThinking
+                  ? { reasoning: { effort: AI_PARAMS.REASONING_EFFORT } }
                   : {}),
               },
             },

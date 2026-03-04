@@ -395,6 +395,7 @@ export const AI_PARAMS = {
   ROUTER_TEMPERATURE: 0,
   TITLE_TEMPERATURE: 0.3,
   THINKING_HISTORICAL_STARTAT_MS: 0,
+  REASONING_EFFORT: 'high' as const,
 } as const
 
 export const MODEL_REGISTRY_CACHE_KEY = 'models' as const

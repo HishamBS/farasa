@@ -183,7 +183,6 @@ export function useChatStream(conversationId?: string) {
                       nextCursor: current?.nextCursor ?? null,
                     }
                   })
-                  void utils.conversation.messages.invalidate({ conversationId: convId })
                 }
                 break
               }

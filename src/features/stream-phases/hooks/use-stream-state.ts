@@ -152,6 +152,7 @@ export function streamStateReducer(state: StreamState, action: StreamAction): St
         ...initialStreamState,
         pendingUserMessage: state.pendingUserMessage,
         pendingClientRequestId: state.pendingClientRequestId,
+        resolvedConversationId: state.resolvedConversationId,
       }
     }
 

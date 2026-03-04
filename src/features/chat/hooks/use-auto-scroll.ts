@@ -34,12 +34,26 @@ export function useAutoScroll(
     return () => container.removeEventListener('scroll', onScroll)
   }, [containerRef, runtimeConfigQuery.data?.ux.autoScrollThreshold])
 
+  useEffect(() => {
+    if (!isActive || isPaused) return
+    const container = containerRef.current
+    if (!container) return
+
+    const scroll = () => {
+      container.scrollTo({ top: container.scrollHeight, behavior: 'auto' })
+    }
+
+    scroll()
+
+    const observer = new MutationObserver(scroll)
+    observer.observe(container, { childList: true, subtree: true, characterData: true })
+
+    return () => observer.disconnect()
+  }, [isActive, isPaused, containerRef])
+
   const prevActiveRef = useRef(isActive)
 
   useEffect(() => {
-    if (isActive && !isPaused) {
-      scrollToBottom()
-    }
     if (prevActiveRef.current && !isActive && !isPaused) {
       requestAnimationFrame(() => {
         scrollToBottom()

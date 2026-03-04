@@ -32,7 +32,7 @@ export function AssistantMessage({ streamState }: AssistantMessageProps) {
       <AssistantFrame modelLabel={modelLabel} tokenLabel={null} isStreaming={isStreaming}>
         <div className="space-y-3">
           {isStreaming && !streamState.modelSelection && (
-            <div className="rounded-xl border border-(--border-subtle) bg-(--bg-surface) px-3 py-2 text-xs text-(--text-muted)">
+            <div className="w-fit rounded-xl border border-(--border-subtle) bg-(--bg-surface) px-3 py-2 text-xs text-(--text-muted)">
               <div className="flex items-center gap-2">
                 <span className="size-1.5 animate-pulse rounded-full bg-(--accent)" />
                 <span>{STATUS_MESSAGES.ROUTING}</span>
@@ -80,7 +80,7 @@ export function AssistantMessage({ streamState }: AssistantMessageProps) {
               autoCollapse={streamState.phase === CHAT_STREAM_STATUS.COMPLETE}
             />
           )}
-          {isStreaming && (
+          {isStreaming && streamState.textContent && (
             <span className="inline-block h-4 w-0.5 animate-pulse rounded-sm bg-(--accent) align-middle" />
           )}
 

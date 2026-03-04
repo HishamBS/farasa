@@ -610,8 +610,46 @@ export const chatRouter = router({
             { signal: combinedSignal },
           )
 
-          const messageContent = response.choices[0]?.message?.content
-          const imageContent = typeof messageContent === 'string' ? messageContent : ''
+          const rawMessage = response.choices[0]?.message
+          const messageRecord = rawMessage as Record<string, unknown> | undefined
+          const messageContent = rawMessage?.content
+          const messageImages = messageRecord?.images
+
+          let imageContent = ''
+
+          if (typeof messageContent === 'string' && messageContent.length > 0) {
+            imageContent = messageContent
+          }
+
+          if (!imageContent && Array.isArray(messageImages)) {
+            const parts: string[] = []
+            for (const img of messageImages as Array<Record<string, unknown>>) {
+              const nested = img?.imageUrl as Record<string, unknown> | undefined
+              if (typeof nested?.url === 'string') {
+                parts.push(`![Generated Image](${nested.url})`)
+              } else if (typeof img?.url === 'string') {
+                parts.push(`![Generated Image](${img.url})`)
+              } else if (typeof img?.b64_json === 'string') {
+                parts.push(`![Generated Image](data:image/png;base64,${img.b64_json})`)
+              }
+            }
+            imageContent = parts.join('\n\n')
+          }
+
+          if (!imageContent && Array.isArray(messageContent)) {
+            const parts: string[] = []
+            for (const item of messageContent as Array<Record<string, unknown>>) {
+              if (typeof item?.text === 'string') {
+                parts.push(item.text)
+              }
+              const imageUrl = item?.image_url as Record<string, unknown> | undefined
+              if (typeof imageUrl?.url === 'string') {
+                parts.push(`![Generated Image](${imageUrl.url})`)
+              }
+            }
+            imageContent = parts.join('\n\n')
+          }
+
           if (imageContent.length > 0) {
             fullText = imageContent
             const textEvent = emit({ type: STREAM_EVENTS.TEXT, content: imageContent })

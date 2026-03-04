@@ -264,7 +264,7 @@ export const teamRouter = router({
       }
 
       const { buildUserContent } = await import('@/server/services/history-builder')
-      const userContent = buildUserContent(input.content, linkedAttachmentRows)
+      const userContent = await buildUserContent(input.content, linkedAttachmentRows)
 
       const teamId = crypto.randomUUID()
       const searchToolName = runtimeConfig.search.toolName

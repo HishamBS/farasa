@@ -452,7 +452,7 @@ export const chatRouter = router({
       }
 
       const { buildUserContent } = await import('@/server/services/history-builder')
-      const userContent = buildUserContent(wrappedContent, linkedAttachmentRows)
+      const userContent = await buildUserContent(wrappedContent, linkedAttachmentRows)
 
       const searchToolName = runtimeConfig.search.toolName
       const toolCalls: ToolCall[] = []

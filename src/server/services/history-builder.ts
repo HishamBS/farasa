@@ -10,19 +10,13 @@ import {
 } from '@openrouter/sdk/models'
 import { TRPCError } from '@trpc/server'
 import { and, asc, eq, inArray, isNotNull, or } from 'drizzle-orm'
+import { extractFileContentBlock } from './text-extraction'
 
 export type AttachmentRow = typeof attachments.$inferSelect
 
-const DATA_URL_SEPARATOR = ','
-
-function decodeDataUrlToText(dataUrl: string): string {
-  const commaIndex = dataUrl.indexOf(DATA_URL_SEPARATOR)
-  if (commaIndex === -1) return dataUrl
-  const base64 = dataUrl.slice(commaIndex + 1)
-  return Buffer.from(base64, 'base64').toString('utf-8')
-}
-
-function buildAttachmentBlocks(attachmentRows: AttachmentRow[]): ChatMessageContentItem[] {
+async function buildAttachmentBlocks(
+  attachmentRows: AttachmentRow[],
+): Promise<ChatMessageContentItem[]> {
   const blocks: ChatMessageContentItem[] = []
   for (const att of attachmentRows) {
     if (att.fileType.startsWith('image/')) {
@@ -31,24 +25,26 @@ function buildAttachmentBlocks(attachmentRows: AttachmentRow[]): ChatMessageCont
         imageUrl: { url: att.storageUrl },
       })
     } else {
-      const decoded = decodeDataUrlToText(att.storageUrl)
-      blocks.push({
-        type: ChatMessageContentItemTextType.Text,
-        text: `<file name="${escapeXmlForPrompt(att.fileName)}">\n${decoded}\n</file>`,
-      })
+      const fileBlock = await extractFileContentBlock(att.fileName, att.fileType, att.storageUrl)
+      if (fileBlock) {
+        blocks.push({
+          type: ChatMessageContentItemTextType.Text,
+          text: fileBlock,
+        })
+      }
     }
   }
   return blocks
 }
 
-export function buildUserContent(
+export async function buildUserContent(
   text: string,
   attachmentRows: AttachmentRow[],
-): string | ChatMessageContentItem[] {
+): Promise<string | ChatMessageContentItem[]> {
   if (attachmentRows.length === 0) return text
   return [
     { type: ChatMessageContentItemTextType.Text, text },
-    ...buildAttachmentBlocks(attachmentRows),
+    ...(await buildAttachmentBlocks(attachmentRows)),
   ]
 }
 

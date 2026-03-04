@@ -24,9 +24,8 @@ export function SidebarHeader({
   const router = useRouter()
 
   const handleNewChat = useCallback(() => {
-    router.replace(ROUTES.CHAT)
-    router.refresh()
     window.dispatchEvent(new Event(BROWSER_EVENTS.NEW_CHAT_REQUESTED))
+    router.replace(ROUTES.CHAT)
   }, [router])
 
   return (

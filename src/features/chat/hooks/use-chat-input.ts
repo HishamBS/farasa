@@ -46,7 +46,6 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
 
   useEffect(() => {
     const handleNewChatRequested = () => {
-      if (conversationId) return
       selectedModelRef.current = undefined
       setSelectedModelState(undefined)
     }
@@ -54,7 +53,7 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
     return () => {
       window.removeEventListener(BROWSER_EVENTS.NEW_CHAT_REQUESTED, handleNewChatRequested)
     }
-  }, [conversationId])
+  }, [])
 
   const setSelectedModel = useCallback(
     (modelId: string | undefined) => {

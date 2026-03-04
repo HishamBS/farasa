@@ -639,10 +639,7 @@ export const teamRouter = router({
             toolCalls: modelToolCalls,
           })
         } catch (error) {
-          console.error(
-            '[team.stream] model error:',
-            error instanceof Error ? error.message : String(error),
-          )
+          console.error('[team.stream] model error:', getErrorMessage(error))
           const errorMessage = getErrorMessage(error, runtimeConfig.chat.errors.providerUnavailable)
           push({
             done: false,

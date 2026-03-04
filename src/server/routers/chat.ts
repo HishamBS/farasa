@@ -1099,10 +1099,7 @@ export const chatRouter = router({
       }
       yield doneEvent
     } catch (error) {
-      console.error(
-        '[chat.stream] terminal error:',
-        error instanceof Error ? error.message : String(error),
-      )
+      console.error('[chat.stream] terminal error:', getErrorMessage(error))
       const terminal = classifyTerminalError(runtimeConfig, error)
       yield emit({
         type: STREAM_EVENTS.ERROR,

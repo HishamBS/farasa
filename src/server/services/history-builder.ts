@@ -11,7 +11,7 @@ import {
 import { TRPCError } from '@trpc/server'
 import { and, asc, eq, inArray, isNotNull, or } from 'drizzle-orm'
 
-type AttachmentRow = typeof attachments.$inferSelect
+export type AttachmentRow = typeof attachments.$inferSelect
 
 const DATA_URL_SEPARATOR = ','
 
@@ -22,7 +22,7 @@ function decodeDataUrlToText(dataUrl: string): string {
   return Buffer.from(base64, 'base64').toString('utf-8')
 }
 
-export function buildAttachmentBlocks(attachmentRows: AttachmentRow[]): ChatMessageContentItem[] {
+function buildAttachmentBlocks(attachmentRows: AttachmentRow[]): ChatMessageContentItem[] {
   const blocks: ChatMessageContentItem[] = []
   for (const att of attachmentRows) {
     if (att.fileType.startsWith('image/')) {
@@ -39,6 +39,17 @@ export function buildAttachmentBlocks(attachmentRows: AttachmentRow[]): ChatMess
     }
   }
   return blocks
+}
+
+export function buildUserContent(
+  text: string,
+  attachmentRows: AttachmentRow[],
+): string | ChatMessageContentItem[] {
+  if (attachmentRows.length === 0) return text
+  return [
+    { type: ChatMessageContentItemTextType.Text, text },
+    ...buildAttachmentBlocks(attachmentRows),
+  ]
 }
 
 export async function linkAttachmentsToMessage(

@@ -9,7 +9,8 @@ import {
   TRPC_CODES,
 } from '@/config/constants'
 import { PROMPTS } from '@/config/prompts'
-import { conversations, messages, type attachments } from '@/lib/db/schema'
+import { conversations, messages } from '@/lib/db/schema'
+import type { AttachmentRow } from '@/server/services/history-builder'
 import { AppError, getErrorMessage } from '@/lib/utils/errors'
 import type { StreamChunk, ToolCall, Usage } from '@/schemas/message'
 import {
@@ -29,8 +30,8 @@ import {
   mergeSearchResults,
   parseSearchToolQuery,
 } from '@/server/services/search-tool-service'
-import type { ChatMessageContentItem, ChatMessageToolCall, Message } from '@openrouter/sdk/models'
-import { ChatMessageContentItemTextType, ToolChoiceOptionAuto } from '@openrouter/sdk/models'
+import type { ChatMessageToolCall, Message } from '@openrouter/sdk/models'
+import { ToolChoiceOptionAuto } from '@openrouter/sdk/models'
 import { TRPCError } from '@trpc/server'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { protectedProcedure, rateLimitedChatProcedure, router } from '../trpc'
@@ -353,7 +354,7 @@ export const chatRouter = router({
         messageId: userMessageId,
       })
 
-      let linkedAttachmentRows: (typeof attachments.$inferSelect)[] = []
+      let linkedAttachmentRows: AttachmentRow[] = []
       if (input.attachmentIds.length > 0 && userMessageId) {
         const { linkAttachmentsToMessage } = await import('@/server/services/history-builder')
         linkedAttachmentRows = await linkAttachmentsToMessage(
@@ -444,7 +445,6 @@ export const chatRouter = router({
         .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
 
       const wrappedContent = `${runtimeConfig.prompts.wrappers.userRequestOpen}\n${input.content}\n${runtimeConfig.prompts.wrappers.userRequestClose}`
-      let userContent: string | ChatMessageContentItem[] = wrappedContent
       const hasAttachments = input.attachmentIds.length > 0
       if (hasAttachments) {
         yield emit({
@@ -452,15 +452,10 @@ export const chatRouter = router({
           phase: STREAM_PHASES.READING_FILES,
           message: runtimeConfig.chat.statusMessages.readingFiles,
         })
-
-        const { buildAttachmentBlocks } = await import('@/server/services/history-builder')
-        const blocks: ChatMessageContentItem[] = [
-          { type: ChatMessageContentItemTextType.Text, text: wrappedContent },
-          ...buildAttachmentBlocks(linkedAttachmentRows),
-        ]
-
-        userContent = blocks
       }
+
+      const { buildUserContent } = await import('@/server/services/history-builder')
+      const userContent = buildUserContent(wrappedContent, linkedAttachmentRows)
 
       const searchToolName = runtimeConfig.search.toolName
       const toolCalls: ToolCall[] = []

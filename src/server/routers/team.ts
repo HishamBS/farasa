@@ -27,8 +27,9 @@ import {
   mergeSearchResults,
   parseSearchToolQuery,
 } from '@/server/services/search-tool-service'
-import type { ChatMessageContentItem, ChatMessageToolCall, Message } from '@openrouter/sdk/models'
-import { ChatMessageContentItemTextType, ToolChoiceOptionAuto } from '@openrouter/sdk/models'
+import type { ChatMessageToolCall, Message } from '@openrouter/sdk/models'
+import { ToolChoiceOptionAuto } from '@openrouter/sdk/models'
+import type { AttachmentRow } from '@/server/services/history-builder'
 import { TRPCError } from '@trpc/server'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { createHash } from 'node:crypto'
@@ -251,24 +252,19 @@ export const teamRouter = router({
         } satisfies StreamChunk,
       }
 
-      let userContent: string | ChatMessageContentItem[] = input.content
+      let linkedAttachmentRows: AttachmentRow[] = []
       if (input.attachmentIds.length > 0) {
-        const { linkAttachmentsToMessage, buildAttachmentBlocks } =
-          await import('@/server/services/history-builder')
-        const attachmentRows = await linkAttachmentsToMessage(
+        const { linkAttachmentsToMessage } = await import('@/server/services/history-builder')
+        linkedAttachmentRows = await linkAttachmentsToMessage(
           ctx.db,
           ctx.userId,
           input.attachmentIds,
           userMessageId,
         )
-
-        if (attachmentRows.length > 0) {
-          userContent = [
-            { type: ChatMessageContentItemTextType.Text, text: input.content },
-            ...buildAttachmentBlocks(attachmentRows),
-          ]
-        }
       }
+
+      const { buildUserContent } = await import('@/server/services/history-builder')
+      const userContent = buildUserContent(input.content, linkedAttachmentRows)
 
       const teamId = crypto.randomUUID()
       const searchToolName = runtimeConfig.search.toolName

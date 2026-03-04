@@ -201,36 +201,42 @@ export function RoutingDecisionBlock({
   const displayName = provider ? PROVIDER_DISPLAY_NAMES[provider] : undefined
 
   return (
-    <div className={cn('mb-3 w-fit', className)}>
-      <button
-        type="button"
-        onClick={toggle}
-        className={cn(
-          'inline-flex max-w-full cursor-pointer select-none items-center gap-1.5 rounded-xl border border-(--accent)/35 bg-(--accent)/8 px-2.5 py-1.5 transition-all duration-200 active:scale-[0.98]',
-          compact
-            ? 'hover:scale-105 hover:border-(--accent)/55'
-            : 'hover:scale-[1.02] hover:border-(--accent)/50',
-        )}
-        aria-expanded={isExpanded}
-      >
-        <span className={cn('size-1.5 rounded-full', providerDotClass ?? 'bg-(--accent)')} />
-        <span className="text-sm font-medium text-(--accent)">
-          {STREAM_PROGRESS.LABELS[STREAM_PHASES.ROUTING]}
-        </span>
-        {!compact && (
-          <span className="max-w-36 truncate text-xs text-(--text-secondary)">{modelLabel}</span>
-        )}
-        {!compact && <StepDots shouldReduce={shouldReduce} />}
-        <ChevronDown
-          size={13}
-          className={cn('text-(--text-muted) transition-transform', isExpanded && 'rotate-180')}
-        />
-      </button>
+    <>
+      <div className={cn('mb-3 w-fit', className)}>
+        <button
+          type="button"
+          onClick={toggle}
+          className={cn(
+            'inline-flex max-w-full cursor-pointer select-none items-center gap-1.5 rounded-xl border border-(--accent)/35 bg-(--accent)/8 px-2.5 py-1.5 transition-all duration-200 active:scale-[0.98]',
+            compact
+              ? 'hover:scale-105 hover:border-(--accent)/55'
+              : 'hover:scale-[1.02] hover:border-(--accent)/50',
+          )}
+          aria-expanded={isExpanded}
+        >
+          <span className={cn('size-1.5 rounded-full', providerDotClass ?? 'bg-(--accent)')} />
+          <span className="text-sm font-medium text-(--accent)">
+            {STREAM_PROGRESS.LABELS[STREAM_PHASES.ROUTING]}
+          </span>
+          {!compact && (
+            <span className="max-w-36 truncate text-xs text-(--text-secondary)">{modelLabel}</span>
+          )}
+          {!compact && <StepDots shouldReduce={shouldReduce} />}
+          <ChevronDown
+            size={13}
+            className={cn('text-(--text-muted) transition-transform', isExpanded && 'rotate-180')}
+          />
+        </button>
+      </div>
 
       <AnimatePresence initial={false}>
         {isExpanded && (
-          <motion.div key="steps" {...(shouldReduce ? {} : expand)} className="overflow-hidden">
-            <div className="mt-3 flex items-start justify-center gap-0">
+          <motion.div
+            key="steps"
+            {...(shouldReduce ? {} : expand)}
+            className="order-1 basis-full overflow-hidden"
+          >
+            <div className="mt-1 flex items-start justify-center gap-0">
               <PhaseStep
                 icon={Search}
                 label={ROUTING_PHASE_LABELS.ANALYZE}
@@ -302,6 +308,6 @@ export function RoutingDecisionBlock({
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </>
   )
 }

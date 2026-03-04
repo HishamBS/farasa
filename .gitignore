@@ -1,17 +1,14 @@
 # Local hidden directories — ignore by default
 .*/
-
+*.md
+!README.md
+!docs/*.md
 # Repository-managed hidden directories
 !.github/
 !.github/**
 !.husky/
 !.husky/**
 
-# Personal agent/workbench directories — never push
-.claude/
-.codex/
-.serena/
-.playwright-cli/
 .DS_Store
 
 # Dependencies
@@ -44,9 +41,6 @@ bun-error.log*
 tsconfig.tsbuildinfo
 *.tsbuildinfo
 
-# Development artifacts
-mockups/
-test_image.png
 
 # Misc
 *.pem

@@ -6,7 +6,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: farasa_user
-      POSTGRES_PASSWORD: farasa_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-farasa_password}
       POSTGRES_DB: farasa_db
     ports:
       - '${POSTGRES_PORT:-5433}:5432'

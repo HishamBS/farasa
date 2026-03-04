@@ -9,6 +9,7 @@ function isRelativeUrl(value: string): boolean {
 }
 
 function isHostAllowed(hostname: string, allowedHosts: string[]): boolean {
+  if (allowedHosts.length === 0) return true
   return allowedHosts.some((host) => host === hostname || hostname.endsWith(`.${host}`))
 }
 

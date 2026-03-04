@@ -1,4 +1,4 @@
-import { and, desc, eq, lt, like } from 'drizzle-orm'
+import { and, desc, eq, ilike, lt } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure } from '../trpc'
 import { conversations, messages } from '@/lib/db/schema'
@@ -29,7 +29,7 @@ export const conversationRouter = router({
     }
 
     if (input.search) {
-      conditions.push(like(conversations.title, `%${input.search}%`))
+      conditions.push(ilike(conversations.title, `%${input.search}%`))
     }
 
     const { resolvedLimit, fetchLimit } = resolvePaginationLimit(input.limit, runtimeConfig.limits)

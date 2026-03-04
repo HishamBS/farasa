@@ -52,11 +52,16 @@ export function AssistantMessage({ streamState }: AssistantMessageProps) {
                   reasoning={streamState.modelSelection.reasoning}
                   compact
                   defaultExpanded={false}
+                  autoCollapse={!!streamState.textContent || streamState.toolExecutions.length > 0}
                   className="mb-0"
                 />
               )}
               {streamState.thinking && (
-                <ThinkingBlock thinking={streamState.thinking} className="mb-0" />
+                <ThinkingBlock
+                  thinking={streamState.thinking}
+                  autoCollapse={!!streamState.thinking.completedAt}
+                  className="mb-0"
+                />
               )}
             </div>
           )}

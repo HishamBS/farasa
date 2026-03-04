@@ -22,7 +22,7 @@ import {
   timelineNodeReveal,
   timelineStagger,
 } from '@/lib/utils/motion'
-import type { ModelCapability } from '@/schemas/model'
+import type { ModelCapability, RouterFactor } from '@/schemas/model'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
   Brain,
@@ -39,13 +39,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { useCallback, useMemo, useState } from 'react'
-
-type RouterFactor = {
-  key: string
-  label: string
-  value: string
-}
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 type RoutingDecisionBlockProps = {
   modelLabel: string
@@ -56,6 +50,7 @@ type RoutingDecisionBlockProps = {
   factors?: RouterFactor[]
   defaultExpanded?: boolean
   compact?: boolean
+  autoCollapse?: boolean
   className?: string
 }
 
@@ -196,11 +191,19 @@ export function RoutingDecisionBlock({
   factors,
   defaultExpanded = true,
   compact = false,
+  autoCollapse,
   className,
 }: RoutingDecisionBlockProps) {
   const shouldReduce = useReducedMotion()
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const toggle = useCallback(() => setIsExpanded((prev) => !prev), [])
+
+  useEffect(() => {
+    if (autoCollapse && isExpanded) {
+      setIsExpanded(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to autoCollapse transitions
+  }, [autoCollapse])
 
   const provider = useMemo(
     () => (model ? resolveProviderKey(model, PROVIDER_ALIASES) : null),

@@ -241,10 +241,10 @@ export const STREAM_PROGRESS = {
 } as const
 
 export const FACTOR_GROUPS = [
-  { id: 'task', label: 'Task Analysis', patterns: ['task', 'mode', 'category'] },
+  { id: 'task', label: 'Task Analysis', patterns: ['task', 'execution', 'category'] },
   { id: 'capability', label: 'Capability Check', patterns: ['tool', 'search', 'vision'] },
   { id: 'response', label: 'Response Format', patterns: ['response', 'format'] },
-  { id: 'selection', label: 'Final Selection', patterns: ['source', 'selected'] },
+  { id: 'selection', label: 'Final Selection', patterns: ['source', 'selected', 'review'] },
   { id: 'model', label: 'Model Matching', patterns: ['model'] },
 ] as const
 

@@ -3,16 +3,15 @@ import type { db } from '@/lib/db/client'
 import { conversations, userPreferences } from '@/lib/db/schema'
 import { AppError } from '@/lib/utils/errors'
 import type { ChatMode } from '@/schemas/message'
-import type { ModelConfig, ModelResponseFormat, ModelSelectionSource } from '@/schemas/model'
+import type {
+  ModelConfig,
+  ModelResponseFormat,
+  ModelSelectionSource,
+  RouterFactor,
+} from '@/schemas/model'
 import type { RuntimeConfig } from '@/schemas/runtime-config'
 import { TRPCError } from '@trpc/server'
 import { and, eq } from 'drizzle-orm'
-
-type RouterFactor = {
-  key: string
-  label: string
-  value: string
-}
 
 type ResolvedModelDecision = {
   selectedModel: string

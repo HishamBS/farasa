@@ -42,6 +42,12 @@ export const ModelConfigSchema = z
     return { ...raw, provider: PROVIDER_ALIASES[rawProvider] ?? rawProvider }
   })
 
+export const RouterFactorSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  value: z.string(),
+})
+
 export const ModelSelectionSchema = z.object({
   category: ModelCapabilitySchema,
   reasoning: z.string(),
@@ -50,15 +56,7 @@ export const ModelSelectionSchema = z.object({
     .enum([RESPONSE_FORMATS.MARKDOWN, RESPONSE_FORMATS.A2UI])
     .default(RESPONSE_FORMATS.MARKDOWN),
   confidence: z.number().min(0).max(1),
-  factors: z
-    .array(
-      z.object({
-        key: z.string(),
-        label: z.string(),
-        value: z.string(),
-      }),
-    )
-    .min(1),
+  factors: z.array(RouterFactorSchema).min(1),
 })
 
 export const ModelSelectionSourceSchema = z.enum([
@@ -84,6 +82,7 @@ export type ModelPricing = z.infer<typeof ModelPricingSchema>
 export type ModelConfig = z.infer<typeof ModelConfigSchema>
 export type ModelSelection = z.infer<typeof ModelSelectionSchema>
 export type ModelSelectionSource = z.infer<typeof ModelSelectionSourceSchema>
+export type RouterFactor = z.infer<typeof RouterFactorSchema>
 export type ModelResponseFormat = z.infer<typeof ModelResponseFormatSchema>
 export type ModelById = z.infer<typeof ModelByIdSchema>
 export type RefreshModels = z.infer<typeof RefreshModelsSchema>

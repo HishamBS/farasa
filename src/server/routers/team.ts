@@ -669,6 +669,7 @@ export const teamRouter = router({
         }
         yield {
           type: TEAM_EVENTS.MODEL_CHUNK,
+          teamId,
           modelId: item.modelId,
           modelIndex: item.modelIndex,
           chunk: item.chunk,

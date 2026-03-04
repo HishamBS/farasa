@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { trpc } from '@/trpc/provider'
 
@@ -34,10 +34,18 @@ export function useAutoScroll(
     return () => container.removeEventListener('scroll', onScroll)
   }, [containerRef, runtimeConfigQuery.data?.ux.autoScrollThreshold])
 
+  const prevActiveRef = useRef(isActive)
+
   useEffect(() => {
     if (isActive && !isPaused) {
       scrollToBottom()
     }
+    if (prevActiveRef.current && !isActive && !isPaused) {
+      requestAnimationFrame(() => {
+        scrollToBottom()
+      })
+    }
+    prevActiveRef.current = isActive
   }, [isActive, isPaused, scrollToBottom])
 
   const resume = useCallback(() => {

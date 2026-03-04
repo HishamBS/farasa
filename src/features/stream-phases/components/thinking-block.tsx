@@ -5,16 +5,24 @@ import { cn } from '@/lib/utils/cn'
 import { collapse, expand } from '@/lib/utils/motion'
 import type { ThinkingState } from '@/types/stream'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 type ThinkingBlockProps = {
   thinking: ThinkingState
+  autoCollapse?: boolean
   className?: string
 }
 
-export function ThinkingBlock({ thinking, className }: ThinkingBlockProps) {
+export function ThinkingBlock({ thinking, autoCollapse, className }: ThinkingBlockProps) {
   const shouldReduce = useReducedMotion()
   const [isExpanded, setIsExpanded] = useState(!UX.THINKING_COLLAPSE_DEFAULT)
+
+  useEffect(() => {
+    if (autoCollapse && isExpanded) {
+      setIsExpanded(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to autoCollapse transitions
+  }, [autoCollapse])
 
   const isComplete = thinking.completedAt !== undefined
   const completedAt = thinking.completedAt

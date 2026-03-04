@@ -1,6 +1,11 @@
 import type { CHAT_STREAM_STATUS, STREAM_ACTIONS, TITLEBAR_PHASE } from '@/config/constants'
 import type { ChatInput, StreamPhase } from '@/schemas'
-import type { ModelCapability, ModelResponseFormat, ModelSelectionSource } from '@/schemas/model'
+import type {
+  ModelCapability,
+  ModelResponseFormat,
+  ModelSelectionSource,
+  RouterFactor,
+} from '@/schemas/model'
 import type { v0_8 } from '@a2ui-sdk/types'
 
 export type ChatStreamStatus = (typeof CHAT_STREAM_STATUS)[keyof typeof CHAT_STREAM_STATUS]
@@ -24,11 +29,7 @@ export type ModelSelectionState = {
   category?: ModelCapability
   responseFormat?: ModelResponseFormat
   confidence?: number
-  factors?: Array<{
-    key: string
-    label: string
-    value: string
-  }>
+  factors?: RouterFactor[]
 }
 
 export type ToolExecutionState = {
@@ -70,11 +71,7 @@ export type StreamAction =
       category?: ModelCapability
       responseFormat?: ModelResponseFormat
       confidence?: number
-      factors?: Array<{
-        key: string
-        label: string
-        value: string
-      }>
+      factors?: RouterFactor[]
     }
   | { type: 'THINKING_CHUNK'; content: string; isComplete: boolean }
   | { type: 'TOOL_START'; name: string; input: unknown }

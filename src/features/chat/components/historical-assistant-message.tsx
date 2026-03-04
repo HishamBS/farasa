@@ -113,6 +113,7 @@ export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessa
                 confidence={metadata.routerConfidence}
                 factors={metadata.routerFactors}
                 reasoning={metadata.routerReasoning}
+                compact
                 defaultExpanded={false}
                 className="mb-0"
               />
@@ -132,7 +133,7 @@ export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessa
             </div>
           )}
 
-          {message.content && <MarkdownRenderer content={message.content} />}
+          {message.content && <MarkdownRenderer content={message.content} autoCollapse />}
 
           {a2uiMessages.length > 0 && <A2UIMessage messages={a2uiMessages} />}
 

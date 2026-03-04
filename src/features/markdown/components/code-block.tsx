@@ -1,23 +1,28 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { codeToHtml } from 'shiki'
 import { SHIKI_LANGS } from '../config/shiki-config'
 import {
   LIMITS,
+  UX,
   CODE_BLOCK_DEFAULT_LANG,
   SHIKI_DARK_THEME,
   SHIKI_LIGHT_THEME,
 } from '@/config/constants'
 import { useTheme } from 'next-themes'
 import { CopyButton } from './copy-button'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { expand } from '@/lib/utils/motion'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 
 type CodeBlockProps = {
   children?: React.ReactNode
   className?: string
+  autoCollapse?: boolean
 }
 
-export function CodeBlock({ children, className }: CodeBlockProps) {
+export function CodeBlock({ children, className, autoCollapse }: CodeBlockProps) {
   const code = String(children ?? '').replace(/\n$/, '')
   const match = /language-(\w+)/.exec(className ?? '')
   const lang = match?.[1] ?? CODE_BLOCK_DEFAULT_LANG
@@ -26,8 +31,21 @@ export function CodeBlock({ children, className }: CodeBlockProps) {
     : CODE_BLOCK_DEFAULT_LANG
 
   const lines = code.split('\n')
-  const showLineNumbers = lines.length > LIMITS.CODE_BLOCK_LINE_NUMBER_THRESHOLD
+  const lineCount = lines.length
+  const showLineNumbers = lineCount > LIMITS.CODE_BLOCK_LINE_NUMBER_THRESHOLD
+  const isLargeBlock = lineCount > LIMITS.CODE_BLOCK_COLLAPSE_THRESHOLD
 
+  const [isExpanded, setIsExpanded] = useState(!autoCollapse || !isLargeBlock)
+  const toggle = useCallback(() => setIsExpanded((p) => !p), [])
+
+  useEffect(() => {
+    if (autoCollapse && isLargeBlock) {
+      setIsExpanded(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to autoCollapse transitions
+  }, [autoCollapse])
+
+  const shouldReduce = useReducedMotion()
   const { resolvedTheme } = useTheme()
   const [html, setHtml] = useState<string>('')
 
@@ -47,6 +65,22 @@ export function CodeBlock({ children, className }: CodeBlockProps) {
     }
   }, [code, validLang, resolvedTheme])
 
+  const previewLineHeight = 1.65
+  const previewFontSize = 0.75
+  const previewPadding = 1
+  const previewMaxHeight = `${UX.CODE_BLOCK_PREVIEW_LINES * previewLineHeight * previewFontSize + previewPadding}rem`
+
+  const codeContent = html ? (
+    <div
+      className="[&>pre]:bg-transparent! [&>pre]:p-4"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  ) : (
+    <pre className="p-4">
+      <code className="text-(--text-secondary)">{code}</code>
+    </pre>
+  )
+
   return (
     <div className="my-4 overflow-hidden rounded-xl border border-(--border-subtle) bg-(--bg-surface) shadow-lg">
       <div className="flex items-center justify-between border-b border-(--code-block-border) bg-(--bg-code-header) px-3.5 py-1.5">
@@ -56,18 +90,50 @@ export function CodeBlock({ children, className }: CodeBlockProps) {
         <CopyButton code={code} />
       </div>
 
-      <div className="overflow-x-auto text-xs leading-[1.65]" data-line-numbers={showLineNumbers}>
-        {html ? (
-          <div
-            className="[&>pre]:bg-transparent! [&>pre]:p-4"
-            dangerouslySetInnerHTML={{ __html: html }}
-          />
-        ) : (
-          <pre className="p-4">
-            <code className="text-(--text-secondary)">{code}</code>
-          </pre>
-        )}
-      </div>
+      {isLargeBlock && !isExpanded ? (
+        <>
+          <div className="relative overflow-hidden">
+            <div
+              className="overflow-x-auto text-xs leading-[1.65]"
+              data-line-numbers={showLineNumbers}
+              style={{ maxHeight: previewMaxHeight }}
+            >
+              {codeContent}
+            </div>
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-(--bg-surface) to-transparent" />
+          </div>
+          <button
+            type="button"
+            onClick={toggle}
+            className="flex w-full items-center justify-center gap-1.5 border-t border-(--border-subtle) py-1.5 text-xs text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)"
+          >
+            <span>Show {lineCount} lines</span>
+            <ChevronDown className="size-3.5" />
+          </button>
+        </>
+      ) : (
+        <>
+          <AnimatePresence initial={false}>
+            <motion.div
+              {...(shouldReduce ? {} : isLargeBlock ? expand : {})}
+              className="overflow-x-auto text-xs leading-[1.65]"
+              data-line-numbers={showLineNumbers}
+            >
+              {codeContent}
+            </motion.div>
+          </AnimatePresence>
+          {isLargeBlock && (
+            <button
+              type="button"
+              onClick={toggle}
+              className="flex w-full items-center justify-center gap-1.5 border-t border-(--border-subtle) py-1.5 text-xs text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)"
+            >
+              <span>Collapse</span>
+              <ChevronUp className="size-3.5" />
+            </button>
+          )}
+        </>
+      )}
     </div>
   )
 }

@@ -74,7 +74,12 @@ export function AssistantMessage({ streamState }: AssistantMessageProps) {
             </motion.div>
           )}
 
-          {streamState.textContent && <MarkdownRenderer content={streamState.textContent} />}
+          {streamState.textContent && (
+            <MarkdownRenderer
+              content={streamState.textContent}
+              autoCollapse={streamState.phase === CHAT_STREAM_STATUS.COMPLETE}
+            />
+          )}
           {isStreaming && (
             <span className="inline-block h-4 w-0.5 animate-pulse rounded-sm bg-(--accent) align-middle" />
           )}

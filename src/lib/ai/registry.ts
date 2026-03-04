@@ -142,9 +142,12 @@ export function clearModelRegistryCache(): void {
 export function getModelMaxCompletionTokens(
   registry: ReadonlyArray<ModelConfig>,
   modelId: string,
-): number {
+): number | undefined {
   const model = registry.find((m) => m.id === modelId)
-  return model?.maxCompletionTokens || AI_PARAMS.CHAT_MAX_TOKENS_FALLBACK
+  if (!model) return AI_PARAMS.CHAT_MAX_TOKENS_FALLBACK
+  if (!model.maxCompletionTokens) return undefined
+  if (model.maxCompletionTokens >= model.contextWindow) return undefined
+  return model.maxCompletionTokens
 }
 
 export async function getModelRegistry(options: ModelRegistryOptions = {}): Promise<ModelConfig[]> {

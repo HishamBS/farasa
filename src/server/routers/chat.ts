@@ -391,9 +391,6 @@ export const chatRouter = router({
         })
       }
 
-      const routerSignal = AbortSignal.timeout(LIMITS.ROUTER_TIMEOUT_MS)
-      const routerCombined = AbortSignal.any([combinedSignal, routerSignal])
-
       const resolvedDecision = await resolveModelDecision({
         dbClient: ctx.db,
         userId: ctx.userId,
@@ -404,7 +401,7 @@ export const chatRouter = router({
         prompt: input.content,
         registry,
         runtimeConfig,
-        signal: routerCombined,
+        signal: combinedSignal,
       })
 
       selectedModel = resolvedDecision.selectedModel
@@ -1058,34 +1055,30 @@ export const chatRouter = router({
           }
         }
 
-        if (titleSeedMessage.trim()) {
-          const generatingTitleEvent = emit({
-            type: STREAM_EVENTS.STATUS,
-            phase: STREAM_PHASES.GENERATING_TITLE,
-            message: runtimeConfig.chat.statusMessages.generatingTitle,
-          })
-          if (typeof generatingTitleEvent.sequence === 'number') {
-            streamSequenceMax = Math.max(streamSequenceMax, generatingTitleEvent.sequence)
-          }
-          yield generatingTitleEvent
-
-          try {
-            const { generateTitle } = await import('@/lib/ai/title')
-            const generatedTitle = await generateTitle(titleSeedMessage, runtimeConfig)
-            const safeTitle = generatedTitle
-              .trim()
-              .slice(0, runtimeConfig.limits.conversationTitleMaxLength)
-            if (safeTitle) {
-              await ctx.db
-                .update(conversations)
-                .set({ title: safeTitle, updatedAt: new Date() })
-                .where(
-                  and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)),
-                )
-            }
-          } catch (titleError) {
-            console.error('[title-gen] generateTitle failed:', getErrorMessage(titleError))
-          }
+        if (titleSeedMessage.trim() && conversationId) {
+          const titleConversationId = conversationId
+          void import('@/lib/ai/title').then(({ generateTitle }) =>
+            generateTitle(titleSeedMessage, runtimeConfig)
+              .then((generatedTitle) => {
+                const safeTitle = generatedTitle
+                  .trim()
+                  .slice(0, runtimeConfig.limits.conversationTitleMaxLength)
+                if (safeTitle) {
+                  return ctx.db
+                    .update(conversations)
+                    .set({ title: safeTitle, updatedAt: new Date() })
+                    .where(
+                      and(
+                        eq(conversations.id, titleConversationId),
+                        eq(conversations.userId, ctx.userId),
+                      ),
+                    )
+                }
+              })
+              .catch((titleError: unknown) => {
+                console.error('[title-gen] generateTitle failed:', getErrorMessage(titleError))
+              }),
+          )
         }
       }
 

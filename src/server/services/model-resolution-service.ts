@@ -132,31 +132,6 @@ function buildFactors(params: {
   ]
 }
 
-async function resolveResponseFormat(
-  input: ResolveModelDecisionInput,
-  initialFormat: ModelResponseFormat,
-): Promise<ModelResponseFormat> {
-  if (!input.runtimeConfig.features.a2uiEnabled) {
-    return RESPONSE_FORMATS.MARKDOWN
-  }
-
-  if (initialFormat === RESPONSE_FORMATS.A2UI) {
-    return initialFormat
-  }
-
-  try {
-    const { decideResponseFormat } = await import('@/lib/ai/router')
-    return await decideResponseFormat(
-      input.prompt,
-      input.registry,
-      input.runtimeConfig,
-      input.signal,
-    )
-  } catch {
-    return initialFormat
-  }
-}
-
 export async function resolveModelDecision(
   input: ResolveModelDecisionInput,
 ): Promise<ResolvedModelDecision> {
@@ -165,7 +140,7 @@ export async function resolveModelDecision(
   if (source !== 'auto_router' && modelId) {
     const model = findModelById(input.registry, modelId)
     ensureSearchCompatible(model, input.requestedWebSearchEnabled)
-    const responseFormat = await resolveResponseFormat(input, RESPONSE_FORMATS.MARKDOWN)
+    const responseFormat = RESPONSE_FORMATS.MARKDOWN
     return {
       selectedModel: model.id,
       source,
@@ -191,56 +166,30 @@ export async function resolveModelDecision(
 
   const requiresSearch = input.requestedWebSearchEnabled
 
-  const { routeModel, adjudicateModelSelection } = await import('@/lib/ai/router')
+  const { routeModel } = await import('@/lib/ai/router')
   const attemptErrors: string[] = []
 
   for (let attempt = 1; attempt <= ROUTER_MAX_ATTEMPTS; attempt += 1) {
+    const attemptSignal = AbortSignal.any([
+      input.signal,
+      AbortSignal.timeout(LIMITS.ROUTER_TIMEOUT_MS),
+    ])
     try {
       const selection = await routeModel(
         input.prompt,
         input.registry,
         input.runtimeConfig,
         requiresSearch,
-        input.signal,
+        attemptSignal,
       )
 
-      let effectiveSelection = selection
-      try {
-        const reviewed = await adjudicateModelSelection(
-          input.prompt,
-          selection,
-          input.registry,
-          input.runtimeConfig,
-          requiresSearch,
-          input.signal,
-        )
-        const reviewValue =
-          reviewed.selectedModel === selection.selectedModel
-            ? 'confirmed'
-            : `corrected_to:${reviewed.selectedModel}`
-        effectiveSelection = {
-          ...selection,
-          selectedModel: reviewed.selectedModel,
-          reasoning: reviewed.reasoning,
-          confidence:
-            typeof reviewed.confidence === 'number' ? reviewed.confidence : selection.confidence,
-          factors: [
-            ...selection.factors,
-            {
-              key: 'selection_review',
-              label: 'Selection Review',
-              value: reviewValue,
-            },
-          ],
-        }
-      } catch (reviewError) {
-        const message = reviewError instanceof Error ? reviewError.message : String(reviewError)
-        console.error('[router] selection adjudication failed:', message)
-      }
-
-      const selectedModel = findModelById(input.registry, effectiveSelection.selectedModel)
+      const selectedModel = findModelById(input.registry, selection.selectedModel)
       ensureSearchCompatible(selectedModel, requiresSearch)
-      const responseFormat = await resolveResponseFormat(input, effectiveSelection.responseFormat)
+
+      const responseFormat = input.runtimeConfig.features.a2uiEnabled
+        ? selection.responseFormat
+        : RESPONSE_FORMATS.MARKDOWN
+
       const baseFactors = buildFactors({
         source: 'auto_router',
         selectedModel: selectedModel.id,
@@ -251,15 +200,15 @@ export async function resolveModelDecision(
       const knownFactorKeys = new Set(baseFactors.map((factor) => factor.key))
       const mergedFactors = [
         ...baseFactors,
-        ...effectiveSelection.factors.filter((factor) => !knownFactorKeys.has(factor.key)),
+        ...selection.factors.filter((factor) => !knownFactorKeys.has(factor.key)),
       ]
 
       return {
         selectedModel: selectedModel.id,
         source: 'auto_router',
-        reasoning: effectiveSelection.reasoning || AI_REASONING.MODEL_AUTO_ROUTER,
-        category: effectiveSelection.category,
-        confidence: effectiveSelection.confidence,
+        reasoning: selection.reasoning || AI_REASONING.MODEL_AUTO_ROUTER,
+        category: selection.category,
+        confidence: selection.confidence,
         factors: mergedFactors,
         responseFormat,
         requiresSearch,

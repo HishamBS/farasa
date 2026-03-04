@@ -65,10 +65,10 @@ export function CodeBlock({ children, className, autoCollapse }: CodeBlockProps)
     }
   }, [code, validLang, resolvedTheme])
 
-  const previewLineHeight = 1.65
-  const previewFontSize = 0.75
-  const previewPadding = 1
-  const previewMaxHeight = `${UX.CODE_BLOCK_PREVIEW_LINES * previewLineHeight * previewFontSize + previewPadding}rem`
+  const previewMaxHeight = `${UX.CODE_BLOCK_PREVIEW_LINES * UX.CODE_BLOCK_LINE_HEIGHT * UX.CODE_BLOCK_FONT_SIZE_REM + UX.CODE_BLOCK_PREVIEW_PADDING_REM}rem`
+
+  const toggleBtnClass =
+    'flex w-full items-center justify-center gap-1.5 border-t border-(--border-subtle) py-1.5 text-xs text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)'
 
   const codeContent = html ? (
     <div
@@ -102,11 +102,7 @@ export function CodeBlock({ children, className, autoCollapse }: CodeBlockProps)
             </div>
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-(--bg-surface) to-transparent" />
           </div>
-          <button
-            type="button"
-            onClick={toggle}
-            className="flex w-full items-center justify-center gap-1.5 border-t border-(--border-subtle) py-1.5 text-xs text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)"
-          >
+          <button type="button" onClick={toggle} className={toggleBtnClass}>
             <span>Show {lineCount} lines</span>
             <ChevronDown className="size-3.5" />
           </button>
@@ -123,11 +119,7 @@ export function CodeBlock({ children, className, autoCollapse }: CodeBlockProps)
             </motion.div>
           </AnimatePresence>
           {isLargeBlock && (
-            <button
-              type="button"
-              onClick={toggle}
-              className="flex w-full items-center justify-center gap-1.5 border-t border-(--border-subtle) py-1.5 text-xs text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)"
-            >
+            <button type="button" onClick={toggle} className={toggleBtnClass}>
               <span>Collapse</span>
               <ChevronUp className="size-3.5" />
             </button>

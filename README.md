@@ -575,10 +575,6 @@ custom properties in `src/styles/themes.css`. Components reference `var(--bg-sur
 `var(--accent)`, never hardcoded hex values or Tailwind color utilities. Dark/light mode is a
 single class toggle on `:root` with zero JavaScript layout flash.
 
-**Whisper UI language** — The protected chat experience follows a glass-morphism visual grammar:
-glass sidebar shell, editorial assistant prose, compact titlebar, and explicit phase rail
-(`Routed → Thinking → Responding → Done`).
-
 ### Trade-offs
 
 | Decision      | Chosen         | Alternative    | Rationale                                            |

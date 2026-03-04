@@ -52,6 +52,40 @@ async function decryptAccountTokens(
   return result
 }
 
+async function cleanupOrphanUserAfterLinkFailure(userId: string): Promise<void> {
+  const [existingAccount] = await db
+    .select({ userId: schema.accounts.userId })
+    .from(schema.accounts)
+    .where(eq(schema.accounts.userId, userId))
+    .limit(1)
+
+  if (existingAccount) {
+    return
+  }
+
+  const [existingSession] = await db
+    .select({ userId: schema.sessions.userId })
+    .from(schema.sessions)
+    .where(eq(schema.sessions.userId, userId))
+    .limit(1)
+
+  if (existingSession) {
+    return
+  }
+
+  const [existingConversation] = await db
+    .select({ userId: schema.conversations.userId })
+    .from(schema.conversations)
+    .where(eq(schema.conversations.userId, userId))
+    .limit(1)
+
+  if (existingConversation) {
+    return
+  }
+
+  await db.delete(schema.users).where(eq(schema.users.id, userId))
+}
+
 function withEncryptedTokens(adapter: Adapter): Adapter {
   return {
     ...adapter,
@@ -77,7 +111,15 @@ function withEncryptedTokens(adapter: Adapter): Adapter {
       : undefined,
     linkAccount: adapter.linkAccount
       ? async (account) => {
-          await adapter.linkAccount!(await encryptAccountTokens(account))
+          try {
+            await adapter.linkAccount!(await encryptAccountTokens(account))
+          } catch (error) {
+            const userId = account.userId
+            if (typeof userId === 'string' && userId.length > 0) {
+              await cleanupOrphanUserAfterLinkFailure(userId)
+            }
+            throw error
+          }
         }
       : undefined,
     getAccount: adapter.getAccount

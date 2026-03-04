@@ -65,6 +65,26 @@ export const ROUTER_CAPABILITY_PATTERNS = {
   ANALYSIS: ['o1', 'o3', 'o4', 'sonnet', 'opus', 'ultra'] as const,
 } as const
 
+type ModelCategoryValue = (typeof MODEL_CATEGORIES)[keyof typeof MODEL_CATEGORIES]
+
+export const CATEGORY_ICONS: Record<ModelCategoryValue, string> = {
+  [MODEL_CATEGORIES.CODE]: 'Code',
+  [MODEL_CATEGORIES.ANALYSIS]: 'Brain',
+  [MODEL_CATEGORIES.CREATIVE]: 'Sparkles',
+  [MODEL_CATEGORIES.VISION]: 'Eye',
+  [MODEL_CATEGORIES.GENERAL]: 'Globe',
+  [MODEL_CATEGORIES.FAST]: 'Zap',
+}
+
+export const CATEGORY_LABELS: Record<ModelCategoryValue, string> = {
+  [MODEL_CATEGORIES.CODE]: 'Code generation',
+  [MODEL_CATEGORIES.ANALYSIS]: 'Deep analysis',
+  [MODEL_CATEGORIES.CREATIVE]: 'Creative writing',
+  [MODEL_CATEGORIES.VISION]: 'Image understanding',
+  [MODEL_CATEGORIES.GENERAL]: 'General purpose',
+  [MODEL_CATEGORIES.FAST]: 'Quick response',
+}
+
 export const VOICE = {
   TTS_MODEL: 'openai/gpt-audio-mini',
   TTS_VOICE: 'alloy',
@@ -220,6 +240,22 @@ export const STREAM_PROGRESS = {
   },
 } as const
 
+export const FACTOR_GROUPS = [
+  { id: 'task', label: 'Task Analysis', patterns: ['task', 'mode', 'category'] },
+  { id: 'capability', label: 'Capability Check', patterns: ['tool', 'search', 'vision'] },
+  { id: 'response', label: 'Response Format', patterns: ['response', 'format'] },
+  { id: 'selection', label: 'Final Selection', patterns: ['source', 'selected'] },
+  { id: 'model', label: 'Model Matching', patterns: ['model'] },
+] as const
+
+export const TIMELINE_DISPLAY_ORDER = [
+  'task',
+  'capability',
+  'model',
+  'response',
+  'selection',
+] as const
+
 export const AI_MARKUP = {
   A2UI_FENCE_START: '```a2ui',
   CODE_FENCE_END: '```',
@@ -266,6 +302,30 @@ export const PROVIDER_TEXT_CLASSES: Record<string, string> = {
   [PROVIDERS.QWEN]: 'text-(--provider-qwen)',
   [PROVIDERS.MISTRALAI]: 'text-(--provider-mistralai)',
   [PROVIDERS.DEEPSEEK]: 'text-(--provider-deepseek)',
+}
+
+export const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
+  [PROVIDERS.OPENAI]: 'OpenAI',
+  [PROVIDERS.ANTHROPIC]: 'Anthropic',
+  [PROVIDERS.GOOGLE]: 'Google',
+  [PROVIDERS.META]: 'Meta',
+  [PROVIDERS.GROQ]: 'Groq',
+  [PROVIDERS.CEREBRAS]: 'Cerebras',
+  [PROVIDERS.QWEN]: 'Qwen',
+  [PROVIDERS.MISTRALAI]: 'Mistral AI',
+  [PROVIDERS.DEEPSEEK]: 'DeepSeek',
+}
+
+export const PROVIDER_CARD_CLASSES: Record<string, string> = {
+  [PROVIDERS.OPENAI]: 'border-(--provider-openai)/20 bg-(--provider-openai)/6',
+  [PROVIDERS.ANTHROPIC]: 'border-(--provider-anthropic)/20 bg-(--provider-anthropic)/6',
+  [PROVIDERS.GOOGLE]: 'border-(--provider-google)/20 bg-(--provider-google)/6',
+  [PROVIDERS.META]: 'border-(--provider-meta)/20 bg-(--provider-meta)/6',
+  [PROVIDERS.GROQ]: 'border-(--provider-groq)/20 bg-(--provider-groq)/6',
+  [PROVIDERS.CEREBRAS]: 'border-(--provider-cerebras)/20 bg-(--provider-cerebras)/6',
+  [PROVIDERS.QWEN]: 'border-(--provider-qwen)/20 bg-(--provider-qwen)/6',
+  [PROVIDERS.MISTRALAI]: 'border-(--provider-mistralai)/20 bg-(--provider-mistralai)/6',
+  [PROVIDERS.DEEPSEEK]: 'border-(--provider-deepseek)/20 bg-(--provider-deepseek)/6',
 }
 
 export const UX = {

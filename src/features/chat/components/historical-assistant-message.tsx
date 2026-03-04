@@ -108,6 +108,8 @@ export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessa
             <div className="flex flex-wrap items-start gap-2">
               <RoutingDecisionBlock
                 modelLabel={modelLabel ?? 'Selected model'}
+                model={metadata.modelUsed}
+                category={metadata.routerCategory}
                 confidence={metadata.routerConfidence}
                 factors={metadata.routerFactors}
                 reasoning={metadata.routerReasoning}

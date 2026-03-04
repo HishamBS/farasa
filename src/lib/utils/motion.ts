@@ -100,3 +100,27 @@ export const staggerContainer = {
     },
   },
 }
+
+export const timelineStagger = {
+  variants: {
+    hidden: {},
+    visible: {
+      transition: {
+        staggerChildren: MOTION.STAGGER_CHILDREN,
+      },
+    },
+  },
+  initial: 'hidden' as const,
+  animate: 'visible' as const,
+}
+
+export const timelineNodeReveal = {
+  variants: {
+    hidden: { opacity: 0, y: 8 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: MOTION.DURATION_MEDIUM, ease },
+    },
+  },
+}

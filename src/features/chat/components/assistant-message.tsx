@@ -45,6 +45,8 @@ export function AssistantMessage({ streamState }: AssistantMessageProps) {
               {hasRoutingDecision && streamState.modelSelection && (
                 <RoutingDecisionBlock
                   modelLabel={modelLabel ?? streamState.modelSelection.model}
+                  model={streamState.modelSelection.model}
+                  category={streamState.modelSelection.category}
                   confidence={streamState.modelSelection.confidence}
                   factors={streamState.modelSelection.factors}
                   reasoning={streamState.modelSelection.reasoning}

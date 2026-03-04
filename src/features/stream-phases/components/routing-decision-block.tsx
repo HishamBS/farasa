@@ -1,8 +1,44 @@
 'use client'
 
-import { STREAM_PHASES, STREAM_PROGRESS } from '@/config/constants'
+import {
+  CATEGORY_ICONS,
+  CATEGORY_LABELS,
+  FACTOR_GROUPS,
+  PROVIDER_ALIASES,
+  PROVIDER_CARD_CLASSES,
+  PROVIDER_DISPLAY_NAMES,
+  PROVIDER_DOT_CLASSES,
+  STREAM_PHASES,
+  STREAM_PROGRESS,
+  TIMELINE_DISPLAY_ORDER,
+} from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
-import { ChevronDown } from 'lucide-react'
+import { resolveProviderKey } from '@/lib/utils/model'
+import {
+  expand,
+  fadeIn,
+  scaleIn,
+  springBounce,
+  timelineNodeReveal,
+  timelineStagger,
+} from '@/lib/utils/motion'
+import type { ModelCapability } from '@/schemas/model'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import {
+  Brain,
+  CheckCircle,
+  ChevronDown,
+  Code,
+  Cpu,
+  Eye,
+  FileText,
+  Globe,
+  ShieldCheck,
+  Sparkles,
+  Zap,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { useCallback, useMemo, useState } from 'react'
 
 type RouterFactor = {
@@ -13,6 +49,8 @@ type RouterFactor = {
 
 type RoutingDecisionBlockProps = {
   modelLabel: string
+  model?: string
+  category?: ModelCapability
   confidence?: number
   reasoning?: string
   factors?: RouterFactor[]
@@ -21,22 +59,138 @@ type RoutingDecisionBlockProps = {
   className?: string
 }
 
-function factorClass(key: string): string {
-  if (key.includes('tool'))
-    return 'border-(--routing-tool-border) bg-(--routing-tool-bg) text-(--routing-tool)'
-  if (key.includes('source'))
-    return 'border-(--routing-source-border) bg-(--routing-source-bg) text-(--routing-source)'
-  if (key.includes('mode'))
-    return 'border-(--routing-mode-border) bg-(--routing-mode-bg) text-(--routing-mode)'
-  if (key.includes('response'))
-    return 'border-(--routing-response-border) bg-(--routing-response-bg) text-(--routing-response)'
-  if (key.includes('model'))
-    return 'border-(--routing-model-border) bg-(--routing-model-bg) text-(--routing-model)'
-  return 'border-(--border-subtle) bg-(--bg-surface-active) text-(--text-muted)'
+type FactorGroupId = (typeof FACTOR_GROUPS)[number]['id']
+type GroupedFactors = Partial<Record<FactorGroupId, RouterFactor[]>>
+
+const CATEGORY_ICON_COMPONENTS: Record<string, LucideIcon> = {
+  Code,
+  Brain,
+  Sparkles,
+  Eye,
+  Globe,
+  Zap,
+}
+
+const DEFAULT_GROUP_ICONS: Record<FactorGroupId, LucideIcon> = {
+  task: Sparkles,
+  capability: ShieldCheck,
+  model: Cpu,
+  response: FileText,
+  selection: CheckCircle,
+}
+
+const GROUP_BADGE_CLASSES: Record<FactorGroupId, string> = {
+  task: 'border-(--routing-mode-border) bg-(--routing-mode-bg) text-(--routing-mode)',
+  capability: 'border-(--routing-tool-border) bg-(--routing-tool-bg) text-(--routing-tool)',
+  model: 'border-(--routing-model-border) bg-(--routing-model-bg) text-(--routing-model)',
+  response:
+    'border-(--routing-response-border) bg-(--routing-response-bg) text-(--routing-response)',
+  selection: 'border-(--routing-source-border) bg-(--routing-source-bg) text-(--routing-source)',
+}
+
+function groupFactors(factors: RouterFactor[]): GroupedFactors {
+  const result: GroupedFactors = {}
+  for (const factor of factors) {
+    for (const group of FACTOR_GROUPS) {
+      if (group.patterns.some((pattern) => factor.key.includes(pattern))) {
+        const existing = result[group.id]
+        if (existing) {
+          existing.push(factor)
+        } else {
+          result[group.id] = [factor]
+        }
+        break
+      }
+    }
+  }
+  return result
+}
+
+function TimelineNode({
+  label,
+  icon: Icon,
+  isLast,
+  shouldReduce,
+  children,
+}: {
+  label: string
+  icon: LucideIcon
+  isLast: boolean
+  shouldReduce: boolean | null
+  children: ReactNode
+}) {
+  return (
+    <motion.div className="flex gap-3" {...(shouldReduce ? {} : timelineNodeReveal)}>
+      <div className="flex shrink-0 flex-col items-center">
+        <div className="mt-0.5 flex size-5 items-center justify-center rounded-full bg-(--accent)/15 ring-1 ring-(--accent)/30">
+          <Icon size={10} className="text-(--accent)" />
+        </div>
+        {!isLast && <div className="mt-1 w-px flex-1 bg-(--accent)/15" />}
+      </div>
+      <div className={cn('min-w-0 flex-1', !isLast && 'pb-3')}>
+        <span className="text-xs font-medium text-(--text-secondary)">{label}</span>
+        <div className="mt-1.5">{children}</div>
+      </div>
+    </motion.div>
+  )
+}
+
+function ConfidenceBar({ value, shouldReduce }: { value: number; shouldReduce: boolean | null }) {
+  const percentage = Math.round(value * 100)
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-(--bg-surface-active)">
+        <motion.div
+          className="h-full rounded-full bg-gradient-to-r from-(--accent)/60 to-(--accent)"
+          initial={shouldReduce ? false : { width: 0 }}
+          animate={{ width: `${percentage}%` }}
+          transition={shouldReduce ? undefined : springBounce}
+        />
+      </div>
+      <span className="text-[0.625rem] tabular-nums text-(--text-muted)">{percentage}%</span>
+    </div>
+  )
+}
+
+function FinalSelectionCard({
+  modelLabel,
+  provider,
+  shouldReduce,
+}: {
+  modelLabel: string
+  provider: string | null
+  shouldReduce: boolean | null
+}) {
+  const cardClass = provider ? PROVIDER_CARD_CLASSES[provider] : undefined
+  const dotClass = provider ? PROVIDER_DOT_CLASSES[provider] : undefined
+  const displayName = provider ? PROVIDER_DISPLAY_NAMES[provider] : undefined
+
+  return (
+    <motion.div
+      className={cn(
+        'rounded-lg border px-3 py-2.5',
+        cardClass ?? 'border-(--border-subtle) bg-(--bg-surface)',
+      )}
+      {...(shouldReduce ? {} : scaleIn)}
+    >
+      <div className="flex items-center gap-2">
+        <span className={cn('size-2 rounded-full', dotClass ?? 'bg-(--accent)')} />
+        <span className="text-sm font-medium text-(--text-primary)">{modelLabel}</span>
+        <CheckCircle size={14} className="text-(--accent)" />
+      </div>
+      {displayName && (
+        <span className="mt-0.5 block pl-4 text-[0.625rem] text-(--text-muted)">
+          by {displayName}
+        </span>
+      )}
+    </motion.div>
+  )
 }
 
 export function RoutingDecisionBlock({
   modelLabel,
+  model,
+  category,
   confidence,
   reasoning,
   factors,
@@ -44,10 +198,45 @@ export function RoutingDecisionBlock({
   compact = false,
   className,
 }: RoutingDecisionBlockProps) {
+  const shouldReduce = useReducedMotion()
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
-  const toggle = useCallback(() => setIsExpanded((value) => !value), [])
+  const toggle = useCallback(() => setIsExpanded((prev) => !prev), [])
 
-  const visibleFactors = useMemo(() => factors ?? [], [factors])
+  const provider = useMemo(
+    () => (model ? resolveProviderKey(model, PROVIDER_ALIASES) : null),
+    [model],
+  )
+
+  const grouped = useMemo(() => groupFactors(factors ?? []), [factors])
+
+  const activeNodes = useMemo(() => {
+    const nodes: FactorGroupId[] = []
+    for (const id of TIMELINE_DISPLAY_ORDER) {
+      const hasFactors = (grouped[id]?.length ?? 0) > 0
+      switch (id) {
+        case 'task':
+          if (category || hasFactors) nodes.push(id)
+          break
+        case 'model':
+          if (typeof confidence === 'number' || hasFactors) nodes.push(id)
+          break
+        case 'selection':
+          nodes.push(id)
+          break
+        default:
+          if (hasFactors) nodes.push(id)
+      }
+    }
+    return nodes
+  }, [grouped, category, confidence])
+
+  const CategoryBadgeIcon = useMemo(() => {
+    if (!category) return null
+    const iconName = CATEGORY_ICONS[category]
+    return CATEGORY_ICON_COMPONENTS[iconName] ?? null
+  }, [category])
+
+  const providerDotClass = provider ? PROVIDER_DOT_CLASSES[provider] : undefined
 
   return (
     <div className={cn('mb-3', className)}>
@@ -62,7 +251,7 @@ export function RoutingDecisionBlock({
         )}
         aria-expanded={isExpanded}
       >
-        <span className="size-1.5 rounded-full bg-(--accent)" />
+        <span className={cn('size-1.5 rounded-full', providerDotClass ?? 'bg-(--accent)')} />
         <span className="text-sm font-medium text-(--accent)">
           {STREAM_PROGRESS.LABELS[STREAM_PHASES.ROUTING]}
         </span>
@@ -80,38 +269,115 @@ export function RoutingDecisionBlock({
         />
       </button>
 
-      {isExpanded && (
-        <div className="mt-3 space-y-2">
-          <div className="flex items-center gap-2 text-xs">
-            <span className="truncate font-medium text-(--text-secondary)">{modelLabel}</span>
-            {typeof confidence === 'number' && (
-              <span className="rounded-full border border-(--border-subtle) bg-(--bg-surface-active) px-1.5 py-0.5 text-[0.625rem] text-(--text-muted)">
-                {Math.round(confidence * 100)}%
-              </span>
-            )}
-          </div>
-          {visibleFactors.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {visibleFactors.map((factor) => (
-                <span
-                  key={factor.key}
-                  className={cn(
-                    'rounded-full border px-2 py-0.5 text-[0.625rem]',
-                    factorClass(factor.key),
-                  )}
+      <AnimatePresence initial={false}>
+        {isExpanded && (
+          <motion.div key="timeline" {...(shouldReduce ? {} : expand)} className="overflow-hidden">
+            <div className="mt-3">
+              <motion.div {...(shouldReduce ? {} : timelineStagger)}>
+                {activeNodes.map((groupId, index) => {
+                  const group = FACTOR_GROUPS.find((g) => g.id === groupId)
+                  if (!group) return null
+                  const nodeFactors = grouped[groupId]
+                  const isLast = index === activeNodes.length - 1
+                  const NodeIcon = DEFAULT_GROUP_ICONS[groupId]
+
+                  return (
+                    <TimelineNode
+                      key={groupId}
+                      label={group.label}
+                      icon={NodeIcon}
+                      isLast={isLast}
+                      shouldReduce={shouldReduce}
+                    >
+                      {groupId === 'task' && (
+                        <div className="space-y-1.5">
+                          {category && (
+                            <span
+                              className={cn(
+                                'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[0.625rem]',
+                                GROUP_BADGE_CLASSES.task,
+                              )}
+                            >
+                              {CategoryBadgeIcon && <CategoryBadgeIcon size={10} />}
+                              {CATEGORY_LABELS[category]}
+                            </span>
+                          )}
+                          {nodeFactors?.map((f) => (
+                            <p key={f.key} className="text-xs text-(--text-muted)">
+                              {f.value}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+
+                      {groupId === 'capability' && (
+                        <div className="space-y-1">
+                          {nodeFactors?.map((f) => (
+                            <div
+                              key={f.key}
+                              className="flex items-center gap-1.5 text-xs text-(--text-muted)"
+                            >
+                              <ShieldCheck size={11} className="shrink-0 text-(--routing-tool)" />
+                              {f.value}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {groupId === 'model' && (
+                        <div className="space-y-2">
+                          {typeof confidence === 'number' && (
+                            <ConfidenceBar value={confidence} shouldReduce={shouldReduce} />
+                          )}
+                          {nodeFactors?.map((f) => (
+                            <p key={f.key} className="text-xs text-(--text-muted)">
+                              {f.value}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+
+                      {groupId === 'response' && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {nodeFactors?.map((f) => (
+                            <span
+                              key={f.key}
+                              className={cn(
+                                'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[0.625rem]',
+                                GROUP_BADGE_CLASSES.response,
+                              )}
+                            >
+                              <FileText size={10} />
+                              {f.value}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {groupId === 'selection' && (
+                        <FinalSelectionCard
+                          modelLabel={modelLabel}
+                          provider={provider}
+                          shouldReduce={shouldReduce}
+                        />
+                      )}
+                    </TimelineNode>
+                  )
+                })}
+              </motion.div>
+
+              {reasoning && (
+                <motion.p
+                  {...(shouldReduce ? {} : fadeIn)}
+                  className="mt-3 rounded-lg border border-(--routing-reasoning-border) bg-(--routing-reasoning-bg) px-3 py-2.5 text-xs leading-relaxed text-(--routing-reasoning)"
                 >
-                  {factor.label}: {factor.value}
-                </span>
-              ))}
+                  {reasoning}
+                </motion.p>
+              )}
             </div>
-          )}
-          {reasoning && (
-            <p className="rounded-lg border border-(--routing-reasoning-border) bg-(--routing-reasoning-bg) px-2.5 py-2 text-xs leading-relaxed text-(--routing-reasoning)">
-              {reasoning}
-            </p>
-          )}
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

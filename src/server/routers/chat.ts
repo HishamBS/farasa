@@ -436,6 +436,9 @@ export const chatRouter = router({
         })
       }
 
+      const isImageGenModel =
+        registry.find((m) => m.id === selectedModel)?.supportsImageGeneration ?? false
+
       await ctx.db
         .update(conversations)
         .set({
@@ -593,6 +596,44 @@ export const chatRouter = router({
         let a2uiBuffer = ''
         let thinkingStatusEmitted = false
         let toolRoundCount = 0
+
+        if (isImageGenModel) {
+          const response = await openrouter.chat.send(
+            {
+              chatGenerationParams: {
+                model: selectedModel,
+                messages: baseMessages,
+                stream: false,
+                maxCompletionTokens: getModelMaxCompletionTokens(registry, selectedModel),
+              },
+            },
+            { signal: combinedSignal },
+          )
+
+          const messageContent = response.choices[0]?.message?.content
+          const imageContent = typeof messageContent === 'string' ? messageContent : ''
+          if (imageContent.length > 0) {
+            fullText = imageContent
+            const textEvent = emit({ type: STREAM_EVENTS.TEXT, content: imageContent })
+            if (typeof textEvent.sequence === 'number') {
+              streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
+            }
+            yield textEvent
+          }
+
+          if (response.usage) {
+            const parsedUsage = UsageSchema.safeParse({
+              promptTokens: response.usage.promptTokens ?? 0,
+              completionTokens: response.usage.completionTokens ?? 0,
+              totalTokens: response.usage.totalTokens ?? 0,
+            })
+            if (parsedUsage.success) {
+              usage = parsedUsage.data
+            }
+          }
+
+          break
+        }
 
         while (true) {
           const stream = await openrouter.chat.send(

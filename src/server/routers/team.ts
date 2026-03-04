@@ -11,7 +11,7 @@ import {
   TRPC_CODES,
 } from '@/config/constants'
 import { conversations, messages } from '@/lib/db/schema'
-import { getErrorMessage } from '@/lib/utils/errors'
+import { AppError, getErrorMessage } from '@/lib/utils/errors'
 import type { StreamChunk } from '@/schemas/message'
 import { MessageMetadataSchema } from '@/schemas/message'
 import type { SearchImage, SearchResult } from '@/schemas/search'
@@ -396,8 +396,45 @@ export const teamRouter = router({
           let modelSearchImages = [...searchImages]
           const modelToolCalls: ModelStreamOutcome['toolCalls'] = []
           const attemptMessages: Message[] = [...sdkMessages]
+          const isImageGen =
+            registry.find((m) => m.id === modelId)?.supportsImageGeneration ?? false
 
-          while (true) {
+          if (isImageGen) {
+            const imageGenMessages: Message[] = [
+              ...historyMessages,
+              { role: MESSAGE_ROLES.USER, content: userContent },
+            ]
+            const response = await openrouter.chat.send(
+              {
+                chatGenerationParams: {
+                  model: modelId,
+                  messages: imageGenMessages,
+                  stream: false,
+                  maxCompletionTokens: getModelMaxCompletionTokens(registry, modelId),
+                },
+              },
+              { signal: signal ?? undefined },
+            )
+
+            const messageContent = response.choices[0]?.message?.content
+            const imageContent = typeof messageContent === 'string' ? messageContent : ''
+            if (imageContent.length > 0) {
+              fullText = imageContent
+              push({
+                done: false,
+                modelId,
+                modelIndex,
+                chunk: {
+                  type: STREAM_EVENTS.TEXT,
+                  content: imageContent,
+                  streamRequestId: modelStreamRequestId,
+                  attempt: 0,
+                } satisfies StreamChunk,
+              })
+            }
+          }
+
+          while (!isImageGen) {
             const stream = await openrouter.chat.send(
               {
                 chatGenerationParams: {
@@ -864,10 +901,17 @@ export const teamRouter = router({
       const { getModelRegistry, getModelMaxCompletionTokens } = await import('@/lib/ai/registry')
       const registry = await getModelRegistry({ runtimeConfig })
 
-      if (!registry.some((m) => m.id === input.synthesisModel)) {
+      const synthesisModelEntry = registry.find((m) => m.id === input.synthesisModel)
+      if (!synthesisModelEntry) {
         throw new TRPCError({
           code: TRPC_CODES.BAD_REQUEST,
           message: `Invalid model ID: ${input.synthesisModel}`,
+        })
+      }
+      if (synthesisModelEntry.supportsImageGeneration) {
+        throw new TRPCError({
+          code: TRPC_CODES.BAD_REQUEST,
+          message: AppError.IMAGE_GEN_INCOMPATIBLE,
         })
       }
 

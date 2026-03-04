@@ -15,6 +15,7 @@ import 'katex/dist/katex.min.css'
 export const metadata: Metadata = {
   title: APP_CONFIG.NAME,
   description: 'AI Chat System',
+  manifest: '/manifest.webmanifest',
 }
 
 export const viewport: Viewport = {

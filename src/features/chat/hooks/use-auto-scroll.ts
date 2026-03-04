@@ -39,8 +39,13 @@ export function useAutoScroll(
     const container = containerRef.current
     if (!container) return
 
+    let rafId = 0
     const scroll = () => {
-      container.scrollTo({ top: container.scrollHeight, behavior: 'auto' })
+      if (rafId) return
+      rafId = requestAnimationFrame(() => {
+        container.scrollTo({ top: container.scrollHeight, behavior: 'auto' })
+        rafId = 0
+      })
     }
 
     scroll()
@@ -48,7 +53,10 @@ export function useAutoScroll(
     const observer = new MutationObserver(scroll)
     observer.observe(container, { childList: true, subtree: true, characterData: true })
 
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+      cancelAnimationFrame(rafId)
+    }
   }, [isActive, isPaused, containerRef])
 
   const prevActiveRef = useRef(isActive)

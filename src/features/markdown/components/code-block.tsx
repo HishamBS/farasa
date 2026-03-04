@@ -16,6 +16,8 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { expand } from '@/lib/utils/motion'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 
+const PREVIEW_MAX_HEIGHT = `${UX.CODE_BLOCK_PREVIEW_LINES * UX.CODE_BLOCK_LINE_HEIGHT * UX.CODE_BLOCK_FONT_SIZE_REM + UX.CODE_BLOCK_PREVIEW_PADDING_REM}rem`
+
 type CodeBlockProps = {
   children?: React.ReactNode
   className?: string
@@ -42,8 +44,7 @@ export function CodeBlock({ children, className, autoCollapse }: CodeBlockProps)
     if (autoCollapse && isLargeBlock) {
       setIsExpanded(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to autoCollapse transitions
-  }, [autoCollapse])
+  }, [autoCollapse, isLargeBlock])
 
   const shouldReduce = useReducedMotion()
   const { resolvedTheme } = useTheme()
@@ -64,8 +65,6 @@ export function CodeBlock({ children, className, autoCollapse }: CodeBlockProps)
       cancelled = true
     }
   }, [code, validLang, resolvedTheme])
-
-  const previewMaxHeight = `${UX.CODE_BLOCK_PREVIEW_LINES * UX.CODE_BLOCK_LINE_HEIGHT * UX.CODE_BLOCK_FONT_SIZE_REM + UX.CODE_BLOCK_PREVIEW_PADDING_REM}rem`
 
   const toggleBtnClass =
     'flex w-full items-center justify-center gap-1.5 border-t border-(--border-subtle) py-1.5 text-xs text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)'
@@ -96,7 +95,7 @@ export function CodeBlock({ children, className, autoCollapse }: CodeBlockProps)
             <div
               className="overflow-x-auto text-xs leading-[1.65]"
               data-line-numbers={showLineNumbers}
-              style={{ maxHeight: previewMaxHeight }}
+              style={{ maxHeight: PREVIEW_MAX_HEIGHT }}
             >
               {codeContent}
             </div>

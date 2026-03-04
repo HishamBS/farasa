@@ -202,7 +202,7 @@ export const SEARCH_DEPTHS = {
 } as const
 
 export const STATUS_MESSAGES = {
-  ROUTING: 'Selecting the best model for your request...',
+  ROUTING: 'Finding the best model for you...',
   THINKING: 'Thinking...',
   SEARCHING: 'Searching the web...',
   READING_FILES: 'Processing your files...',
@@ -236,7 +236,7 @@ export const STREAM_PROGRESS = {
   },
   ORDER: [STREAM_PHASES.ROUTING, STREAM_PHASES.THINKING, 'streaming', 'done'] as const,
   LABELS: {
-    [STREAM_PHASES.ROUTING]: 'Routing',
+    [STREAM_PHASES.ROUTING]: 'Smart Pick',
     [STREAM_PHASES.THINKING]: 'Thinking',
     [STREAM_PHASES.SEARCHING]: 'Searching',
     [STREAM_PHASES.READING_FILES]: 'Reading',
@@ -248,11 +248,11 @@ export const STREAM_PROGRESS = {
 } as const
 
 export const FACTOR_GROUPS = [
-  { id: 'task', label: 'Task Analysis', patterns: ['task', 'execution', 'category'] },
-  { id: 'capability', label: 'Capability Check', patterns: ['tool', 'search', 'vision'] },
-  { id: 'response', label: 'Response Format', patterns: ['response', 'format'] },
-  { id: 'selection', label: 'Final Selection', patterns: ['source', 'selected', 'review'] },
-  { id: 'model', label: 'Model Matching', patterns: ['model'] },
+  { id: 'task', label: 'Understood your request', patterns: ['task', 'execution', 'category'] },
+  { id: 'capability', label: 'Checked capabilities', patterns: ['tool', 'search', 'vision'] },
+  { id: 'response', label: 'Response style', patterns: ['response', 'format'] },
+  { id: 'selection', label: 'Selected best match', patterns: ['source', 'selected', 'review'] },
+  { id: 'model', label: 'Found best match', patterns: ['model'] },
 ] as const
 
 export const TIMELINE_DISPLAY_ORDER = [

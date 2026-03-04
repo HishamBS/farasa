@@ -14,14 +14,7 @@ import {
 } from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
 import { resolveProviderKey } from '@/lib/utils/model'
-import {
-  expand,
-  fadeIn,
-  scaleIn,
-  springBounce,
-  timelineNodeReveal,
-  timelineStagger,
-} from '@/lib/utils/motion'
+import { expand, fadeIn, scaleIn, timelineNodeReveal, timelineStagger } from '@/lib/utils/motion'
 import type { ModelCapability, RouterFactor } from '@/schemas/model'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
@@ -85,6 +78,8 @@ const GROUP_BADGE_CLASSES: Record<FactorGroupId, string> = {
   selection: 'border-(--routing-source-border) bg-(--routing-source-bg) text-(--routing-source)',
 }
 
+const STEP_COUNT = 3
+
 function groupFactors(factors: RouterFactor[]): GroupedFactors {
   const result: GroupedFactors = {}
   for (const factor of factors) {
@@ -101,6 +96,27 @@ function groupFactors(factors: RouterFactor[]): GroupedFactors {
     }
   }
   return result
+}
+
+function StepDots({ shouldReduce }: { shouldReduce: boolean | null }) {
+  return (
+    <div className="flex items-center gap-1">
+      {Array.from({ length: STEP_COUNT }, (_, i) => (
+        <motion.div
+          key={i}
+          className="flex items-center gap-1"
+          initial={shouldReduce ? false : { opacity: 0, scale: 0.5 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={shouldReduce ? undefined : { delay: i * 0.12, duration: 0.25 }}
+        >
+          <div className="flex size-3.5 items-center justify-center rounded-full bg-(--accent)/20">
+            <CheckCircle size={8} className="text-(--accent)" />
+          </div>
+          {i < STEP_COUNT - 1 && <div className="h-px w-2 bg-(--accent)/30" />}
+        </motion.div>
+      ))}
+    </div>
+  )
 }
 
 function TimelineNode({
@@ -129,23 +145,6 @@ function TimelineNode({
         <div className="mt-1.5">{children}</div>
       </div>
     </motion.div>
-  )
-}
-
-function ConfidenceBar({ value, shouldReduce }: { value: number; shouldReduce: boolean | null }) {
-  const percentage = Math.round(value * 100)
-  return (
-    <div className="flex items-center gap-2.5">
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-(--bg-surface-active)">
-        <motion.div
-          className="h-full rounded-full bg-gradient-to-r from-(--accent)/60 to-(--accent)"
-          initial={shouldReduce ? false : { width: 0 }}
-          animate={{ width: `${percentage}%` }}
-          transition={shouldReduce ? undefined : springBounce}
-        />
-      </div>
-      <span className="text-[0.625rem] tabular-nums text-(--text-muted)">{percentage}%</span>
-    </div>
   )
 }
 
@@ -263,11 +262,7 @@ export function RoutingDecisionBlock({
         {!compact && (
           <span className="max-w-36 truncate text-xs text-(--text-secondary)">{modelLabel}</span>
         )}
-        {!compact && typeof confidence === 'number' && (
-          <span className="rounded-full border border-(--border-subtle) bg-(--bg-surface-active) px-1.5 py-0.5 text-[0.625rem] text-(--text-muted)">
-            {Math.round(confidence * 100)}%
-          </span>
-        )}
+        {!compact && <StepDots shouldReduce={shouldReduce} />}
         <ChevronDown
           size={13}
           className={cn('text-(--text-muted) transition-transform', isExpanded && 'rotate-180')}
@@ -330,10 +325,7 @@ export function RoutingDecisionBlock({
                       )}
 
                       {groupId === 'model' && (
-                        <div className="space-y-2">
-                          {typeof confidence === 'number' && (
-                            <ConfidenceBar value={confidence} shouldReduce={shouldReduce} />
-                          )}
+                        <div className="space-y-1.5">
                           {nodeFactors?.map((f) => (
                             <p key={f.key} className="text-xs text-(--text-muted)">
                               {f.value}

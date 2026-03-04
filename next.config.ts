@@ -25,6 +25,7 @@ const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  serverExternalPackages: ['pdf-parse', 'pdfjs-dist'],
   images: {
     remotePatterns: [
       {

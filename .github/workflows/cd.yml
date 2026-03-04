@@ -82,6 +82,7 @@ jobs:
             TAVILY_API_KEY=${{ secrets.TAVILY_API_KEY }}
             GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}
             GCS_PROJECT_ID=${{ secrets.GCS_PROJECT_ID }}
+            ACCESS_CODE=${{ secrets.ACCESS_CODE }}
           flags: |
             --port=3010
             --min-instances=0

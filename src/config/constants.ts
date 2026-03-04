@@ -23,6 +23,10 @@ export const LIMITS = {
   ROUTER_MAX_ATTEMPTS: 2,
 } as const
 
+export const COOKIE_NAMES = {
+  ACCESS_GATE: 'farasa_gate',
+} as const
+
 export const RATE_LIMITS = {
   CHAT_PER_MINUTE: 20,
   UPLOAD_PER_MINUTE: 30,

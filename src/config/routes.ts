@@ -1,6 +1,7 @@
 export const ROUTES = {
   HOME: '/',
   LOGIN: '/login',
+  GATE: '/gate',
   CHAT: '/chat',
   CHAT_BY_ID: (id: string) => `/chat/${id}` as const,
   API: {

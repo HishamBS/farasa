@@ -16,6 +16,7 @@ const envSchema = z.object({
   GCS_PROJECT_ID: z.string().min(1, 'GCS_PROJECT_ID is required'),
   GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
   NEXT_PUBLIC_APP_URL: z.string().url('NEXT_PUBLIC_APP_URL must be a valid URL'),
+  ACCESS_CODE: z.string().min(1).optional(),
   RUNTIME_CONFIG_JSON: z.string().optional(),
   RUNTIME_CONFIG_CACHE_TTL_MS: z.coerce.number().int().positive().optional(),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),

@@ -2,7 +2,6 @@
 .*/
 *.md
 !README.md
-!docs/*.md
 # Repository-managed hidden directories
 !.github/
 !.github/**

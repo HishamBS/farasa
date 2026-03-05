@@ -21,6 +21,7 @@ export const LIMITS = {
   RUNTIME_CONFIG_CACHE_TTL_MS: 5_000,
   EMPTY_STATE_CHIP_COUNT: 4,
   ROUTER_MAX_ATTEMPTS: 2,
+  DROPDOWN_EDGE_GUTTER: 8,
 } as const
 
 export const COOKIE_NAMES = {
@@ -463,6 +464,7 @@ export const STREAM_REASON_CODES = {
   ROUTER_FAILED: 'router_failed',
   A2UI_CONTRACT_VIOLATION: 'a2ui_contract_violation',
   IMAGE_GEN_INCOMPATIBLE: 'image_gen_incompatible',
+  IMAGE_GEN_EMPTY_RESULT: 'image_gen_empty_result',
   VALIDATION_REJECTED: 'validation_rejected',
   PROVIDER_UNAVAILABLE: 'provider_unavailable',
   TRANSIENT_NETWORK: 'transient_network',
@@ -637,6 +639,7 @@ export const TEAM_STREAM_PHASES = {
 
 export const BROWSER_EVENTS = {
   NEW_CHAT_REQUESTED: 'farasa:new-chat-requested',
+  A2UI_ACTION_REQUESTED: 'farasa:a2ui-action-requested',
 } as const
 
 export const MARKDOWN_SANITIZE = {

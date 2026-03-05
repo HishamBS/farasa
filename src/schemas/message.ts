@@ -107,6 +107,7 @@ export const StreamChunkSchema = z.discriminatedUnion('type', [
   StreamEventMetaSchema.extend({
     type: z.literal(STREAM_EVENTS.USER_MESSAGE_SAVED),
     messageId: z.string(),
+    attachments: z.array(AttachmentSchema).optional(),
   }),
   StreamEventMetaSchema.extend({
     type: z.literal(STREAM_EVENTS.CONVERSATION_CREATED),

@@ -183,7 +183,6 @@ export function useChatStream(conversationId?: string) {
                 )
                 break
               case STREAM_EVENTS.USER_MESSAGE_SAVED: {
-                dispatch({ type: STREAM_ACTIONS.CLEAR_PENDING_USER_MESSAGE })
                 const convId = resolvedConversationIdRef.current
                 if (convId) {
                   const userMessage: MessageWithAttachments = {
@@ -196,7 +195,7 @@ export function useChatStream(conversationId?: string) {
                     streamSequenceMax: null,
                     tokenCount: null,
                     createdAt: new Date(),
-                    attachments: [],
+                    attachments: chunk.attachments ?? [],
                   }
                   utils.conversation.messages.setData({ conversationId: convId }, (current) => {
                     const currentMessages = current?.messages ?? []

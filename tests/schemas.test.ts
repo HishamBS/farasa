@@ -24,4 +24,23 @@ describe('schema contracts', () => {
     })
     expect(parsed.type).toBe(STREAM_EVENTS.STATUS)
   })
+
+  test('accepts user_message_saved stream chunk with attachments', () => {
+    const parsed = StreamChunkSchema.parse({
+      type: STREAM_EVENTS.USER_MESSAGE_SAVED,
+      messageId: crypto.randomUUID(),
+      attachments: [
+        {
+          id: crypto.randomUUID(),
+          fileName: 'resume.pdf',
+          fileType: 'application/pdf',
+          fileSize: 1024,
+          storageUrl: 'data:application/pdf;base64,JVBERi0=',
+        },
+      ],
+      streamRequestId: crypto.randomUUID(),
+      attempt: 0,
+    })
+    expect(parsed.type).toBe(STREAM_EVENTS.USER_MESSAGE_SAVED)
+  })
 })

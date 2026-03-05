@@ -12,7 +12,7 @@ import {
   TRPC_CODES,
 } from '@/config/constants'
 import { PROMPTS } from '@/config/prompts'
-import { conversations, messages } from '@/lib/db/schema'
+import { attachments, conversations, messages } from '@/lib/db/schema'
 import type { AttachmentRow } from '@/server/services/history-builder'
 import { AppError, getErrorMessage } from '@/lib/utils/errors'
 import type { StreamChunk, ToolCall, Usage } from '@/schemas/message'
@@ -401,9 +401,43 @@ export const chatRouter = router({
         userMessageId = createdUserMessage.id
       }
 
+      let linkedAttachmentRows: AttachmentRow[] = []
+      if (input.attachmentIds.length > 0 && userMessageId) {
+        const { linkAttachmentsToMessage } = await import('@/server/services/history-builder')
+        linkedAttachmentRows = await linkAttachmentsToMessage(
+          ctx.db,
+          ctx.userId,
+          input.attachmentIds,
+          userMessageId,
+        )
+      }
+
+      const userMessageAttachments =
+        userMessageId && linkedAttachmentRows.length === 0
+          ? await ctx.db
+              .select({
+                id: attachments.id,
+                fileName: attachments.fileName,
+                fileType: attachments.fileType,
+                fileSize: attachments.fileSize,
+                storageUrl: attachments.storageUrl,
+              })
+              .from(attachments)
+              .where(
+                and(eq(attachments.messageId, userMessageId), eq(attachments.userId, ctx.userId)),
+              )
+          : linkedAttachmentRows.map((att) => ({
+              id: att.id,
+              fileName: att.fileName,
+              fileType: att.fileType,
+              fileSize: att.fileSize,
+              storageUrl: att.storageUrl,
+            }))
+
       yield emit({
         type: STREAM_EVENTS.USER_MESSAGE_SAVED,
         messageId: userMessageId,
+        attachments: userMessageAttachments,
       })
 
       const [existingAssistantMessageForTurn] = await ctx.db
@@ -450,17 +484,6 @@ export const chatRouter = router({
           terminalReason: 'done',
         })
         return
-      }
-
-      let linkedAttachmentRows: AttachmentRow[] = []
-      if (input.attachmentIds.length > 0 && userMessageId) {
-        const { linkAttachmentsToMessage } = await import('@/server/services/history-builder')
-        linkedAttachmentRows = await linkAttachmentsToMessage(
-          ctx.db,
-          ctx.userId,
-          input.attachmentIds,
-          userMessageId,
-        )
       }
 
       let selectedModel: string | undefined

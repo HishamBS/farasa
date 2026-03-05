@@ -138,32 +138,34 @@ function parseFencePayload(source: string): unknown[] {
 }
 
 function validateProtocolStructure(message: v0_8.A2UIMessage): boolean {
-  const msg = message as Record<string, unknown>
-  if (msg.beginRendering) {
-    const br = msg.beginRendering as Record<string, unknown>
+  const raw: unknown = message
+  if (!isRecord(raw)) return false
+
+  if ('beginRendering' in raw && isRecord(raw.beginRendering)) {
+    const br = raw.beginRendering
     if (typeof br.surfaceId !== 'string' || typeof br.root !== 'string') {
-      console.warn('[a2ui] beginRendering missing surfaceId or root:', JSON.stringify(br))
+      console.warn('[a2ui] beginRendering missing surfaceId or root, keys:', Object.keys(br))
       return false
     }
   }
-  if (msg.surfaceUpdate) {
-    const su = msg.surfaceUpdate as Record<string, unknown>
+  if ('surfaceUpdate' in raw && isRecord(raw.surfaceUpdate)) {
+    const su = raw.surfaceUpdate
     if (typeof su.surfaceId !== 'string' || !Array.isArray(su.components)) {
-      console.warn('[a2ui] surfaceUpdate missing surfaceId or components:', JSON.stringify(su))
+      console.warn('[a2ui] surfaceUpdate missing surfaceId or components, keys:', Object.keys(su))
       return false
     }
   }
-  if (msg.dataModelUpdate) {
-    const dm = msg.dataModelUpdate as Record<string, unknown>
+  if ('dataModelUpdate' in raw && isRecord(raw.dataModelUpdate)) {
+    const dm = raw.dataModelUpdate
     if (typeof dm.surfaceId !== 'string') {
-      console.warn('[a2ui] dataModelUpdate missing surfaceId:', JSON.stringify(dm))
+      console.warn('[a2ui] dataModelUpdate missing surfaceId, keys:', Object.keys(dm))
       return false
     }
   }
-  if (msg.deleteSurface) {
-    const ds = msg.deleteSurface as Record<string, unknown>
+  if ('deleteSurface' in raw && isRecord(raw.deleteSurface)) {
+    const ds = raw.deleteSurface
     if (typeof ds.surfaceId !== 'string') {
-      console.warn('[a2ui] deleteSurface missing surfaceId:', JSON.stringify(ds))
+      console.warn('[a2ui] deleteSurface missing surfaceId, keys:', Object.keys(ds))
       return false
     }
   }

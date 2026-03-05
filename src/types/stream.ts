@@ -77,7 +77,7 @@ export type StreamAction =
   | { type: 'TOOL_START'; name: string; input: unknown }
   | { type: 'TOOL_RESULT'; name: string; result: unknown }
   | { type: 'TEXT_CHUNK'; content: string }
-  | { type: 'TEXT_SET'; content: string }
+  | { type: typeof STREAM_ACTIONS.TEXT_SET; content: string }
   | { type: 'A2UI_MESSAGE'; message: v0_8.A2UIMessage }
   | {
       type: 'ERROR'

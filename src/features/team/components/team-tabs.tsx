@@ -5,6 +5,7 @@ import {
   CHAT_STREAM_STATUS,
   PROVIDER_ALIASES,
   PROVIDER_DOT_CLASSES,
+  TEAM_TAB_STATUS,
   TEAM_TAB_VALUES,
 } from '@/config/constants'
 import type { UseSynthesisReturn } from '@/features/team/hooks/use-team-synthesis'
@@ -26,28 +27,30 @@ type TeamTabsProps = {
   models: ModelMeta[]
 }
 
+type TeamTabStatusValue = (typeof TEAM_TAB_STATUS)[keyof typeof TEAM_TAB_STATUS]
+
 type ModelTabTriggerProps = {
   providerKey: string
   label: string
-  status: 'idle' | 'streaming' | 'done' | 'error'
+  status: TeamTabStatusValue
 }
 
 function ModelTabTrigger({ providerKey, label, status }: ModelTabTriggerProps) {
   const dotClass = PROVIDER_DOT_CLASSES[providerKey] ?? 'bg-(--text-muted)'
   const statusClass =
-    status === 'error'
+    status === TEAM_TAB_STATUS.ERROR
       ? 'bg-(--error)'
-      : status === 'done'
+      : status === TEAM_TAB_STATUS.DONE
         ? 'bg-(--success)'
-        : status === 'streaming'
+        : status === TEAM_TAB_STATUS.STREAMING
           ? 'animate-pulse bg-(--accent)'
           : 'bg-(--text-ghost)'
   const statusLabel =
-    status === 'error'
+    status === TEAM_TAB_STATUS.ERROR
       ? 'Error'
-      : status === 'done'
+      : status === TEAM_TAB_STATUS.DONE
         ? 'Complete'
-        : status === 'streaming'
+        : status === TEAM_TAB_STATUS.STREAMING
           ? 'Streaming'
           : 'Idle'
 
@@ -109,14 +112,14 @@ export function TeamTabs({
         {modelOrder.map((modelId) => {
           const resolved = resolvedMetaMap.get(modelId)
           const streamState = modelStates.get(modelId)
-          const status =
+          const status: TeamTabStatusValue =
             streamState?.phase === CHAT_STREAM_STATUS.ERROR
-              ? 'error'
+              ? TEAM_TAB_STATUS.ERROR
               : streamState?.phase === CHAT_STREAM_STATUS.COMPLETE
-                ? 'done'
+                ? TEAM_TAB_STATUS.DONE
                 : streamState?.phase === CHAT_STREAM_STATUS.ACTIVE
-                  ? 'streaming'
-                  : 'idle'
+                  ? TEAM_TAB_STATUS.STREAMING
+                  : TEAM_TAB_STATUS.IDLE
           return (
             <TabsTrigger key={modelId} value={modelId}>
               <ModelTabTrigger

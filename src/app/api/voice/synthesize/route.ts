@@ -3,7 +3,15 @@ export const dynamic = 'force-dynamic'
 import { type NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth/config'
 import { env } from '@/config/env'
-import { VOICE, APP_CONFIG, EXTERNAL_URLS, LIMITS } from '@/config/constants'
+import {
+  HTTP_STATUS,
+  MESSAGE_ROLES,
+  VOICE,
+  APP_CONFIG,
+  EXTERNAL_URLS,
+  LIMITS,
+} from '@/config/constants'
+import { PROMPTS } from '@/config/prompts'
 import { AppError } from '@/lib/utils/errors'
 import { escapeXmlForPrompt } from '@/lib/security/runtime-safety'
 
@@ -101,7 +109,7 @@ const handler = auth(async function POST(req) {
   if (!req.auth?.user) {
     return NextResponse.json(
       { errorCode: 'unauthorized', message: AppError.UNAUTHORIZED },
-      { status: 401 },
+      { status: HTTP_STATUS.UNAUTHORIZED },
     )
   }
 
@@ -111,14 +119,14 @@ const handler = auth(async function POST(req) {
     if (typeof body.text !== 'string' || body.text.length === 0) {
       return NextResponse.json(
         { errorCode: 'missing_text', message: AppError.TTS_MISSING_TEXT },
-        { status: 400 },
+        { status: HTTP_STATUS.BAD_REQUEST },
       )
     }
     text = stripMarkdown(body.text).slice(0, VOICE.TTS_MAX_CHARS)
   } catch {
     return NextResponse.json(
       { errorCode: 'invalid_body', message: AppError.TTS_INVALID_BODY },
-      { status: 400 },
+      { status: HTTP_STATUS.BAD_REQUEST },
     )
   }
 
@@ -135,8 +143,8 @@ const handler = auth(async function POST(req) {
         model: VOICE.TTS_MODEL,
         messages: [
           {
-            role: 'user',
-            content: `Read the following text aloud exactly as written, without adding any commentary:\n\n<message>${escapeXmlForPrompt(text)}</message>`,
+            role: MESSAGE_ROLES.USER,
+            content: `${PROMPTS.TTS_READ_ALOUD}\n\n<message>${escapeXmlForPrompt(text)}</message>`,
           },
         ],
         modalities: ['text', 'audio'],
@@ -157,7 +165,7 @@ const handler = auth(async function POST(req) {
           errorCode: 'provider_error',
           message: `${AppError.TTS_PROVIDER_FAILED} (${response.status}).`,
         },
-        { status: 502 },
+        { status: HTTP_STATUS.BAD_GATEWAY },
       )
     }
 
@@ -176,7 +184,7 @@ const handler = auth(async function POST(req) {
         errorCode: 'runtime_error',
         message: AppError.TTS_RUNTIME_FAILED,
       },
-      { status: 500 },
+      { status: HTTP_STATUS.INTERNAL_SERVER_ERROR },
     )
   }
 })

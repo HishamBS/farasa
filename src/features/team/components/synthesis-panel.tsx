@@ -142,7 +142,7 @@ export function SynthesisPanel({
           Synthesize
         </button>
 
-        {synthesisError && <p className="text-xs text-red-400">{synthesisError}</p>}
+        {synthesisError && <p className="text-xs text-destructive">{synthesisError}</p>}
       </div>
 
       {displayedSynthesisText && (

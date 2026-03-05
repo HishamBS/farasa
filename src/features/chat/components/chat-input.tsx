@@ -269,6 +269,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
               onKeyDown={handleKey}
               placeholder={APP_CONFIG.CHAT_PLACEHOLDER}
               rows={1}
+              aria-label="Message input"
               className="min-h-6 max-h-30 w-full resize-none bg-transparent text-sm text-(--text-primary) placeholder:text-(--text-muted) outline-none"
               disabled={isStreaming}
             />

@@ -26,6 +26,12 @@ export const LIMITS = {
   GATE_COOKIE_MAX_AGE_SECONDS: 30 * 24 * 60 * 60,
   ROUTER_MAX_ATTEMPTS: 2,
   DROPDOWN_EDGE_GUTTER: 8,
+  TITLE_SKELETON_TIMEOUT_MS: 30_000,
+  ATTACHMENT_LINK_MAX_RETRIES: 3,
+  ATTACHMENT_LINK_RETRY_DELAY_MS: 500,
+  SEARCH_TIMEOUT_MS: 15_000,
+  RATE_LIMIT_EVICTION_THRESHOLD: 1_000,
+  COST_PER_MILLION_DIVISOR: 1_000_000,
 } as const
 
 export const COOKIE_NAMES = {
@@ -185,6 +191,7 @@ export const STREAM_EVENTS = {
   DONE: 'done',
   USER_MESSAGE_SAVED: 'user_message_saved',
   CONVERSATION_CREATED: 'conversation_created',
+  TITLE_UPDATED: 'title_updated',
 } as const
 
 export const STREAM_PHASES = {
@@ -194,6 +201,7 @@ export const STREAM_PHASES = {
   READING_FILES: 'reading_files',
   GENERATING_UI: 'generating_ui',
   GENERATING_TITLE: 'generating_title',
+  GENERATING_IMAGE: 'generating_image',
 } as const
 
 export const CHAT_STREAM_STATUS = {
@@ -232,6 +240,7 @@ export const MESSAGE_ROLES = {
   USER: 'user',
   ASSISTANT: 'assistant',
   SYSTEM: 'system',
+  TOOL: 'tool',
 } as const
 
 export const TRPC_CODES = {
@@ -262,6 +271,7 @@ export const STATUS_MESSAGES = {
   READING_FILES: 'Processing your files...',
   GENERATING_UI: 'Building your interface...',
   GENERATING_TITLE: 'Generating title...',
+  GENERATING_IMAGE: 'Generating image...',
   THOUGHT_FOR_LABEL: 'Thought for',
   THOUGHT_DURATION_UNIT: 's',
 } as const
@@ -296,6 +306,7 @@ export const STREAM_PROGRESS = {
     [STREAM_PHASES.READING_FILES]: 'Reading',
     [STREAM_PHASES.GENERATING_UI]: 'Rendering',
     [STREAM_PHASES.GENERATING_TITLE]: 'Title',
+    [STREAM_PHASES.GENERATING_IMAGE]: 'Image',
     STREAMING: 'Responding',
     DONE: 'Done',
   },
@@ -307,14 +318,6 @@ export const FACTOR_GROUPS = [
   { id: 'response', label: 'Response style', patterns: ['response', 'format'] },
   { id: 'selection', label: 'Selected best match', patterns: ['source', 'selected', 'review'] },
   { id: 'model', label: 'Found best match', patterns: ['model'] },
-] as const
-
-export const TIMELINE_DISPLAY_ORDER = [
-  'task',
-  'capability',
-  'model',
-  'response',
-  'selection',
 ] as const
 
 export const A2UI_COMPONENT_CATEGORIES = {
@@ -367,18 +370,6 @@ export const PROVIDER_DOT_CLASSES: Record<string, string> = {
   [PROVIDERS.DEEPSEEK]: 'bg-(--provider-deepseek)',
 }
 
-export const PROVIDER_TEXT_CLASSES: Record<string, string> = {
-  [PROVIDERS.ANTHROPIC]: 'text-(--provider-anthropic)',
-  [PROVIDERS.OPENAI]: 'text-(--provider-openai)',
-  [PROVIDERS.GOOGLE]: 'text-(--provider-google)',
-  [PROVIDERS.META]: 'text-(--provider-meta)',
-  [PROVIDERS.GROQ]: 'text-(--provider-groq)',
-  [PROVIDERS.CEREBRAS]: 'text-(--provider-cerebras)',
-  [PROVIDERS.QWEN]: 'text-(--provider-qwen)',
-  [PROVIDERS.MISTRALAI]: 'text-(--provider-mistralai)',
-  [PROVIDERS.DEEPSEEK]: 'text-(--provider-deepseek)',
-}
-
 export const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   [PROVIDERS.OPENAI]: 'OpenAI',
   [PROVIDERS.ANTHROPIC]: 'Anthropic',
@@ -389,18 +380,6 @@ export const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   [PROVIDERS.QWEN]: 'Qwen',
   [PROVIDERS.MISTRALAI]: 'Mistral AI',
   [PROVIDERS.DEEPSEEK]: 'DeepSeek',
-}
-
-export const PROVIDER_CARD_CLASSES: Record<string, string> = {
-  [PROVIDERS.OPENAI]: 'border-(--provider-openai)/20 bg-(--provider-openai)/6',
-  [PROVIDERS.ANTHROPIC]: 'border-(--provider-anthropic)/20 bg-(--provider-anthropic)/6',
-  [PROVIDERS.GOOGLE]: 'border-(--provider-google)/20 bg-(--provider-google)/6',
-  [PROVIDERS.META]: 'border-(--provider-meta)/20 bg-(--provider-meta)/6',
-  [PROVIDERS.GROQ]: 'border-(--provider-groq)/20 bg-(--provider-groq)/6',
-  [PROVIDERS.CEREBRAS]: 'border-(--provider-cerebras)/20 bg-(--provider-cerebras)/6',
-  [PROVIDERS.QWEN]: 'border-(--provider-qwen)/20 bg-(--provider-qwen)/6',
-  [PROVIDERS.MISTRALAI]: 'border-(--provider-mistralai)/20 bg-(--provider-mistralai)/6',
-  [PROVIDERS.DEEPSEEK]: 'border-(--provider-deepseek)/20 bg-(--provider-deepseek)/6',
 }
 
 export const UX = {
@@ -511,7 +490,6 @@ export const STREAM_REASON_CODES = {
 export const MODEL_REGISTRY_CACHE_KEY = 'models' as const
 
 export const NEW_CHAT_TITLE = 'New Chat' as const
-export const NEW_CONVERSATION_TITLE = 'New Conversation' as const
 export const CODE_BLOCK_DEFAULT_LANG = 'text' as const
 export const SHIKI_DARK_THEME = 'tokyo-night' as const
 export const SHIKI_LIGHT_THEME = 'github-light' as const
@@ -674,11 +652,6 @@ export const TEAM_EVENTS = {
   SYNTHESIS_DONE: 'team_synthesis_done',
 } as const
 
-export const TEAM_STATUS_MESSAGES = {
-  SYNTHESIZING: 'Synthesizing responses...',
-  STARTING: 'Starting team comparison...',
-} as const
-
 export const TEAM_TAB_VALUES = {
   SYNTHESIS: 'synthesis',
 } as const
@@ -693,6 +666,44 @@ export const TEAM_STREAM_PHASES = {
 export const BROWSER_EVENTS = {
   NEW_CHAT_REQUESTED: 'farasa:new-chat-requested',
   A2UI_ACTION_REQUESTED: 'farasa:a2ui-action-requested',
+} as const
+
+export const HTTP_STATUS = {
+  OK: 200,
+  BAD_REQUEST: 400,
+  UNAUTHORIZED: 401,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  TOO_MANY_REQUESTS: 429,
+  INTERNAL_SERVER_ERROR: 500,
+  BAD_GATEWAY: 502,
+} as const
+
+export const APP_DEFAULTS = {
+  THEME: 'dark',
+} as const
+
+export const TEAM_TAB_STATUS = {
+  IDLE: 'idle',
+  STREAMING: 'streaming',
+  DONE: 'done',
+  ERROR: 'error',
+} as const
+
+export const TERMINAL_EVENTS = {
+  DONE: 'done',
+  ERROR: 'error',
+  CANCELLED: 'cancelled',
+} as const
+
+export const RUNTIME_SCOPES = {
+  SYSTEM: 'system',
+  TENANT: 'tenant',
+  USER: 'user',
+} as const
+
+export const DB_ERROR_CODES = {
+  UNDEFINED_TABLE: '42P01',
 } as const
 
 export const MARKDOWN_SANITIZE = {

@@ -1,6 +1,7 @@
 'use client'
 
 import { CHAT_MODES } from '@/config/constants'
+import { useStreamSession } from '@/features/chat/context/stream-session-context'
 import { cn } from '@/lib/utils/cn'
 import { springBounce } from '@/lib/utils/motion'
 import type { ChatMode } from '@/schemas/message'
@@ -19,6 +20,7 @@ const MODES: ReadonlyArray<{ value: ChatMode; label: string }> = [
 
 export function ModeToggle({ value, onChange }: ModeToggleProps) {
   const shouldReduce = useReducedMotion()
+  const { isTurnActive } = useStreamSession()
 
   const handleChange = useCallback((mode: ChatMode) => () => onChange(mode), [onChange])
 
@@ -29,15 +31,18 @@ export function ModeToggle({ value, onChange }: ModeToggleProps) {
           key={modeValue}
           type="button"
           onClick={handleChange(modeValue)}
+          disabled={isTurnActive}
+          title={isTurnActive ? 'Cannot switch mode during active stream' : undefined}
           className={cn(
             'relative flex min-h-7 min-w-14 items-center justify-center rounded-md px-3 py-1 text-xs font-medium transition-all duration-200 ease-out',
             value === modeValue
               ? 'text-white drop-shadow-sm'
               : 'text-(--text-muted) hover:text-(--text-secondary)',
             shouldReduce && value === modeValue && 'bg-accent shadow-md shadow-accent/20',
+            isTurnActive && 'opacity-50 cursor-not-allowed',
           )}
           aria-pressed={value === modeValue}
-          aria-label={`${label} mode`}
+          aria-label={`Current mode: ${label}`}
         >
           {value === modeValue && !shouldReduce && (
             <motion.span

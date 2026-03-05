@@ -18,7 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MOTION, NEW_CHAT_TITLE, UI_TEXT, UX } from '@/config/constants'
+import { LIMITS, MOTION, NEW_CHAT_TITLE, TITLEBAR_PHASE, UI_TEXT, UX } from '@/config/constants'
 import { PATTERNS } from '@/config/routes'
 import { useConversationOperations } from '@/features/sidebar/hooks/use-conversation-operations'
 import type { TitlebarPhase } from '@/types/stream'
@@ -35,7 +35,7 @@ type TitlebarProps = {
   streamPhase?: TitlebarPhase
 }
 
-export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
+export function Titlebar({ onMenuClick, streamPhase = TITLEBAR_PHASE.IDLE }: TitlebarProps) {
   const pathname = usePathname()
   const { mode, setMode, setActiveConversationId } = useChatMode()
   const { updateMutation, deleteMutation, isExporting, handleExport } = useConversationOperations({
@@ -45,9 +45,10 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
   const [showRenameDialog, setShowRenameDialog] = useState(false)
   const [renameValue, setRenameValue] = useState('')
   const [showDone, setShowDone] = useState(false)
+  const [postStreamSkeleton, setPostStreamSkeleton] = useState(false)
 
   useEffect(() => {
-    if (streamPhase === 'done') {
+    if (streamPhase === TITLEBAR_PHASE.DONE) {
       setShowDone(true)
       const timer = setTimeout(() => setShowDone(false), UX.DONE_NOTIFICATION_DURATION_MS)
       return () => clearTimeout(timer)
@@ -103,7 +104,7 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
   const title = conversation?.title ?? null
 
   const pillInfo = useMemo(() => {
-    if (streamPhase === 'thinking') {
+    if (streamPhase === TITLEBAR_PHASE.THINKING) {
       return {
         bg: 'bg-(--thinking-bg)',
         border: 'border-(--thinking-border)',
@@ -112,7 +113,7 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
         showDot: true,
       }
     }
-    if (streamPhase === 'streaming') {
+    if (streamPhase === TITLEBAR_PHASE.STREAMING) {
       return {
         bg: 'bg-(--accent-muted)',
         border: 'border-(--accent-glow)',
@@ -121,7 +122,7 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
         showDot: true,
       }
     }
-    if (streamPhase === 'done') {
+    if (streamPhase === TITLEBAR_PHASE.DONE) {
       return {
         bg: 'bg-(--success)/10',
         border: 'border-(--success)/20',
@@ -133,16 +134,28 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
     return null
   }, [streamPhase])
   const isPillVisible =
-    streamPhase === 'thinking' ||
-    streamPhase === 'streaming' ||
-    (streamPhase === 'done' && showDone)
+    streamPhase === TITLEBAR_PHASE.THINKING ||
+    streamPhase === TITLEBAR_PHASE.STREAMING ||
+    (streamPhase === TITLEBAR_PHASE.DONE && showDone)
+
+  // When stream completes but title is still the default, keep the skeleton
+  // visible for up to TITLE_SKELETON_TIMEOUT_MS to allow the background title
+  // generation to finish and invalidate the query.
+  useEffect(() => {
+    if (streamPhase === TITLEBAR_PHASE.DONE && !!conversationId && title === NEW_CHAT_TITLE) {
+      setPostStreamSkeleton(true)
+      const timer = setTimeout(() => setPostStreamSkeleton(false), LIMITS.TITLE_SKELETON_TIMEOUT_MS)
+      return () => clearTimeout(timer)
+    }
+    setPostStreamSkeleton(false)
+  }, [streamPhase, conversationId, title])
 
   const isAwaitingTitleGen =
     !!conversationId &&
     title === NEW_CHAT_TITLE &&
-    (streamPhase === 'thinking' ||
-      streamPhase === 'streaming' ||
-      (streamPhase === 'done' && showDone))
+    (streamPhase === TITLEBAR_PHASE.THINKING ||
+      streamPhase === TITLEBAR_PHASE.STREAMING ||
+      postStreamSkeleton)
   const showTitleSkeleton = (!!conversationId && isLoadingConversation) || isAwaitingTitleGen
 
   return (

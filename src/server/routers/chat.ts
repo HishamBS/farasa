@@ -6,9 +6,9 @@ import {
   NEW_CHAT_TITLE,
   RESPONSE_FORMATS,
   MODEL_SELECTION_SOURCES,
+  STATUS_MESSAGES,
   STREAM_EVENTS,
   STREAM_PHASES,
-  STREAM_REASON_CODES,
   TRPC_CODES,
 } from '@/config/constants'
 import { PROMPTS } from '@/config/prompts'
@@ -23,223 +23,38 @@ import {
   UsageSchema,
 } from '@/schemas/message'
 import type { ModelCapability, ModelResponseFormat, ModelSelectionSource } from '@/schemas/model'
-import type { RuntimeA2UIPolicy, RuntimeConfig } from '@/schemas/runtime-config'
+import type { RuntimeA2UIPolicy } from '@/schemas/runtime-config'
 import type { SearchImage, SearchResult } from '@/schemas/search'
 import {
   buildComponentTypeFeedback,
   parseA2UIFencePayloadToJsonLines,
   validateA2UIComponentTypes,
 } from '@/server/services/a2ui-message-service'
+import {
+  createConversation,
+  findConversation,
+  updateConversationSettings,
+} from '@/server/services/conversation-service'
+import {
+  persistUserMessage,
+  persistAssistantMessage,
+} from '@/server/services/message-persistence-service'
 import { resolveModelDecision } from '@/server/services/model-resolution-service'
 import { executeSearchEnrichment } from '@/server/services/search-enrichment-service'
+import { parseSearchToolQuery } from '@/server/services/search-tool-service'
+import { streamSessions } from '@/server/services/stream-session-service'
+import type { StreamSession } from '@/server/services/stream-session-service'
 import {
-  mergeSearchImages,
-  mergeSearchResults,
-  parseSearchToolQuery,
-} from '@/server/services/search-tool-service'
-import type { ChatMessageToolCall, Message } from '@openrouter/sdk/models'
+  accumulateToolCallDelta,
+  buildRoundToolCalls,
+  buildUnsupportedToolResponse,
+  executeSearchToolCall,
+} from '@/server/services/tool-execution-service'
+import type { Message } from '@openrouter/sdk/models'
 import { ToolChoiceOptionAuto } from '@openrouter/sdk/models'
 import { TRPCError } from '@trpc/server'
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { protectedProcedure, rateLimitedChatProcedure, router } from '../trpc'
-
-type StreamSession = {
-  key: string
-  userId: string
-  conversationId: string
-  streamRequestId: string
-  abortController: AbortController
-}
-
-type StreamChunkPayload = {
-  type: StreamChunk['type']
-  [key: string]: unknown
-}
-
-const activeStreamsByConversation = new Map<string, StreamSession>()
-const activeStreamsByRequest = new Map<string, StreamSession>()
-
-function getConversationStreamKey(userId: string, conversationId: string): string {
-  return `${userId}:${conversationId}`
-}
-
-function createChunkEmitter(streamRequestId: string, attempt: number, enforceSequence: boolean) {
-  let sequence = 0
-  return (payload: StreamChunkPayload): StreamChunk => {
-    const base = {
-      ...payload,
-      streamRequestId,
-      attempt,
-    } as StreamChunk
-    if (!enforceSequence) {
-      return base
-    }
-    return {
-      ...base,
-      sequence: sequence++,
-    }
-  }
-}
-
-function beginStreamSession(params: {
-  userId: string
-  conversationId: string
-  streamRequestId: string
-}): StreamSession {
-  const byRequest = activeStreamsByRequest.get(params.streamRequestId)
-  if (byRequest && byRequest.userId === params.userId) {
-    throw new TRPCError({
-      code: TRPC_CODES.BAD_REQUEST,
-      message: 'Duplicate active stream request.',
-    })
-  }
-
-  const key = getConversationStreamKey(params.userId, params.conversationId)
-  const existing = activeStreamsByConversation.get(key)
-
-  if (existing && existing.streamRequestId === params.streamRequestId) {
-    throw new TRPCError({
-      code: TRPC_CODES.BAD_REQUEST,
-      message: 'Duplicate active stream request.',
-    })
-  }
-
-  if (existing) {
-    existing.abortController.abort(STREAM_REASON_CODES.SUPERSEDED)
-    endStreamSession(existing)
-  }
-
-  const session: StreamSession = {
-    key,
-    userId: params.userId,
-    conversationId: params.conversationId,
-    streamRequestId: params.streamRequestId,
-    abortController: new AbortController(),
-  }
-  activeStreamsByConversation.set(key, session)
-  activeStreamsByRequest.set(session.streamRequestId, session)
-  return session
-}
-
-function endStreamSession(session: StreamSession): void {
-  const activeForConversation = activeStreamsByConversation.get(session.key)
-  if (activeForConversation?.streamRequestId === session.streamRequestId) {
-    activeStreamsByConversation.delete(session.key)
-  }
-  const activeForRequest = activeStreamsByRequest.get(session.streamRequestId)
-  if (activeForRequest?.key === session.key) {
-    activeStreamsByRequest.delete(session.streamRequestId)
-  }
-}
-
-function classifyTerminalError(
-  runtimeConfig: RuntimeConfig,
-  error: unknown,
-): {
-  message: string
-  code?: string
-  reasonCode: string
-  recoverable: boolean
-} {
-  if (error instanceof TRPCError) {
-    if (error.code === TRPC_CODES.UNAUTHORIZED || error.code === TRPC_CODES.FORBIDDEN) {
-      return {
-        message: runtimeConfig.chat.errors.unauthorized,
-        code: error.code,
-        reasonCode: STREAM_REASON_CODES.AUTHORIZATION_EXPIRED,
-        recoverable: false,
-      }
-    }
-    if (error.code === TRPC_CODES.BAD_REQUEST) {
-      const invalidModel = error.message === AppError.INVALID_MODEL
-      const routerFailed = error.message === AppError.ROUTER_FAILED
-      const a2uiContractFailed = error.message === AppError.A2UI_CONTRACT_FAILED
-      const imageGenIncompatible = error.message === AppError.IMAGE_GEN_INCOMPATIBLE
-      const imageGenEmptyResult = error.message === AppError.IMAGE_GEN_EMPTY_RESULT
-      return {
-        message: routerFailed
-          ? AppError.ROUTER_FAILED
-          : a2uiContractFailed
-            ? AppError.A2UI_CONTRACT_FAILED
-            : imageGenIncompatible
-              ? runtimeConfig.chat.errors.imageGenIncompatible
-              : imageGenEmptyResult
-                ? runtimeConfig.chat.errors.processing
-                : invalidModel
-                  ? runtimeConfig.chat.errors.invalidModel
-                  : runtimeConfig.chat.errors.processing,
-        code: error.code,
-        reasonCode: routerFailed
-          ? STREAM_REASON_CODES.ROUTER_FAILED
-          : a2uiContractFailed
-            ? STREAM_REASON_CODES.A2UI_CONTRACT_VIOLATION
-            : imageGenIncompatible
-              ? STREAM_REASON_CODES.IMAGE_GEN_INCOMPATIBLE
-              : imageGenEmptyResult
-                ? STREAM_REASON_CODES.IMAGE_GEN_EMPTY_RESULT
-                : STREAM_REASON_CODES.VALIDATION_REJECTED,
-        recoverable:
-          routerFailed || a2uiContractFailed || imageGenIncompatible || imageGenEmptyResult,
-      }
-    }
-    return {
-      message: runtimeConfig.chat.errors.processing,
-      code: error.code,
-      reasonCode: STREAM_REASON_CODES.PROVIDER_UNAVAILABLE,
-      recoverable: true,
-    }
-  }
-
-  if (error instanceof Error) {
-    const message = error.message.toLowerCase()
-    if (message.includes('abort') || message.includes('timeout')) {
-      return {
-        message: runtimeConfig.chat.errors.connection,
-        code: error.name,
-        reasonCode: STREAM_REASON_CODES.TRANSIENT_NETWORK,
-        recoverable: true,
-      }
-    }
-  }
-
-  return {
-    message: runtimeConfig.chat.errors.providerUnavailable,
-    reasonCode: STREAM_REASON_CODES.PROVIDER_UNAVAILABLE,
-    recoverable: true,
-  }
-}
-
-function buildCombinedAbortSignal(signals: AbortSignal[], timeoutMs: number): AbortSignal {
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => {
-    controller.abort()
-  }, timeoutMs)
-
-  const subscriptions: Array<() => void> = []
-  for (const candidate of signals) {
-    if (candidate.aborted) {
-      clearTimeout(timeoutId)
-      controller.abort()
-      break
-    }
-    const onAbort = () => controller.abort()
-    candidate.addEventListener('abort', onAbort, { once: true })
-    subscriptions.push(() => candidate.removeEventListener('abort', onAbort))
-  }
-
-  controller.signal.addEventListener(
-    'abort',
-    () => {
-      clearTimeout(timeoutId)
-      for (const unsubscribe of subscriptions) {
-        unsubscribe()
-      }
-    },
-    { once: true },
-  )
-
-  return controller.signal
-}
 
 function findA2UIFenceStart(source: string): { index: number; length: number } | null {
   const match = new RegExp(`\\\`\\\`\\\`[ \\t]*${RESPONSE_FORMATS.A2UI}\\b`, 'i').exec(source)
@@ -289,11 +104,16 @@ export const chatRouter = router({
   }) {
     const runtimeConfig = ctx.runtimeConfig
     const streamRequestId = input.clientRequestId ?? crypto.randomUUID()
-    const emit = createChunkEmitter(streamRequestId, 0, runtimeConfig.chat.stream.enforceSequence)
+    const emit = streamSessions.createChunkEmitter(
+      streamRequestId,
+      0,
+      runtimeConfig.chat.stream.enforceSequence,
+    )
 
     let conversationId = input.conversationId
     let userMessageId: string | null = null
     let streamSession: StreamSession | null = null
+    let signalCleanup: (() => void) | null = null
 
     try {
       if (input.content.length > runtimeConfig.limits.messageMaxLength) {
@@ -323,18 +143,13 @@ export const chatRouter = router({
         if (existingRequestConversation) {
           conversationId = existingRequestConversation.conversationId
         } else {
-          const [created] = await ctx.db
-            .insert(conversations)
-            .values({
-              userId: ctx.userId,
-              model: input.model,
-              mode: input.mode,
-              webSearchEnabled: input.webSearchEnabled,
-            })
-            .returning({ id: conversations.id })
-          if (!created) {
-            throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
-          }
+          const created = await createConversation({
+            db: ctx.db,
+            userId: ctx.userId,
+            model: input.model,
+            mode: input.mode,
+            webSearchEnabled: input.webSearchEnabled,
+          })
           conversationId = created.id
         }
       }
@@ -343,26 +158,24 @@ export const chatRouter = router({
         yield emit({ type: STREAM_EVENTS.CONVERSATION_CREATED, conversationId })
       }
 
-      const [conversation] = await ctx.db
-        .select({ id: conversations.id, title: conversations.title })
-        .from(conversations)
-        .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
-        .limit(1)
-      if (!conversation) {
-        throw new TRPCError({ code: TRPC_CODES.NOT_FOUND })
-      }
+      const conversation = await findConversation({
+        db: ctx.db,
+        conversationId,
+        userId: ctx.userId,
+      })
 
-      streamSession = beginStreamSession({
+      streamSession = streamSessions.begin({
         userId: ctx.userId,
         conversationId,
         streamRequestId,
       })
-      const combinedSignal = buildCombinedAbortSignal(
+      const { signal: combinedSignal, cleanup } = streamSessions.buildCombinedAbortSignal(
         signal
           ? [signal, streamSession.abortController.signal]
           : [streamSession.abortController.signal],
         runtimeConfig.chat.stream.timeoutMs,
       )
+      signalCleanup = cleanup
 
       if (input.webSearchEnabled && !runtimeConfig.features.searchEnabled) {
         throw new TRPCError({
@@ -371,35 +184,13 @@ export const chatRouter = router({
         })
       }
 
-      const [existingUserMessage] = await ctx.db
-        .select({ id: messages.id })
-        .from(messages)
-        .where(
-          and(
-            eq(messages.conversationId, conversationId),
-            eq(messages.role, MESSAGE_ROLES.USER),
-            eq(messages.clientRequestId, streamRequestId),
-          ),
-        )
-        .limit(1)
-
-      if (existingUserMessage) {
-        userMessageId = existingUserMessage.id
-      } else {
-        const [createdUserMessage] = await ctx.db
-          .insert(messages)
-          .values({
-            conversationId,
-            role: MESSAGE_ROLES.USER,
-            content: input.content,
-            clientRequestId: streamRequestId,
-          })
-          .returning({ id: messages.id })
-        if (!createdUserMessage) {
-          throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
-        }
-        userMessageId = createdUserMessage.id
-      }
+      const userResult = await persistUserMessage({
+        db: ctx.db,
+        conversationId,
+        content: input.content,
+        clientRequestId: streamRequestId,
+      })
+      userMessageId = userResult.messageId
 
       let linkedAttachmentRows: AttachmentRow[] = []
       if (input.attachmentIds.length > 0 && userMessageId) {
@@ -555,17 +346,6 @@ export const chatRouter = router({
       const isImageGenModel =
         registry.find((m) => m.id === selectedModel)?.supportsImageGeneration ?? false
 
-      await ctx.db
-        .update(conversations)
-        .set({
-          model:
-            resolvedDecision.source === MODEL_SELECTION_SOURCES.AUTO_ROUTER ? null : selectedModel,
-          mode: conversationMode,
-          webSearchEnabled: input.webSearchEnabled,
-          updatedAt: new Date(),
-        })
-        .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
-
       const wrappedContent = `${runtimeConfig.prompts.wrappers.userRequestOpen}\n${input.content}\n${runtimeConfig.prompts.wrappers.userRequestClose}`
       const hasAttachments = input.attachmentIds.length > 0
       if (hasAttachments) {
@@ -719,6 +499,12 @@ export const chatRouter = router({
         let toolRoundCount = 0
 
         if (isImageGenModel) {
+          yield emit({
+            type: STREAM_EVENTS.STATUS,
+            phase: STREAM_PHASES.GENERATING_IMAGE,
+            message: STATUS_MESSAGES.GENERATING_IMAGE,
+          })
+
           const { executeImageGeneration } =
             await import('@/server/services/image-generation-service')
           const imageResult = await executeImageGeneration({
@@ -785,17 +571,7 @@ export const chatRouter = router({
 
             if (delta.toolCalls && delta.toolCalls.length > 0) {
               for (const toolCallDelta of delta.toolCalls) {
-                const current = toolCallDeltas.get(toolCallDelta.index) ?? { argsJson: '' }
-                if (toolCallDelta.id) {
-                  current.id = toolCallDelta.id
-                }
-                if (toolCallDelta.function?.name) {
-                  current.name = toolCallDelta.function.name
-                }
-                if (toolCallDelta.function?.arguments) {
-                  current.argsJson += toolCallDelta.function.arguments
-                }
-                toolCallDeltas.set(toolCallDelta.index, current)
+                accumulateToolCallDelta(toolCallDeltas, toolCallDelta)
               }
             }
 
@@ -945,17 +721,7 @@ export const chatRouter = router({
             })
           }
 
-          const roundToolCalls: ChatMessageToolCall[] = [...toolCallDeltas.entries()]
-            .sort(([a], [b]) => a - b)
-            .map(([index, value]) => ({
-              id: value.id ?? `tool_${index}_${crypto.randomUUID()}`,
-              type: 'function' as const,
-              function: {
-                name: value.name ?? '',
-                arguments: value.argsJson,
-              },
-            }))
-            .filter((call) => call.function.name.length > 0)
+          const roundToolCalls = buildRoundToolCalls(toolCallDeltas)
 
           if (roundToolCalls.length === 0) {
             break
@@ -969,54 +735,36 @@ export const chatRouter = router({
 
           for (const call of roundToolCalls) {
             if (call.function.name !== searchToolName) {
-              attemptMessages.push({
-                role: 'tool',
-                toolCallId: call.id,
-                content: JSON.stringify({ error: 'Unsupported tool call' }),
-              })
+              attemptMessages.push(buildUnsupportedToolResponse(call))
               continue
             }
 
-            const toolQuery = parseSearchToolQuery(call.function.arguments, input.content)
-            const startedAt = Date.now()
             yield emit({
               type: STREAM_EVENTS.TOOL_START,
               toolName: searchToolName,
-              input: { query: toolQuery },
+              input: { query: parseSearchToolQuery(call.function.arguments, input.content) },
             })
-            const enrichment = await executeSearchEnrichment(toolQuery, runtimeConfig)
-            searchResults = mergeSearchResults(searchResults, enrichment.results)
-            searchImages = mergeSearchImages(searchImages, enrichment.images)
+
+            const searchResult = await executeSearchToolCall({
+              call,
+              searchToolName,
+              fallbackQuery: input.content,
+              runtimeConfig,
+              existingResults: searchResults,
+              existingImages: searchImages,
+            })
+
+            searchResults = searchResult.mergedResults
+            searchImages = searchResult.mergedImages
+
             yield emit({
               type: STREAM_EVENTS.TOOL_RESULT,
               toolName: searchToolName,
-              result: {
-                query: enrichment.query,
-                results: enrichment.results,
-                images: enrichment.images,
-              },
+              result: searchResult.toolCallEntry.result,
             })
 
-            toolCalls.push({
-              name: searchToolName,
-              input: { query: toolQuery },
-              result: {
-                query: enrichment.query,
-                results: enrichment.results,
-                images: enrichment.images,
-              },
-              durationMs: Date.now() - startedAt,
-            })
-
-            attemptMessages.push({
-              role: 'tool',
-              toolCallId: call.id,
-              content: JSON.stringify({
-                query: enrichment.query,
-                results: enrichment.results,
-                images: enrichment.images,
-              }),
-            })
+            toolCalls.push(searchResult.toolCallEntry)
+            attemptMessages.push(searchResult.toolMessage)
           }
 
           toolRoundCount += 1
@@ -1164,7 +912,7 @@ export const chatRouter = router({
         modelEntry && usage
           ? (usage.promptTokens * modelEntry.pricing.promptPerMillion +
               usage.completionTokens * modelEntry.pricing.completionPerMillion) /
-            1_000_000
+            LIMITS.COST_PER_MILLION_DIVISOR
           : undefined
       const usageWithCost = usage ? { ...usage, cost: estimatedCost } : undefined
 
@@ -1190,71 +938,27 @@ export const chatRouter = router({
         userMessageId: userMessageId ?? undefined,
       })
 
-      const [existingAssistantMessage] = await ctx.db
-        .select({ id: messages.id })
-        .from(messages)
-        .where(
-          and(
-            eq(messages.conversationId, conversationId),
-            eq(messages.role, MESSAGE_ROLES.ASSISTANT),
-            eq(messages.clientRequestId, streamRequestId),
-          ),
-        )
-        .limit(1)
+      await persistAssistantMessage({
+        db: ctx.db,
+        conversationId,
+        content: fullText,
+        clientRequestId: streamRequestId,
+        metadata,
+        streamSequenceMax,
+        tokenCount: usage?.totalTokens ?? null,
+      })
 
-      if (existingAssistantMessage) {
-        await ctx.db
-          .update(messages)
-          .set({
-            content: fullText,
-            metadata,
-            streamSequenceMax,
-            tokenCount: usage?.totalTokens ?? null,
-          })
-          .where(eq(messages.id, existingAssistantMessage.id))
-      } else {
-        await ctx.db.insert(messages).values({
-          conversationId,
-          role: MESSAGE_ROLES.ASSISTANT,
-          content: fullText,
-          metadata,
-          clientRequestId: streamRequestId,
-          streamSequenceMax,
-          tokenCount: usage?.totalTokens ?? null,
-        })
-      }
-
-      await ctx.db
-        .update(conversations)
-        .set({
-          updatedAt: new Date(),
-          mode: input.mode,
+      await updateConversationSettings({
+        db: ctx.db,
+        conversationId,
+        userId: ctx.userId,
+        settings: {
+          model:
+            resolvedDecision.source === MODEL_SELECTION_SOURCES.AUTO_ROUTER ? null : selectedModel,
+          mode: conversationMode,
           webSearchEnabled: input.webSearchEnabled,
-          ...(input.model !== undefined ? { model: input.model } : {}),
-          settingsVersion: sql`${conversations.settingsVersion} + 1`,
-        })
-        .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
-
-      {
-        const { generateAndPersistTitle } =
-          await import('@/server/services/title-generation-service')
-        const shouldGenerate = conversation.title === NEW_CHAT_TITLE
-        if (shouldGenerate) {
-          yield emit({
-            type: STREAM_EVENTS.STATUS,
-            phase: STREAM_PHASES.GENERATING_TITLE,
-            message: runtimeConfig.chat.statusMessages.generatingTitle,
-          })
-        }
-        await generateAndPersistTitle({
-          db: ctx.db,
-          conversationId,
-          userId: ctx.userId,
-          currentTitle: conversation.title,
-          fallbackContent: input.content,
-          runtimeConfig,
-        })
-      }
+        },
+      })
 
       const doneEvent = emit({
         type: STREAM_EVENTS.DONE,
@@ -1265,9 +969,31 @@ export const chatRouter = router({
         streamSequenceMax = Math.max(streamSequenceMax, doneEvent.sequence)
       }
       yield doneEvent
+
+      const shouldGenerateTitle = conversation.title === NEW_CHAT_TITLE
+      if (shouldGenerateTitle) {
+        yield emit({
+          type: STREAM_EVENTS.STATUS,
+          phase: STREAM_PHASES.GENERATING_TITLE,
+          message: runtimeConfig.chat.statusMessages.generatingTitle,
+        })
+        const { generateAndPersistTitle } =
+          await import('@/server/services/title-generation-service')
+        const result = await generateAndPersistTitle({
+          db: ctx.db,
+          conversationId,
+          userId: ctx.userId,
+          currentTitle: conversation.title,
+          fallbackContent: input.content,
+          runtimeConfig,
+        })
+        if (result?.title) {
+          yield emit({ type: STREAM_EVENTS.TITLE_UPDATED, title: result.title })
+        }
+      }
     } catch (error) {
       console.error('[chat.stream] terminal error:', getErrorMessage(error))
-      const terminal = classifyTerminalError(runtimeConfig, error)
+      const terminal = streamSessions.classifyTerminalError(runtimeConfig, error)
       yield emit({
         type: STREAM_EVENTS.ERROR,
         message: terminal.message,
@@ -1276,15 +1002,17 @@ export const chatRouter = router({
         recoverable: terminal.recoverable,
       })
     } finally {
+      if (signalCleanup) {
+        signalCleanup()
+      }
       if (streamSession) {
-        endStreamSession(streamSession)
+        streamSessions.end(streamSession)
       }
     }
   }),
 
   cancel: protectedProcedure.input(CancelStreamInputSchema).mutation(async ({ ctx, input }) => {
-    const key = getConversationStreamKey(ctx.userId, input.conversationId)
-    const active = activeStreamsByConversation.get(key)
+    const active = streamSessions.findByConversation(ctx.userId, input.conversationId)
     if (!active) {
       return { cancelled: false }
     }
@@ -1292,7 +1020,18 @@ export const chatRouter = router({
       return { cancelled: false }
     }
     active.abortController.abort('cancelled_by_client')
-    endStreamSession(active)
+    streamSessions.end(active)
+
+    await ctx.db
+      .delete(messages)
+      .where(
+        and(
+          eq(messages.conversationId, input.conversationId),
+          eq(messages.clientRequestId, active.streamRequestId),
+          eq(messages.role, MESSAGE_ROLES.ASSISTANT),
+        ),
+      )
+
     return { cancelled: true }
   }),
 })

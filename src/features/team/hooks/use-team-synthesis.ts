@@ -1,6 +1,7 @@
 'use client'
 
-import { TEAM_EVENTS } from '@/config/constants'
+import { CHAT_MODES, TEAM_EVENTS } from '@/config/constants'
+import { useStreamSession } from '@/features/chat/context/stream-session-context'
 import type { TeamSynthesisOutputChunk } from '@/schemas/team'
 import { trpcClient } from '@/trpc/client'
 import { trpc } from '@/trpc/provider'
@@ -27,6 +28,7 @@ type ActiveSubscription = {
 
 export function useTeamSynthesis(): UseSynthesisReturn {
   const utils = trpc.useUtils()
+  const { beginSession, endSession } = useStreamSession()
   const [synthesisText, setSynthesisText] = useState('')
   const [isSynthesizing, setIsSynthesizing] = useState(false)
   const [isDone, setIsDone] = useState(false)
@@ -38,6 +40,7 @@ export function useTeamSynthesis(): UseSynthesisReturn {
     (params: SynthesisParams) => {
       const active = activeSubRef.current
       if (active) {
+        endSession(active.sessionId)
         active.unsubscribe()
         activeSubRef.current = null
       }
@@ -48,6 +51,7 @@ export function useTeamSynthesis(): UseSynthesisReturn {
       setIsSynthesizing(true)
 
       const sessionId = crypto.randomUUID()
+      beginSession(CHAT_MODES.TEAM, sessionId)
 
       const subscription = trpcClient.team.synthesize.subscribe(params, {
         onData(chunk: TeamSynthesisOutputChunk) {
@@ -59,6 +63,7 @@ export function useTeamSynthesis(): UseSynthesisReturn {
           } else if (chunk.type === TEAM_EVENTS.SYNTHESIS_DONE) {
             setIsDone(true)
             setIsSynthesizing(false)
+            endSession(sessionId)
             void utils.conversation.messages.invalidate({ conversationId: params.conversationId })
             void utils.conversation.getById.invalidate({ id: params.conversationId })
             void utils.conversation.list.invalidate()
@@ -69,12 +74,14 @@ export function useTeamSynthesis(): UseSynthesisReturn {
           if (!currentSub || currentSub.sessionId !== sessionId) return
           setError(err.message || 'Synthesis failed.')
           setIsSynthesizing(false)
+          endSession(sessionId)
           activeSubRef.current = null
         },
         onComplete() {
           const currentSub = activeSubRef.current
           if (!currentSub || currentSub.sessionId !== sessionId) return
           setIsSynthesizing(false)
+          endSession(sessionId)
           activeSubRef.current = null
         },
       })
@@ -84,17 +91,18 @@ export function useTeamSynthesis(): UseSynthesisReturn {
         unsubscribe: () => subscription.unsubscribe(),
       }
     },
-    [utils],
+    [beginSession, endSession, utils],
   )
 
   useEffect(() => {
     return () => {
       const active = activeSubRef.current
       if (!active) return
+      endSession(active.sessionId)
       active.unsubscribe()
       activeSubRef.current = null
     }
-  }, [])
+  }, [endSession])
 
   return useMemo(
     () => ({

@@ -15,7 +15,13 @@ import { sql } from 'drizzle-orm'
 import type { AdapterAccountType } from '@auth/core/adapters'
 import type { MessageMetadata } from '@/schemas/message'
 import type { RuntimeConfigOverride } from '@/schemas/runtime-config'
-import { CHAT_MODES, NEW_CHAT_TITLE } from '@/config/constants'
+import {
+  APP_DEFAULTS,
+  CHAT_MODES,
+  MESSAGE_ROLES,
+  NEW_CHAT_TITLE,
+  RUNTIME_SCOPES,
+} from '@/config/constants'
 
 export const users = pgTable('users', {
   id: text('id')
@@ -109,7 +115,9 @@ export const messages = pgTable(
     conversationId: uuid('conversation_id')
       .notNull()
       .references(() => conversations.id, { onDelete: 'cascade' }),
-    role: text('role', { enum: ['user', 'assistant', 'system'] }).notNull(),
+    role: text('role', {
+      enum: [MESSAGE_ROLES.USER, MESSAGE_ROLES.ASSISTANT, MESSAGE_ROLES.SYSTEM],
+    }).notNull(),
     content: text('content').notNull(),
     metadata: jsonb('metadata').$type<MessageMetadata>(),
     clientRequestId: text('client_request_id'),
@@ -131,7 +139,9 @@ export const runtimeConfigs = pgTable(
   'runtime_configs',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    scope: text('scope', { enum: ['system', 'tenant', 'user'] }).notNull(),
+    scope: text('scope', {
+      enum: [RUNTIME_SCOPES.SYSTEM, RUNTIME_SCOPES.TENANT, RUNTIME_SCOPES.USER],
+    }).notNull(),
     scopeKey: text('scope_key'),
     payload: jsonb('payload').$type<RuntimeConfigOverride>().notNull(),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
@@ -152,7 +162,7 @@ export const userPreferences = pgTable('user_preferences', {
   userId: text('user_id')
     .primaryKey()
     .references(() => users.id, { onDelete: 'cascade' }),
-  theme: text('theme').notNull().default('dark'),
+  theme: text('theme').notNull().default(APP_DEFAULTS.THEME),
   sidebarExpanded: boolean('sidebar_expanded').notNull().default(true),
   defaultModel: text('default_model'),
   teamModels: jsonb('team_models').$type<string[]>(),

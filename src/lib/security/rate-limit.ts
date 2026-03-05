@@ -1,9 +1,9 @@
 import { TRPCError } from '@trpc/server'
+import { LIMITS } from '@/config/constants'
 
 type RateLimitEntry = { count: number; resetAt: number }
 
 const store = new Map<string, RateLimitEntry>()
-const EVICTION_THRESHOLD = 1000
 
 function evictExpired(): void {
   const now = Date.now()
@@ -20,7 +20,7 @@ export function checkRateLimit(
 ): void {
   const now = Date.now()
 
-  if (store.size > EVICTION_THRESHOLD) {
+  if (store.size > LIMITS.RATE_LIMIT_EVICTION_THRESHOLD) {
     evictExpired()
   }
 

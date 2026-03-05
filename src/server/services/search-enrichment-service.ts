@@ -1,3 +1,4 @@
+import { LIMITS } from '@/config/constants'
 import type { RuntimeConfig } from '@/schemas/runtime-config'
 import type { SearchImage, SearchResult } from '@/schemas/search'
 import { escapeXmlForPrompt } from '@/lib/security/runtime-safety'
@@ -17,7 +18,7 @@ function normalizeForPrompt(value: string, runtimeConfig: RuntimeConfig): string
   return escapeXmlForPrompt(value)
 }
 
-export function buildSearchContext(results: SearchResult[], runtimeConfig: RuntimeConfig): string {
+function buildSearchContext(results: SearchResult[], runtimeConfig: RuntimeConfig): string {
   if (results.length === 0) {
     return ''
   }
@@ -39,12 +40,17 @@ export async function executeSearchEnrichment(
   query: string,
   runtimeConfig: RuntimeConfig,
 ): Promise<SearchEnrichment> {
-  const response = await tavilySearch({
-    query,
-    maxResults: runtimeConfig.limits.searchMaxResults,
-    includeImages: runtimeConfig.search.includeImagesByDefault,
-    searchDepth: runtimeConfig.search.defaultDepth,
-  })
+  const response = await Promise.race([
+    tavilySearch({
+      query,
+      maxResults: runtimeConfig.limits.searchMaxResults,
+      includeImages: runtimeConfig.search.includeImagesByDefault,
+      searchDepth: runtimeConfig.search.defaultDepth,
+    }),
+    new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Search timeout')), LIMITS.SEARCH_TIMEOUT_MS)
+    }),
+  ])
 
   return {
     query: response.query,

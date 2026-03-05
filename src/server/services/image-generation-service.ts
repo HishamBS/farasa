@@ -4,44 +4,68 @@ import { UsageSchema } from '@/schemas/message'
 import type { Usage } from '@/schemas/message'
 import { getModelMaxCompletionTokens } from '@/lib/ai/registry'
 import type { Message } from '@openrouter/sdk/models'
+import { z } from 'zod'
+
+const ImageUrlObjectSchema = z.object({
+  url: z.string(),
+})
+
+const ImageContentItemSchema = z.object({
+  type: z.string(),
+  image_url: ImageUrlObjectSchema.optional(),
+  text: z.string().optional(),
+})
+
+const ImageMessageSchema = z.object({
+  content: z.union([z.string(), z.array(ImageContentItemSchema)]).optional(),
+  images: z
+    .array(
+      z.object({
+        imageUrl: ImageUrlObjectSchema.optional(),
+        url: z.string().optional(),
+        b64_json: z.string().optional(),
+      }),
+    )
+    .optional(),
+})
 
 type ImageGenerationResult = {
   imageContent: string
   usage: Usage | undefined
 }
 
-export function parseImageResponse(rawMessage: Record<string, unknown> | undefined): string {
-  const messageContent = rawMessage?.content
-  const messageImages = rawMessage?.images
+function parseImageResponse(rawMessage: unknown): string {
+  const parsed = ImageMessageSchema.safeParse(rawMessage)
+  if (!parsed.success) return ''
 
-  if (typeof messageContent === 'string' && messageContent.length > 0) {
-    return messageContent
+  const { content, images } = parsed.data
+
+  if (typeof content === 'string' && content.length > 0) {
+    return content
   }
 
-  if (Array.isArray(messageImages)) {
+  if (images && images.length > 0) {
     const parts: string[] = []
-    for (const img of messageImages as Array<Record<string, unknown>>) {
-      const nested = img?.imageUrl as Record<string, unknown> | undefined
-      if (typeof nested?.url === 'string') {
-        parts.push(`![Generated Image](${nested.url})`)
-      } else if (typeof img?.url === 'string') {
+    for (const img of images) {
+      if (img.imageUrl?.url) {
+        parts.push(`![Generated Image](${img.imageUrl.url})`)
+      } else if (img.url) {
         parts.push(`![Generated Image](${img.url})`)
-      } else if (typeof img?.b64_json === 'string') {
+      } else if (img.b64_json) {
         parts.push(`![Generated Image](data:image/png;base64,${img.b64_json})`)
       }
     }
     if (parts.length > 0) return parts.join('\n\n')
   }
 
-  if (Array.isArray(messageContent)) {
+  if (Array.isArray(content)) {
     const parts: string[] = []
-    for (const item of messageContent as Array<Record<string, unknown>>) {
-      if (typeof item?.text === 'string') {
+    for (const item of content) {
+      if (item.text) {
         parts.push(item.text)
       }
-      const imageUrl = item?.image_url as Record<string, unknown> | undefined
-      if (typeof imageUrl?.url === 'string') {
-        parts.push(`![Generated Image](${imageUrl.url})`)
+      if (item.image_url?.url) {
+        parts.push(`![Generated Image](${item.image_url.url})`)
       }
     }
     if (parts.length > 0) return parts.join('\n\n')
@@ -74,7 +98,7 @@ export async function executeImageGeneration(params: {
     { signal: imageSignal },
   )
 
-  const rawMessage = response.choices[0]?.message as Record<string, unknown> | undefined
+  const rawMessage = response.choices[0]?.message
   const imageContent = parseImageResponse(rawMessage)
 
   let usage: Usage | undefined

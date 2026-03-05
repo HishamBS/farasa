@@ -20,6 +20,22 @@ export const AppError = {
   TTS_RUNTIME_FAILED: 'TTS request failed before audio generation.',
   TTS_INVALID_BODY: 'Invalid request body',
   TTS_MISSING_TEXT: 'Missing text field',
+  DUPLICATE_STREAM: 'A stream is already active for this conversation.',
+  SYNTHESIS_MODEL_CONFLICT: 'Synthesis model must be different from selected team models.',
+  FILE_TOO_LARGE: 'File exceeds maximum allowed size.',
+  STREAM_BOOTSTRAP_FAILED: 'Failed to start request.',
+  CONNECTION_ERROR: 'Connection error.',
+  CONNECTION_INTERRUPTED: 'Connection interrupted. Please try again.',
+  MODEL_NOT_FOUND: 'Selected model not found in registry.',
+  CONVERSATION_NOT_FOUND: 'Conversation not found.',
+  CONVERSATION_CREATE_FAILED: 'Failed to create conversation.',
+  UNAUTHORIZED_CONVERSATION: 'You do not have access to this conversation.',
+  MISSING_CONTENT: 'Message content is required.',
+  UNSUPPORTED_TOOL_CALL: 'Unsupported tool call.',
+  TTS_UNAUTHORIZED: 'Authentication required.',
+  TTS_TEXT_TOO_LONG: 'Text exceeds maximum length.',
+  TTS_GENERATION_FAILED: 'Voice synthesis failed.',
+  INVALID_MODEL_FOR_SEARCH: 'Model does not support web search tools.',
 } as const
 
 export type AppErrorCode = keyof typeof AppError

@@ -18,7 +18,7 @@ import { ChatModeSchema } from '@/schemas/message'
 import type { TeamStreamInput } from '@/schemas/team'
 import { trpc } from '@/trpc/provider'
 import type { TitlebarPhase } from '@/types/stream'
-import { AlertCircle } from 'lucide-react'
+import { ErrorBanner } from '@/components/error-banner'
 import { useParams, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useChatMode } from '../context/chat-mode-context'
@@ -346,35 +346,16 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
         />
       </ConversationCostProvider>
       {streamState.phase === CHAT_STREAM_STATUS.ERROR && streamState.error && (
-        <div className="mx-auto w-full max-w-240 px-4 py-2">
-          <div className="flex items-center gap-2 rounded-lg border border-(--error)/20 bg-(--error)/5 px-3 py-2 text-sm text-(--error)">
-            <AlertCircle className="size-4 shrink-0" />
-            <span className="flex-1">{streamState.error.message}</span>
-            {canRetryLastTurn && (
-              <button
-                type="button"
-                onClick={handleRetryLastTurn}
-                className="rounded-md border border-(--error)/40 px-2 py-1 text-xs font-medium text-(--error) transition-colors hover:bg-(--error)/10"
-                aria-label="Retry last message"
-              >
-                Retry
-              </button>
-            )}
-          </div>
-        </div>
+        <ErrorBanner
+          message={streamState.error.message}
+          onRetry={canRetryLastTurn ? handleRetryLastTurn : undefined}
+        />
       )}
-      {teamPhase === TEAM_STREAM_PHASES.ERROR && teamError && (
-        <div className="mx-auto w-full max-w-240 px-4 py-2">
-          <div className="flex items-center gap-2 rounded-lg border border-(--error)/20 bg-(--error)/5 px-3 py-2 text-sm text-(--error)">
-            <AlertCircle className="size-4 shrink-0" />
-            <span className="flex-1">{teamError}</span>
-          </div>
-        </div>
-      )}
+      {teamPhase === TEAM_STREAM_PHASES.ERROR && teamError && <ErrorBanner message={teamError} />}
       <ChatInput
         ref={chatInputRef}
         onSend={guardedSendMessage}
-        onAbort={activeEngine === 'team' ? abortTeam : abort}
+        onAbort={activeEngine === CHAT_MODES.TEAM ? abortTeam : abort}
         isStreaming={isTurnActive}
         conversationId={effectiveConversationId}
         initialModel={conversation?.model ?? undefined}

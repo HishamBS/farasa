@@ -25,7 +25,16 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render(): ReactNode {
     if (this.state.hasError) {
-      return this.props.fallback ?? null
+      return (
+        this.props.fallback ?? (
+          <div
+            role="alert"
+            className="flex items-center justify-center p-6 text-sm text-(--text-muted)"
+          >
+            Something went wrong. Please try refreshing the page.
+          </div>
+        )
+      )
     }
     return this.props.children
   }

@@ -62,9 +62,9 @@ export type StreamState = {
 }
 
 export type StreamAction =
-  | { type: 'STATUS'; phase: StreamPhase; message: string }
+  | { type: typeof STREAM_ACTIONS.STATUS; phase: StreamPhase; message: string }
   | {
-      type: 'MODEL_SELECTED'
+      type: typeof STREAM_ACTIONS.MODEL_SELECTED
       model: string
       reasoning: string
       source: ModelSelectionSource
@@ -73,14 +73,14 @@ export type StreamAction =
       confidence?: number
       factors?: RouterFactor[]
     }
-  | { type: 'THINKING_CHUNK'; content: string; isComplete: boolean }
-  | { type: 'TOOL_START'; name: string; input: unknown }
-  | { type: 'TOOL_RESULT'; name: string; result: unknown }
-  | { type: 'TEXT_CHUNK'; content: string }
+  | { type: typeof STREAM_ACTIONS.THINKING_CHUNK; content: string; isComplete: boolean }
+  | { type: typeof STREAM_ACTIONS.TOOL_START; name: string; input: unknown }
+  | { type: typeof STREAM_ACTIONS.TOOL_RESULT; name: string; result: unknown }
+  | { type: typeof STREAM_ACTIONS.TEXT_CHUNK; content: string }
   | { type: typeof STREAM_ACTIONS.TEXT_SET; content: string }
-  | { type: 'A2UI_MESSAGE'; message: v0_8.A2UIMessage }
+  | { type: typeof STREAM_ACTIONS.A2UI_MESSAGE; message: v0_8.A2UIMessage }
   | {
-      type: 'ERROR'
+      type: typeof STREAM_ACTIONS.ERROR
       error: {
         message: string
         code?: string
@@ -89,9 +89,9 @@ export type StreamAction =
         attempt?: number
       }
     }
-  | { type: 'DONE' }
-  | { type: 'RESET' }
-  | { type: 'SAVE_INPUT'; input: ChatInput }
+  | { type: typeof STREAM_ACTIONS.DONE }
+  | { type: typeof STREAM_ACTIONS.RESET }
+  | { type: typeof STREAM_ACTIONS.SAVE_INPUT; input: ChatInput }
   | { type: typeof STREAM_ACTIONS.SET_CONVERSATION_ID; conversationId: string | null }
   | { type: typeof STREAM_ACTIONS.CLEAR_PENDING_USER_MESSAGE }
   | { type: typeof STREAM_ACTIONS.BEGIN }

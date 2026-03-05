@@ -1,5 +1,6 @@
 'use client'
 
+import { StreamingCursor } from '@/components/streaming-cursor'
 import { EXPANDABLE_BLOCKS, STATUS_MESSAGES } from '@/config/constants'
 import { A2UIMessage } from '@/features/a2ui/components/a2ui-message'
 import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
@@ -97,9 +98,7 @@ export function AssistantBody({
 
       {textContent && <MarkdownRenderer content={textContent} autoCollapse={autoCollapse} />}
 
-      {isStreaming && textContent && (
-        <span className="inline-block h-4 w-0.5 animate-pulse rounded-sm bg-(--accent) align-middle" />
-      )}
+      {isStreaming && textContent && <StreamingCursor />}
 
       {a2uiMessages.length > 0 && <A2UIMessage messages={a2uiMessages} />}
 

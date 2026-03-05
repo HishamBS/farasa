@@ -4,7 +4,7 @@ import { drizzle as neonDrizzle } from 'drizzle-orm/neon-http'
 import { drizzle as postgresDrizzle } from 'drizzle-orm/postgres-js'
 import { type PgDatabase, type PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import postgres from 'postgres'
-import { MODEL_IDS } from '@/config/constants'
+import { MESSAGE_ROLES, MODEL_IDS } from '@/config/constants'
 import { conversations, messages, users } from './schema'
 import { isNeonUrl } from './utils'
 
@@ -55,12 +55,12 @@ if (!conv) {
 await db.insert(messages).values([
   {
     conversationId: conv.id,
-    role: 'user',
+    role: MESSAGE_ROLES.USER,
     content: 'What can you help me with?',
   },
   {
     conversationId: conv.id,
-    role: 'assistant',
+    role: MESSAGE_ROLES.ASSISTANT,
     content:
       "I'm Farasa — your intelligent AI assistant. I can help with coding, research, writing, data analysis, and more. I can also search the web, read files, and render interactive UIs directly in our conversation.",
     metadata: {

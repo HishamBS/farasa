@@ -2,13 +2,16 @@
 
 import {
   BROWSER_EVENTS,
+  CHAT_MODES,
   MESSAGE_ROLES,
   STATUS_MESSAGES,
   STREAM_ACTIONS,
   STREAM_EVENTS,
   STREAM_PHASES,
   STREAM_REASON_CODES,
+  TERMINAL_EVENTS,
 } from '@/config/constants'
+import { AppError } from '@/lib/utils/errors'
 import { ROUTES } from '@/config/routes'
 import { useStreamSession } from '@/features/chat/context/stream-session-context'
 import {
@@ -28,7 +31,7 @@ type ActiveStreamSession = {
   sessionId: string
   unsubscribe: () => void
   isSettled: boolean
-  terminalEvent: 'done' | 'error' | 'cancelled' | null
+  terminalEvent: (typeof TERMINAL_EVENTS)[keyof typeof TERMINAL_EVENTS] | null
 }
 
 function isA2UIMessage(value: unknown): value is v0_8.A2UIMessage {
@@ -151,7 +154,7 @@ export function useChatStream(conversationId?: string) {
         const active = activeSessionRef.current
         if (!active || active.sessionId !== sessionId || active.isSettled) return
         active.isSettled = true
-        active.terminalEvent = 'error'
+        active.terminalEvent = TERMINAL_EVENTS.ERROR
         active.unsubscribe()
         teardownSession(sessionId)
 
@@ -238,6 +241,12 @@ export function useChatStream(conversationId?: string) {
                   if (convId) void utils.conversation.getById.invalidate({ id: convId })
                 }
                 break
+              case STREAM_EVENTS.TITLE_UPDATED: {
+                void utils.conversation.list.invalidate()
+                const convId = resolvedConversationIdRef.current
+                if (convId) void utils.conversation.getById.invalidate({ id: convId })
+                break
+              }
               case STREAM_EVENTS.A2UI:
                 try {
                   const parsed: unknown = JSON.parse(chunk.jsonl)
@@ -260,7 +269,7 @@ export function useChatStream(conversationId?: string) {
               case STREAM_EVENTS.DONE: {
                 if (active.isSettled) return
                 active.isSettled = true
-                active.terminalEvent = 'done'
+                active.terminalEvent = TERMINAL_EVENTS.DONE
                 teardownSession(sessionId)
                 dispatch({ type: STREAM_ACTIONS.DONE })
                 const convId = resolvedConversationIdRef.current
@@ -286,7 +295,7 @@ export function useChatStream(conversationId?: string) {
           onError(error: Error) {
             sendLockRef.current = false
             settleWithError({
-              message: error.message || 'Connection error.',
+              message: error.message || AppError.CONNECTION_ERROR,
               reasonCode: STREAM_REASON_CODES.TRANSIENT_NETWORK,
               recoverable: false,
               code: error.name,
@@ -298,11 +307,11 @@ export function useChatStream(conversationId?: string) {
             if (!active || active.sessionId !== sessionId) return
             if (!active.isSettled) {
               active.isSettled = true
-              active.terminalEvent = 'error'
+              active.terminalEvent = TERMINAL_EVENTS.ERROR
               dispatch({
                 type: STREAM_ACTIONS.ERROR,
                 error: {
-                  message: 'Connection interrupted. Please try again.',
+                  message: AppError.CONNECTION_INTERRUPTED,
                   reasonCode: STREAM_REASON_CODES.STREAM_CLOSED,
                   recoverable: true,
                   code: 'STREAM_INCOMPLETE',
@@ -328,7 +337,7 @@ export function useChatStream(conversationId?: string) {
       sendLockRef.current = true
 
       const sessionId = crypto.randomUUID()
-      beginSession('chat', sessionId)
+      beginSession(CHAT_MODES.CHAT, sessionId)
       dispatch({ type: STREAM_ACTIONS.BEGIN })
 
       void runStreamAttempt(input, sessionId).catch((error: unknown) => {
@@ -336,7 +345,7 @@ export function useChatStream(conversationId?: string) {
         const message =
           error instanceof Error && error.message.trim().length > 0
             ? error.message
-            : 'Failed to start request.'
+            : AppError.STREAM_BOOTSTRAP_FAILED
         dispatch({
           type: STREAM_ACTIONS.ERROR,
           error: {
@@ -357,7 +366,7 @@ export function useChatStream(conversationId?: string) {
     if (!active) return
 
     active.isSettled = true
-    active.terminalEvent = 'cancelled'
+    active.terminalEvent = TERMINAL_EVENTS.CANCELLED
     active.unsubscribe()
     teardownSession(active.sessionId)
     dispatch({ type: STREAM_ACTIONS.CLEAR_PENDING_USER_MESSAGE })

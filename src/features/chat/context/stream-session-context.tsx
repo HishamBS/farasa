@@ -1,8 +1,9 @@
 'use client'
 
+import { CHAT_MODES } from '@/config/constants'
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 
-type StreamEngine = 'chat' | 'team'
+type StreamEngine = (typeof CHAT_MODES)[keyof typeof CHAT_MODES]
 
 type ActiveSession = {
   sessionId: string
@@ -23,8 +24,8 @@ export function StreamSessionProvider({ children }: { children: ReactNode }) {
   const [sessionsByEngine, setSessionsByEngine] = useState<
     Record<StreamEngine, ActiveSession | null>
   >({
-    chat: null,
-    team: null,
+    [CHAT_MODES.CHAT]: null,
+    [CHAT_MODES.TEAM]: null,
   })
 
   const beginSession = useCallback((engine: StreamEngine, sessionId: string) => {
@@ -38,10 +39,10 @@ export function StreamSessionProvider({ children }: { children: ReactNode }) {
     setSessionsByEngine((current) => {
       let changed = false
       const next: Record<StreamEngine, ActiveSession | null> = {
-        chat: current.chat,
-        team: current.team,
+        [CHAT_MODES.CHAT]: current[CHAT_MODES.CHAT],
+        [CHAT_MODES.TEAM]: current[CHAT_MODES.TEAM],
       }
-      for (const engine of ['chat', 'team'] as const) {
+      for (const engine of [CHAT_MODES.CHAT, CHAT_MODES.TEAM] as const) {
         if (current[engine]?.sessionId === sessionId) {
           next[engine] = null
           changed = true
@@ -53,20 +54,23 @@ export function StreamSessionProvider({ children }: { children: ReactNode }) {
 
   const clearSession = useCallback(() => {
     setSessionsByEngine({
-      chat: null,
-      team: null,
+      [CHAT_MODES.CHAT]: null,
+      [CHAT_MODES.TEAM]: null,
     })
   }, [])
 
+  const chatSession = sessionsByEngine[CHAT_MODES.CHAT]
+  const teamSession = sessionsByEngine[CHAT_MODES.TEAM]
+
   const value = useMemo<StreamSessionContextValue>(
     () => ({
-      isTurnActive: sessionsByEngine.chat !== null || sessionsByEngine.team !== null,
-      activeEngine: sessionsByEngine.team ? 'team' : sessionsByEngine.chat ? 'chat' : null,
+      isTurnActive: chatSession !== null || teamSession !== null,
+      activeEngine: teamSession ? CHAT_MODES.TEAM : chatSession ? CHAT_MODES.CHAT : null,
       beginSession,
       endSession,
       clearSession,
     }),
-    [beginSession, clearSession, endSession, sessionsByEngine.chat, sessionsByEngine.team],
+    [beginSession, clearSession, endSession, chatSession, teamSession],
   )
 
   return <StreamSessionContext.Provider value={value}>{children}</StreamSessionContext.Provider>

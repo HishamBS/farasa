@@ -1,12 +1,14 @@
 'use client'
 
 import {
+  CHAT_MODES,
   CHAT_STREAM_STATUS,
   STREAM_ACTIONS,
   STREAM_EVENTS,
   TEAM_EVENTS,
   TEAM_STREAM_PHASES,
 } from '@/config/constants'
+import { AppError } from '@/lib/utils/errors'
 import {
   initialStreamState,
   mapStreamChunkToAction,
@@ -56,6 +58,7 @@ export function useTeamStream({
   const { beginSession, endSession } = useStreamSession()
 
   const activeSubRef = useRef<ActiveSubscription | null>(null)
+  const receivedTerminalEventRef = useRef(false)
   const onConversationCreatedRef = useRef(onConversationCreated)
   onConversationCreatedRef.current = onConversationCreated
 
@@ -128,7 +131,8 @@ export function useTeamStream({
 
     const newSub: ActiveSubscription = { sessionId, unsubscribe: () => {} }
     activeSubRef.current = newSub
-    beginSession('team', sessionId)
+    receivedTerminalEventRef.current = false
+    beginSession(CHAT_MODES.TEAM, sessionId)
 
     const subscription = trpcClient.team.stream.subscribe(currentInput, {
       onData(chunk: TeamOutputChunk) {
@@ -144,6 +148,7 @@ export function useTeamStream({
           if (eventChunk.type === STREAM_EVENTS.CONVERSATION_CREATED) {
             onConversationCreatedRef.current?.(eventChunk.conversationId)
           } else if (eventChunk.type === STREAM_EVENTS.ERROR) {
+            receivedTerminalEventRef.current = true
             setPhase(TEAM_STREAM_PHASES.ERROR)
             setError(eventChunk.message)
             activeSubRef.current = null
@@ -153,6 +158,7 @@ export function useTeamStream({
           setTeamPersisted(true)
           setTeamId(chunk.teamId)
         } else if (chunk.type === TEAM_EVENTS.DONE) {
+          receivedTerminalEventRef.current = true
           setTeamDone(true)
           setTeamId(chunk.teamId)
           setPhase(TEAM_STREAM_PHASES.DONE)
@@ -175,14 +181,19 @@ export function useTeamStream({
       onError(err: Error) {
         const active = activeSubRef.current
         if (!active || active.sessionId !== sessionId) return
+        receivedTerminalEventRef.current = true
         setPhase(TEAM_STREAM_PHASES.ERROR)
-        setError(err.message || 'Connection error.')
+        setError(err.message || AppError.CONNECTION_ERROR)
         activeSubRef.current = null
         endSession(sessionId)
       },
       onComplete() {
         const active = activeSubRef.current
         if (!active || active.sessionId !== sessionId) return
+        if (!receivedTerminalEventRef.current) {
+          setPhase(TEAM_STREAM_PHASES.ERROR)
+          setError(AppError.CONNECTION_ERROR)
+        }
         activeSubRef.current = null
         endSession(sessionId)
       },

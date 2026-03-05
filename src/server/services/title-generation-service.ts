@@ -15,10 +15,12 @@ type TitleGenerationParams = {
   runtimeConfig: RuntimeConfig
 }
 
-export async function generateAndPersistTitle(params: TitleGenerationParams): Promise<void> {
+export async function generateAndPersistTitle(
+  params: TitleGenerationParams,
+): Promise<{ title: string } | null> {
   const { db, conversationId, userId, currentTitle, fallbackContent, runtimeConfig } = params
 
-  if (currentTitle !== NEW_CHAT_TITLE) return
+  if (currentTitle !== NEW_CHAT_TITLE) return null
 
   const [firstAssistantMessage] = await db
     .select({ metadata: messages.metadata })
@@ -59,7 +61,7 @@ export async function generateAndPersistTitle(params: TitleGenerationParams): Pr
     }
   }
 
-  if (!titleSeedMessage.trim()) return
+  if (!titleSeedMessage.trim()) return null
 
   try {
     const titleSignal = AbortSignal.timeout(LIMITS.TITLE_GEN_TIMEOUT_MS)
@@ -73,8 +75,10 @@ export async function generateAndPersistTitle(params: TitleGenerationParams): Pr
         .update(conversations)
         .set({ title: safeTitle, updatedAt: new Date() })
         .where(and(eq(conversations.id, conversationId), eq(conversations.userId, userId)))
+      return { title: safeTitle }
     }
   } catch (titleError: unknown) {
     console.error('[title-gen] generateTitle failed:', getErrorMessage(titleError))
   }
+  return null
 }

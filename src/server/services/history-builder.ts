@@ -9,7 +9,7 @@ import {
   ChatMessageContentItemTextType,
 } from '@openrouter/sdk/models'
 import { TRPCError } from '@trpc/server'
-import { and, asc, eq, inArray, isNotNull, or } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNotNull, isNull, or } from 'drizzle-orm'
 import { extractFileContentBlock } from './text-extraction'
 
 export type AttachmentRow = typeof attachments.$inferSelect
@@ -55,26 +55,33 @@ export async function linkAttachmentsToMessage(
   messageId: string,
 ): Promise<AttachmentRow[]> {
   const uniqueIds = [...new Set(attachmentIds)]
-  const linked = await dbClient
-    .update(attachments)
-    .set({ messageId })
-    .where(
-      and(
-        inArray(attachments.id, uniqueIds),
-        eq(attachments.userId, userId),
-        isNotNull(attachments.confirmedAt),
-      ),
-    )
-    .returning()
+  if (uniqueIds.length === 0) return []
 
-  if (linked.length !== uniqueIds.length) {
-    throw new TRPCError({
-      code: TRPC_CODES.FORBIDDEN,
-      message: AppError.ATTACHMENT_ACCESS_DENIED,
-    })
+  for (let attempt = 0; attempt < LIMITS.ATTACHMENT_LINK_MAX_RETRIES; attempt++) {
+    const linked = await dbClient
+      .update(attachments)
+      .set({ messageId })
+      .where(
+        and(
+          inArray(attachments.id, uniqueIds),
+          eq(attachments.userId, userId),
+          isNotNull(attachments.confirmedAt),
+          or(isNull(attachments.messageId), eq(attachments.messageId, messageId)),
+        ),
+      )
+      .returning()
+
+    if (linked.length === uniqueIds.length) return linked
+
+    if (attempt < LIMITS.ATTACHMENT_LINK_MAX_RETRIES - 1) {
+      await new Promise((resolve) => setTimeout(resolve, LIMITS.ATTACHMENT_LINK_RETRY_DELAY_MS))
+    }
   }
 
-  return linked
+  throw new TRPCError({
+    code: TRPC_CODES.FORBIDDEN,
+    message: AppError.ATTACHMENT_ACCESS_DENIED,
+  })
 }
 
 async function buildHistoryAttachmentContent(
@@ -163,9 +170,40 @@ export async function buildEnrichedHistory(
     attachmentsByMessageId.set(att.messageId, existing)
   }
 
+  // Group team assistant messages by teamId so we can filter to synthesis-only
+  const teamMessagesByTeamId = new Map<string, typeof historyRows>()
+  for (const row of historyRows) {
+    const teamId = row.metadata?.teamId
+    if (row.role === MESSAGE_ROLES.ASSISTANT && typeof teamId === 'string') {
+      const group = teamMessagesByTeamId.get(teamId) ?? []
+      group.push(row)
+      teamMessagesByTeamId.set(teamId, group)
+    }
+  }
+
+  // For each team group, determine which message to keep (synthesis or first response)
+  const includedTeamMessageIds = new Set<string>()
+  for (const [, group] of teamMessagesByTeamId) {
+    const synthesis = group.find((r) => r.metadata?.isTeamSynthesis === true)
+    const representative = synthesis ?? group[0]
+    if (representative) {
+      includedTeamMessageIds.add(representative.id)
+    }
+  }
+
   const enrichedRows: Message[] = []
   for (const row of historyRows) {
     if (excludedMessageIds.has(row.id)) continue
+
+    // Skip non-representative team assistant messages to prevent context bloat
+    const teamId = row.metadata?.teamId
+    if (
+      row.role === MESSAGE_ROLES.ASSISTANT &&
+      typeof teamId === 'string' &&
+      !includedTeamMessageIds.has(row.id)
+    ) {
+      continue
+    }
 
     if (row.role === MESSAGE_ROLES.USER) {
       const rowAttachments = attachmentsByMessageId.get(row.id)

@@ -4,6 +4,8 @@ import {
   LIMITS,
   MESSAGE_ROLES,
   MODEL_SELECTION_SOURCES,
+  NEW_CHAT_TITLE,
+  STATUS_MESSAGES,
   STREAM_EVENTS,
   STREAM_PHASES,
   TEAM_EVENTS,
@@ -21,15 +23,26 @@ import {
   TeamStreamInputSchema,
   TeamSynthesizeInputSchema,
 } from '@/schemas/team'
-import { executeSearchEnrichment } from '@/server/services/search-enrichment-service'
 import {
-  mergeSearchImages,
-  mergeSearchResults,
-  parseSearchToolQuery,
-} from '@/server/services/search-tool-service'
-import type { ChatMessageToolCall, Message } from '@openrouter/sdk/models'
-import { ToolChoiceOptionAuto } from '@openrouter/sdk/models'
+  createConversation,
+  findConversation,
+  updateConversationSettings,
+} from '@/server/services/conversation-service'
+import {
+  persistUserMessage,
+  persistAssistantMessage,
+} from '@/server/services/message-persistence-service'
+import { executeSearchEnrichment } from '@/server/services/search-enrichment-service'
+import { streamSessions } from '@/server/services/stream-session-service'
+import {
+  accumulateToolCallDelta,
+  buildRoundToolCalls,
+  buildUnsupportedToolResponse,
+  executeSearchToolCall,
+} from '@/server/services/tool-execution-service'
 import type { AttachmentRow } from '@/server/services/history-builder'
+import type { Message } from '@openrouter/sdk/models'
+import { ToolChoiceOptionAuto } from '@openrouter/sdk/models'
 import { TRPCError } from '@trpc/server'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { createHash } from 'node:crypto'
@@ -161,13 +174,13 @@ export const teamRouter = router({
       if (!model) {
         throw new TRPCError({
           code: TRPC_CODES.BAD_REQUEST,
-          message: `Invalid model ID: ${modelId}`,
+          message: `${AppError.MODEL_NOT_FOUND}: ${modelId}`,
         })
       }
       if (input.webSearchEnabled && !model.supportsTools) {
         throw new TRPCError({
           code: TRPC_CODES.BAD_REQUEST,
-          message: `Model does not support web search tools: ${modelId}`,
+          message: `${AppError.INVALID_MODEL_FOR_SEARCH}: ${modelId}`,
         })
       }
     }
@@ -178,19 +191,14 @@ export const teamRouter = router({
 
     try {
       if (!conversationId) {
-        const [created] = await ctx.db
-          .insert(conversations)
-          .values({
-            userId: ctx.userId,
-            model: input.models[0],
-            mode: CHAT_MODES.TEAM,
-            webSearchEnabled: input.webSearchEnabled,
-            teamModels: input.models,
-          })
-          .returning({ id: conversations.id })
-        if (!created) {
-          throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
-        }
+        const created = await createConversation({
+          db: ctx.db,
+          userId: ctx.userId,
+          model: input.models[0],
+          mode: CHAT_MODES.TEAM,
+          webSearchEnabled: input.webSearchEnabled,
+          teamModels: input.models,
+        })
         conversationId = created.id
         yield {
           type: TEAM_EVENTS.STREAM_EVENT,
@@ -202,47 +210,19 @@ export const teamRouter = router({
         }
       }
 
-      const [conversation] = await ctx.db
-        .select({ id: conversations.id, title: conversations.title })
-        .from(conversations)
-        .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
-        .limit(1)
+      const conversation = await findConversation({
+        db: ctx.db,
+        conversationId,
+        userId: ctx.userId,
+      })
 
-      if (!conversation) {
-        throw new TRPCError({ code: TRPC_CODES.NOT_FOUND })
-      }
-
-      const userMessageClientId = streamRequestId
-      const [existingUserMessage] = await ctx.db
-        .select({ id: messages.id })
-        .from(messages)
-        .where(
-          and(
-            eq(messages.conversationId, conversationId),
-            eq(messages.role, MESSAGE_ROLES.USER),
-            eq(messages.clientRequestId, userMessageClientId),
-          ),
-        )
-        .limit(1)
-
-      let userMessageId: string
-      if (existingUserMessage) {
-        userMessageId = existingUserMessage.id
-      } else {
-        const [createdUserMessage] = await ctx.db
-          .insert(messages)
-          .values({
-            conversationId,
-            role: MESSAGE_ROLES.USER,
-            content: input.content,
-            clientRequestId: userMessageClientId,
-          })
-          .returning({ id: messages.id })
-        if (!createdUserMessage) {
-          throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
-        }
-        userMessageId = createdUserMessage.id
-      }
+      const userResult = await persistUserMessage({
+        db: ctx.db,
+        conversationId,
+        content: input.content,
+        clientRequestId: streamRequestId,
+      })
+      const userMessageId = userResult.messageId
 
       yield {
         type: TEAM_EVENTS.STREAM_EVENT,
@@ -273,17 +253,17 @@ export const teamRouter = router({
       let searchResults: SearchResult[] = []
       let searchImages: SearchImage[] = []
 
-      await ctx.db
-        .update(conversations)
-        .set({
+      await updateConversationSettings({
+        db: ctx.db,
+        conversationId,
+        userId: ctx.userId,
+        settings: {
           model: input.models[0] ?? null,
           mode: CHAT_MODES.TEAM,
           webSearchEnabled: input.webSearchEnabled,
           teamModels: input.models,
-          settingsVersion: sql`${conversations.settingsVersion} + 1`,
-          updatedAt: new Date(),
-        })
-        .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
+        },
+      })
 
       if (input.webSearchEnabled) {
         if (!runtimeConfig.features.searchEnabled) {
@@ -404,6 +384,18 @@ export const teamRouter = router({
             registry.find((m) => m.id === modelId)?.supportsImageGeneration ?? false
 
           if (isImageGen) {
+            push({
+              done: false,
+              modelId,
+              modelIndex,
+              chunk: {
+                type: STREAM_EVENTS.STATUS,
+                streamRequestId: modelStreamRequestId,
+                phase: STREAM_PHASES.GENERATING_IMAGE,
+                message: STATUS_MESSAGES.GENERATING_IMAGE,
+              } satisfies StreamChunk,
+            })
+
             const imageGenMessages: Message[] = [
               ...historyMessages,
               { role: MESSAGE_ROLES.USER, content: userContent },
@@ -477,17 +469,7 @@ export const teamRouter = router({
 
               if (delta.toolCalls && delta.toolCalls.length > 0) {
                 for (const toolCallDelta of delta.toolCalls) {
-                  const current = toolCallDeltas.get(toolCallDelta.index) ?? { argsJson: '' }
-                  if (toolCallDelta.id) {
-                    current.id = toolCallDelta.id
-                  }
-                  if (toolCallDelta.function?.name) {
-                    current.name = toolCallDelta.function.name
-                  }
-                  if (toolCallDelta.function?.arguments) {
-                    current.argsJson += toolCallDelta.function.arguments
-                  }
-                  toolCallDeltas.set(toolCallDelta.index, current)
+                  accumulateToolCallDelta(toolCallDeltas, toolCallDelta)
                 }
               }
 
@@ -547,17 +529,7 @@ export const teamRouter = router({
               })
             }
 
-            const roundToolCalls: ChatMessageToolCall[] = [...toolCallDeltas.entries()]
-              .sort(([a], [b]) => a - b)
-              .map(([index, value]) => ({
-                id: value.id ?? `tool_${index}_${crypto.randomUUID()}`,
-                type: 'function' as const,
-                function: {
-                  name: value.name ?? '',
-                  arguments: value.argsJson,
-                },
-              }))
-              .filter((call) => call.function.name.length > 0)
+            const roundToolCalls = buildRoundToolCalls(toolCallDeltas)
 
             if (roundToolCalls.length === 0) {
               break
@@ -571,16 +543,10 @@ export const teamRouter = router({
 
             for (const call of roundToolCalls) {
               if (call.function.name !== searchToolName) {
-                attemptMessages.push({
-                  role: 'tool',
-                  toolCallId: call.id,
-                  content: JSON.stringify({ error: 'Unsupported tool call' }),
-                })
+                attemptMessages.push(buildUnsupportedToolResponse(call))
                 continue
               }
 
-              const toolQuery = parseSearchToolQuery(call.function.arguments, input.content)
-              const startedAt = Date.now()
               push({
                 done: false,
                 modelId,
@@ -589,15 +555,24 @@ export const teamRouter = router({
                   type: STREAM_EVENTS.TOOL_START,
                   streamRequestId: modelStreamRequestId,
                   toolName: searchToolName,
-                  input: { query: toolQuery },
+                  input: { query: input.content },
                 } satisfies StreamChunk,
               })
 
-              const enrichment = await executeSearchEnrichment(toolQuery, runtimeConfig)
-              modelSearchResults = mergeSearchResults(modelSearchResults, enrichment.results)
-              modelSearchImages = mergeSearchImages(modelSearchImages, enrichment.images)
-              searchResults = mergeSearchResults(searchResults, enrichment.results)
-              searchImages = mergeSearchImages(searchImages, enrichment.images)
+              const searchResult = await executeSearchToolCall({
+                call,
+                searchToolName,
+                fallbackQuery: input.content,
+                runtimeConfig,
+                existingResults: modelSearchResults,
+                existingImages: modelSearchImages,
+              })
+
+              modelSearchResults = searchResult.mergedResults
+              modelSearchImages = searchResult.mergedImages
+              searchResults = searchResult.mergedResults
+              searchImages = searchResult.mergedImages
+
               push({
                 done: false,
                 modelId,
@@ -606,34 +581,12 @@ export const teamRouter = router({
                   type: STREAM_EVENTS.TOOL_RESULT,
                   streamRequestId: modelStreamRequestId,
                   toolName: searchToolName,
-                  result: {
-                    query: enrichment.query,
-                    results: enrichment.results,
-                    images: enrichment.images,
-                  },
+                  result: searchResult.toolCallEntry.result,
                 } satisfies StreamChunk,
               })
 
-              modelToolCalls.push({
-                name: searchToolName,
-                input: { query: toolQuery },
-                result: {
-                  query: enrichment.query,
-                  results: enrichment.results,
-                  images: enrichment.images,
-                },
-                durationMs: Date.now() - startedAt,
-              })
-
-              attemptMessages.push({
-                role: 'tool',
-                toolCallId: call.id,
-                content: JSON.stringify({
-                  query: enrichment.query,
-                  results: enrichment.results,
-                  images: enrichment.images,
-                }),
-              })
+              modelToolCalls.push(searchResult.toolCallEntry)
+              attemptMessages.push(searchResult.toolMessage)
             }
 
             toolRoundCount += 1
@@ -692,7 +645,7 @@ export const teamRouter = router({
           })
         } catch (error) {
           console.error('[team.stream] model error:', getErrorMessage(error))
-          const errorMessage = getErrorMessage(error, runtimeConfig.chat.errors.providerUnavailable)
+          const terminal = streamSessions.classifyTerminalError(runtimeConfig, error)
           push({
             done: false,
             modelId,
@@ -700,8 +653,8 @@ export const teamRouter = router({
             chunk: {
               type: STREAM_EVENTS.ERROR,
               streamRequestId: crypto.randomUUID(),
-              message: errorMessage,
-              recoverable: false,
+              message: terminal.message,
+              recoverable: terminal.recoverable,
             } satisfies StreamChunk,
           })
           modelOutcomes.set(modelId, {
@@ -709,7 +662,7 @@ export const teamRouter = router({
             searchResults: [...searchResults],
             searchImages: [...searchImages],
             toolCalls: [],
-            error: errorMessage,
+            error: terminal.message,
           })
         }
         push({ done: true, modelId })
@@ -766,35 +719,14 @@ export const teamRouter = router({
         const assistantClientRequestId = buildDeterministicClientRequestId(
           `${streamRequestId}:${modelId}:assistant`,
         )
-        const [existingAssistantMessage] = await ctx.db
-          .select({ id: messages.id })
-          .from(messages)
-          .where(
-            and(
-              eq(messages.conversationId, conversationId),
-              eq(messages.role, MESSAGE_ROLES.ASSISTANT),
-              eq(messages.clientRequestId, assistantClientRequestId),
-            ),
-          )
-          .limit(1)
 
-        if (existingAssistantMessage) {
-          await ctx.db
-            .update(messages)
-            .set({
-              content,
-              metadata,
-            })
-            .where(eq(messages.id, existingAssistantMessage.id))
-        } else {
-          await ctx.db.insert(messages).values({
-            conversationId,
-            role: MESSAGE_ROLES.ASSISTANT,
-            content,
-            metadata,
-            clientRequestId: assistantClientRequestId,
-          })
-        }
+        await persistAssistantMessage({
+          db: ctx.db,
+          conversationId,
+          content,
+          clientRequestId: assistantClientRequestId,
+          metadata,
+        })
       }
 
       if (successfulModels.length === 0) {
@@ -809,23 +741,6 @@ export const teamRouter = router({
         .set({ updatedAt: new Date() })
         .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
 
-      {
-        const { generateAndPersistTitle } =
-          await import('@/server/services/title-generation-service')
-        await generateAndPersistTitle({
-          db: ctx.db,
-          conversationId,
-          userId: ctx.userId,
-          currentTitle: conversation.title,
-          fallbackContent: input.content,
-          runtimeConfig,
-        })
-      }
-
-      if (!conversationId) {
-        throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
-      }
-
       yield {
         type: TEAM_EVENTS.PERSISTED,
         teamId,
@@ -836,6 +751,30 @@ export const teamRouter = router({
         type: TEAM_EVENTS.DONE,
         teamId,
         completedModels: input.models,
+      }
+
+      const shouldGenerateTitle = conversation.title === NEW_CHAT_TITLE
+      if (shouldGenerateTitle) {
+        const { generateAndPersistTitle } =
+          await import('@/server/services/title-generation-service')
+        const result = await generateAndPersistTitle({
+          db: ctx.db,
+          conversationId,
+          userId: ctx.userId,
+          currentTitle: conversation.title,
+          fallbackContent: input.content,
+          runtimeConfig,
+        })
+        if (result?.title) {
+          yield {
+            type: TEAM_EVENTS.STREAM_EVENT,
+            chunk: {
+              type: STREAM_EVENTS.TITLE_UPDATED,
+              streamRequestId,
+              title: result.title,
+            } satisfies StreamChunk,
+          }
+        }
       }
     } catch (err: unknown) {
       const message = getErrorMessage(err, 'An unexpected error occurred')
@@ -866,7 +805,7 @@ export const teamRouter = router({
       if (!synthesisModelEntry) {
         throw new TRPCError({
           code: TRPC_CODES.BAD_REQUEST,
-          message: `Invalid model ID: ${input.synthesisModel}`,
+          message: `${AppError.MODEL_NOT_FOUND}: ${input.synthesisModel}`,
         })
       }
       if (synthesisModelEntry.supportsImageGeneration) {
@@ -876,17 +815,11 @@ export const teamRouter = router({
         })
       }
 
-      const [conversation] = await ctx.db
-        .select({ id: conversations.id })
-        .from(conversations)
-        .where(
-          and(eq(conversations.id, input.conversationId), eq(conversations.userId, ctx.userId)),
-        )
-        .limit(1)
-
-      if (!conversation) {
-        throw new TRPCError({ code: TRPC_CODES.NOT_FOUND })
-      }
+      await findConversation({
+        db: ctx.db,
+        conversationId: input.conversationId,
+        userId: ctx.userId,
+      })
 
       const filteredTeamMessages = await ctx.db
         .select({ role: messages.role, content: messages.content, metadata: messages.metadata })
@@ -919,7 +852,7 @@ export const teamRouter = router({
       if (comparisonModelIds.has(input.synthesisModel)) {
         throw new TRPCError({
           code: TRPC_CODES.BAD_REQUEST,
-          message: 'Synthesis model must be different from selected team models.',
+          message: AppError.SYNTHESIS_MODEL_CONFLICT,
         })
       }
 
@@ -992,46 +925,23 @@ Your task: write a single unified response that combines the strongest elements 
       const synthesisClientRequestId = buildDeterministicClientRequestId(
         `${input.teamId}:${input.synthesisModel}:synthesis`,
       )
-      const [existingSynthesisMessage] = await ctx.db
-        .select({ id: messages.id })
-        .from(messages)
-        .where(
-          and(
-            eq(messages.conversationId, input.conversationId),
-            eq(messages.role, MESSAGE_ROLES.ASSISTANT),
-            eq(messages.clientRequestId, synthesisClientRequestId),
-          ),
-        )
-        .limit(1)
 
-      if (existingSynthesisMessage) {
-        await ctx.db
-          .update(messages)
-          .set({
-            content: synthesisText,
-            metadata: synthesisMetadata,
-          })
-          .where(eq(messages.id, existingSynthesisMessage.id))
-      } else {
-        await ctx.db.insert(messages).values({
-          conversationId: input.conversationId,
-          role: MESSAGE_ROLES.ASSISTANT,
-          content: synthesisText,
-          metadata: synthesisMetadata,
-          clientRequestId: synthesisClientRequestId,
-        })
-      }
+      await persistAssistantMessage({
+        db: ctx.db,
+        conversationId: input.conversationId,
+        content: synthesisText,
+        clientRequestId: synthesisClientRequestId,
+        metadata: synthesisMetadata,
+      })
 
-      await ctx.db
-        .update(conversations)
-        .set({
+      await updateConversationSettings({
+        db: ctx.db,
+        conversationId: input.conversationId,
+        userId: ctx.userId,
+        settings: {
           teamSynthesizerModel: input.synthesisModel,
-          settingsVersion: sql`${conversations.settingsVersion} + 1`,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(eq(conversations.id, input.conversationId), eq(conversations.userId, ctx.userId)),
-        )
+        },
+      })
 
       yield {
         type: TEAM_EVENTS.SYNTHESIS_DONE,

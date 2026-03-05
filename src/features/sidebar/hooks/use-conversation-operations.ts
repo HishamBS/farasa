@@ -20,8 +20,29 @@ export function useConversationOperations({
   navigateRef.current = navigateOnDelete
 
   const updateMutation = trpc.conversation.update.useMutation({
-    onSuccess: () => void utils.conversation.invalidate(),
-    onError: () => void utils.conversation.invalidate(),
+    onMutate: async (variables) => {
+      await utils.conversation.getById.cancel({ id: variables.id })
+      await utils.conversation.list.cancel()
+      const prevById = utils.conversation.getById.getData({ id: variables.id })
+      utils.conversation.getById.setData({ id: variables.id }, (old) =>
+        old ? { ...old, ...variables } : old,
+      )
+      utils.conversation.list.setInfiniteData({}, (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            items: page.items.map((c) => (c.id === variables.id ? { ...c, ...variables } : c)),
+          })),
+        }
+      })
+      return { prevById, id: variables.id }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prevById) utils.conversation.getById.setData({ id: ctx.id }, ctx.prevById)
+    },
+    onSettled: () => void utils.conversation.invalidate(),
   })
 
   const deleteMutation = trpc.conversation.delete.useMutation({

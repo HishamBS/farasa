@@ -145,6 +145,8 @@ Use this exact structural shape:
 CRITICAL: "root" in beginRendering MUST match the "id" of the root component in surfaceUpdate — it is a component ID, NOT a type name. ALL components MUST be in a FLAT array. Layout components reference children by ID using "children":{"explicitList":[...]}. Every component type must be one of: ${A2UI_TYPES_LIST}.
 
 Do not use \`json\` or \`text\` fences. Do not output raw HTML/CSS.`,
+  TTS_READ_ALOUD:
+    'Read the following text aloud exactly as written, without adding any commentary:',
 } as const
 
 export const USER_REQUEST_DELIMITERS = {

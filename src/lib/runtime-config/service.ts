@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { env } from '@/config/env'
 import { db } from '@/lib/db/client'
 import { runtimeConfigs } from '@/lib/db/schema'
-import { LIMITS } from '@/config/constants'
+import { DB_ERROR_CODES, LIMITS, RUNTIME_SCOPES } from '@/config/constants'
 import { isRecord } from '@/lib/security/runtime-safety'
 import {
   RuntimeConfigSchema,
@@ -11,7 +11,7 @@ import {
   type RuntimeConfigOverride,
 } from '@/schemas/runtime-config'
 
-type RuntimeScope = 'system' | 'tenant' | 'user'
+type RuntimeScope = (typeof RUNTIME_SCOPES)[keyof typeof RUNTIME_SCOPES]
 
 type RuntimeConfigCacheEntry = {
   config: RuntimeConfig
@@ -47,9 +47,9 @@ function getCacheTtlMs(): number {
 }
 
 function getCacheKey(options: RuntimeConfigOptions): string {
-  if (options.userId) return `user:${options.userId}`
-  if (options.tenantId) return `tenant:${options.tenantId}`
-  return 'system'
+  if (options.userId) return `${RUNTIME_SCOPES.USER}:${options.userId}`
+  if (options.tenantId) return `${RUNTIME_SCOPES.TENANT}:${options.tenantId}`
+  return RUNTIME_SCOPES.SYSTEM
 }
 
 function mergeDeep(base: unknown, override: unknown): unknown {
@@ -100,10 +100,10 @@ function parseStoredPayload(raw: unknown): RuntimeConfigOverride {
 function isUndefinedTableError(error: unknown): boolean {
   if (!(error instanceof Error)) return false
   const candidate = error as Error & { code?: string; cause?: unknown }
-  if (candidate.code === '42P01') return true
+  if (candidate.code === DB_ERROR_CODES.UNDEFINED_TABLE) return true
   if (candidate.cause && typeof candidate.cause === 'object') {
     const cause = candidate.cause as { code?: string }
-    if (cause.code === '42P01') return true
+    if (cause.code === DB_ERROR_CODES.UNDEFINED_TABLE) return true
   }
   return false
 }
@@ -118,12 +118,12 @@ async function loadDbSources(options: RuntimeConfigOptions): Promise<RuntimeConf
         payload: runtimeConfigs.payload,
       })
       .from(runtimeConfigs)
-      .where(eq(runtimeConfigs.scope, 'system'))
+      .where(eq(runtimeConfigs.scope, RUNTIME_SCOPES.SYSTEM))
       .limit(1)
 
     if (systemRow) {
       scopes.push({
-        scope: 'system',
+        scope: RUNTIME_SCOPES.SYSTEM,
         scopeKey: systemRow.scopeKey,
         payload: parseStoredPayload(systemRow.payload),
       })
@@ -138,12 +138,15 @@ async function loadDbSources(options: RuntimeConfigOptions): Promise<RuntimeConf
         })
         .from(runtimeConfigs)
         .where(
-          and(eq(runtimeConfigs.scope, 'tenant'), eq(runtimeConfigs.scopeKey, options.tenantId)),
+          and(
+            eq(runtimeConfigs.scope, RUNTIME_SCOPES.TENANT),
+            eq(runtimeConfigs.scopeKey, options.tenantId),
+          ),
         )
         .limit(1)
       if (tenantRow) {
         scopes.push({
-          scope: 'tenant',
+          scope: RUNTIME_SCOPES.TENANT,
           scopeKey: tenantRow.scopeKey,
           payload: parseStoredPayload(tenantRow.payload),
         })
@@ -158,11 +161,16 @@ async function loadDbSources(options: RuntimeConfigOptions): Promise<RuntimeConf
           payload: runtimeConfigs.payload,
         })
         .from(runtimeConfigs)
-        .where(and(eq(runtimeConfigs.scope, 'user'), eq(runtimeConfigs.scopeKey, options.userId)))
+        .where(
+          and(
+            eq(runtimeConfigs.scope, RUNTIME_SCOPES.USER),
+            eq(runtimeConfigs.scopeKey, options.userId),
+          ),
+        )
         .limit(1)
       if (userRow) {
         scopes.push({
-          scope: 'user',
+          scope: RUNTIME_SCOPES.USER,
           scopeKey: userRow.scopeKey,
           payload: parseStoredPayload(userRow.payload),
         })

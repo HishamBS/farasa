@@ -1,4 +1,4 @@
-import { MODEL_CATEGORIES, RESPONSE_FORMATS } from '@/config/constants'
+import { MESSAGE_ROLES, MODEL_CATEGORIES, RESPONSE_FORMATS } from '@/config/constants'
 import { buildRouterPrompt, formatModelLine } from '@/config/prompts'
 import type { ModelConfig, ModelSelection } from '@/schemas/model'
 import { ModelCapabilitySchema, ModelSelectionSchema } from '@/schemas/model'
@@ -217,11 +217,11 @@ export async function decideA2UIRecovery(
         model: routingModelId,
         messages: [
           {
-            role: 'system',
+            role: MESSAGE_ROLES.SYSTEM,
             content: `${runtimeConfig.prompts.routerSystem}\n\nYou are deciding whether this request/response pair should be retried using strict A2UI contract.\nSet retryAsA2UI=true only when the user asked for generated UI (forms/components/layouts/dashboards) and the assistant output failed to provide valid A2UI protocol output.\nReturn JSON only: {"retryAsA2UI":true|false,"reason":"..."}`,
           },
           {
-            role: 'user',
+            role: MESSAGE_ROLES.USER,
             content:
               `${wrappedPrompt}\n\n` +
               `<assistant_output_preview>\n${safeOutput}\n</assistant_output_preview>\n` +
@@ -274,8 +274,8 @@ export async function routeModel(
       chatGenerationParams: {
         model: routingModelId,
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: wrappedPrompt },
+          { role: MESSAGE_ROLES.SYSTEM, content: systemPrompt },
+          { role: MESSAGE_ROLES.USER, content: wrappedPrompt },
         ],
         responseFormat: { type: 'json_object' },
         maxCompletionTokens: runtimeConfig.ai.routerMaxTokens,

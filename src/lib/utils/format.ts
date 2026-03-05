@@ -7,16 +7,6 @@ export function formatDate(date: Date): string {
   })
 }
 
-export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-export function formatNumber(n: number): string {
-  return n.toLocaleString(APP_CONFIG.LOCALE)
-}
-
 export function formatCost(usd: number): string {
   if (usd <= 0) return ''
   if (usd < 0.001) return '<0.1¢'

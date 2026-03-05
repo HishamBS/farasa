@@ -174,15 +174,22 @@ export function ConversationItem({
               if (isEditing) e.preventDefault()
             }}
           >
-            <DropdownMenuItem onClick={handleRenameStart}>
+            <DropdownMenuItem onClick={handleRenameStart} aria-label="Rename conversation">
               <Pencil size={14} className="mr-2" />
               Rename
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleExportClick} disabled={isExporting}>
+            <DropdownMenuItem
+              onClick={handleExportClick}
+              disabled={isExporting}
+              aria-label="Export conversation"
+            >
               <Download size={14} className="mr-2" />
               Export
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handlePin}>
+            <DropdownMenuItem
+              onClick={handlePin}
+              aria-label={isPinned ? 'Unpin conversation' : 'Pin conversation'}
+            >
               {isPinned ? (
                 <>
                   <PinOff size={14} className="mr-2" />
@@ -199,6 +206,7 @@ export function ConversationItem({
             <DropdownMenuItem
               onClick={handleDeleteClick}
               className="text-(--error) focus:text-(--error)"
+              aria-label="Delete conversation"
             >
               <Trash2 size={14} className="mr-2" />
               Delete

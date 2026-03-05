@@ -1,5 +1,6 @@
 'use client'
 
+import { StreamingCursor } from '@/components/streaming-cursor'
 import { useMemo } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { staggerContainer } from '@/lib/utils/motion'
@@ -58,9 +59,7 @@ export function TeamResponsePanel({
 
         {streamState.textContent && <MarkdownRenderer content={streamState.textContent} />}
 
-        {isStreaming && (
-          <span className="inline-block h-4 w-0.5 animate-pulse rounded-sm bg-(--accent) align-middle" />
-        )}
+        {isStreaming && <StreamingCursor />}
 
         {streamState.phase === CHAT_STREAM_STATUS.ERROR && streamState.error && (
           <p className="text-sm text-(--error)">{streamState.error.message}</p>

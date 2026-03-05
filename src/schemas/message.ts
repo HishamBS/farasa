@@ -1,4 +1,4 @@
-import { CHAT_MODES, LIMITS, STREAM_EVENTS, STREAM_PHASES } from '@/config/constants'
+import { CHAT_MODES, LIMITS, MESSAGE_ROLES, STREAM_EVENTS, STREAM_PHASES } from '@/config/constants'
 import { z } from 'zod'
 import {
   ModelCapabilitySchema,
@@ -9,7 +9,11 @@ import { SearchImageSchema, SearchResultSchema } from './search'
 
 export const ChatModeSchema = z.enum([CHAT_MODES.CHAT, CHAT_MODES.TEAM])
 
-export const MessageRoleSchema = z.enum(['user', 'assistant', 'system'])
+export const MessageRoleSchema = z.enum([
+  MESSAGE_ROLES.USER,
+  MESSAGE_ROLES.ASSISTANT,
+  MESSAGE_ROLES.SYSTEM,
+])
 
 export const AttachmentSchema = z.object({
   id: z.string().uuid(),
@@ -33,6 +37,7 @@ export const StreamPhaseSchema = z.enum([
   STREAM_PHASES.READING_FILES,
   STREAM_PHASES.GENERATING_UI,
   STREAM_PHASES.GENERATING_TITLE,
+  STREAM_PHASES.GENERATING_IMAGE,
 ])
 
 const StreamEventMetaSchema = z.object({
@@ -112,6 +117,10 @@ export const StreamChunkSchema = z.discriminatedUnion('type', [
   StreamEventMetaSchema.extend({
     type: z.literal(STREAM_EVENTS.CONVERSATION_CREATED),
     conversationId: z.string(),
+  }),
+  StreamEventMetaSchema.extend({
+    type: z.literal(STREAM_EVENTS.TITLE_UPDATED),
+    title: z.string(),
   }),
 ])
 

@@ -1,3 +1,4 @@
+import { MESSAGE_ROLES } from '@/config/constants'
 import { openrouter } from './client'
 import type { RuntimeConfig } from '@/schemas/runtime-config'
 
@@ -16,9 +17,9 @@ export async function generateTitle(
       chatGenerationParams: {
         model: runtimeConfig.models.titleModel,
         messages: [
-          { role: 'system', content: runtimeConfig.prompts.titleSystem },
+          { role: MESSAGE_ROLES.SYSTEM, content: runtimeConfig.prompts.titleSystem },
           {
-            role: 'user',
+            role: MESSAGE_ROLES.USER,
             content: wrappedMessage,
           },
         ],

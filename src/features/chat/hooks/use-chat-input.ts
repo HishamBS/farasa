@@ -38,12 +38,21 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
       }
     },
   })
+  const updateConversationMutateRef = useRef(updateConversationMutation.mutate)
+  updateConversationMutateRef.current = updateConversationMutation.mutate
 
   // Only reset selection when conversation identity changes.
   // This prevents stale server echoes from overwriting a freshly selected model.
   useEffect(() => {
     const previousConversationId = lastConversationIdRef.current
-    if (previousConversationId === conversationId) return
+    if (previousConversationId === conversationId) {
+      // Same conversation — sync when server model resolves and no local override
+      if (initialModel && selectedModelRef.current === undefined) {
+        selectedModelRef.current = initialModel
+        setSelectedModelState(initialModel)
+      }
+      return
+    }
     lastConversationIdRef.current = conversationId
 
     const transitionedFromDraftToPersisted = !previousConversationId && !!conversationId
@@ -52,7 +61,7 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
 
     if (transitionedFromDraftToPersisted && hasLocalSelection && serverModelUnresolved) {
       setSelectedModelState(selectedModelRef.current)
-      updateConversationMutation.mutate({
+      updateConversationMutateRef.current({
         id: conversationId,
         model: selectedModelRef.current,
       })
@@ -65,7 +74,7 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
 
     selectedModelRef.current = initialModel ?? undefined
     setSelectedModelState(selectedModelRef.current)
-  }, [conversationId, initialModel, updateConversationMutation])
+  }, [conversationId, initialModel])
 
   useEffect(() => {
     const handleNewChatRequested = () => {
@@ -85,12 +94,12 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
 
     const { value } = pendingConversationModelRef.current
     pendingConversationModelRef.current = { pending: false, value: undefined }
-    updateConversationMutation.mutate({
+    updateConversationMutateRef.current({
       id: conversationId,
       model: value ?? null,
     })
     lastPersistedModelRef.current = { conversationId, model: value }
-  }, [conversationId, isTurnActive, updateConversationMutation])
+  }, [conversationId, isTurnActive])
 
   useEffect(() => {
     if (!conversationId || isTurnActive) return
@@ -103,12 +112,12 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
     ) {
       return
     }
-    updateConversationMutation.mutate({
+    updateConversationMutateRef.current({
       id: conversationId,
       model: localModel ?? null,
     })
     lastPersistedModelRef.current = { conversationId, model: localModel }
-  }, [conversationId, initialModel, isTurnActive, updateConversationMutation])
+  }, [conversationId, initialModel, isTurnActive])
 
   const setSelectedModel = useCallback(
     (modelId: string | undefined) => {
@@ -119,13 +128,13 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
         pendingConversationModelRef.current = { pending: true, value: modelId }
         return
       }
-      updateConversationMutation.mutate({
+      updateConversationMutateRef.current({
         id: conversationId,
         model: modelId ?? null,
       })
       lastPersistedModelRef.current = { conversationId, model: modelId }
     },
-    [conversationId, isTurnActive, updateConversationMutation],
+    [conversationId, isTurnActive],
   )
 
   const setDefaultModel = useCallback(

@@ -44,10 +44,18 @@ export function SynthesisPanel({
   )
 
   useEffect(() => {
+    if (synthesisModel) return
+    if (synthesisModelOptions.length === 0) return
+    const firstOption = synthesisModelOptions[0]
+    if (firstOption) setSynthesisModel(firstOption.id)
+  }, [synthesisModelOptions, synthesisModel, setSynthesisModel])
+
+  useEffect(() => {
     if (!synthesisModel) return
+    if (policyQuery.isLoading) return
     if (hasSelectedSynthesisModel) return
     setSynthesisModel(undefined)
-  }, [hasSelectedSynthesisModel, synthesisModel, setSynthesisModel])
+  }, [hasSelectedSynthesisModel, synthesisModel, setSynthesisModel, policyQuery.isLoading])
 
   const hasSelectableSynthesisModel = synthesisModelOptions.length > 0
   const effectiveSynthesisModel = hasSelectedSynthesisModel ? synthesisModel : undefined

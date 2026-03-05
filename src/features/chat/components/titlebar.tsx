@@ -17,9 +17,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MOTION, UI_TEXT, UX } from '@/config/constants'
+import { MOTION, NEW_CHAT_TITLE, UI_TEXT, UX } from '@/config/constants'
 import { PATTERNS, ROUTES } from '@/config/routes'
-import { ChatModeSchema } from '@/schemas/message'
 import { trpc } from '@/trpc/provider'
 import type { TitlebarPhase } from '@/types/stream'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -37,7 +36,7 @@ type TitlebarProps = {
 export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const { mode, setMode, hydrateFromConversation, setActiveConversationId } = useChatMode()
+  const { mode, setMode, setActiveConversationId } = useChatMode()
   const utils = trpc.useUtils()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showRenameDialog, setShowRenameDialog] = useState(false)
@@ -69,19 +68,6 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
   useEffect(() => {
     setActiveConversationId(conversationId ?? undefined)
   }, [conversationId, setActiveConversationId])
-
-  useEffect(() => {
-    if (!conversationId || !conversation) return
-
-    const parsed = ChatModeSchema.safeParse(conversation.mode)
-    if (!parsed.success) return
-    hydrateFromConversation({
-      id: conversationId,
-      mode: parsed.data,
-      webSearchEnabled: conversation.webSearchEnabled,
-      settingsVersion: conversation.settingsVersion ?? 0,
-    })
-  }, [conversationId, conversation, hydrateFromConversation, setMode])
 
   const updateMutation = trpc.conversation.update.useMutation({
     onSuccess: () => void utils.conversation.invalidate(),
@@ -174,6 +160,14 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
     streamPhase === 'streaming' ||
     (streamPhase === 'done' && showDone)
 
+  const isAwaitingTitleGen =
+    !!conversationId &&
+    title === NEW_CHAT_TITLE &&
+    (streamPhase === 'thinking' ||
+      streamPhase === 'streaming' ||
+      (streamPhase === 'done' && showDone))
+  const showTitleSkeleton = (!!conversationId && isLoadingConversation) || isAwaitingTitleGen
+
   return (
     <>
       <header className="relative z-20 flex h-12 shrink-0 items-center gap-2.5 border-b border-(--border-subtle) bg-(--bg-root) px-4">
@@ -188,12 +182,12 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
 
         <div className="flex items-center gap-3">
           <div className="truncate max-w-xs">
-            {title ? (
-              <span className="text-sm font-medium text-(--text-secondary)">{title}</span>
-            ) : conversationId && isLoadingConversation ? (
+            {showTitleSkeleton ? (
               <span className="inline-block h-4 w-24 animate-pulse rounded bg-(--bg-surface-active)" />
+            ) : title ? (
+              <span className="text-sm font-medium text-(--text-secondary)">{title}</span>
             ) : (
-              <span className="text-sm font-medium text-(--text-muted)">New Chat</span>
+              <span className="text-sm font-medium text-(--text-muted)">{NEW_CHAT_TITLE}</span>
             )}
           </div>
         </div>
@@ -265,16 +259,6 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        )}
-
-        {!(conversationId && conversation) && (
-          <button
-            type="button"
-            className="flex h-11 w-11 items-center justify-center rounded-lg text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)"
-            aria-label={UI_TEXT.MORE_OPTIONS_ARIA}
-          >
-            <MoreHorizontal size={16} />
-          </button>
         )}
       </header>
 

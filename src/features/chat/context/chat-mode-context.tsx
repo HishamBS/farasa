@@ -27,6 +27,7 @@ type ChatModeContextValue = {
     webSearchEnabled: boolean
     settingsVersion: number
   }) => void
+  isHydrated: boolean
 }
 
 const ChatModeContext = createContext<ChatModeContextValue | null>(null)
@@ -41,6 +42,7 @@ export function ChatModeProvider({ children }: { children: ReactNode }) {
     webSearchEnabled?: boolean
   } | null>(null)
   const hydrationRef = useRef<{ conversationId: string; settingsVersion: number } | null>(null)
+  const [hydratedConversationId, setHydratedConversationId] = useState<string | null>(null)
   const { isTurnActive } = useStreamSession()
   const utils = trpc.useUtils()
   const updateConversationMutation = trpc.conversation.update.useMutation({
@@ -138,6 +140,7 @@ export function ChatModeProvider({ children }: { children: ReactNode }) {
         conversationId: conversation.id,
         settingsVersion: conversation.settingsVersion,
       }
+      setHydratedConversationId(conversation.id)
 
       const pending = pendingSettingsRef.current
       if (activeConversationId !== conversation.id) {
@@ -168,6 +171,7 @@ export function ChatModeProvider({ children }: { children: ReactNode }) {
       setActiveConversationId(undefined)
       pendingSettingsRef.current = null
       hydrationRef.current = null
+      setHydratedConversationId(null)
     }
     window.addEventListener(BROWSER_EVENTS.NEW_CHAT_REQUESTED, onNewChatRequested)
     return () => window.removeEventListener(BROWSER_EVENTS.NEW_CHAT_REQUESTED, onNewChatRequested)
@@ -182,6 +186,8 @@ export function ChatModeProvider({ children }: { children: ReactNode }) {
     persistSettings(pending)
   }, [activeConversationId, isTurnActive, persistSettings])
 
+  const isHydrated = !activeConversationId || hydratedConversationId === activeConversationId
+
   const value = useMemo(
     () => ({
       mode,
@@ -190,6 +196,7 @@ export function ChatModeProvider({ children }: { children: ReactNode }) {
       setWebSearchEnabled: requestWebSearchChange,
       setActiveConversationId,
       hydrateFromConversation,
+      isHydrated,
     }),
     [
       mode,
@@ -198,6 +205,7 @@ export function ChatModeProvider({ children }: { children: ReactNode }) {
       requestWebSearchChange,
       setActiveConversationId,
       hydrateFromConversation,
+      isHydrated,
     ],
   )
   return <ChatModeContext.Provider value={value}>{children}</ChatModeContext.Provider>

@@ -14,6 +14,7 @@ import { useTeamStream } from '@/features/team/hooks/use-team-stream'
 import { useTeamSynthesis } from '@/features/team/hooks/use-team-synthesis'
 import type { LiveTeamData, ModelMeta } from '@/features/team/types'
 import { shouldRenderLiveTeam } from '@/features/team/utils/live-team-visibility'
+import { ChatModeSchema } from '@/schemas/message'
 import type { TeamStreamInput } from '@/schemas/team'
 import { trpc } from '@/trpc/provider'
 import type { TitlebarPhase } from '@/types/stream'
@@ -43,12 +44,13 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   const isChatStreaming = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
   const chatInputRef = useRef<ChatInputHandle>(null)
   const { setPhase, setModelSelection, setHasText, setStatusMessages } = useStreamPhase()
-  const { mode, setActiveConversationId } = useChatMode()
+  const { mode, setActiveConversationId, isHydrated, hydrateFromConversation } = useChatMode()
   const { isTurnActive, activeEngine } = useStreamSession()
   const utils = trpc.useUtils()
 
   const [teamStreamInput, setTeamStreamInput] = useState<TeamStreamInput | null>(null)
   const teamConversationIdRef = useRef<string | undefined>(conversationId)
+  const pendingA2UIRef = useRef<{ prompt: string; webSearchEnabled: boolean } | null>(null)
   const synthesis = useTeamSynthesis()
 
   useEffect(() => {
@@ -176,6 +178,18 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     { staleTime: UX.QUERY_STALE_TIME_FOREVER, enabled: !!effectiveConversationId },
   )
 
+  useEffect(() => {
+    if (!effectiveConversationId || !conversation) return
+    const parsed = ChatModeSchema.safeParse(conversation.mode)
+    if (!parsed.success) return
+    hydrateFromConversation({
+      id: effectiveConversationId,
+      mode: parsed.data,
+      webSearchEnabled: conversation.webSearchEnabled,
+      settingsVersion: conversation.settingsVersion ?? 0,
+    })
+  }, [effectiveConversationId, conversation, hydrateFromConversation])
+
   const { data: messagesData, isLoading: isLoadingMessages } = trpc.conversation.messages.useQuery(
     { conversationId: effectiveConversationId ?? '' },
     { staleTime: UX.QUERY_STALE_TIME_FOREVER, enabled: !!effectiveConversationId },
@@ -213,7 +227,14 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     const onA2UIActionRequested = (event: Event) => {
       const custom = event as CustomEvent<{ prompt?: string; webSearchEnabled?: boolean }>
       const prompt = custom.detail?.prompt?.trim()
-      if (!prompt || isTurnActive) return
+      if (!prompt) return
+      if (isTurnActive) {
+        pendingA2UIRef.current = {
+          prompt,
+          webSearchEnabled: Boolean(custom.detail?.webSearchEnabled),
+        }
+        return
+      }
       sendMessage({
         content: prompt,
         mode: CHAT_MODES.CHAT,
@@ -238,6 +259,22 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   }, [effectiveConversationId, isTurnActive, sendMessage])
 
   useEffect(() => {
+    if (isTurnActive) return
+    const pending = pendingA2UIRef.current
+    if (!pending) return
+    pendingA2UIRef.current = null
+    sendMessage({
+      content: pending.prompt,
+      mode: CHAT_MODES.CHAT,
+      model: null,
+      conversationId: effectiveConversationId,
+      attachmentIds: [],
+      webSearchEnabled: pending.webSearchEnabled,
+      clientRequestId: crypto.randomUUID(),
+    })
+  }, [isTurnActive, effectiveConversationId, sendMessage])
+
+  useEffect(() => {
     if (streamState.phase !== CHAT_STREAM_STATUS.ERROR) return
     if (!streamState.lastInput?.content) return
     chatInputRef.current?.setContent(streamState.lastInput.content)
@@ -253,6 +290,14 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     if (!streamState.lastInput || isTurnActive) return
     sendMessage(streamState.lastInput)
   }, [isTurnActive, sendMessage, streamState.lastInput])
+
+  const guardedSendMessage = useCallback(
+    (input: Parameters<typeof sendMessage>[0]) => {
+      if (!isHydrated && effectiveConversationId) return
+      sendMessage(input)
+    },
+    [isHydrated, effectiveConversationId, sendMessage],
+  )
 
   const liveTeam = useMemo((): LiveTeamData | null => {
     if (
@@ -327,7 +372,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
       )}
       <ChatInput
         ref={chatInputRef}
-        onSend={sendMessage}
+        onSend={guardedSendMessage}
         onAbort={activeEngine === 'team' ? abortTeam : abort}
         isStreaming={isTurnActive}
         conversationId={effectiveConversationId}

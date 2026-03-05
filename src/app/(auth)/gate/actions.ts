@@ -21,7 +21,7 @@ export async function verifyAccessCode(
   cookieStore.set(COOKIE_NAMES.ACCESS_GATE, code, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    sameSite: 'lax',
     path: '/',
     maxAge: GATE_COOKIE_MAX_AGE,
   })

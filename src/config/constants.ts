@@ -40,8 +40,23 @@ export const SUPPORTED_FILE_TYPES = [
   'image/gif',
   'image/webp',
   'application/pdf',
+  'application/json',
   'text/plain',
   'text/markdown',
+  'text/csv',
+  'text/html',
+  'text/css',
+  'text/javascript',
+  'text/xml',
+  'text/x-python',
+  'text/x-typescript',
+  'text/x-java',
+  'text/x-c',
+  'text/x-go',
+  'text/x-rust',
+  'text/x-yaml',
+  'text/x-toml',
+  'text/x-shellscript',
 ] as const
 
 export const MODEL_CATEGORIES = {

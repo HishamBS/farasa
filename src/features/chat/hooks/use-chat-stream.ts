@@ -344,16 +344,19 @@ export function useChatStream(conversationId?: string) {
     const active = activeSessionRef.current
     if (!active) return
 
+    active.isSettled = true
     active.unsubscribe()
     activeSessionRef.current = null
     sendLockRef.current = false
     dispatch({ type: STREAM_ACTIONS.CLEAR_PENDING_USER_MESSAGE })
+    reset()
 
     const conversationId = resolvedConversationIdRef.current
     if (conversationId) {
       void cancelStreamMutation.mutateAsync({ conversationId })
+      void utils.conversation.messages.invalidate({ conversationId })
     }
-  }, [cancelStreamMutation, dispatch])
+  }, [cancelStreamMutation, dispatch, reset, utils])
 
   useEffect(() => {
     return () => {
@@ -371,6 +374,7 @@ export function useChatStream(conversationId?: string) {
       sendLockRef.current = false
       dispatch({ type: STREAM_ACTIONS.RESET })
       dispatch({ type: STREAM_ACTIONS.CLEAR_PENDING_USER_MESSAGE })
+      dispatch({ type: STREAM_ACTIONS.SET_CONVERSATION_ID, conversationId: null })
     }
     window.addEventListener(BROWSER_EVENTS.NEW_CHAT_REQUESTED, handleNewChatRequested)
     return () => {

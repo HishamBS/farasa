@@ -78,7 +78,7 @@ const A2UIImagePolicySchema = z
 
 const A2UIActionPolicySchema = z
   .object({
-    pattern: z.string().min(1).default('^[a-zA-Z0-9_]+$'),
+    pattern: z.string().min(1).default('^[a-zA-Z0-9_.:\\-/]+$'),
   })
   .default({})
 

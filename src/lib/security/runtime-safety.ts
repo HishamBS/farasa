@@ -50,10 +50,13 @@ export function isAllowedA2UIButtonAction(action: unknown, pattern: string): boo
   let candidate: string | null = null
   if (typeof action === 'string') {
     candidate = action
-  } else if (isRecord(action) && typeof action.name === 'string') {
-    candidate = action.name
+  } else if (isRecord(action)) {
+    const name = action.name ?? action.type ?? action.label ?? action.id
+    if (typeof name === 'string') {
+      candidate = name
+    }
   }
-  if (!candidate) return false
+  if (!candidate) return true
 
   let regex: RegExp
   try {

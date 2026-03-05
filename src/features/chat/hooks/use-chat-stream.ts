@@ -8,7 +8,6 @@ import {
   STREAM_EVENTS,
   STREAM_PHASES,
   STREAM_REASON_CODES,
-  UX,
 } from '@/config/constants'
 import { ROUTES } from '@/config/routes'
 import { useStreamSession } from '@/features/chat/context/stream-session-context'
@@ -26,6 +25,7 @@ type ActiveStreamSession = {
   sessionId: string
   unsubscribe: () => void
   isSettled: boolean
+  terminalEvent: 'done' | 'error' | 'cancelled' | null
 }
 
 function isA2UIMessage(value: unknown): value is v0_8.A2UIMessage {
@@ -67,10 +67,33 @@ export function useChatStream(conversationId?: string) {
     sendLockRef.current = false
   }, [endSession])
 
+  const ensureConversationId = useCallback(
+    async (input: ChatInput): Promise<string | undefined> => {
+      if (input.conversationId) return input.conversationId
+      if (resolvedConversationIdRef.current) return resolvedConversationIdRef.current
+
+      const created = await trpcClient.conversation.create.mutate({
+        model: input.model ?? null,
+        mode: input.mode,
+        webSearchEnabled: input.webSearchEnabled,
+      })
+      resolvedConversationIdRef.current = created.id
+      pendingRouteConversationIdRef.current = created.id
+      dispatch({
+        type: STREAM_ACTIONS.SET_CONVERSATION_ID,
+        conversationId: created.id,
+      })
+      window.history.replaceState(window.history.state, '', ROUTES.CHAT_BY_ID(created.id))
+      return created.id
+    },
+    [dispatch],
+  )
+
   const runStreamAttempt = useCallback(
-    (input: ChatInput) => {
+    async (input: ChatInput) => {
       const clientRequestId = input.clientRequestId ?? crypto.randomUUID()
-      const effectiveConversationId = input.conversationId ?? resolvedConversationIdRef.current
+      const ensuredConversationId = await ensureConversationId(input)
+      const effectiveConversationId = ensuredConversationId ?? resolvedConversationIdRef.current
       resolvedConversationIdRef.current = effectiveConversationId
 
       const activeSession = activeSessionRef.current
@@ -101,6 +124,7 @@ export function useChatStream(conversationId?: string) {
         sessionId,
         unsubscribe: () => {},
         isSettled: false,
+        terminalEvent: null,
       }
       activeSessionRef.current = session
       beginSession('chat', sessionId)
@@ -115,6 +139,7 @@ export function useChatStream(conversationId?: string) {
         const active = activeSessionRef.current
         if (!active || active.sessionId !== sessionId || active.isSettled) return
         active.isSettled = true
+        active.terminalEvent = 'error'
         active.unsubscribe()
         activeSessionRef.current = null
         sendLockRef.current = false
@@ -265,6 +290,7 @@ export function useChatStream(conversationId?: string) {
               case STREAM_EVENTS.DONE: {
                 if (active.isSettled) return
                 active.isSettled = true
+                active.terminalEvent = 'done'
                 activeSessionRef.current = null
                 sendLockRef.current = false
                 endSession(sessionId)
@@ -275,15 +301,6 @@ export function useChatStream(conversationId?: string) {
                   void utils.conversation.getById.invalidate({ id: convId })
                 }
                 void utils.conversation.list.invalidate()
-                // Title generation is fire-and-forget on the server and completes
-                // after this initial invalidation. Re-invalidate after a delay so
-                // the sidebar picks up the generated title without a page refresh.
-                setTimeout(() => {
-                  void utils.conversation.list.invalidate()
-                  if (convId) {
-                    void utils.conversation.getById.invalidate({ id: convId })
-                  }
-                }, UX.TITLE_REVALIDATION_DELAY_MS)
                 const pendingRouteId = pendingRouteConversationIdRef.current
                 if (pendingRouteId) {
                   pendingRouteConversationIdRef.current = undefined
@@ -308,6 +325,7 @@ export function useChatStream(conversationId?: string) {
             if (!active || active.sessionId !== sessionId) return
             if (!active.isSettled) {
               active.isSettled = true
+              active.terminalEvent = 'error'
               dispatch({
                 type: STREAM_ACTIONS.ERROR,
                 error: {
@@ -328,7 +346,16 @@ export function useChatStream(conversationId?: string) {
 
       session.unsubscribe = () => subscription.unsubscribe()
     },
-    [beginSession, clearActiveSession, dispatch, endSession, reset, router, utils],
+    [
+      beginSession,
+      clearActiveSession,
+      dispatch,
+      endSession,
+      ensureConversationId,
+      reset,
+      router,
+      utils,
+    ],
   )
 
   const sendMessage = useCallback(
@@ -337,9 +364,25 @@ export function useChatStream(conversationId?: string) {
         return
       }
       sendLockRef.current = true
-      runStreamAttempt(input)
+      void runStreamAttempt(input).catch((error: unknown) => {
+        sendLockRef.current = false
+        const message =
+          error instanceof Error && error.message.trim().length > 0
+            ? error.message
+            : 'Failed to start request.'
+        dispatch({
+          type: STREAM_ACTIONS.ERROR,
+          error: {
+            message,
+            reasonCode: STREAM_REASON_CODES.VALIDATION_REJECTED,
+            recoverable: true,
+            code: 'STREAM_BOOTSTRAP_FAILED',
+            attempt: 0,
+          },
+        })
+      })
     },
-    [runStreamAttempt],
+    [dispatch, runStreamAttempt],
   )
 
   const abort = useCallback(() => {
@@ -347,6 +390,7 @@ export function useChatStream(conversationId?: string) {
     if (!active) return
 
     active.isSettled = true
+    active.terminalEvent = 'cancelled'
     active.unsubscribe()
     activeSessionRef.current = null
     sendLockRef.current = false

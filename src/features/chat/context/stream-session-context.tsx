@@ -20,32 +20,53 @@ type StreamSessionContextValue = {
 const StreamSessionContext = createContext<StreamSessionContextValue | null>(null)
 
 export function StreamSessionProvider({ children }: { children: ReactNode }) {
-  const [activeSession, setActiveSession] = useState<ActiveSession | null>(null)
+  const [sessionsByEngine, setSessionsByEngine] = useState<
+    Record<StreamEngine, ActiveSession | null>
+  >({
+    chat: null,
+    team: null,
+  })
 
   const beginSession = useCallback((engine: StreamEngine, sessionId: string) => {
-    setActiveSession({ engine, sessionId })
+    setSessionsByEngine((current) => ({
+      ...current,
+      [engine]: { engine, sessionId },
+    }))
   }, [])
 
   const endSession = useCallback((sessionId: string) => {
-    setActiveSession((current) => {
-      if (!current || current.sessionId !== sessionId) return current
-      return null
+    setSessionsByEngine((current) => {
+      let changed = false
+      const next: Record<StreamEngine, ActiveSession | null> = {
+        chat: current.chat,
+        team: current.team,
+      }
+      for (const engine of ['chat', 'team'] as const) {
+        if (current[engine]?.sessionId === sessionId) {
+          next[engine] = null
+          changed = true
+        }
+      }
+      return changed ? next : current
     })
   }, [])
 
   const clearSession = useCallback(() => {
-    setActiveSession(null)
+    setSessionsByEngine({
+      chat: null,
+      team: null,
+    })
   }, [])
 
   const value = useMemo<StreamSessionContextValue>(
     () => ({
-      isTurnActive: activeSession !== null,
-      activeEngine: activeSession?.engine ?? null,
+      isTurnActive: sessionsByEngine.chat !== null || sessionsByEngine.team !== null,
+      activeEngine: sessionsByEngine.team ? 'team' : sessionsByEngine.chat ? 'chat' : null,
       beginSession,
       endSession,
       clearSession,
     }),
-    [activeSession, beginSession, clearSession, endSession],
+    [beginSession, clearSession, endSession, sessionsByEngine.chat, sessionsByEngine.team],
   )
 
   return <StreamSessionContext.Provider value={value}>{children}</StreamSessionContext.Provider>

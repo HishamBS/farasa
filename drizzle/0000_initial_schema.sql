@@ -33,6 +33,9 @@ CREATE TABLE IF NOT EXISTS "conversations" (
 	"is_pinned" boolean DEFAULT false NOT NULL,
 	"mode" text DEFAULT 'chat' NOT NULL,
 	"web_search_enabled" boolean DEFAULT false NOT NULL,
+	"team_models" jsonb,
+	"team_synthesizer_model" text,
+	"settings_version" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );

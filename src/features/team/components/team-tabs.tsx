@@ -94,6 +94,14 @@ export function TeamTabs({
   }, [modelMetaMap, modelOrder])
 
   const defaultTab = modelOrder[0] ?? TEAM_TAB_VALUES.SYNTHESIS
+  const synthesisReady = useMemo(() => {
+    if (teamDone) return true
+    if (modelOrder.length === 0) return false
+    return modelOrder.every((modelId) => {
+      const phase = modelStates.get(modelId)?.phase
+      return phase === CHAT_STREAM_STATUS.COMPLETE || phase === CHAT_STREAM_STATUS.ERROR
+    })
+  }, [modelOrder, modelStates, teamDone])
 
   return (
     <Tabs defaultValue={defaultTab} className="w-full">
@@ -148,7 +156,7 @@ export function TeamTabs({
             comparisonModelIds={modelOrder}
             conversationId={conversationId}
             teamId={teamId}
-            teamDone={teamDone}
+            teamDone={synthesisReady}
             synthesis={synthesis}
           />
         )}

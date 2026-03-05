@@ -25,6 +25,7 @@ type ChatModeContextValue = {
     id: string
     mode: ChatMode
     webSearchEnabled: boolean
+    settingsVersion: number
   }) => void
 }
 
@@ -39,6 +40,7 @@ export function ChatModeProvider({ children }: { children: ReactNode }) {
     mode?: ChatMode
     webSearchEnabled?: boolean
   } | null>(null)
+  const hydrationRef = useRef<{ conversationId: string; settingsVersion: number } | null>(null)
   const { isTurnActive } = useStreamSession()
   const utils = trpc.useUtils()
   const updateConversationMutation = trpc.conversation.update.useMutation({
@@ -53,6 +55,10 @@ export function ChatModeProvider({ children }: { children: ReactNode }) {
               ...(variables.webSearchEnabled !== undefined
                 ? { webSearchEnabled: variables.webSearchEnabled }
                 : {}),
+              settingsVersion:
+                variables.mode !== undefined || variables.webSearchEnabled !== undefined
+                  ? (old.settingsVersion ?? 0) + 1
+                  : old.settingsVersion,
             }
           : old,
       )
@@ -114,7 +120,25 @@ export function ChatModeProvider({ children }: { children: ReactNode }) {
   )
 
   const hydrateFromConversation = useCallback(
-    (conversation: { id: string; mode: ChatMode; webSearchEnabled: boolean }) => {
+    (conversation: {
+      id: string
+      mode: ChatMode
+      webSearchEnabled: boolean
+      settingsVersion: number
+    }) => {
+      const latest = hydrationRef.current
+      if (
+        latest &&
+        latest.conversationId === conversation.id &&
+        conversation.settingsVersion < latest.settingsVersion
+      ) {
+        return
+      }
+      hydrationRef.current = {
+        conversationId: conversation.id,
+        settingsVersion: conversation.settingsVersion,
+      }
+
       const pending = pendingSettingsRef.current
       if (activeConversationId !== conversation.id) {
         setActiveConversationId(conversation.id)
@@ -143,6 +167,7 @@ export function ChatModeProvider({ children }: { children: ReactNode }) {
       setWebSearchEnabled(false)
       setActiveConversationId(undefined)
       pendingSettingsRef.current = null
+      hydrationRef.current = null
     }
     window.addEventListener(BROWSER_EVENTS.NEW_CHAT_REQUESTED, onNewChatRequested)
     return () => window.removeEventListener(BROWSER_EVENTS.NEW_CHAT_REQUESTED, onNewChatRequested)

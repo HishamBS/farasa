@@ -10,6 +10,10 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
   const [attachmentIds, setAttachmentIds] = useState<string[]>([])
   const selectedModelRef = useRef<string | undefined>(initialModel ?? undefined)
   const lastConversationIdRef = useRef<string | undefined>(conversationId)
+  const lastPersistedModelRef = useRef<{
+    conversationId?: string
+    model?: string
+  }>({})
   const pendingConversationModelRef = useRef<{ pending: boolean; value: string | undefined }>({
     pending: false,
     value: undefined,
@@ -52,6 +56,10 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
         id: conversationId,
         model: selectedModelRef.current,
       })
+      lastPersistedModelRef.current = {
+        conversationId,
+        model: selectedModelRef.current,
+      }
       return
     }
 
@@ -81,7 +89,26 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
       id: conversationId,
       model: value ?? null,
     })
+    lastPersistedModelRef.current = { conversationId, model: value }
   }, [conversationId, isTurnActive, updateConversationMutation])
+
+  useEffect(() => {
+    if (!conversationId || isTurnActive) return
+    const localModel = selectedModelRef.current
+    const serverModel = initialModel ?? undefined
+    if (localModel === serverModel) return
+    if (
+      lastPersistedModelRef.current.conversationId === conversationId &&
+      lastPersistedModelRef.current.model === localModel
+    ) {
+      return
+    }
+    updateConversationMutation.mutate({
+      id: conversationId,
+      model: localModel ?? null,
+    })
+    lastPersistedModelRef.current = { conversationId, model: localModel }
+  }, [conversationId, initialModel, isTurnActive, updateConversationMutation])
 
   const setSelectedModel = useCallback(
     (modelId: string | undefined) => {
@@ -96,6 +123,7 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
         id: conversationId,
         model: modelId ?? null,
       })
+      lastPersistedModelRef.current = { conversationId, model: modelId }
     },
     [conversationId, isTurnActive, updateConversationMutation],
   )

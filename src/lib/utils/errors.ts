@@ -14,6 +14,7 @@ export const AppError = {
   ROUTER_FAILED: 'Auto-routing failed. Please select a model manually.',
   A2UI_CONTRACT_FAILED: 'UI generation failed format validation. Please retry your request.',
   IMAGE_GEN_INCOMPATIBLE: 'Selected model does not support image generation.',
+  IMAGE_GEN_EMPTY_RESULT: 'Image generation returned no image artifact.',
   SEARCH_UNAVAILABLE: 'Web search is currently unavailable.',
   TTS_PROVIDER_FAILED: 'TTS provider request failed.',
   TTS_RUNTIME_FAILED: 'TTS request failed before audio generation.',

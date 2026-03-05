@@ -1,6 +1,7 @@
 'use client'
 
 import {
+  BROWSER_EVENTS,
   CHAT_MODES,
   CHAT_STREAM_STATUS,
   MESSAGE_ROLES,
@@ -21,6 +22,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useChatMode } from '../context/chat-mode-context'
 import { ConversationCostProvider } from '../context/conversation-cost-context'
+import { useStreamSession } from '../context/stream-session-context'
 import { useStreamPhase } from '../context/stream-phase-context'
 import { useChatStream } from '../hooks/use-chat-stream'
 import type { ChatInputHandle } from './chat-input'
@@ -38,10 +40,11 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   const conversationId = conversationIdFromRoute ?? conversationIdProp
   const { streamState, sendMessage, abort } = useChatStream(conversationId)
   const effectiveConversationId = streamState.resolvedConversationId ?? conversationId
-  const isStreaming = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
+  const isChatStreaming = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
   const chatInputRef = useRef<ChatInputHandle>(null)
   const { setPhase, setModelSelection, setHasText, setStatusMessages } = useStreamPhase()
-  const { mode } = useChatMode()
+  const { mode, setActiveConversationId } = useChatMode()
+  const { isTurnActive, activeEngine } = useStreamSession()
   const utils = trpc.useUtils()
 
   const [teamStreamInput, setTeamStreamInput] = useState<TeamStreamInput | null>(null)
@@ -51,6 +54,10 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   useEffect(() => {
     teamConversationIdRef.current = conversationId
   }, [conversationId])
+
+  useEffect(() => {
+    setActiveConversationId(effectiveConversationId ?? undefined)
+  }, [effectiveConversationId, setActiveConversationId])
 
   const handleTeamConversationCreated = useCallback(
     (createdId: string) => {
@@ -192,10 +199,32 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   }, [])
 
   useEffect(() => {
+    const handleNewChatRequested = () => {
+      abortTeam()
+      setTeamStreamInput(null)
+    }
+    window.addEventListener(BROWSER_EVENTS.NEW_CHAT_REQUESTED, handleNewChatRequested)
+    return () => {
+      window.removeEventListener(BROWSER_EVENTS.NEW_CHAT_REQUESTED, handleNewChatRequested)
+    }
+  }, [abortTeam])
+
+  useEffect(() => {
     if (streamState.phase !== CHAT_STREAM_STATUS.ERROR) return
     if (!streamState.lastInput?.content) return
     chatInputRef.current?.setContent(streamState.lastInput.content)
   }, [streamState.phase, streamState.lastInput])
+
+  const canRetryLastTurn =
+    !isTurnActive &&
+    streamState.phase === CHAT_STREAM_STATUS.ERROR &&
+    !!streamState.error?.recoverable &&
+    !!streamState.lastInput
+
+  const handleRetryLastTurn = useCallback(() => {
+    if (!streamState.lastInput || isTurnActive) return
+    sendMessage(streamState.lastInput)
+  }, [isTurnActive, sendMessage, streamState.lastInput])
 
   const liveTeam = useMemo((): LiveTeamData | null => {
     if (
@@ -235,7 +264,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
         <MessageList
           messages={messages}
           streamState={streamState}
-          isChatStreaming={isStreaming}
+          isChatStreaming={isChatStreaming}
           pendingUserMessage={streamState.pendingUserMessage}
           onSuggestionSelect={handleSuggestionSelect}
           conversationId={effectiveConversationId}
@@ -248,6 +277,15 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
           <div className="flex items-center gap-2 rounded-lg border border-(--error)/20 bg-(--error)/5 px-3 py-2 text-sm text-(--error)">
             <AlertCircle className="size-4 shrink-0" />
             <span className="flex-1">{streamState.error.message}</span>
+            {canRetryLastTurn && (
+              <button
+                type="button"
+                onClick={handleRetryLastTurn}
+                className="rounded-md border border-(--error)/40 px-2 py-1 text-xs font-medium text-(--error) transition-colors hover:bg-(--error)/10"
+              >
+                Retry
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -262,8 +300,8 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
       <ChatInput
         ref={chatInputRef}
         onSend={sendMessage}
-        onAbort={teamPhase === TEAM_STREAM_PHASES.ACTIVE ? abortTeam : abort}
-        isStreaming={isStreaming || teamPhase === TEAM_STREAM_PHASES.ACTIVE}
+        onAbort={activeEngine === 'team' ? abortTeam : abort}
+        isStreaming={isTurnActive}
         conversationId={effectiveConversationId}
         initialModel={conversation?.model ?? undefined}
         onTeamSubmit={handleTeamSubmit}

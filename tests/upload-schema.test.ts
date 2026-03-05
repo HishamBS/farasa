@@ -8,6 +8,7 @@ describe('StoreInlineSchema', () => {
         dataUrl: 'https://example.com/image.png',
         fileName: 'test.png',
         fileType: 'image/png',
+        fileSize: 1024,
       }).success,
     ).toBe(false)
   })
@@ -18,6 +19,7 @@ describe('StoreInlineSchema', () => {
         dataUrl: 'not-a-data-url',
         fileName: 'test.png',
         fileType: 'image/png',
+        fileSize: 1024,
       }).success,
     ).toBe(false)
   })
@@ -28,6 +30,7 @@ describe('StoreInlineSchema', () => {
         dataUrl: 'data:image/png;base64,iVBORw0KGgo=',
         fileName: 'test.png',
         fileType: 'image/png',
+        fileSize: 1024,
       }).success,
     ).toBe(true)
   })
@@ -38,6 +41,7 @@ describe('StoreInlineSchema', () => {
         dataUrl: 'data:application/pdf;base64,JVBERi0=',
         fileName: 'doc.pdf',
         fileType: 'application/pdf',
+        fileSize: 1024,
       }).success,
     ).toBe(true)
   })
@@ -48,6 +52,7 @@ describe('StoreInlineSchema', () => {
         dataUrl: 'data:',
         fileName: 'test.png',
         fileType: 'image/png',
+        fileSize: 1024,
       }).success,
     ).toBe(false)
   })
@@ -58,6 +63,7 @@ describe('StoreInlineSchema', () => {
         dataUrl: 'data:image/png;base64,@@@invalid@@@',
         fileName: 'test.png',
         fileType: 'image/png',
+        fileSize: 1024,
       }).success,
     ).toBe(false)
   })
@@ -68,6 +74,7 @@ describe('StoreInlineSchema', () => {
         dataUrl: 'data:image/png;base64, abc=',
         fileName: 'test.png',
         fileType: 'image/png',
+        fileSize: 1024,
       }).success,
     ).toBe(false)
   })

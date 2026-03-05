@@ -72,7 +72,7 @@ export function SidebarContainer({ children, isOpen, onClose, onOpen }: SidebarP
           'hidden lg:flex flex-col shrink-0 overflow-hidden',
           'bg-(--bg-glass) border-r border-(--border-subtle) backdrop-blur-xl saturate-150',
           'transition-[width] duration-[var(--sidebar-transition-duration)]',
-          isOpen ? 'w-[var(--sidebar-width)]' : 'w-0',
+          isOpen ? 'w-[var(--sidebar-width)] pointer-events-auto' : 'w-0 pointer-events-none',
         )}
         aria-label="Sidebar"
       >

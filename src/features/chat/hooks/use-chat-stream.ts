@@ -11,6 +11,7 @@ import {
   UX,
 } from '@/config/constants'
 import { ROUTES } from '@/config/routes'
+import { useStreamSession } from '@/features/chat/context/stream-session-context'
 import { useStreamState } from '@/features/stream-phases/hooks/use-stream-state'
 import type { MessageWithAttachments } from '@/schemas/conversation'
 import type { ChatInput, StreamChunk } from '@/schemas/message'
@@ -44,6 +45,7 @@ export function useChatStream(conversationId?: string) {
   const utils = trpc.useUtils()
   const cancelStreamMutation = trpc.chat.cancel.useMutation()
   const activeSessionRef = useRef<ActiveStreamSession | null>(null)
+  const { beginSession, endSession } = useStreamSession()
   const sendLockRef = useRef(false)
   const resolvedConversationIdRef = useRef<string | undefined>(undefined)
   const pendingRouteConversationIdRef = useRef<string | undefined>(undefined)
@@ -59,10 +61,11 @@ export function useChatStream(conversationId?: string) {
   const clearActiveSession = useCallback(() => {
     const active = activeSessionRef.current
     if (!active) return
+    endSession(active.sessionId)
     active.unsubscribe()
     activeSessionRef.current = null
     sendLockRef.current = false
-  }, [])
+  }, [endSession])
 
   const runStreamAttempt = useCallback(
     (input: ChatInput) => {
@@ -100,6 +103,7 @@ export function useChatStream(conversationId?: string) {
         isSettled: false,
       }
       activeSessionRef.current = session
+      beginSession('chat', sessionId)
 
       const settleWithError = (chunk: {
         message: string
@@ -114,6 +118,7 @@ export function useChatStream(conversationId?: string) {
         active.unsubscribe()
         activeSessionRef.current = null
         sendLockRef.current = false
+        endSession(sessionId)
 
         dispatch({
           type: STREAM_ACTIONS.ERROR,
@@ -262,6 +267,7 @@ export function useChatStream(conversationId?: string) {
                 active.isSettled = true
                 activeSessionRef.current = null
                 sendLockRef.current = false
+                endSession(sessionId)
                 dispatch({ type: STREAM_ACTIONS.DONE })
                 const convId = resolvedConversationIdRef.current
                 if (convId) {
@@ -315,13 +321,14 @@ export function useChatStream(conversationId?: string) {
             }
             activeSessionRef.current = null
             sendLockRef.current = false
+            endSession(sessionId)
           },
         },
       )
 
       session.unsubscribe = () => subscription.unsubscribe()
     },
-    [clearActiveSession, dispatch, reset, router, utils],
+    [beginSession, clearActiveSession, dispatch, endSession, reset, router, utils],
   )
 
   const sendMessage = useCallback(
@@ -343,6 +350,7 @@ export function useChatStream(conversationId?: string) {
     active.unsubscribe()
     activeSessionRef.current = null
     sendLockRef.current = false
+    endSession(active.sessionId)
     dispatch({ type: STREAM_ACTIONS.CLEAR_PENDING_USER_MESSAGE })
     reset()
 
@@ -351,16 +359,17 @@ export function useChatStream(conversationId?: string) {
       void cancelStreamMutation.mutateAsync({ conversationId })
       void utils.conversation.messages.invalidate({ conversationId })
     }
-  }, [cancelStreamMutation, dispatch, reset, utils])
+  }, [cancelStreamMutation, dispatch, endSession, reset, utils])
 
   useEffect(() => {
     return () => {
       const active = activeSessionRef.current
       if (!active) return
+      endSession(active.sessionId)
       active.unsubscribe()
       activeSessionRef.current = null
     }
-  }, [])
+  }, [endSession])
 
   useEffect(() => {
     const handleNewChatRequested = () => {

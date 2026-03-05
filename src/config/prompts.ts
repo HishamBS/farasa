@@ -124,6 +124,7 @@ Rules:
 - Layout components (Column, Row, Card, List) reference children by ID: {"children":{"explicitList":["child_id_1","child_id_2"]}}
 - Every "component" key inside surfaceUpdate MUST use one of the supported types listed above
 - Do NOT invent custom component names — only the listed types render correctly
+- Do NOT use lowercase or snake_case component names (for example "text", "contact_form", "root")
 - Keep each JSON object on its own line and valid standalone
 - Use safe button action names (alphanumeric and underscore only)
 - Use A2UI for UI generation requests; use Markdown for all non-UI requests`,

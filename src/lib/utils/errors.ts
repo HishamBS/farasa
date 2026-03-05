@@ -23,7 +23,31 @@ export const AppError = {
 
 export type AppErrorCode = keyof typeof AppError
 
+function normalizeKnownClientErrorMessage(message: string, fallback?: string): string {
+  const lowered = message.toLowerCase()
+
+  if (lowered.includes("unexpected token '<'") || lowered.includes('not valid json')) {
+    return 'Upload request was rejected. The file may be too large.'
+  }
+  if (lowered.includes('413') || lowered.includes('file too large')) {
+    return 'File too large. Please upload a smaller file.'
+  }
+  if (lowered.includes('network error')) {
+    return AppError.CONNECTION
+  }
+
+  return message || fallback || AppError.INTERNAL
+}
+
 export function getErrorMessage(err: unknown, fallback?: string): string {
-  if (err instanceof Error) return err.message
-  return fallback ?? String(err)
+  if (err instanceof Error) {
+    return normalizeKnownClientErrorMessage(err.message, fallback)
+  }
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    const message = (err as { message?: unknown }).message
+    if (typeof message === 'string') {
+      return normalizeKnownClientErrorMessage(message, fallback)
+    }
+  }
+  return fallback ?? AppError.INTERNAL
 }

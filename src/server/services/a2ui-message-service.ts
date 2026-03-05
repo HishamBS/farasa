@@ -191,6 +191,105 @@ function serializeSafeA2UIMessages(
 
 const validComponentTypes: ReadonlySet<string> = new Set(A2UI_COMPONENT_TYPES)
 
+type SurfaceGraphState = {
+  rootId: string | null
+  componentIds: Set<string>
+  childReferences: Set<string>
+}
+
+function getOrCreateSurfaceState(
+  surfaces: Map<string, SurfaceGraphState>,
+  surfaceId: string,
+): SurfaceGraphState {
+  const existing = surfaces.get(surfaceId)
+  if (existing) return existing
+  const created: SurfaceGraphState = {
+    rootId: null,
+    componentIds: new Set<string>(),
+    childReferences: new Set<string>(),
+  }
+  surfaces.set(surfaceId, created)
+  return created
+}
+
+function collectChildReferences(value: unknown, refs: Set<string>): void {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectChildReferences(item, refs)
+    }
+    return
+  }
+  if (!isRecord(value)) return
+
+  if ('children' in value && isRecord(value.children)) {
+    const explicitList = value.children.explicitList
+    if (Array.isArray(explicitList)) {
+      for (const childId of explicitList) {
+        if (typeof childId === 'string') refs.add(childId)
+      }
+    }
+  }
+
+  for (const child of Object.values(value)) {
+    collectChildReferences(child, refs)
+  }
+}
+
+function validateSurfaceGraph(messages: ReadonlyArray<v0_8.A2UIMessage>): boolean {
+  const surfaces = new Map<string, SurfaceGraphState>()
+
+  for (const message of messages) {
+    const raw: unknown = message
+    if (!isRecord(raw)) continue
+
+    if ('beginRendering' in raw && isRecord(raw.beginRendering)) {
+      const surfaceId = raw.beginRendering.surfaceId
+      const rootId = raw.beginRendering.root
+      if (typeof surfaceId !== 'string' || typeof rootId !== 'string') {
+        return false
+      }
+      const state = getOrCreateSurfaceState(surfaces, surfaceId)
+      state.rootId = rootId
+    }
+
+    if ('surfaceUpdate' in raw && isRecord(raw.surfaceUpdate)) {
+      const surfaceId = raw.surfaceUpdate.surfaceId
+      const components = raw.surfaceUpdate.components
+      if (typeof surfaceId !== 'string' || !Array.isArray(components)) {
+        return false
+      }
+
+      const state = getOrCreateSurfaceState(surfaces, surfaceId)
+      for (const componentEntry of components) {
+        if (!isRecord(componentEntry)) return false
+        const componentId = componentEntry.id
+        if (typeof componentId !== 'string' || componentId.length === 0) return false
+        if (state.componentIds.has(componentId)) return false
+        state.componentIds.add(componentId)
+
+        if ('component' in componentEntry && isRecord(componentEntry.component)) {
+          collectChildReferences(componentEntry.component, state.childReferences)
+        }
+      }
+    }
+  }
+
+  for (const [surfaceId, state] of surfaces) {
+    if (state.rootId && !state.componentIds.has(state.rootId)) {
+      console.warn('[a2ui] root component id missing in surface update:', surfaceId)
+      return false
+    }
+    for (const childId of state.childReferences) {
+      if (!state.componentIds.has(childId)) {
+        console.warn('[a2ui] child component reference missing:', surfaceId, childId)
+        return false
+      }
+    }
+  }
+
+  return true
+}
+
 function collectComponentTypes(value: unknown, found: Set<string>): void {
   if (!isRecord(value)) return
 
@@ -252,6 +351,9 @@ export function parseA2UIFencePayloadToJsonLines(
 
   const protocolMessages = parsed.filter(isProtocolMessage)
   if (protocolMessages.length === 0) {
+    return []
+  }
+  if (!validateSurfaceGraph(protocolMessages)) {
     return []
   }
 

@@ -47,15 +47,21 @@ export function MicButton({ onTranscript, onInterimTranscript }: MicButtonProps)
 
   if (isReady && !isSupported) {
     return (
-      <button
-        type="button"
-        disabled
-        title={UI_TEXT.STT_UNSUPPORTED}
-        className="flex size-8 cursor-not-allowed items-center justify-center rounded-lg text-(--text-ghost)"
-        aria-label={UI_TEXT.STT_UNSUPPORTED}
-      >
-        <Mic className="size-4" />
-      </button>
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          disabled
+          title={UI_TEXT.STT_UNSUPPORTED}
+          className="flex size-8 cursor-not-allowed items-center justify-center rounded-lg text-(--text-ghost)"
+          aria-label={UI_TEXT.STT_UNSUPPORTED}
+          aria-describedby="stt-unsupported-label"
+        >
+          <Mic className="size-4" />
+        </button>
+        <span id="stt-unsupported-label" className="text-[11px] text-(--text-muted)">
+          Voice unavailable
+        </span>
+      </div>
     )
   }
 

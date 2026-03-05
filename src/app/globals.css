@@ -1,4 +1,7 @@
-@import 'tailwindcss';
+@config '../../tailwind.config.ts';
+
+@import 'tailwindcss' source(none);
+@source '../**/*.{ts,tsx,css}';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @import '../styles/themes.css';

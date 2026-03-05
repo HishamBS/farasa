@@ -44,6 +44,8 @@ export function useChatStream(conversationId?: string) {
   const { state: streamState, dispatch, reset } = useStreamState()
   const utils = trpc.useUtils()
   const cancelStreamMutation = trpc.chat.cancel.useMutation()
+  const cancelMutateRef = useRef(cancelStreamMutation.mutateAsync)
+  cancelMutateRef.current = cancelStreamMutation.mutateAsync
   const activeSessionRef = useRef<ActiveStreamSession | null>(null)
   const { beginSession, endSession } = useStreamSession()
   const sendLockRef = useRef(false)
@@ -58,14 +60,21 @@ export function useChatStream(conversationId?: string) {
     })
   }, [conversationId, dispatch])
 
+  const teardownSession = useCallback(
+    (sessionId: string) => {
+      activeSessionRef.current = null
+      sendLockRef.current = false
+      endSession(sessionId)
+    },
+    [endSession],
+  )
+
   const clearActiveSession = useCallback(() => {
     const active = activeSessionRef.current
     if (!active) return
-    endSession(active.sessionId)
     active.unsubscribe()
-    activeSessionRef.current = null
-    sendLockRef.current = false
-  }, [endSession])
+    teardownSession(active.sessionId)
+  }, [teardownSession])
 
   const ensureConversationId = useCallback(
     async (input: ChatInput): Promise<string | undefined> => {
@@ -90,7 +99,7 @@ export function useChatStream(conversationId?: string) {
   )
 
   const runStreamAttempt = useCallback(
-    async (input: ChatInput) => {
+    async (input: ChatInput, sessionId: string) => {
       const clientRequestId = input.clientRequestId ?? crypto.randomUUID()
       const ensuredConversationId = await ensureConversationId(input)
       const effectiveConversationId = ensuredConversationId ?? resolvedConversationIdRef.current
@@ -100,9 +109,11 @@ export function useChatStream(conversationId?: string) {
       if (
         activeSession &&
         !activeSession.isSettled &&
+        activeSession.sessionId !== sessionId &&
         activeSession.conversationId === effectiveConversationId
       ) {
-        clearActiveSession()
+        activeSession.unsubscribe()
+        teardownSession(activeSession.sessionId)
       }
 
       reset()
@@ -118,7 +129,6 @@ export function useChatStream(conversationId?: string) {
         })
       }
 
-      const sessionId = crypto.randomUUID()
       const session: ActiveStreamSession = {
         conversationId: effectiveConversationId,
         sessionId,
@@ -127,7 +137,6 @@ export function useChatStream(conversationId?: string) {
         terminalEvent: null,
       }
       activeSessionRef.current = session
-      beginSession('chat', sessionId)
 
       const settleWithError = (chunk: {
         message: string
@@ -141,9 +150,7 @@ export function useChatStream(conversationId?: string) {
         active.isSettled = true
         active.terminalEvent = 'error'
         active.unsubscribe()
-        activeSessionRef.current = null
-        sendLockRef.current = false
-        endSession(sessionId)
+        teardownSession(sessionId)
 
         dispatch({
           type: STREAM_ACTIONS.ERROR,
@@ -290,9 +297,7 @@ export function useChatStream(conversationId?: string) {
                 if (active.isSettled) return
                 active.isSettled = true
                 active.terminalEvent = 'done'
-                activeSessionRef.current = null
-                sendLockRef.current = false
-                endSession(sessionId)
+                teardownSession(sessionId)
                 dispatch({ type: STREAM_ACTIONS.DONE })
                 const convId = resolvedConversationIdRef.current
                 if (convId) {
@@ -336,25 +341,14 @@ export function useChatStream(conversationId?: string) {
                 },
               })
             }
-            activeSessionRef.current = null
-            sendLockRef.current = false
-            endSession(sessionId)
+            teardownSession(sessionId)
           },
         },
       )
 
       session.unsubscribe = () => subscription.unsubscribe()
     },
-    [
-      beginSession,
-      clearActiveSession,
-      dispatch,
-      endSession,
-      ensureConversationId,
-      reset,
-      router,
-      utils,
-    ],
+    [dispatch, ensureConversationId, reset, router, teardownSession, utils],
   )
 
   const sendMessage = useCallback(
@@ -363,8 +357,13 @@ export function useChatStream(conversationId?: string) {
         return
       }
       sendLockRef.current = true
-      void runStreamAttempt(input).catch((error: unknown) => {
-        sendLockRef.current = false
+
+      const sessionId = crypto.randomUUID()
+      beginSession('chat', sessionId)
+      dispatch({ type: STREAM_ACTIONS.BEGIN })
+
+      void runStreamAttempt(input, sessionId).catch((error: unknown) => {
+        teardownSession(sessionId)
         const message =
           error instanceof Error && error.message.trim().length > 0
             ? error.message
@@ -381,7 +380,7 @@ export function useChatStream(conversationId?: string) {
         })
       })
     },
-    [dispatch, runStreamAttempt],
+    [beginSession, dispatch, runStreamAttempt, teardownSession],
   )
 
   const abort = useCallback(() => {
@@ -391,28 +390,25 @@ export function useChatStream(conversationId?: string) {
     active.isSettled = true
     active.terminalEvent = 'cancelled'
     active.unsubscribe()
-    activeSessionRef.current = null
-    sendLockRef.current = false
-    endSession(active.sessionId)
+    teardownSession(active.sessionId)
     dispatch({ type: STREAM_ACTIONS.CLEAR_PENDING_USER_MESSAGE })
     reset()
 
     const conversationId = resolvedConversationIdRef.current
     if (conversationId) {
-      void cancelStreamMutation.mutateAsync({ conversationId })
+      void cancelMutateRef.current({ conversationId })
       void utils.conversation.messages.invalidate({ conversationId })
     }
-  }, [cancelStreamMutation, dispatch, endSession, reset, utils])
+  }, [dispatch, reset, teardownSession, utils])
 
   useEffect(() => {
     return () => {
       const active = activeSessionRef.current
       if (!active) return
-      endSession(active.sessionId)
       active.unsubscribe()
-      activeSessionRef.current = null
+      teardownSession(active.sessionId)
     }
-  }, [endSession])
+  }, [teardownSession])
 
   useEffect(() => {
     const handleNewChatRequested = () => {

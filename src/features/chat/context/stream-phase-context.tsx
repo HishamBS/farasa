@@ -2,7 +2,7 @@
 
 import { TITLEBAR_PHASE } from '@/config/constants'
 import type { ModelSelectionState, StatusMessage, TitlebarPhase } from '@/types/stream'
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useMemo, useState } from 'react'
 
 interface StreamPhaseContextValue {
   phase: TitlebarPhase
@@ -32,22 +32,30 @@ export function StreamPhaseProvider({ children }: { children: React.ReactNode })
   const [hasText, setHasText] = useState(false)
   const [statusMessages, setStatusMessages] = useState<StatusMessage[]>([])
 
-  return (
-    <StreamPhaseContext.Provider
-      value={{
-        phase,
-        setPhase,
-        modelSelection,
-        setModelSelection,
-        hasText,
-        setHasText,
-        statusMessages,
-        setStatusMessages,
-      }}
-    >
-      {children}
-    </StreamPhaseContext.Provider>
+  const value = useMemo<StreamPhaseContextValue>(
+    () => ({
+      phase,
+      setPhase,
+      modelSelection,
+      setModelSelection,
+      hasText,
+      setHasText,
+      statusMessages,
+      setStatusMessages,
+    }),
+    [
+      phase,
+      setPhase,
+      modelSelection,
+      setModelSelection,
+      hasText,
+      setHasText,
+      statusMessages,
+      setStatusMessages,
+    ],
   )
+
+  return <StreamPhaseContext.Provider value={value}>{children}</StreamPhaseContext.Provider>
 }
 
 export function useStreamPhase(): StreamPhaseContextValue {

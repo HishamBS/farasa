@@ -1,5 +1,5 @@
 import { CHAT_STREAM_STATUS, STREAM_ACTIONS, TOOL_NAMES } from '@/config/constants'
-import type { StreamAction, StreamState } from '@/types/stream'
+import type { StatusMessage, StreamAction, StreamState, ThinkingState } from '@/types/stream'
 import { useCallback, useReducer } from 'react'
 
 export const initialStreamState: StreamState = {
@@ -18,25 +18,38 @@ export const initialStreamState: StreamState = {
   resolvedConversationId: null,
 }
 
+function markStatusMessagesComplete(messages: StatusMessage[], now: number): StatusMessage[] {
+  return messages.map((m) => (m.completedAt ? m : { ...m, completedAt: now }))
+}
+
+function markThinkingComplete(thinking: ThinkingState | null, now: number): ThinkingState | null {
+  if (!thinking || thinking.completedAt) return thinking
+  return { ...thinking, completedAt: now }
+}
+
 export function streamStateReducer(state: StreamState, action: StreamAction): StreamState {
   switch (action.type) {
-    case STREAM_ACTIONS.STATUS: {
-      const now = Date.now()
-      const markedComplete = state.statusMessages.map((statusMessage) =>
-        statusMessage.completedAt ? statusMessage : { ...statusMessage, completedAt: now },
-      )
+    case STREAM_ACTIONS.BEGIN: {
       return {
         ...state,
         phase: CHAT_STREAM_STATUS.ACTIVE,
-        statusMessages: [...markedComplete, { phase: action.phase, message: action.message }],
+      }
+    }
+
+    case STREAM_ACTIONS.STATUS: {
+      const now = Date.now()
+      return {
+        ...state,
+        phase: CHAT_STREAM_STATUS.ACTIVE,
+        statusMessages: [
+          ...markStatusMessagesComplete(state.statusMessages, now),
+          { phase: action.phase, message: action.message },
+        ],
       }
     }
 
     case STREAM_ACTIONS.MODEL_SELECTED: {
       const now = Date.now()
-      const updatedStatus = state.statusMessages.map((s) =>
-        s.completedAt ? s : { ...s, completedAt: now },
-      )
       return {
         ...state,
         modelSelection: {
@@ -48,7 +61,7 @@ export function streamStateReducer(state: StreamState, action: StreamAction): St
           confidence: action.confidence,
           factors: action.factors,
         },
-        statusMessages: updatedStatus,
+        statusMessages: markStatusMessagesComplete(state.statusMessages, now),
       }
     }
 
@@ -111,13 +124,8 @@ export function streamStateReducer(state: StreamState, action: StreamAction): St
         ...state,
         phase: CHAT_STREAM_STATUS.ERROR,
         error: action.error,
-        statusMessages: state.statusMessages.map((statusMessage) =>
-          statusMessage.completedAt ? statusMessage : { ...statusMessage, completedAt: now },
-        ),
-        thinking:
-          state.thinking && !state.thinking.completedAt
-            ? { ...state.thinking, completedAt: now }
-            : state.thinking,
+        statusMessages: markStatusMessagesComplete(state.statusMessages, now),
+        thinking: markThinkingComplete(state.thinking, now),
       }
     }
 
@@ -126,13 +134,8 @@ export function streamStateReducer(state: StreamState, action: StreamAction): St
       return {
         ...state,
         phase: CHAT_STREAM_STATUS.COMPLETE,
-        statusMessages: state.statusMessages.map((statusMessage) =>
-          statusMessage.completedAt ? statusMessage : { ...statusMessage, completedAt: now },
-        ),
-        thinking:
-          state.thinking && !state.thinking.completedAt
-            ? { ...state.thinking, completedAt: now }
-            : state.thinking,
+        statusMessages: markStatusMessagesComplete(state.statusMessages, now),
+        thinking: markThinkingComplete(state.thinking, now),
         pendingUserMessage: null,
         pendingClientRequestId: null,
       }

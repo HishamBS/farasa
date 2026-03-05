@@ -94,5 +94,6 @@ export type StreamAction =
   | { type: 'SAVE_INPUT'; input: ChatInput }
   | { type: typeof STREAM_ACTIONS.SET_CONVERSATION_ID; conversationId: string | null }
   | { type: typeof STREAM_ACTIONS.CLEAR_PENDING_USER_MESSAGE }
+  | { type: typeof STREAM_ACTIONS.BEGIN }
 
 export type TitlebarPhase = (typeof TITLEBAR_PHASE)[keyof typeof TITLEBAR_PHASE]

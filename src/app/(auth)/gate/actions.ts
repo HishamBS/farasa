@@ -3,10 +3,10 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { env } from '@/config/env'
-import { COOKIE_NAMES } from '@/config/constants'
+import { COOKIE_NAMES, LIMITS } from '@/config/constants'
 import { ROUTES } from '@/config/routes'
 
-const GATE_COOKIE_MAX_AGE = 30 * 24 * 60 * 60
+const GATE_COOKIE_MAX_AGE = LIMITS.GATE_COOKIE_MAX_AGE_SECONDS
 
 export async function verifyAccessCode(
   _prevState: { error: string } | null,

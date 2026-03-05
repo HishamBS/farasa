@@ -1,7 +1,7 @@
 'use client'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { TEAM_TAB_VALUES, PROVIDER_ALIASES, PROVIDER_DOT_CLASSES } from '@/config/constants'
+import { TEAM_TAB_VALUES, PROVIDER_ALIASES, PROVIDER_DOT_CLASSES, UX } from '@/config/constants'
 import type { UseSynthesisReturn } from '@/features/team/hooks/use-team-synthesis'
 import { useTeamSynthesis } from '@/features/team/hooks/use-team-synthesis'
 import type { ModelMeta } from '@/features/team/types'
@@ -89,7 +89,7 @@ function HistoricalTabs({
 
       {tabMetas.map(({ modelId, content }) => (
         <TabsContent key={modelId} value={modelId}>
-          <div className="py-1 text-[0.90625rem] leading-[1.72] text-(--text-primary)">
+          <div className={cn('py-1', UX.PROSE_BODY_CLASS)}>
             <MarkdownRenderer content={content} />
           </div>
         </TabsContent>

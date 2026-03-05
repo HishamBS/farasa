@@ -235,6 +235,7 @@ export function useTeamStream({
           setTeamDone(true)
           setTeamId(chunk.teamId)
           setPhase(TEAM_STREAM_PHASES.DONE)
+          activeSubRef.current = null
           endSession(sessionId)
           setModelStates((prev) => {
             const next = new Map(prev)

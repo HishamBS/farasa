@@ -6,7 +6,7 @@ import { staggerContainer } from '@/lib/utils/motion'
 import { ThinkingBlock } from '@/features/stream-phases/components/thinking-block'
 import { ToolExecution } from '@/features/stream-phases/components/tool-execution'
 import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
-import { CHAT_STREAM_STATUS, PROVIDER_DOT_CLASSES } from '@/config/constants'
+import { CHAT_STREAM_STATUS, PROVIDER_DOT_CLASSES, UX } from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
 import type { StreamState } from '@/types/stream'
 
@@ -39,7 +39,7 @@ export function TeamResponsePanel({
         )}
       </div>
 
-      <div className="text-[0.90625rem] leading-[1.72] text-(--text-primary)">
+      <div className={UX.PROSE_BODY_CLASS}>
         {streamState.thinking && <ThinkingBlock thinking={streamState.thinking} />}
 
         {streamState.toolExecutions.length > 0 && (

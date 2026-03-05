@@ -1,6 +1,6 @@
 'use client'
 
-import { LIMITS, PROVIDER_DOT_CLASSES, UI_TEXT } from '@/config/constants'
+import { LIMITS, PROVIDER_DOT_CLASSES, UI_TEXT, UX } from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
 import { chevronSpin, fadeInDown } from '@/lib/utils/motion'
 import type { ModelConfig } from '@/schemas/model'
@@ -238,8 +238,8 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
         const triggerEl = triggerRef.current
         if (!triggerEl) return
         const triggerRect = triggerEl.getBoundingClientRect()
-        const menuHeight = menuRef.current?.offsetHeight ?? 320
-        const menuWidth = menuRef.current?.offsetWidth ?? 352
+        const menuHeight = menuRef.current?.offsetHeight ?? UX.MODEL_MENU_FALLBACK_HEIGHT
+        const menuWidth = menuRef.current?.offsetWidth ?? UX.MODEL_MENU_FALLBACK_WIDTH
         const spaceAbove = triggerRect.top
         const spaceBelow = window.innerHeight - triggerRect.bottom
 

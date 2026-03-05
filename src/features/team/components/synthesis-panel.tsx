@@ -1,6 +1,6 @@
 'use client'
 
-import { UI_TEXT } from '@/config/constants'
+import { UI_TEXT, UX } from '@/config/constants'
 import { ModelSelector } from '@/features/chat/components/model-selector'
 import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
 import { useTeamMode } from '@/features/team/context/team-context'
@@ -153,7 +153,7 @@ export function SynthesisPanel({
               <span className="ml-1 font-mono text-(--text-ghost)">via {synthesisModelLabel}</span>
             )}
           </p>
-          <div className="text-[0.90625rem] leading-[1.72] text-(--text-primary)">
+          <div className={UX.PROSE_BODY_CLASS}>
             <MarkdownRenderer content={displayedSynthesisText} />
           </div>
         </div>

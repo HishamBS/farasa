@@ -38,7 +38,7 @@ export function ConversationList({ search }: ConversationListProps) {
           void fetchNextPage()
         }
       },
-      { threshold: 0.1 },
+      { threshold: UX.INFINITE_SCROLL_THRESHOLD },
     )
     observer.observe(el)
     return () => observer.disconnect()

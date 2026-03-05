@@ -1,5 +1,6 @@
 'use client'
 
+import { UX } from '@/config/constants'
 import { cn } from '@/lib/utils/cn'
 import Image from 'next/image'
 import type { ReactNode } from 'react'
@@ -42,7 +43,7 @@ export function AssistantFrame({
         </div>
       </div>
 
-      <div className="pl-8 text-[0.90625rem] leading-[1.72] text-(--text-primary)">{children}</div>
+      <div className={cn('pl-8', UX.PROSE_BODY_CLASS)}>{children}</div>
     </article>
   )
 }

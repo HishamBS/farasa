@@ -49,6 +49,7 @@ videos/
 *.har
 *.trace
 *.webm
+tmp-qa/
 
 # TypeScript build cache
 tsconfig.tsbuildinfo

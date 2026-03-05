@@ -68,37 +68,19 @@ export const conversationRouter = router({
       throw new TRPCError({ code: TRPC_CODES.BAD_REQUEST })
     }
 
-    const [created] = await ctx.db.transaction(async (tx) => {
-      const [conversation] = await tx
-        .insert(conversations)
-        .values({
-          userId: ctx.userId,
-          title:
-            input.title?.slice(0, runtimeConfig.limits.conversationTitleMaxLength) ??
-            NEW_CHAT_TITLE,
-          model: input.model,
-          mode: input.mode,
-          webSearchEnabled: input.webSearchEnabled,
-          teamModels: input.teamModels,
-          teamSynthesizerModel: input.teamSynthesizerModel ?? undefined,
-        })
-        .returning()
-
-      if (!conversation) {
-        throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
-      }
-
-      if (input.firstMessage) {
-        await tx.insert(messages).values({
-          conversationId: conversation.id,
-          role: MESSAGE_ROLES.USER,
-          content: input.firstMessage.slice(0, runtimeConfig.limits.messageMaxLength),
-          clientRequestId: crypto.randomUUID(),
-        })
-      }
-
-      return [conversation]
-    })
+    const [created] = await ctx.db
+      .insert(conversations)
+      .values({
+        userId: ctx.userId,
+        title:
+          input.title?.slice(0, runtimeConfig.limits.conversationTitleMaxLength) ?? NEW_CHAT_TITLE,
+        model: input.model,
+        mode: input.mode,
+        webSearchEnabled: input.webSearchEnabled,
+        teamModels: input.teamModels,
+        teamSynthesizerModel: input.teamSynthesizerModel ?? undefined,
+      })
+      .returning()
 
     if (!created) {
       throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })

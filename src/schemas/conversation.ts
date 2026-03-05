@@ -9,7 +9,6 @@ export const CreateConversationSchema = z.object({
   webSearchEnabled: z.boolean().optional(),
   teamModels: z.array(z.string()).optional(),
   teamSynthesizerModel: z.string().nullable().optional(),
-  firstMessage: z.string().min(1).optional(),
 })
 
 export const UpdateConversationSchema = z.object({

@@ -1,3 +1,4 @@
+import { HTTP_STATUS } from '@/config/constants'
 import { db } from '@/lib/db/client'
 import { sql } from 'drizzle-orm'
 
@@ -10,7 +11,7 @@ export async function GET() {
   } catch {
     return Response.json(
       { status: 'degraded', db: false, timestamp: new Date().toISOString() },
-      { status: 503 },
+      { status: HTTP_STATUS.SERVICE_UNAVAILABLE },
     )
   }
 }

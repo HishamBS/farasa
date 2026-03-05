@@ -34,6 +34,7 @@ import {
 } from '@/server/services/message-persistence-service'
 import { executeSearchEnrichment } from '@/server/services/search-enrichment-service'
 import { streamSessions } from '@/server/services/stream-session-service'
+import type { StreamSession } from '@/server/services/stream-session-service'
 import {
   accumulateToolCallDelta,
   buildRoundToolCalls,
@@ -188,6 +189,7 @@ export const teamRouter = router({
     const streamRequestId = input.clientRequestId ?? crypto.randomUUID()
 
     let conversationId = input.conversationId
+    let streamSession: StreamSession | null = null
 
     try {
       if (!conversationId) {
@@ -214,6 +216,12 @@ export const teamRouter = router({
         db: ctx.db,
         conversationId,
         userId: ctx.userId,
+      })
+
+      streamSession = streamSessions.begin({
+        userId: ctx.userId,
+        conversationId,
+        streamRequestId,
       })
 
       const userResult = await persistUserMessage({
@@ -786,6 +794,10 @@ export const teamRouter = router({
           message,
           recoverable: false,
         } satisfies StreamChunk,
+      }
+    } finally {
+      if (streamSession) {
+        streamSessions.end(streamSession)
       }
     }
   }),

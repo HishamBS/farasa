@@ -12,10 +12,9 @@ type StreamSession = {
   abortController: AbortController
 }
 
-type StreamChunkPayload = {
-  type: StreamChunk['type']
-  [key: string]: unknown
-}
+type DistributiveOmit<T, K extends string> = T extends unknown ? Omit<T, K> : never
+
+type StreamChunkPayload = DistributiveOmit<StreamChunk, 'streamRequestId' | 'attempt' | 'sequence'>
 
 class StreamSessionService {
   private readonly byConversation = new Map<string, StreamSession>()

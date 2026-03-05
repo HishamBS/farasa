@@ -16,6 +16,40 @@ type MarkdownRendererProps = {
   autoCollapse?: boolean
 }
 
+const rehypePluginConfig = [
+  rehypeKatex,
+  [
+    rehypeSanitize,
+    {
+      ...defaultSchema,
+      tagNames: [...(defaultSchema.tagNames ?? []), ...MARKDOWN_SANITIZE.TAG_NAMES],
+      protocols: {
+        ...defaultSchema.protocols,
+        src: [...(defaultSchema.protocols?.src ?? []), 'data'],
+      },
+      attributes: {
+        ...defaultSchema.attributes,
+        img: [...(defaultSchema.attributes?.img ?? []), ...MARKDOWN_SANITIZE.ATTRIBUTES.IMG],
+        code: [...(defaultSchema.attributes?.code ?? []), ...MARKDOWN_SANITIZE.ATTRIBUTES.CODE],
+        span: [...(defaultSchema.attributes?.span ?? []), ...MARKDOWN_SANITIZE.ATTRIBUTES.SPAN],
+        math: [...(defaultSchema.attributes?.math ?? []), ...MARKDOWN_SANITIZE.ATTRIBUTES.MATH],
+        annotation: [
+          ...(defaultSchema.attributes?.annotation ?? []),
+          ...MARKDOWN_SANITIZE.ATTRIBUTES.ANNOTATION,
+        ],
+        mspace: [
+          ...(defaultSchema.attributes?.mspace ?? []),
+          ...MARKDOWN_SANITIZE.ATTRIBUTES.MSPACE,
+        ],
+      },
+    },
+  ],
+] as Parameters<typeof ReactMarkdown>[0]['rehypePlugins']
+
+const remarkPluginConfig = [remarkGfm, remarkMath] as Parameters<
+  typeof ReactMarkdown
+>[0]['remarkPlugins']
+
 const staticComponents: Components = {
   a: ({ href, children }) => {
     const safeHref = href && /^(https?:|mailto:|\/)/i.test(href) ? href : undefined
@@ -123,45 +157,8 @@ export function MarkdownRenderer({ content, autoCollapse }: MarkdownRendererProp
 
   return (
     <ReactMarkdown
-      rehypePlugins={[
-        rehypeKatex,
-        [
-          rehypeSanitize,
-          {
-            ...defaultSchema,
-            tagNames: [...(defaultSchema.tagNames ?? []), ...MARKDOWN_SANITIZE.TAG_NAMES],
-            protocols: {
-              ...defaultSchema.protocols,
-              src: [...(defaultSchema.protocols?.src ?? []), 'data'],
-            },
-            attributes: {
-              ...defaultSchema.attributes,
-              img: [...(defaultSchema.attributes?.img ?? []), ...MARKDOWN_SANITIZE.ATTRIBUTES.IMG],
-              code: [
-                ...(defaultSchema.attributes?.code ?? []),
-                ...MARKDOWN_SANITIZE.ATTRIBUTES.CODE,
-              ],
-              span: [
-                ...(defaultSchema.attributes?.span ?? []),
-                ...MARKDOWN_SANITIZE.ATTRIBUTES.SPAN,
-              ],
-              math: [
-                ...(defaultSchema.attributes?.math ?? []),
-                ...MARKDOWN_SANITIZE.ATTRIBUTES.MATH,
-              ],
-              annotation: [
-                ...(defaultSchema.attributes?.annotation ?? []),
-                ...MARKDOWN_SANITIZE.ATTRIBUTES.ANNOTATION,
-              ],
-              mspace: [
-                ...(defaultSchema.attributes?.mspace ?? []),
-                ...MARKDOWN_SANITIZE.ATTRIBUTES.MSPACE,
-              ],
-            },
-          },
-        ],
-      ]}
-      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={rehypePluginConfig}
+      remarkPlugins={remarkPluginConfig}
       components={components}
     >
       {content}

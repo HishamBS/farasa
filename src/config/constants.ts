@@ -63,6 +63,33 @@ export const SUPPORTED_FILE_TYPES = [
   'text/x-shellscript',
 ] as const
 
+export const FILE_EXTENSION_TO_MIME: Readonly<Record<string, string>> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  pdf: 'application/pdf',
+  json: 'application/json',
+  txt: 'text/plain',
+  md: 'text/markdown',
+  csv: 'text/csv',
+  html: 'text/html',
+  css: 'text/css',
+  js: 'text/javascript',
+  xml: 'text/xml',
+  py: 'text/x-python',
+  ts: 'text/x-typescript',
+  java: 'text/x-java',
+  c: 'text/x-c',
+  go: 'text/x-go',
+  rs: 'text/x-rust',
+  yaml: 'text/x-yaml',
+  yml: 'text/x-yaml',
+  toml: 'text/x-toml',
+  sh: 'text/x-shellscript',
+}
+
 export const MODEL_CATEGORIES = {
   CODE: 'code',
   ANALYSIS: 'analysis',

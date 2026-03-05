@@ -47,8 +47,11 @@ export function TeamResponsePanel({
             className="mb-3 flex flex-col gap-2"
             {...(shouldReduce ? {} : staggerContainer)}
           >
-            {streamState.toolExecutions.map((execution, i) => (
-              <ToolExecution key={i} execution={execution} />
+            {streamState.toolExecutions.map((execution) => (
+              <ToolExecution
+                key={`${execution.name}-${execution.completedAt}`}
+                execution={execution}
+              />
             ))}
           </motion.div>
         )}
@@ -60,7 +63,7 @@ export function TeamResponsePanel({
         )}
 
         {streamState.phase === CHAT_STREAM_STATUS.ERROR && streamState.error && (
-          <p className="text-sm text-red-400">{streamState.error.message}</p>
+          <p className="text-sm text-(--error)">{streamState.error.message}</p>
         )}
       </div>
     </div>

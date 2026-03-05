@@ -172,14 +172,10 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
   const handleFiles = useCallback(
     async (files: FileList | null) => {
       if (!files) return
-      for (const file of Array.from(files)) {
-        if (gcsEnabled) {
-          const uploaded = await uploadFile(file)
-          if (uploaded) addAttachment(uploaded.attachmentId)
-        } else {
-          const uploaded = await uploadFileInline(file)
-          if (uploaded) addAttachment(uploaded.attachmentId)
-        }
+      const uploadFn = gcsEnabled ? uploadFile : uploadFileInline
+      const results = await Promise.all(Array.from(files).map((file) => uploadFn(file)))
+      for (const uploaded of results) {
+        if (uploaded) addAttachment(uploaded.attachmentId)
       }
     },
     [gcsEnabled, uploadFile, uploadFileInline, addAttachment],
@@ -226,6 +222,14 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     },
     [setExternalContent],
   )
+
+  const handleWebSearchToggle = useCallback(() => {
+    setWebSearchEnabled(!webSearchEnabled)
+  }, [setWebSearchEnabled, webSearchEnabled])
+
+  const handleSetDefaultModel = useCallback(() => {
+    setDefaultModel(selectedModel)
+  }, [setDefaultModel, selectedModel])
 
   return (
     <div className="shrink-0 pb-[max(1rem,_env(safe-area-inset-bottom))] xl:pb-6">
@@ -290,7 +294,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
 
               <button
                 type="button"
-                onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+                onClick={handleWebSearchToggle}
                 className={cn(
                   'flex size-8 items-center justify-center rounded-lg transition-colors',
                   webSearchEnabled
@@ -380,7 +384,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
                   isSavingDefaultModel ||
                   (selectedModel ?? undefined) === (defaultModel ?? undefined)
                 }
-                onClick={() => setDefaultModel(selectedModel)}
+                onClick={handleSetDefaultModel}
                 className={cn(
                   'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors',
                   isSavingDefaultModel ||

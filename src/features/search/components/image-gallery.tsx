@@ -34,9 +34,9 @@ export function ImageGallery({ images }: ImageGalleryProps) {
         className="grid grid-cols-3 gap-2 sm:grid-cols-4"
         {...(shouldReduce ? {} : staggerContainer)}
       >
-        {visibleImages.map((img, i) => (
+        {visibleImages.map((img) => (
           <motion.button
-            key={i}
+            key={img.url}
             type="button"
             onClick={() => handleOpen(img)}
             className="relative aspect-square min-h-11 min-w-11 overflow-hidden rounded-xl border border-(--border-subtle) bg-(--bg-surface)"

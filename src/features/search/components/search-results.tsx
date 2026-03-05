@@ -21,9 +21,9 @@ export function SearchResults({ results, query }: SearchResultsProps) {
         {results.length} result{results.length !== 1 ? 's' : ''} for &ldquo;{query}&rdquo;
       </p>
       <motion.div className="flex flex-col gap-2" {...(shouldReduce ? {} : staggerContainer)}>
-        {results.map((result, i) => (
+        {results.map((result) => (
           <motion.a
-            key={i}
+            key={result.url}
             href={result.url}
             target="_blank"
             rel="noopener noreferrer"

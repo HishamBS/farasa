@@ -199,8 +199,11 @@ export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessa
 
           {toolExecutions.length > 0 && (
             <div className="flex flex-col gap-2">
-              {toolExecutions.map((execution, i) => (
-                <ToolExecution key={i} execution={execution} />
+              {toolExecutions.map((execution) => (
+                <ToolExecution
+                  key={`${execution.name}-${execution.completedAt}`}
+                  execution={execution}
+                />
               ))}
             </div>
           )}

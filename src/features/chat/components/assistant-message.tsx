@@ -78,8 +78,11 @@ export function AssistantMessage({ streamState }: AssistantMessageProps) {
 
           {streamState.toolExecutions.length > 0 && (
             <motion.div className="flex flex-col gap-2" {...(shouldReduce ? {} : staggerContainer)}>
-              {streamState.toolExecutions.map((execution, i) => (
-                <ToolExecution key={i} execution={execution} />
+              {streamState.toolExecutions.map((execution) => (
+                <ToolExecution
+                  key={`${execution.name}-${execution.completedAt}`}
+                  execution={execution}
+                />
               ))}
             </motion.div>
           )}

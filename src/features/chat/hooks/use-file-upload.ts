@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useMemo } from 'react'
+import { FILE_EXTENSION_TO_MIME } from '@/config/constants'
 import { trpc } from '@/trpc/provider'
 import { getErrorMessage } from '@/lib/utils/errors'
 
@@ -18,33 +19,6 @@ export type UploadState = {
 type UploadResult = {
   token: string
   attachmentId: string
-}
-
-const FILE_TYPE_BY_EXTENSION: Record<string, string> = {
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  png: 'image/png',
-  gif: 'image/gif',
-  webp: 'image/webp',
-  pdf: 'application/pdf',
-  json: 'application/json',
-  txt: 'text/plain',
-  md: 'text/markdown',
-  csv: 'text/csv',
-  html: 'text/html',
-  css: 'text/css',
-  js: 'text/javascript',
-  xml: 'text/xml',
-  py: 'text/x-python',
-  ts: 'text/x-typescript',
-  java: 'text/x-java',
-  c: 'text/x-c',
-  go: 'text/x-go',
-  rs: 'text/x-rust',
-  yaml: 'text/x-yaml',
-  yml: 'text/x-yaml',
-  toml: 'text/x-toml',
-  sh: 'text/x-shellscript',
 }
 
 export function useFileUpload() {
@@ -79,7 +53,7 @@ export function useFileUpload() {
     (file: File): string | null => {
       const declaredType = file.type.trim().toLowerCase()
       const extension = file.name.includes('.') ? file.name.split('.').pop()?.toLowerCase() : ''
-      const inferredType = extension ? FILE_TYPE_BY_EXTENSION[extension] : undefined
+      const inferredType = extension ? FILE_EXTENSION_TO_MIME[extension] : undefined
       const hasAllowList = supportedFileTypes.length > 0
 
       if (!hasAllowList) {

@@ -95,13 +95,29 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
   }, [])
 
   const isTooLong = content.length > LIMITS.MESSAGE_MAX_LENGTH
+  const hasUploadingFiles = useMemo(
+    () => [...uploadStates.values()].some((state) => state.isUploading),
+    [uploadStates],
+  )
+  const hasUploadErrors = useMemo(
+    () => [...uploadStates.values()].some((state) => Boolean(state.error)),
+    [uploadStates],
+  )
   const canSend = useMemo(() => {
-    if (content.trim().length === 0 || isStreaming || isTooLong) return false
+    if (
+      content.trim().length === 0 ||
+      isStreaming ||
+      isTooLong ||
+      hasUploadingFiles ||
+      hasUploadErrors
+    ) {
+      return false
+    }
     return true
-  }, [content, isStreaming, isTooLong])
+  }, [content, hasUploadErrors, hasUploadingFiles, isStreaming, isTooLong])
 
   const handleSubmit = useCallback(() => {
-    if (!content.trim() || isStreaming || isTooLong) return
+    if (!content.trim() || isStreaming || isTooLong || hasUploadingFiles || hasUploadErrors) return
     const modelForSubmission = getSelectedModel()
     if (mode === CHAT_MODES.TEAM) {
       if (onTeamSubmit) {
@@ -137,6 +153,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     attachmentIds,
     webSearchEnabled,
     isStreaming,
+    hasUploadingFiles,
+    hasUploadErrors,
     teamModels,
     onSend,
     onTeamSubmit,

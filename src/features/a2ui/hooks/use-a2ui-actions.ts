@@ -16,9 +16,16 @@ export function useA2UIActions() {
   const executeSearch = trpc.search.execute.useMutation()
   const runtimeConfigQuery = trpc.runtimeConfig.get.useQuery()
 
+  const getContextValue = useCallback((action: ActionPayload, key: string): unknown => {
+    if (!action.context || typeof action.context !== 'object') return undefined
+    return (action.context as Record<string, unknown>)[key]
+  }, [])
+
   const handleAction = useCallback(
     (action: ActionPayload) => {
-      const name = action.name.toLowerCase()
+      const rawName = typeof action.name === 'string' ? action.name.trim() : ''
+      if (!rawName) return
+      const name = rawName.toLowerCase()
       switch (name) {
         case 'newchat': {
           void createConversation.mutateAsync({}).then((conv) => {
@@ -28,8 +35,8 @@ export function useA2UIActions() {
           return
         }
         case 'rename': {
-          const id = String(action.context['id'] ?? '')
-          const title = String(action.context['title'] ?? '').trim()
+          const id = String(getContextValue(action, 'id') ?? '')
+          const title = String(getContextValue(action, 'title') ?? '').trim()
           if (!id || !title) return
           void updateConversation
             .mutateAsync({ id, title })
@@ -38,7 +45,7 @@ export function useA2UIActions() {
         }
         case 'pin':
         case 'unpin': {
-          const id = String(action.context['id'] ?? '')
+          const id = String(getContextValue(action, 'id') ?? '')
           if (!id) return
           void updateConversation
             .mutateAsync({ id, isPinned: name === 'pin' })
@@ -46,7 +53,7 @@ export function useA2UIActions() {
           return
         }
         case 'delete': {
-          const id = String(action.context['id'] ?? '')
+          const id = String(getContextValue(action, 'id') ?? '')
           if (!id) return
           void deleteConversation.mutateAsync({ id }).then(() => {
             void utils.conversation.list.invalidate()
@@ -59,7 +66,7 @@ export function useA2UIActions() {
           return
         }
         case 'search': {
-          const query = String(action.context['query'] ?? '').trim()
+          const query = String(getContextValue(action, 'query') ?? '').trim()
           if (!query) return
           const runtimeConfig = runtimeConfigQuery.data
           if (!runtimeConfig) return
@@ -78,6 +85,7 @@ export function useA2UIActions() {
       deleteConversation,
       executeSearch,
       refreshModels,
+      getContextValue,
       router,
       runtimeConfigQuery.data,
       updateConversation,

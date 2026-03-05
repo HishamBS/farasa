@@ -20,6 +20,33 @@ type UploadResult = {
   attachmentId: string
 }
 
+const FILE_TYPE_BY_EXTENSION: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  pdf: 'application/pdf',
+  json: 'application/json',
+  txt: 'text/plain',
+  md: 'text/markdown',
+  csv: 'text/csv',
+  html: 'text/html',
+  css: 'text/css',
+  js: 'text/javascript',
+  xml: 'text/xml',
+  py: 'text/x-python',
+  ts: 'text/x-typescript',
+  java: 'text/x-java',
+  c: 'text/x-c',
+  go: 'text/x-go',
+  rs: 'text/x-rust',
+  yaml: 'text/x-yaml',
+  yml: 'text/x-yaml',
+  toml: 'text/x-toml',
+  sh: 'text/x-shellscript',
+}
+
 export function useFileUpload() {
   const [uploadStates, setUploadStates] = useState<Map<string, UploadState>>(new Map())
   const runtimeConfigQuery = trpc.runtimeConfig.get.useQuery()
@@ -48,34 +75,87 @@ export function useFileUpload() {
     [],
   )
 
+  const resolveAllowedFileType = useCallback(
+    (file: File): string | null => {
+      const declaredType = file.type.trim().toLowerCase()
+      const extension = file.name.includes('.') ? file.name.split('.').pop()?.toLowerCase() : ''
+      const inferredType = extension ? FILE_TYPE_BY_EXTENSION[extension] : undefined
+      const hasAllowList = supportedFileTypes.length > 0
+
+      if (!hasAllowList) {
+        return declaredType || inferredType || null
+      }
+      if (declaredType && supportedFileTypes.includes(declaredType)) {
+        return declaredType
+      }
+      if (inferredType && supportedFileTypes.includes(inferredType)) {
+        return inferredType
+      }
+      return null
+    },
+    [supportedFileTypes],
+  )
+
+  const setRejectedFileState = useCallback(
+    (token: string, file: File, message: string) => {
+      upsertState(token, () => ({
+        token,
+        fileName: file.name,
+        progress: 0,
+        attachmentId: null,
+        error: message,
+        isUploading: false,
+        previewUrl: null,
+        fileType: file.type,
+      }))
+    },
+    [upsertState],
+  )
+
   const uploadFileInline = useCallback(
     async (file: File): Promise<UploadResult | null> => {
       const token = crypto.randomUUID()
-      const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null
+      const resolvedType = resolveAllowedFileType(file)
+      if (!resolvedType) {
+        setRejectedFileState(
+          token,
+          file,
+          'Unsupported file type. Please upload a supported format.',
+        )
+        return null
+      }
 
-      if (fileMaxSizeBytes !== null && file.size > fileMaxSizeBytes) {
+      const normalizedFile =
+        file.type === resolvedType
+          ? file
+          : new File([file], file.name, { type: resolvedType, lastModified: file.lastModified })
+      const previewUrl = resolvedType.startsWith('image/')
+        ? URL.createObjectURL(normalizedFile)
+        : null
+
+      if (fileMaxSizeBytes !== null && normalizedFile.size > fileMaxSizeBytes) {
         upsertState(token, () => ({
           token,
-          fileName: file.name,
+          fileName: normalizedFile.name,
           progress: 0,
           attachmentId: null,
           error: 'File too large. Please upload a smaller file.',
           isUploading: false,
           previewUrl,
-          fileType: file.type,
+          fileType: resolvedType,
         }))
         return null
       }
 
       upsertState(token, () => ({
         token,
-        fileName: file.name,
+        fileName: normalizedFile.name,
         progress: 0,
         attachmentId: null,
         error: null,
         isUploading: true,
         previewUrl,
-        fileType: file.type,
+        fileType: resolvedType,
       }))
 
       try {
@@ -87,26 +167,26 @@ export function useFileUpload() {
             else reject(new Error('Unexpected FileReader result type'))
           }
           reader.onerror = () => reject(new Error('Failed to read file'))
-          reader.readAsDataURL(file)
+          reader.readAsDataURL(normalizedFile)
         })
 
         const { attachmentId } = await storeInlineMutation.mutateAsync({
           dataUrl,
-          fileName: file.name,
-          fileType: file.type,
-          fileSize: file.size,
+          fileName: normalizedFile.name,
+          fileType: resolvedType,
+          fileSize: normalizedFile.size,
         })
 
         upsertState(token, (previous) => ({
           ...(previous ?? {
             token,
-            fileName: file.name,
+            fileName: normalizedFile.name,
             progress: 0,
             attachmentId: null,
             error: null,
             isUploading: false,
             previewUrl,
-            fileType: file.type,
+            fileType: resolvedType,
           }),
           progress: 100,
           attachmentId,
@@ -119,13 +199,13 @@ export function useFileUpload() {
         upsertState(token, (previous) => ({
           ...(previous ?? {
             token,
-            fileName: file.name,
+            fileName: normalizedFile.name,
             progress: 0,
             attachmentId: null,
             error: null,
             isUploading: false,
             previewUrl,
-            fileType: file.type,
+            fileType: resolvedType,
           }),
           isUploading: false,
           error: message,
@@ -133,48 +213,70 @@ export function useFileUpload() {
         return null
       }
     },
-    [fileMaxSizeBytes, storeInlineMutation, upsertState],
+    [
+      fileMaxSizeBytes,
+      resolveAllowedFileType,
+      setRejectedFileState,
+      storeInlineMutation,
+      upsertState,
+    ],
   )
 
   const uploadFile = useCallback(
     async (file: File): Promise<UploadResult | null> => {
       const token = crypto.randomUUID()
-      const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null
+      const resolvedType = resolveAllowedFileType(file)
+      if (!resolvedType) {
+        setRejectedFileState(
+          token,
+          file,
+          'Unsupported file type. Please upload a supported format.',
+        )
+        return null
+      }
+
+      const normalizedFile =
+        file.type === resolvedType
+          ? file
+          : new File([file], file.name, { type: resolvedType, lastModified: file.lastModified })
+      const previewUrl = resolvedType.startsWith('image/')
+        ? URL.createObjectURL(normalizedFile)
+        : null
 
       upsertState(token, () => ({
         token,
-        fileName: file.name,
+        fileName: normalizedFile.name,
         progress: 0,
         attachmentId: null,
         error: null,
         isUploading: true,
         previewUrl,
-        fileType: file.type,
+        fileType: resolvedType,
       }))
 
       try {
         const { uploadUrl, attachmentId } = await presignedUrlMutation.mutateAsync({
-          fileName: file.name,
-          fileType: file.type,
-          fileSize: file.size,
+          fileName: normalizedFile.name,
+          fileType: resolvedType,
+          fileSize: normalizedFile.size,
         })
 
         await new Promise<void>((resolve, reject) => {
           const xhr = new XMLHttpRequest()
           xhr.open('PUT', uploadUrl)
-          xhr.setRequestHeader('Content-Type', file.type)
+          xhr.setRequestHeader('Content-Type', resolvedType)
           xhr.upload.onprogress = (event) => {
             if (!event.lengthComputable) return
             const progress = Math.round((event.loaded / event.total) * 100)
             upsertState(token, (previous) => ({
               ...(previous ?? {
                 token,
-                fileName: file.name,
+                fileName: normalizedFile.name,
                 attachmentId: null,
                 error: null,
                 isUploading: true,
                 previewUrl,
-                fileType: file.type,
+                fileType: resolvedType,
               }),
               progress,
             }))
@@ -182,7 +284,7 @@ export function useFileUpload() {
           xhr.onload = () =>
             xhr.status === 200 ? resolve() : reject(new Error(`Upload failed: ${xhr.status}`))
           xhr.onerror = () => reject(new Error('Network error during upload'))
-          xhr.send(file)
+          xhr.send(normalizedFile)
         })
 
         await confirmMutation.mutateAsync({ attachmentId })
@@ -190,13 +292,13 @@ export function useFileUpload() {
         upsertState(token, (previous) => ({
           ...(previous ?? {
             token,
-            fileName: file.name,
+            fileName: normalizedFile.name,
             progress: 0,
             attachmentId: null,
             error: null,
             isUploading: false,
             previewUrl,
-            fileType: file.type,
+            fileType: resolvedType,
           }),
           progress: 100,
           attachmentId,
@@ -209,13 +311,13 @@ export function useFileUpload() {
         upsertState(token, (previous) => ({
           ...(previous ?? {
             token,
-            fileName: file.name,
+            fileName: normalizedFile.name,
             progress: 0,
             attachmentId: null,
             error: null,
             isUploading: false,
             previewUrl,
-            fileType: file.type,
+            fileType: resolvedType,
           }),
           isUploading: false,
           error: message,
@@ -223,7 +325,13 @@ export function useFileUpload() {
         return null
       }
     },
-    [confirmMutation, presignedUrlMutation, upsertState],
+    [
+      confirmMutation,
+      presignedUrlMutation,
+      resolveAllowedFileType,
+      setRejectedFileState,
+      upsertState,
+    ],
   )
 
   const removeFile = useCallback((token: string) => {

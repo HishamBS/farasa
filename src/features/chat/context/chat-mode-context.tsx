@@ -35,6 +35,7 @@ export function ChatModeProvider({ children }: { children: ReactNode }) {
   const [webSearchEnabled, setWebSearchEnabled] = useState(false)
   const [activeConversationId, setActiveConversationId] = useState<string | undefined>(undefined)
   const pendingSettingsRef = useRef<{
+    conversationId: string | undefined
     mode?: ChatMode
     webSearchEnabled?: boolean
   } | null>(null)
@@ -86,13 +87,14 @@ export function ChatModeProvider({ children }: { children: ReactNode }) {
       if (isTurnActive) {
         pendingSettingsRef.current = {
           ...(pendingSettingsRef.current ?? {}),
+          conversationId: pendingSettingsRef.current?.conversationId ?? activeConversationId,
           mode: nextMode,
         }
         return
       }
       persistSettings({ mode: nextMode })
     },
-    [isTurnActive, persistSettings],
+    [activeConversationId, isTurnActive, persistSettings],
   )
 
   const requestWebSearchChange = useCallback(
@@ -101,13 +103,14 @@ export function ChatModeProvider({ children }: { children: ReactNode }) {
       if (isTurnActive) {
         pendingSettingsRef.current = {
           ...(pendingSettingsRef.current ?? {}),
+          conversationId: pendingSettingsRef.current?.conversationId ?? activeConversationId,
           webSearchEnabled: enabled,
         }
         return
       }
       persistSettings({ webSearchEnabled: enabled })
     },
-    [isTurnActive, persistSettings],
+    [activeConversationId, isTurnActive, persistSettings],
   )
 
   const hydrateFromConversation = useCallback(
@@ -116,15 +119,22 @@ export function ChatModeProvider({ children }: { children: ReactNode }) {
       if (activeConversationId !== conversation.id) {
         setActiveConversationId(conversation.id)
       }
-
-      if (updateConversationMutation.isPending && activeConversationId === conversation.id) {
+      const pendingBelongsToConversation =
+        pending !== null &&
+        (pending.conversationId === conversation.id || pending.conversationId === undefined)
+      if (pendingBelongsToConversation) {
+        if (pending && pending.conversationId === undefined) {
+          pendingSettingsRef.current = { ...pending, conversationId: conversation.id }
+        }
+        setMode(pending?.mode ?? conversation.mode)
+        setWebSearchEnabled(pending?.webSearchEnabled ?? conversation.webSearchEnabled)
         return
       }
 
-      setMode(pending?.mode ?? conversation.mode)
-      setWebSearchEnabled(pending?.webSearchEnabled ?? conversation.webSearchEnabled)
+      setMode(conversation.mode)
+      setWebSearchEnabled(conversation.webSearchEnabled)
     },
-    [activeConversationId, updateConversationMutation.isPending],
+    [activeConversationId],
   )
 
   useEffect(() => {
@@ -142,9 +152,10 @@ export function ChatModeProvider({ children }: { children: ReactNode }) {
     if (isTurnActive) return
     const pending = pendingSettingsRef.current
     if (!pending) return
+    if (pending.conversationId && pending.conversationId !== activeConversationId) return
     pendingSettingsRef.current = null
     persistSettings(pending)
-  }, [isTurnActive, persistSettings])
+  }, [activeConversationId, isTurnActive, persistSettings])
 
   const value = useMemo(
     () => ({

@@ -1212,29 +1212,32 @@ export const chatRouter = router({
         }
 
         if (titleSeedMessage.trim() && conversationId) {
-          const titleConversationId = conversationId
-          void import('@/lib/ai/title').then(({ generateTitle }) =>
-            generateTitle(titleSeedMessage, runtimeConfig)
-              .then((generatedTitle) => {
-                const safeTitle = generatedTitle
-                  .trim()
-                  .slice(0, runtimeConfig.limits.conversationTitleMaxLength)
-                if (safeTitle) {
-                  return ctx.db
-                    .update(conversations)
-                    .set({ title: safeTitle, updatedAt: new Date() })
-                    .where(
-                      and(
-                        eq(conversations.id, titleConversationId),
-                        eq(conversations.userId, ctx.userId),
-                      ),
-                    )
-                }
-              })
-              .catch((titleError: unknown) => {
-                console.error('[title-gen] generateTitle failed:', getErrorMessage(titleError))
-              }),
-          )
+          try {
+            yield emit({
+              type: STREAM_EVENTS.STATUS,
+              phase: STREAM_PHASES.GENERATING_TITLE,
+              message: runtimeConfig.chat.statusMessages.generatingTitle,
+            })
+            const { generateTitle } = await import('@/lib/ai/title')
+            const generatedTitle = await generateTitle(
+              titleSeedMessage,
+              runtimeConfig,
+              combinedSignal,
+            )
+            const safeTitle = generatedTitle
+              .trim()
+              .slice(0, runtimeConfig.limits.conversationTitleMaxLength)
+            if (safeTitle) {
+              await ctx.db
+                .update(conversations)
+                .set({ title: safeTitle, updatedAt: new Date() })
+                .where(
+                  and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)),
+                )
+            }
+          } catch (titleError: unknown) {
+            console.error('[title-gen] generateTitle failed:', getErrorMessage(titleError))
+          }
         }
       }
 

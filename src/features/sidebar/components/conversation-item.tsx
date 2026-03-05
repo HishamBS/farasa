@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useMemo, useState, useRef, useEffect } from 'react'
+import { flushSync } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { motion, useReducedMotion } from 'framer-motion'
 import { MoreHorizontal, Pin, PinOff, Trash2, Pencil, Download } from 'lucide-react'
@@ -140,8 +141,8 @@ export function ConversationItem({
 
   const handleRenameStart = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
-    setIsEditing(true)
-    requestAnimationFrame(() => inputRef.current?.focus())
+    flushSync(() => setIsEditing(true))
+    inputRef.current?.focus()
   }, [])
 
   const handleRenameCommit = useCallback(() => {
@@ -230,7 +231,13 @@ export function ConversationItem({
               <MoreHorizontal size={14} />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+          <DropdownMenuContent
+            align="end"
+            onClick={(e) => e.stopPropagation()}
+            onCloseAutoFocus={(e) => {
+              if (isEditing) e.preventDefault()
+            }}
+          >
             <DropdownMenuItem onClick={handleRenameStart}>
               <Pencil size={14} className="mr-2" />
               Rename

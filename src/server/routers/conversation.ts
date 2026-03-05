@@ -29,7 +29,8 @@ export const conversationRouter = router({
     }
 
     if (input.search) {
-      conditions.push(ilike(conversations.title, `%${input.search}%`))
+      const escaped = input.search.replace(/%/g, '\\%').replace(/_/g, '\\_')
+      conditions.push(ilike(conversations.title, `%${escaped}%`))
     }
 
     const { resolvedLimit, fetchLimit } = resolvePaginationLimit(input.limit, runtimeConfig.limits)

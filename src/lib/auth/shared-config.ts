@@ -29,7 +29,12 @@ export const authSharedConfig = {
       return token
     },
     session({ session, token }) {
-      session.user.id = token.sub ?? ''
+      if (!token.sub) {
+        console.error('[auth] JWT token missing sub claim')
+        session.user.id = ''
+        return session
+      }
+      session.user.id = token.sub
       session.user.name = typeof token.name === 'string' ? token.name : ''
       session.user.email = typeof token.email === 'string' ? token.email : ''
       session.user.image = typeof token.picture === 'string' ? token.picture : ''

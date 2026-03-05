@@ -3,6 +3,14 @@ import { TRPCError } from '@trpc/server'
 type RateLimitEntry = { count: number; resetAt: number }
 
 const store = new Map<string, RateLimitEntry>()
+const EVICTION_THRESHOLD = 1000
+
+function evictExpired(): void {
+  const now = Date.now()
+  for (const [k, v] of store) {
+    if (now > v.resetAt) store.delete(k)
+  }
+}
 
 export function checkRateLimit(
   key: string,
@@ -11,6 +19,11 @@ export function checkRateLimit(
   message: string,
 ): void {
   const now = Date.now()
+
+  if (store.size > EVICTION_THRESHOLD) {
+    evictExpired()
+  }
+
   const entry = store.get(key)
 
   if (!entry || now > entry.resetAt) {

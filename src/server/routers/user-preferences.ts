@@ -1,7 +1,9 @@
 import { eq } from 'drizzle-orm'
+import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure } from '../trpc'
 import { UserPreferencesUpdateSchema } from '@/schemas/user-preferences'
 import { userPreferences } from '@/lib/db/schema'
+import { TRPC_CODES } from '@/config/constants'
 
 export const userPreferencesRouter = router({
   get: protectedProcedure.query(async ({ ctx }) => {
@@ -20,7 +22,7 @@ export const userPreferencesRouter = router({
       .returning()
 
     if (!created) {
-      throw new Error('Failed to initialize user preferences')
+      throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
     }
 
     return created

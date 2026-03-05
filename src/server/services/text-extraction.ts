@@ -25,7 +25,31 @@ function isDataUrl(url: string): boolean {
   return url.startsWith(DATA_URL_PREFIX)
 }
 
+function validateRemoteUrl(url: string): void {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    throw new Error('Invalid storage URL')
+  }
+  if (parsed.protocol !== 'https:') {
+    throw new Error(`Unsupported URL scheme: ${parsed.protocol}`)
+  }
+  const host = parsed.hostname
+  if (
+    host === 'localhost' ||
+    host === '169.254.169.254' ||
+    host.startsWith('127.') ||
+    host.startsWith('10.') ||
+    host.startsWith('192.168.') ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+  ) {
+    throw new Error('Storage URL points to private network')
+  }
+}
+
 async function fetchRemoteBuffer(url: string): Promise<Buffer> {
+  validateRemoteUrl(url)
   const response = await fetch(url)
   if (!response.ok) {
     throw new Error(`Failed to fetch file: ${response.status}`)

@@ -64,7 +64,17 @@ export function isAllowedA2UIButtonAction(action: unknown, pattern: string): boo
   } catch {
     return false
   }
-  return regex.test(candidate)
+
+  const REGEX_TEST_TIMEOUT_MS = 50
+  const start = performance.now()
+  const result = regex.test(candidate)
+  if (performance.now() - start > REGEX_TEST_TIMEOUT_MS) {
+    console.error(
+      '[runtime-safety] Regex test exceeded time threshold, pattern may be vulnerable to ReDoS',
+    )
+    return false
+  }
+  return result
 }
 
 function validateA2UIPayloadNode(

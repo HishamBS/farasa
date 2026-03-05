@@ -7,6 +7,7 @@ import type { ThinkingState } from '@/types/stream'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useCallback, useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
+import rehypeSanitize from 'rehype-sanitize'
 import remarkGfm from 'remark-gfm'
 
 type ThinkingBlockProps = {
@@ -93,7 +94,9 @@ export function ThinkingBlock({
             className="order-1 basis-full overflow-hidden"
           >
             <div className="thinking-prose mt-1 max-h-48 overflow-y-auto rounded-lg border border-(--thinking-border) bg-(--thinking-bg) p-3 font-mono text-xs leading-relaxed text-(--thinking) shadow-inner">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{thinking.content}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
+                {thinking.content}
+              </ReactMarkdown>
             </div>
           </motion.div>
         )}

@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, lt } from 'drizzle-orm'
+import { and, desc, eq, ilike, lt, sql } from 'drizzle-orm'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure } from '../trpc'
 import { conversations, messages } from '@/lib/db/schema'
@@ -77,6 +77,10 @@ export const conversationRouter = router({
             input.title?.slice(0, runtimeConfig.limits.conversationTitleMaxLength) ??
             NEW_CHAT_TITLE,
           model: input.model,
+          mode: input.mode,
+          webSearchEnabled: input.webSearchEnabled,
+          teamModels: input.teamModels,
+          teamSynthesizerModel: input.teamSynthesizerModel ?? undefined,
         })
         .returning()
 
@@ -111,9 +115,23 @@ export const conversationRouter = router({
         ? rest.title.slice(0, runtimeConfig.limits.conversationTitleMaxLength)
         : undefined
 
+    const shouldBumpSettingsVersion =
+      rest.mode !== undefined ||
+      rest.webSearchEnabled !== undefined ||
+      rest.model !== undefined ||
+      rest.teamModels !== undefined ||
+      rest.teamSynthesizerModel !== undefined
+
     const [updated] = await ctx.db
       .update(conversations)
-      .set({ ...rest, title: safeTitle, updatedAt: new Date() })
+      .set({
+        ...rest,
+        title: safeTitle,
+        updatedAt: new Date(),
+        ...(shouldBumpSettingsVersion
+          ? { settingsVersion: sql`${conversations.settingsVersion} + 1` }
+          : {}),
+      })
       .where(and(eq(conversations.id, id), eq(conversations.userId, ctx.userId)))
       .returning()
 

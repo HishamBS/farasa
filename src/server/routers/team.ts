@@ -186,6 +186,7 @@ export const teamRouter = router({
             model: input.models[0],
             mode: CHAT_MODES.TEAM,
             webSearchEnabled: input.webSearchEnabled,
+            teamModels: input.models,
           })
           .returning({ id: conversations.id })
         if (!created) {
@@ -276,8 +277,11 @@ export const teamRouter = router({
       await ctx.db
         .update(conversations)
         .set({
+          model: input.models[0] ?? null,
           mode: CHAT_MODES.TEAM,
           webSearchEnabled: input.webSearchEnabled,
+          teamModels: input.models,
+          settingsVersion: sql`${conversations.settingsVersion} + 1`,
           updatedAt: new Date(),
         })
         .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
@@ -1088,7 +1092,11 @@ Your task: write a single unified response that combines the strongest elements 
 
       await ctx.db
         .update(conversations)
-        .set({ updatedAt: new Date() })
+        .set({
+          teamSynthesizerModel: input.synthesisModel,
+          settingsVersion: sql`${conversations.settingsVersion} + 1`,
+          updatedAt: new Date(),
+        })
         .where(
           and(eq(conversations.id, input.conversationId), eq(conversations.userId, ctx.userId)),
         )

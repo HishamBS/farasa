@@ -5,6 +5,10 @@ import { CHAT_MODES } from '@/config/constants'
 export const CreateConversationSchema = z.object({
   title: z.string().min(1).optional(),
   model: z.string().nullable().optional(),
+  mode: ChatModeSchema.optional(),
+  webSearchEnabled: z.boolean().optional(),
+  teamModels: z.array(z.string()).optional(),
+  teamSynthesizerModel: z.string().nullable().optional(),
   firstMessage: z.string().min(1).optional(),
 })
 
@@ -15,6 +19,9 @@ export const UpdateConversationSchema = z.object({
   isPinned: z.boolean().optional(),
   mode: ChatModeSchema.optional(),
   webSearchEnabled: z.boolean().optional(),
+  teamModels: z.array(z.string()).optional(),
+  teamSynthesizerModel: z.string().nullable().optional(),
+  settingsVersion: z.number().int().nonnegative().optional(),
 })
 
 export const ConversationByIdSchema = z.object({
@@ -38,6 +45,9 @@ export const ConversationSummarySchema = z.object({
   isPinned: z.boolean(),
   mode: ChatModeSchema.default(CHAT_MODES.CHAT),
   webSearchEnabled: z.boolean().default(false),
+  teamModels: z.array(z.string()).optional(),
+  teamSynthesizerModel: z.string().nullable().optional(),
+  settingsVersion: z.number().int().nonnegative().default(0),
   updatedAt: z.date(),
   createdAt: z.date(),
 })

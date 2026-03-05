@@ -277,6 +277,25 @@
           "notNull": true,
           "default": false
         },
+        "team_models": {
+          "name": "team_models",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "team_synthesizer_model": {
+          "name": "team_synthesizer_model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "settings_version": {
+          "name": "settings_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",

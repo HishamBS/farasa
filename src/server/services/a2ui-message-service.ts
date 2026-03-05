@@ -1,4 +1,4 @@
-import { A2UI_COMPONENT_TYPES } from '@/config/constants'
+import { A2UI_COMPONENT_TYPES, A2UI_TYPES_LIST } from '@/config/constants'
 import { isRecord, sanitizeA2UIJsonLine } from '@/lib/security/runtime-safety'
 import type { RuntimeA2UIPolicy } from '@/schemas/runtime-config'
 import type { v0_8 } from '@a2ui-sdk/types'
@@ -239,7 +239,7 @@ export function validateA2UIComponentTypes(lines: readonly string[]): string[] {
 }
 
 export function buildComponentTypeFeedback(invalidTypes: readonly string[]): string {
-  return `Your A2UI output used unsupported component types: ${invalidTypes.join(', ')}. Every component type MUST be one of: ${A2UI_COMPONENT_TYPES.join(', ')}.`
+  return `Your A2UI output used unsupported component types: ${invalidTypes.join(', ')}. Every component type MUST be one of: ${A2UI_TYPES_LIST}.`
 }
 
 export function parseA2UIFencePayloadToJsonLines(

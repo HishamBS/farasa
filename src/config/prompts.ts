@@ -1,7 +1,6 @@
 import type { ModelConfig } from '@/schemas/model'
-import { A2UI_COMPONENT_CATEGORIES, A2UI_COMPONENT_TYPES, MODEL_CATEGORIES } from './constants'
+import { A2UI_COMPONENT_CATEGORIES, A2UI_TYPES_LIST, MODEL_CATEGORIES } from './constants'
 
-const A2UI_TYPES_LIST = A2UI_COMPONENT_TYPES.join(', ')
 const A2UI_CATEGORIZED_LIST = Object.entries(A2UI_COMPONENT_CATEGORIES)
   .map(([category, types]) => `${category}: ${types.join(', ')}`)
   .join('\n')

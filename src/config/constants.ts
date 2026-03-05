@@ -296,6 +296,8 @@ export const A2UI_COMPONENT_TYPES = [
   ...A2UI_COMPONENT_CATEGORIES.Interactive,
 ] as const
 
+export const A2UI_TYPES_LIST = A2UI_COMPONENT_TYPES.join(', ')
+
 export const AI_MARKUP = {
   A2UI_FENCE_START: '```a2ui',
   CODE_FENCE_END: '```',

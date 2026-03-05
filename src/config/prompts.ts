@@ -50,7 +50,7 @@ Return ONLY valid JSON matching this exact structure:
 selectedModel must exactly match one of the {id} values from the available models list.
 Return ONLY the JSON object. No markdown, no explanation, no extra text.`
 
-function formatModelLine(model: ModelConfig): string {
+export function formatModelLine(model: ModelConfig): string {
   const caps = model.capabilities.join(',')
   const ctxK = Math.round(model.contextWindow / 1_000)
   const vision = model.supportsVision ? 'y' : 'n'

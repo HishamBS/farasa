@@ -3,6 +3,7 @@ import { env } from '@/config/env'
 import { db } from '@/lib/db/client'
 import { runtimeConfigs } from '@/lib/db/schema'
 import { LIMITS } from '@/config/constants'
+import { isRecord } from '@/lib/security/runtime-safety'
 import {
   RuntimeConfigSchema,
   RuntimeConfigOverrideSchema,
@@ -49,10 +50,6 @@ function getCacheKey(options: RuntimeConfigOptions): string {
   if (options.userId) return `user:${options.userId}`
   if (options.tenantId) return `tenant:${options.tenantId}`
   return 'system'
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
 function mergeDeep(base: unknown, override: unknown): unknown {

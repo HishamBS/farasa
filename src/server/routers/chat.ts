@@ -40,7 +40,7 @@ import {
 import type { ChatMessageToolCall, Message } from '@openrouter/sdk/models'
 import { ToolChoiceOptionAuto } from '@openrouter/sdk/models'
 import { TRPCError } from '@trpc/server'
-import { and, asc, desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import { protectedProcedure, rateLimitedChatProcedure, router } from '../trpc'
 
 type StreamSession = {
@@ -719,65 +719,18 @@ export const chatRouter = router({
         let toolRoundCount = 0
 
         if (isImageGenModel) {
-          const imageSignal = AbortSignal.any([
-            combinedSignal,
-            AbortSignal.timeout(LIMITS.IMAGE_GEN_TIMEOUT_MS),
-          ])
-          const response = await openrouter.chat.send(
-            {
-              chatGenerationParams: {
-                model: selectedModel,
-                messages: baseMessages,
-                stream: false,
-                maxCompletionTokens: getModelMaxCompletionTokens(registry, selectedModel),
-              },
-            },
-            { signal: imageSignal },
-          )
+          const { executeImageGeneration } =
+            await import('@/server/services/image-generation-service')
+          const imageResult = await executeImageGeneration({
+            model: selectedModel,
+            messages: baseMessages,
+            signal: combinedSignal,
+            registry,
+          })
 
-          const rawMessage = response.choices[0]?.message
-          const messageRecord = rawMessage as Record<string, unknown> | undefined
-          const messageContent = rawMessage?.content
-          const messageImages = messageRecord?.images
-
-          let imageContent = ''
-
-          if (typeof messageContent === 'string' && messageContent.length > 0) {
-            imageContent = messageContent
-          }
-
-          if (!imageContent && Array.isArray(messageImages)) {
-            const parts: string[] = []
-            for (const img of messageImages as Array<Record<string, unknown>>) {
-              const nested = img?.imageUrl as Record<string, unknown> | undefined
-              if (typeof nested?.url === 'string') {
-                parts.push(`![Generated Image](${nested.url})`)
-              } else if (typeof img?.url === 'string') {
-                parts.push(`![Generated Image](${img.url})`)
-              } else if (typeof img?.b64_json === 'string') {
-                parts.push(`![Generated Image](data:image/png;base64,${img.b64_json})`)
-              }
-            }
-            imageContent = parts.join('\n\n')
-          }
-
-          if (!imageContent && Array.isArray(messageContent)) {
-            const parts: string[] = []
-            for (const item of messageContent as Array<Record<string, unknown>>) {
-              if (typeof item?.text === 'string') {
-                parts.push(item.text)
-              }
-              const imageUrl = item?.image_url as Record<string, unknown> | undefined
-              if (typeof imageUrl?.url === 'string') {
-                parts.push(`![Generated Image](${imageUrl.url})`)
-              }
-            }
-            imageContent = parts.join('\n\n')
-          }
-
-          if (imageContent.length > 0) {
-            fullText = imageContent
-            const textEvent = emit({ type: STREAM_EVENTS.TEXT, content: imageContent })
+          if (imageResult.imageContent.length > 0) {
+            fullText = imageResult.imageContent
+            const textEvent = emit({ type: STREAM_EVENTS.TEXT, content: imageResult.imageContent })
             if (typeof textEvent.sequence === 'number') {
               streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
             }
@@ -789,17 +742,7 @@ export const chatRouter = router({
             })
           }
 
-          if (response.usage) {
-            const parsedUsage = UsageSchema.safeParse({
-              promptTokens: response.usage.promptTokens ?? 0,
-              completionTokens: response.usage.completionTokens ?? 0,
-              totalTokens: response.usage.totalTokens ?? 0,
-            })
-            if (parsedUsage.success) {
-              usage = parsedUsage.data
-            }
-          }
-
+          usage = imageResult.usage
           break
         }
 
@@ -1292,74 +1235,25 @@ export const chatRouter = router({
         })
         .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
 
-      const shouldGenerateTitle = conversation.title === NEW_CHAT_TITLE
-
-      if (shouldGenerateTitle) {
-        const [firstAssistantMessage] = await ctx.db
-          .select({ metadata: messages.metadata })
-          .from(messages)
-          .where(
-            and(
-              eq(messages.conversationId, conversationId),
-              eq(messages.role, MESSAGE_ROLES.ASSISTANT),
-              sql`length(trim(${messages.content})) > 0`,
-            ),
-          )
-          .orderBy(asc(messages.createdAt), asc(messages.id))
-          .limit(1)
-
-        const parsedFirstAssistantMetadata = MessageMetadataSchema.safeParse(
-          firstAssistantMessage?.metadata,
-        )
-        const firstUserMessageId = parsedFirstAssistantMetadata.success
-          ? parsedFirstAssistantMetadata.data.userMessageId
-          : undefined
-
-        let titleSeedMessage = input.content
-        if (firstUserMessageId) {
-          const [seedUserMessage] = await ctx.db
-            .select({ content: messages.content })
-            .from(messages)
-            .where(
-              and(
-                eq(messages.id, firstUserMessageId),
-                eq(messages.conversationId, conversationId),
-                eq(messages.role, MESSAGE_ROLES.USER),
-              ),
-            )
-            .limit(1)
-
-          const candidate = seedUserMessage?.content?.trim()
-          if (candidate) {
-            titleSeedMessage = candidate
-          }
+      {
+        const { generateAndPersistTitle } =
+          await import('@/server/services/title-generation-service')
+        const shouldGenerate = conversation.title === NEW_CHAT_TITLE
+        if (shouldGenerate) {
+          yield emit({
+            type: STREAM_EVENTS.STATUS,
+            phase: STREAM_PHASES.GENERATING_TITLE,
+            message: runtimeConfig.chat.statusMessages.generatingTitle,
+          })
         }
-
-        if (titleSeedMessage.trim() && conversationId) {
-          try {
-            yield emit({
-              type: STREAM_EVENTS.STATUS,
-              phase: STREAM_PHASES.GENERATING_TITLE,
-              message: runtimeConfig.chat.statusMessages.generatingTitle,
-            })
-            const titleSignal = AbortSignal.timeout(LIMITS.TITLE_GEN_TIMEOUT_MS)
-            const { generateTitle } = await import('@/lib/ai/title')
-            const generatedTitle = await generateTitle(titleSeedMessage, runtimeConfig, titleSignal)
-            const safeTitle = generatedTitle
-              .trim()
-              .slice(0, runtimeConfig.limits.conversationTitleMaxLength)
-            if (safeTitle) {
-              await ctx.db
-                .update(conversations)
-                .set({ title: safeTitle, updatedAt: new Date() })
-                .where(
-                  and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)),
-                )
-            }
-          } catch (titleError: unknown) {
-            console.error('[title-gen] generateTitle failed:', getErrorMessage(titleError))
-          }
-        }
+        await generateAndPersistTitle({
+          db: ctx.db,
+          conversationId,
+          userId: ctx.userId,
+          currentTitle: conversation.title,
+          fallbackContent: input.content,
+          runtimeConfig,
+        })
       }
 
       const doneEvent = emit({

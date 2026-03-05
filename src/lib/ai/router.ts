@@ -1,5 +1,5 @@
 import { MODEL_CATEGORIES, RESPONSE_FORMATS } from '@/config/constants'
-import { buildRouterPrompt } from '@/config/prompts'
+import { buildRouterPrompt, formatModelLine } from '@/config/prompts'
 import type { ModelConfig, ModelSelection } from '@/schemas/model'
 import { ModelCapabilitySchema, ModelSelectionSchema } from '@/schemas/model'
 import type { RuntimeConfig } from '@/schemas/runtime-config'
@@ -149,18 +149,7 @@ function parseModelSelectionResponse(raw: string): ModelSelection {
 }
 
 function buildModelSummaryLines(registry: ReadonlyArray<ModelConfig>): string {
-  return registry
-    .map((model) => {
-      const ctxK = Math.round(model.contextWindow / 1_000)
-      const vision = model.supportsVision ? 'y' : 'n'
-      const think = model.supportsThinking ? 'y' : 'n'
-      const tools = model.supportsTools ? 'y' : 'n'
-      const imggen = model.supportsImageGeneration ? 'y' : 'n'
-      const promptCost = model.pricing.promptPerMillion.toFixed(3)
-      const completionCost = model.pricing.completionPerMillion.toFixed(3)
-      return `${model.id} | ${model.name} | ctx:${ctxK}k | vision:${vision} | think:${think} | tools:${tools} | imggen:${imggen} | prompt_cost:${promptCost} | completion_cost:${completionCost}`
-    })
-    .join('\n')
+  return registry.map(formatModelLine).join('\n')
 }
 
 function selectRoutingEngineModel(

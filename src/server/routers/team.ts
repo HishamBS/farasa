@@ -4,7 +4,6 @@ import {
   LIMITS,
   MESSAGE_ROLES,
   MODEL_SELECTION_SOURCES,
-  NEW_CHAT_TITLE,
   STREAM_EVENTS,
   STREAM_PHASES,
   TEAM_EVENTS,
@@ -409,57 +408,24 @@ export const teamRouter = router({
               ...historyMessages,
               { role: MESSAGE_ROLES.USER, content: userContent },
             ]
-            const imageSignal = AbortSignal.any([
-              ...(signal ? [signal] : []),
-              AbortSignal.timeout(LIMITS.IMAGE_GEN_TIMEOUT_MS),
-            ])
-            const response = await openrouter.chat.send(
-              {
-                chatGenerationParams: {
-                  model: modelId,
-                  messages: imageGenMessages,
-                  stream: false,
-                  maxCompletionTokens: getModelMaxCompletionTokens(registry, modelId),
-                },
-              },
-              { signal: imageSignal },
-            )
+            const { executeImageGeneration } =
+              await import('@/server/services/image-generation-service')
+            const imageResult = await executeImageGeneration({
+              model: modelId,
+              messages: imageGenMessages,
+              signal: signal ?? AbortSignal.timeout(LIMITS.IMAGE_GEN_TIMEOUT_MS),
+              registry,
+            })
 
-            const rawMessage = response.choices[0]?.message
-            const messageRecord = rawMessage as Record<string, unknown> | undefined
-            const messageContent = rawMessage?.content
-            const messageImages = messageRecord?.images
-
-            let imageContent = ''
-
-            if (typeof messageContent === 'string' && messageContent.length > 0) {
-              imageContent = messageContent
-            }
-
-            if (!imageContent && Array.isArray(messageImages)) {
-              const parts: string[] = []
-              for (const img of messageImages as Array<Record<string, unknown>>) {
-                const nested = img?.imageUrl as Record<string, unknown> | undefined
-                if (typeof nested?.url === 'string') {
-                  parts.push(`![Generated Image](${nested.url})`)
-                } else if (typeof img?.url === 'string') {
-                  parts.push(`![Generated Image](${img.url})`)
-                } else if (typeof img?.b64_json === 'string') {
-                  parts.push(`![Generated Image](data:image/png;base64,${img.b64_json})`)
-                }
-              }
-              imageContent = parts.join('\n\n')
-            }
-
-            if (imageContent.length > 0) {
-              fullText = imageContent
+            if (imageResult.imageContent.length > 0) {
+              fullText = imageResult.imageContent
               push({
                 done: false,
                 modelId,
                 modelIndex,
                 chunk: {
                   type: STREAM_EVENTS.TEXT,
-                  content: imageContent,
+                  content: imageResult.imageContent,
                   streamRequestId: modelStreamRequestId,
                   attempt: 0,
                 } satisfies StreamChunk,
@@ -843,68 +809,17 @@ export const teamRouter = router({
         .set({ updatedAt: new Date() })
         .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
 
-      const shouldGenerateTitle = conversation.title === NEW_CHAT_TITLE
-
-      if (shouldGenerateTitle) {
-        const [firstAssistantMessage] = await ctx.db
-          .select({ metadata: messages.metadata })
-          .from(messages)
-          .where(
-            and(
-              eq(messages.conversationId, conversationId),
-              eq(messages.role, MESSAGE_ROLES.ASSISTANT),
-              sql`length(trim(${messages.content})) > 0`,
-            ),
-          )
-          .orderBy(asc(messages.createdAt), asc(messages.id))
-          .limit(1)
-
-        const parsedFirstAssistantMetadata = MessageMetadataSchema.safeParse(
-          firstAssistantMessage?.metadata,
-        )
-        const firstUserMessageId = parsedFirstAssistantMetadata.success
-          ? parsedFirstAssistantMetadata.data.userMessageId
-          : undefined
-
-        let titleSeedMessage = input.content
-        if (firstUserMessageId) {
-          const [seedUserMessage] = await ctx.db
-            .select({ content: messages.content })
-            .from(messages)
-            .where(
-              and(
-                eq(messages.id, firstUserMessageId),
-                eq(messages.conversationId, conversationId),
-                eq(messages.role, MESSAGE_ROLES.USER),
-              ),
-            )
-            .limit(1)
-          const candidate = seedUserMessage?.content?.trim()
-          if (candidate) {
-            titleSeedMessage = candidate
-          }
-        }
-
-        if (titleSeedMessage.trim()) {
-          try {
-            const titleSignal = AbortSignal.timeout(LIMITS.TITLE_GEN_TIMEOUT_MS)
-            const { generateTitle } = await import('@/lib/ai/title')
-            const generatedTitle = await generateTitle(titleSeedMessage, runtimeConfig, titleSignal)
-            const safeTitle = generatedTitle
-              .trim()
-              .slice(0, runtimeConfig.limits.conversationTitleMaxLength)
-            if (safeTitle) {
-              await ctx.db
-                .update(conversations)
-                .set({ title: safeTitle, updatedAt: new Date() })
-                .where(
-                  and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)),
-                )
-            }
-          } catch (titleError: unknown) {
-            console.error('[team:title-gen] generateTitle failed:', getErrorMessage(titleError))
-          }
-        }
+      {
+        const { generateAndPersistTitle } =
+          await import('@/server/services/title-generation-service')
+        await generateAndPersistTitle({
+          db: ctx.db,
+          conversationId,
+          userId: ctx.userId,
+          currentTitle: conversation.title,
+          fallbackContent: input.content,
+          runtimeConfig,
+        })
       }
 
       if (!conversationId) {

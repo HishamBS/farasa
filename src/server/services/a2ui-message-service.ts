@@ -1,4 +1,4 @@
-import { sanitizeA2UIJsonLine } from '@/lib/security/runtime-safety'
+import { isRecord, sanitizeA2UIJsonLine } from '@/lib/security/runtime-safety'
 import type { RuntimeA2UIPolicy } from '@/schemas/runtime-config'
 import type { v0_8 } from '@a2ui-sdk/types'
 
@@ -8,10 +8,6 @@ const PROTOCOL_KEYS = [
   'dataModelUpdate',
   'deleteSurface',
 ] as const
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
 
 function isProtocolMessage(value: unknown): value is v0_8.A2UIMessage {
   if (!isRecord(value)) return false
@@ -141,28 +137,32 @@ function validateProtocolStructure(message: v0_8.A2UIMessage): boolean {
   const raw: unknown = message
   if (!isRecord(raw)) return false
 
-  if ('beginRendering' in raw && isRecord(raw.beginRendering)) {
+  if ('beginRendering' in raw) {
+    if (!isRecord(raw.beginRendering)) return false
     const br = raw.beginRendering
     if (typeof br.surfaceId !== 'string' || typeof br.root !== 'string') {
       console.warn('[a2ui] beginRendering missing surfaceId or root, keys:', Object.keys(br))
       return false
     }
   }
-  if ('surfaceUpdate' in raw && isRecord(raw.surfaceUpdate)) {
+  if ('surfaceUpdate' in raw) {
+    if (!isRecord(raw.surfaceUpdate)) return false
     const su = raw.surfaceUpdate
     if (typeof su.surfaceId !== 'string' || !Array.isArray(su.components)) {
       console.warn('[a2ui] surfaceUpdate missing surfaceId or components, keys:', Object.keys(su))
       return false
     }
   }
-  if ('dataModelUpdate' in raw && isRecord(raw.dataModelUpdate)) {
+  if ('dataModelUpdate' in raw) {
+    if (!isRecord(raw.dataModelUpdate)) return false
     const dm = raw.dataModelUpdate
     if (typeof dm.surfaceId !== 'string') {
       console.warn('[a2ui] dataModelUpdate missing surfaceId, keys:', Object.keys(dm))
       return false
     }
   }
-  if ('deleteSurface' in raw && isRecord(raw.deleteSurface)) {
+  if ('deleteSurface' in raw) {
+    if (!isRecord(raw.deleteSurface)) return false
     const ds = raw.deleteSurface
     if (typeof ds.surfaceId !== 'string') {
       console.warn('[a2ui] deleteSurface missing surfaceId, keys:', Object.keys(ds))

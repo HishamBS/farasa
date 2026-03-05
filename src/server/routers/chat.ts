@@ -760,9 +760,9 @@ export const chatRouter = router({
 
             if (!delta.content) continue
 
-            let remaining =
-              !inA2UI && fenceLookback.length > 0 ? fenceLookback + delta.content : delta.content
+            const prefix = fenceLookback
             fenceLookback = ''
+            let remaining = prefix + delta.content
 
             while (remaining.length > 0) {
               if (!inA2UI) {

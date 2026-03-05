@@ -12,7 +12,11 @@ type A2UIMessageProps = {
   messages: v0_8.A2UIMessage[]
 }
 
-function A2UIContent({ onAction }: { onAction: (action: ActionPayload) => void }) {
+type A2UIContentProps = {
+  onAction: (action: ActionPayload) => void
+}
+
+function A2UIContent({ onAction }: A2UIContentProps) {
   const { surfaces } = useSurfaceContext()
 
   if (surfaces.size === 0) return null

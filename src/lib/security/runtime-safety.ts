@@ -1,6 +1,6 @@
 import type { RuntimeA2UIPolicy } from '@/schemas/runtime-config'
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 

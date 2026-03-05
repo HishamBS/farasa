@@ -49,8 +49,10 @@ export function SynthesisPanel({
     setSynthesisModel(undefined)
   }, [hasSelectedSynthesisModel, synthesisModel, setSynthesisModel])
 
+  const hasSelectableSynthesisModel = synthesisModelOptions.length > 0
   const effectiveSynthesisModel = hasSelectedSynthesisModel ? synthesisModel : undefined
-  const canSynthesize = teamDone && !!effectiveSynthesisModel && !isSynthesizing
+  const canSynthesize =
+    teamDone && hasSelectableSynthesisModel && !!effectiveSynthesisModel && !isSynthesizing
   const displayedSynthesisText = synthesisText || initialSynthesisText || ''
 
   const handleSynthesisModelChange = useCallback(
@@ -76,7 +78,6 @@ export function SynthesisPanel({
     return selectedSynthesisLabel
   }, [initialSynthesisModelId, selectedSynthesisLabel, synthesisText])
 
-  const hasSelectableSynthesisModel = synthesisModelOptions.length > 0
   const selectableSynthesisModelIds = useMemo(
     () => new Set(synthesisModelOptions.map((model) => model.id)),
     [synthesisModelOptions],
@@ -102,6 +103,7 @@ export function SynthesisPanel({
             includeAuto={false}
             excludedModelIds={excludedModelIds}
             emptyLabel={UI_TEXT.TEAM_SYNTHESIZER_SELECT_ARIA_PREFIX}
+            menuPlacement="auto"
           />
         ) : (
           <p className="text-xs text-(--text-ghost)">

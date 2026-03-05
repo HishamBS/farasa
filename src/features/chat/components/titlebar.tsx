@@ -60,10 +60,11 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
     return match?.[1] ?? null
   }, [pathname])
 
-  const { data: conversation } = trpc.conversation.getById.useQuery(
-    { id: conversationId ?? '' },
-    { enabled: !!conversationId, staleTime: UX.QUERY_STALE_TIME_FOREVER },
-  )
+  const { data: conversation, isLoading: isLoadingConversation } =
+    trpc.conversation.getById.useQuery(
+      { id: conversationId ?? '' },
+      { enabled: !!conversationId, staleTime: UX.QUERY_STALE_TIME_FOREVER },
+    )
 
   useEffect(() => {
     setActiveConversationId(conversationId ?? undefined)
@@ -78,6 +79,7 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
       id: conversationId,
       mode: parsed.data,
       webSearchEnabled: conversation.webSearchEnabled,
+      settingsVersion: conversation.settingsVersion ?? 0,
     })
   }, [conversationId, conversation, hydrateFromConversation, setMode])
 
@@ -188,6 +190,8 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
           <div className="truncate max-w-xs">
             {title ? (
               <span className="text-sm font-medium text-(--text-secondary)">{title}</span>
+            ) : conversationId && isLoadingConversation ? (
+              <span className="inline-block h-4 w-24 animate-pulse rounded bg-(--bg-surface-active)" />
             ) : (
               <span className="text-sm font-medium text-(--text-muted)">New Chat</span>
             )}

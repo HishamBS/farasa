@@ -8,6 +8,7 @@ import { customCatalog } from '../catalog/custom-catalog'
 import { useA2UIActions } from '../hooks/use-a2ui-actions'
 import { trpc } from '@/trpc/provider'
 import { A2UIPolicyProvider } from '../context/policy-context'
+import { useMemo } from 'react'
 
 type A2UIMessageProps = {
   messages: v0_8.A2UIMessage[]
@@ -27,6 +28,34 @@ function A2UIContent({ onAction }: A2UIContentProps) {
       <A2UIRenderer onAction={onAction} />
     </div>
   )
+}
+
+function hasRenderableSurfaceRoot(messages: v0_8.A2UIMessage[]): boolean {
+  const roots = new Map<string, string>()
+  const componentsBySurface = new Map<string, Set<string>>()
+
+  for (const message of messages) {
+    const beginRendering = message.beginRendering
+    if (beginRendering?.surfaceId && beginRendering.root) {
+      roots.set(beginRendering.surfaceId, beginRendering.root)
+    }
+    const surfaceUpdate = message.surfaceUpdate
+    if (surfaceUpdate?.surfaceId && Array.isArray(surfaceUpdate.components)) {
+      const set = componentsBySurface.get(surfaceUpdate.surfaceId) ?? new Set<string>()
+      for (const component of surfaceUpdate.components) {
+        if (typeof component?.id === 'string' && component.id.trim().length > 0) {
+          set.add(component.id)
+        }
+      }
+      componentsBySurface.set(surfaceUpdate.surfaceId, set)
+    }
+  }
+
+  for (const [surfaceId, rootId] of roots) {
+    const ids = componentsBySurface.get(surfaceId)
+    if (!ids || !ids.has(rootId)) return false
+  }
+  return roots.size > 0
 }
 
 class A2UIErrorBoundary extends React.Component<
@@ -62,16 +91,23 @@ export function A2UIMessage({ messages }: A2UIMessageProps) {
   const { handleAction } = useA2UIActions()
   const runtimeConfigQuery = trpc.runtimeConfig.get.useQuery()
   const policy = runtimeConfigQuery.data?.safety.a2ui
+  const isRenderable = useMemo(() => hasRenderableSurfaceRoot(messages), [messages])
 
   if (!policy || messages.length === 0) return null
 
   return (
     <A2UIPolicyProvider policy={policy}>
-      <A2UIProvider messages={messages} catalog={customCatalog}>
-        <A2UIErrorBoundary>
-          <A2UIContent onAction={handleAction} />
-        </A2UIErrorBoundary>
-      </A2UIProvider>
+      {isRenderable ? (
+        <A2UIProvider messages={messages} catalog={customCatalog}>
+          <A2UIErrorBoundary>
+            <A2UIContent onAction={handleAction} />
+          </A2UIErrorBoundary>
+        </A2UIProvider>
+      ) : (
+        <div className="rounded-xl border border-(--border-subtle) bg-(--bg-surface) p-3 text-sm text-(--text-muted)">
+          Interactive UI payload is invalid for this message.
+        </div>
+      )}
     </A2UIPolicyProvider>
   )
 }

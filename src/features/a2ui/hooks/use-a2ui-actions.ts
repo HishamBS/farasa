@@ -4,6 +4,7 @@ import { useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { trpc } from '@/trpc/provider'
 import { ROUTES } from '@/config/routes'
+import { BROWSER_EVENTS } from '@/config/constants'
 import type { ActionPayload } from '@a2ui-sdk/types/0.8'
 
 export function useA2UIActions() {
@@ -15,6 +16,31 @@ export function useA2UIActions() {
   const refreshModels = trpc.model.refresh.useMutation()
   const executeSearch = trpc.search.execute.useMutation()
   const runtimeConfigQuery = trpc.runtimeConfig.get.useQuery()
+
+  const dispatchActionPrompt = useCallback(
+    (payload: { prompt: string; webSearchEnabled?: boolean }) => {
+      window.dispatchEvent(
+        new CustomEvent(BROWSER_EVENTS.A2UI_ACTION_REQUESTED, {
+          detail: payload,
+        }),
+      )
+    },
+    [],
+  )
+
+  const buildContextSummary = useCallback((action: ActionPayload): string => {
+    const entries = Object.entries(action.context ?? {})
+    if (entries.length === 0) return 'No form fields were provided.'
+    return entries
+      .map(([key, value]) => {
+        if (value === null) return `${key}: null`
+        if (typeof value === 'string') return `${key}: ${value}`
+        if (typeof value === 'number' || typeof value === 'boolean')
+          return `${key}: ${String(value)}`
+        return `${key}: ${JSON.stringify(value)}`
+      })
+      .join('\n')
+  }, [])
 
   const getContextValue = useCallback((action: ActionPayload, key: string): unknown => {
     if (!action.context || typeof action.context !== 'object') return undefined
@@ -76,12 +102,47 @@ export function useA2UIActions() {
             maxResults: runtimeConfig.limits.searchMaxResults,
             searchDepth: runtimeConfig.search.defaultDepth,
           })
+          dispatchActionPrompt({
+            prompt: `Search the web for: ${query}`,
+            webSearchEnabled: true,
+          })
+          return
+        }
+        case 'submit':
+        case 'submit_form':
+        case 'parse':
+        case 'parse_csv':
+        case 'generate':
+        case 'transform': {
+          const summary = buildContextSummary(action)
+          dispatchActionPrompt({
+            prompt: `Action "${rawName}" was submitted from an interactive UI.\n\nData:\n${summary}\n\nUse this data to produce the requested outcome.`,
+            webSearchEnabled: false,
+          })
+          return
+        }
+        case 'cancel':
+        case 'cancel_form': {
+          dispatchActionPrompt({
+            prompt: `Action "${rawName}" was cancelled. Confirm cancellation and provide next-step options.`,
+            webSearchEnabled: false,
+          })
+          return
+        }
+        default: {
+          const summary = buildContextSummary(action)
+          dispatchActionPrompt({
+            prompt: `Run action "${rawName}" from interactive UI with this context:\n${summary}`,
+            webSearchEnabled: false,
+          })
           return
         }
       }
     },
     [
+      buildContextSummary,
       createConversation,
+      dispatchActionPrompt,
       deleteConversation,
       executeSearch,
       refreshModels,

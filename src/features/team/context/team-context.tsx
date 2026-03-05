@@ -3,6 +3,7 @@
 import { TEAM_LIMITS } from '@/config/constants'
 import { trpc } from '@/trpc/provider'
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import { useParams } from 'next/navigation'
 
 type TeamModeContextValue = {
   teamModels: string[]
@@ -14,37 +15,59 @@ type TeamModeContextValue = {
 const TeamModeContext = createContext<TeamModeContextValue | null>(null)
 
 export function TeamModeProvider({ children }: { children: ReactNode }) {
+  const params = useParams<{ id?: string[] }>()
+  const conversationId = Array.isArray(params.id) ? params.id[0] : undefined
   const { data: prefs } = trpc.userPreferences.get.useQuery()
   const updatePrefs = trpc.userPreferences.update.useMutation()
   const updatePrefsMutate = updatePrefs.mutate
+  const updateConversation = trpc.conversation.update.useMutation()
+  const { data: conversation } = trpc.conversation.getById.useQuery(
+    { id: conversationId ?? '' },
+    { enabled: Boolean(conversationId) },
+  )
 
   const [teamModels, setTeamModelsState] = useState<string[]>([])
   const [synthesisModel, setSynthesisModelState] = useState<string | undefined>(undefined)
 
   const prefsTeamModels = prefs?.teamModels ?? undefined
   const prefsSynthesisModel = prefs?.teamSynthesizerModel ?? undefined
+  const conversationTeamModels = conversation?.teamModels ?? undefined
+  const conversationSynthesisModel = conversation?.teamSynthesizerModel ?? undefined
 
   const resolvedTeamModels = useMemo(() => {
-    const source = teamModels.length > 0 ? teamModels : (prefsTeamModels ?? [])
+    const source =
+      teamModels.length > 0 ? teamModels : (conversationTeamModels ?? prefsTeamModels ?? [])
     return source.slice(0, TEAM_LIMITS.MAX_MODELS)
-  }, [teamModels, prefsTeamModels])
+  }, [conversationTeamModels, prefsTeamModels, teamModels])
 
-  const resolvedSynthesisModel = synthesisModel ?? prefsSynthesisModel ?? undefined
+  const resolvedSynthesisModel =
+    synthesisModel ?? conversationSynthesisModel ?? prefsSynthesisModel ?? undefined
 
   const setTeamModels = useCallback(
     (models: string[]) => {
       setTeamModelsState(models)
+      if (conversationId) {
+        updateConversation.mutate({ id: conversationId, teamModels: models })
+        return
+      }
       updatePrefsMutate({ teamModels: models })
     },
-    [updatePrefsMutate],
+    [conversationId, updateConversation, updatePrefsMutate],
   )
 
   const setSynthesisModel = useCallback(
     (model: string | undefined) => {
       setSynthesisModelState(model)
+      if (conversationId) {
+        updateConversation.mutate({
+          id: conversationId,
+          teamSynthesizerModel: model ?? null,
+        })
+        return
+      }
       updatePrefsMutate({ teamSynthesizerModel: model ?? null })
     },
-    [updatePrefsMutate],
+    [conversationId, updateConversation, updatePrefsMutate],
   )
 
   const value = useMemo(

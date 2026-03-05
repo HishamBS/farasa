@@ -40,7 +40,7 @@ import {
 import type { ChatMessageToolCall, Message } from '@openrouter/sdk/models'
 import { ToolChoiceOptionAuto } from '@openrouter/sdk/models'
 import { TRPCError } from '@trpc/server'
-import { and, asc, eq, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, sql } from 'drizzle-orm'
 import { protectedProcedure, rateLimitedChatProcedure, router } from '../trpc'
 
 type StreamSession = {
@@ -86,6 +86,14 @@ function beginStreamSession(params: {
   conversationId: string
   streamRequestId: string
 }): StreamSession {
+  const byRequest = activeStreamsByRequest.get(params.streamRequestId)
+  if (byRequest && byRequest.userId === params.userId) {
+    throw new TRPCError({
+      code: TRPC_CODES.BAD_REQUEST,
+      message: 'Duplicate active stream request.',
+    })
+  }
+
   const key = getConversationStreamKey(params.userId, params.conversationId)
   const existing = activeStreamsByConversation.get(key)
 
@@ -147,6 +155,7 @@ function classifyTerminalError(
       const routerFailed = error.message === AppError.ROUTER_FAILED
       const a2uiContractFailed = error.message === AppError.A2UI_CONTRACT_FAILED
       const imageGenIncompatible = error.message === AppError.IMAGE_GEN_INCOMPATIBLE
+      const imageGenEmptyResult = error.message === AppError.IMAGE_GEN_EMPTY_RESULT
       return {
         message: routerFailed
           ? AppError.ROUTER_FAILED
@@ -154,9 +163,11 @@ function classifyTerminalError(
             ? AppError.A2UI_CONTRACT_FAILED
             : imageGenIncompatible
               ? runtimeConfig.chat.errors.imageGenIncompatible
-              : invalidModel
-                ? runtimeConfig.chat.errors.invalidModel
-                : runtimeConfig.chat.errors.processing,
+              : imageGenEmptyResult
+                ? runtimeConfig.chat.errors.processing
+                : invalidModel
+                  ? runtimeConfig.chat.errors.invalidModel
+                  : runtimeConfig.chat.errors.processing,
         code: error.code,
         reasonCode: routerFailed
           ? STREAM_REASON_CODES.ROUTER_FAILED
@@ -164,8 +175,11 @@ function classifyTerminalError(
             ? STREAM_REASON_CODES.A2UI_CONTRACT_VIOLATION
             : imageGenIncompatible
               ? STREAM_REASON_CODES.IMAGE_GEN_INCOMPATIBLE
-              : STREAM_REASON_CODES.VALIDATION_REJECTED,
-        recoverable: routerFailed || a2uiContractFailed || imageGenIncompatible,
+              : imageGenEmptyResult
+                ? STREAM_REASON_CODES.IMAGE_GEN_EMPTY_RESULT
+                : STREAM_REASON_CODES.VALIDATION_REJECTED,
+        recoverable:
+          routerFailed || a2uiContractFailed || imageGenIncompatible || imageGenEmptyResult,
       }
     }
     return {
@@ -287,20 +301,46 @@ export const chatRouter = router({
       }
 
       if (!conversationId) {
-        const [created] = await ctx.db
-          .insert(conversations)
-          .values({
-            userId: ctx.userId,
-            model: input.model,
-            mode: input.mode,
-            webSearchEnabled: input.webSearchEnabled,
-          })
-          .returning({ id: conversations.id })
-        if (!created) {
-          throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
+        const [existingRequestConversation] = await ctx.db
+          .select({ conversationId: messages.conversationId })
+          .from(messages)
+          .innerJoin(
+            conversations,
+            and(
+              eq(conversations.id, messages.conversationId),
+              eq(conversations.userId, ctx.userId),
+            ),
+          )
+          .where(
+            and(
+              eq(messages.clientRequestId, streamRequestId),
+              eq(messages.role, MESSAGE_ROLES.USER),
+            ),
+          )
+          .orderBy(desc(messages.createdAt))
+          .limit(1)
+
+        if (existingRequestConversation) {
+          conversationId = existingRequestConversation.conversationId
+        } else {
+          const [created] = await ctx.db
+            .insert(conversations)
+            .values({
+              userId: ctx.userId,
+              model: input.model,
+              mode: input.mode,
+              webSearchEnabled: input.webSearchEnabled,
+            })
+            .returning({ id: conversations.id })
+          if (!created) {
+            throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
+          }
+          conversationId = created.id
         }
-        conversationId = created.id
-        yield emit({ type: STREAM_EVENTS.CONVERSATION_CREATED, conversationId: created.id })
+      }
+
+      if (!input.conversationId && conversationId) {
+        yield emit({ type: STREAM_EVENTS.CONVERSATION_CREATED, conversationId })
       }
 
       const [conversation] = await ctx.db
@@ -365,6 +405,52 @@ export const chatRouter = router({
         type: STREAM_EVENTS.USER_MESSAGE_SAVED,
         messageId: userMessageId,
       })
+
+      const [existingAssistantMessageForTurn] = await ctx.db
+        .select({
+          id: messages.id,
+          content: messages.content,
+          metadata: messages.metadata,
+          tokenCount: messages.tokenCount,
+        })
+        .from(messages)
+        .where(
+          and(
+            eq(messages.conversationId, conversationId),
+            eq(messages.role, MESSAGE_ROLES.ASSISTANT),
+            eq(messages.clientRequestId, streamRequestId),
+          ),
+        )
+        .limit(1)
+
+      if (existingAssistantMessageForTurn) {
+        if (existingAssistantMessageForTurn.content.trim().length > 0) {
+          yield emit({
+            type: STREAM_EVENTS.TEXT_SET,
+            content: existingAssistantMessageForTurn.content,
+          })
+        }
+
+        const parsedExistingMetadata = MessageMetadataSchema.safeParse(
+          existingAssistantMessageForTurn.metadata,
+        )
+        if (parsedExistingMetadata.success && parsedExistingMetadata.data.a2uiMessages) {
+          for (const line of parsedExistingMetadata.data.a2uiMessages) {
+            if (typeof line !== 'string') continue
+            yield emit({
+              type: STREAM_EVENTS.A2UI,
+              jsonl: line,
+            })
+          }
+        }
+
+        yield emit({
+          type: STREAM_EVENTS.DONE,
+          usage: parsedExistingMetadata.success ? parsedExistingMetadata.data.usage : undefined,
+          terminalReason: 'done',
+        })
+        return
+      }
 
       let linkedAttachmentRows: AttachmentRow[] = []
       if (input.attachmentIds.length > 0 && userMessageId) {
@@ -669,6 +755,11 @@ export const chatRouter = router({
               streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
             }
             yield textEvent
+          } else {
+            throw new TRPCError({
+              code: TRPC_CODES.BAD_REQUEST,
+              message: AppError.IMAGE_GEN_EMPTY_RESULT,
+            })
           }
 
           if (response.usage) {
@@ -1165,7 +1256,13 @@ export const chatRouter = router({
 
       await ctx.db
         .update(conversations)
-        .set({ updatedAt: new Date() })
+        .set({
+          updatedAt: new Date(),
+          mode: input.mode,
+          webSearchEnabled: input.webSearchEnabled,
+          ...(input.model !== undefined ? { model: input.model } : {}),
+          settingsVersion: sql`${conversations.settingsVersion} + 1`,
+        })
         .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
 
       const shouldGenerateTitle = conversation.title === NEW_CHAT_TITLE

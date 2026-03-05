@@ -284,6 +284,30 @@ export const TIMELINE_DISPLAY_ORDER = [
   'selection',
 ] as const
 
+export const A2UI_COMPONENT_TYPES = [
+  'Column',
+  'Row',
+  'Card',
+  'List',
+  'Tabs',
+  'Modal',
+  'Divider',
+  'Text',
+  'Image',
+  'Icon',
+  'Video',
+  'AudioPlayer',
+  'CodeBlock',
+  'Button',
+  'TextField',
+  'CheckBox',
+  'Slider',
+  'MultipleChoice',
+  'DateTimeInput',
+] as const
+
+export type A2UIComponentType = (typeof A2UI_COMPONENT_TYPES)[number]
+
 export const AI_MARKUP = {
   A2UI_FENCE_START: '```a2ui',
   CODE_FENCE_END: '```',

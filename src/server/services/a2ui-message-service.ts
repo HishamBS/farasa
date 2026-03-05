@@ -137,12 +137,46 @@ function parseFencePayload(source: string): unknown[] {
   return parseConcatenatedJson(trimmed)
 }
 
+function validateProtocolStructure(message: v0_8.A2UIMessage): boolean {
+  const msg = message as Record<string, unknown>
+  if (msg.beginRendering) {
+    const br = msg.beginRendering as Record<string, unknown>
+    if (typeof br.surfaceId !== 'string' || typeof br.root !== 'string') {
+      console.warn('[a2ui] beginRendering missing surfaceId or root:', JSON.stringify(br))
+      return false
+    }
+  }
+  if (msg.surfaceUpdate) {
+    const su = msg.surfaceUpdate as Record<string, unknown>
+    if (typeof su.surfaceId !== 'string' || !Array.isArray(su.components)) {
+      console.warn('[a2ui] surfaceUpdate missing surfaceId or components:', JSON.stringify(su))
+      return false
+    }
+  }
+  if (msg.dataModelUpdate) {
+    const dm = msg.dataModelUpdate as Record<string, unknown>
+    if (typeof dm.surfaceId !== 'string') {
+      console.warn('[a2ui] dataModelUpdate missing surfaceId:', JSON.stringify(dm))
+      return false
+    }
+  }
+  if (msg.deleteSurface) {
+    const ds = msg.deleteSurface as Record<string, unknown>
+    if (typeof ds.surfaceId !== 'string') {
+      console.warn('[a2ui] deleteSurface missing surfaceId:', JSON.stringify(ds))
+      return false
+    }
+  }
+  return true
+}
+
 function serializeSafeA2UIMessages(
   messages: ReadonlyArray<v0_8.A2UIMessage>,
   policy: RuntimeA2UIPolicy,
 ): string[] {
   const lines: string[] = []
   for (const message of messages) {
+    if (!validateProtocolStructure(message)) continue
     const serialized = JSON.stringify(message)
     const sanitized = sanitizeA2UIJsonLine(serialized, policy)
     if (sanitized) {

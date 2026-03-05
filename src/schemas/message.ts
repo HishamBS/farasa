@@ -85,6 +85,10 @@ export const StreamChunkSchema = z.discriminatedUnion('type', [
     content: z.string(),
   }),
   StreamEventMetaSchema.extend({
+    type: z.literal(STREAM_EVENTS.TEXT_SET),
+    content: z.string(),
+  }),
+  StreamEventMetaSchema.extend({
     type: z.literal(STREAM_EVENTS.A2UI),
     jsonl: z.string(),
   }),

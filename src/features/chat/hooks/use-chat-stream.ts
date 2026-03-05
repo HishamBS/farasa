@@ -235,6 +235,9 @@ export function useChatStream(conversationId?: string) {
               case STREAM_EVENTS.TEXT:
                 dispatch({ type: STREAM_ACTIONS.TEXT_CHUNK, content: chunk.content })
                 break
+              case STREAM_EVENTS.TEXT_SET:
+                dispatch({ type: STREAM_ACTIONS.TEXT_SET, content: chunk.content })
+                break
               case STREAM_EVENTS.A2UI:
                 try {
                   const parsed: unknown = JSON.parse(chunk.jsonl)

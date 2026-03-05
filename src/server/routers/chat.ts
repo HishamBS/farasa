@@ -598,6 +598,7 @@ export const chatRouter = router({
 
         let inA2UI = false
         let a2uiBuffer = ''
+        let fenceLookback = ''
         let thinkingStatusEmitted = false
         let toolRoundCount = 0
 
@@ -759,22 +760,35 @@ export const chatRouter = router({
 
             if (!delta.content) continue
 
-            let remaining = delta.content
+            let remaining =
+              !inA2UI && fenceLookback.length > 0 ? fenceLookback + delta.content : delta.content
+            fenceLookback = ''
+
             while (remaining.length > 0) {
               if (!inA2UI) {
                 const fenceStartMatch = findA2UIFenceStart(remaining)
                 if (!fenceStartMatch) {
-                  roundAssistantText += remaining
-                  fullText += remaining
-                  if (!enforceA2UIContract) {
-                    const textEvent = emit({
-                      type: STREAM_EVENTS.TEXT,
-                      content: remaining,
-                    })
-                    if (typeof textEvent.sequence === 'number') {
-                      streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
+                  let reserveFrom = remaining.length
+                  while (reserveFrom > 0 && remaining[reserveFrom - 1] === '`') {
+                    reserveFrom -= 1
+                  }
+                  if (reserveFrom < remaining.length) {
+                    fenceLookback = remaining.slice(reserveFrom)
+                  }
+                  const emittable = remaining.slice(0, reserveFrom)
+                  if (emittable.length > 0) {
+                    roundAssistantText += emittable
+                    fullText += emittable
+                    if (!enforceA2UIContract) {
+                      const textEvent = emit({
+                        type: STREAM_EVENTS.TEXT,
+                        content: emittable,
+                      })
+                      if (typeof textEvent.sequence === 'number') {
+                        streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
+                      }
+                      yield textEvent
                     }
-                    yield textEvent
                   }
                   remaining = ''
                   continue
@@ -795,6 +809,7 @@ export const chatRouter = router({
                     yield textEvent
                   }
                 }
+                fenceLookback = ''
 
                 remaining = remaining.slice(fenceStartMatch.index + fenceStartMatch.length)
                 inA2UI = true
@@ -827,6 +842,19 @@ export const chatRouter = router({
               inA2UI = false
               remaining = remaining.slice(fenceEndIndex + AI_MARKUP.CODE_FENCE_END.length)
             }
+          }
+
+          if (fenceLookback.length > 0 && !inA2UI) {
+            roundAssistantText += fenceLookback
+            fullText += fenceLookback
+            if (!enforceA2UIContract) {
+              const textEvent = emit({ type: STREAM_EVENTS.TEXT, content: fenceLookback })
+              if (typeof textEvent.sequence === 'number') {
+                streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
+              }
+              yield textEvent
+            }
+            fenceLookback = ''
           }
 
           if (inA2UI && a2uiBuffer.trim().length > 0) {
@@ -953,6 +981,16 @@ export const chatRouter = router({
                 streamSequenceMax = Math.max(streamSequenceMax, a2uiEvent.sequence)
               }
               yield a2uiEvent
+            }
+            if (!enforceA2UIContract) {
+              const textSetEvent = emit({
+                type: STREAM_EVENTS.TEXT_SET,
+                content: fullText,
+              })
+              if (typeof textSetEvent.sequence === 'number') {
+                streamSequenceMax = Math.max(streamSequenceMax, textSetEvent.sequence)
+              }
+              yield textSetEvent
             }
           }
         }

@@ -94,6 +94,10 @@ export function streamStateReducer(state: StreamState, action: StreamAction): St
       return { ...state, textContent: state.textContent + action.content }
     }
 
+    case STREAM_ACTIONS.TEXT_SET: {
+      return { ...state, textContent: action.content }
+    }
+
     case STREAM_ACTIONS.A2UI_MESSAGE: {
       return {
         ...state,

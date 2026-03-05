@@ -28,11 +28,19 @@ type ModelSelectorProps = {
   includeAuto?: boolean
   excludedModelIds?: string[]
   emptyLabel?: string
+  menuPlacement?: 'auto' | 'top' | 'bottom'
 }
 
 export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>(
   function ModelSelector(
-    { value, onChange, includeAuto = true, excludedModelIds = [], emptyLabel },
+    {
+      value,
+      onChange,
+      includeAuto = true,
+      excludedModelIds = [],
+      emptyLabel,
+      menuPlacement = 'auto',
+    },
     ref,
   ) {
     const shouldReduce = useReducedMotion()
@@ -41,8 +49,12 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
     const [searchQuery, setSearchQuery] = useState('')
     const searchInputRef = useRef<HTMLInputElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
+    const triggerRef = useRef<HTMLButtonElement>(null)
+    const menuRef = useRef<HTMLDivElement>(null)
     const itemRefs = useRef<Array<HTMLButtonElement | null>>([])
     const selectedItemRef = useRef<HTMLButtonElement | null>(null)
+    const [resolvedPlacement, setResolvedPlacement] = useState<'top' | 'bottom'>('bottom')
+    const [alignEnd, setAlignEnd] = useState(false)
     const runtimeConfigQuery = trpc.runtimeConfig.get.useQuery()
 
     useImperativeHandle(ref, () => ({
@@ -219,9 +231,44 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
       return () => document.removeEventListener('mousedown', handler)
     }, [open])
 
+    useEffect(() => {
+      if (!open) return
+
+      const measure = () => {
+        const triggerEl = triggerRef.current
+        if (!triggerEl) return
+        const triggerRect = triggerEl.getBoundingClientRect()
+        const menuHeight = menuRef.current?.offsetHeight ?? 320
+        const menuWidth = menuRef.current?.offsetWidth ?? 352
+        const spaceAbove = triggerRect.top
+        const spaceBelow = window.innerHeight - triggerRect.bottom
+
+        if (menuPlacement === 'top') {
+          setResolvedPlacement('top')
+        } else if (menuPlacement === 'bottom') {
+          setResolvedPlacement('bottom')
+        } else {
+          const shouldOpenBelow =
+            spaceBelow >= menuHeight || (spaceBelow > 120 && spaceBelow >= spaceAbove)
+          setResolvedPlacement(shouldOpenBelow ? 'bottom' : 'top')
+        }
+
+        setAlignEnd(triggerRect.left + menuWidth > window.innerWidth - LIMITS.DROPDOWN_EDGE_GUTTER)
+      }
+
+      measure()
+      window.addEventListener('resize', measure)
+      window.addEventListener('scroll', measure, true)
+      return () => {
+        window.removeEventListener('resize', measure)
+        window.removeEventListener('scroll', measure, true)
+      }
+    }, [menuPlacement, open])
+
     return (
       <div ref={containerRef} className="relative" onKeyDown={handleKeyDown}>
         <button
+          ref={triggerRef}
           type="button"
           onClick={handleToggle}
           aria-haspopup="listbox"
@@ -258,9 +305,14 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
         <AnimatePresence>
           {open && (
             <motion.div
+              ref={menuRef}
               role="listbox"
               aria-label="Select model"
-              className="absolute bottom-full left-0 z-50 mb-1 flex max-h-80 w-88 flex-col overflow-hidden rounded-xl border border-(--border-subtle) bg-(--bg-glass-strong) shadow-xl shadow-black/30 backdrop-blur-3xl"
+              className={cn(
+                'absolute z-50 flex max-h-80 w-88 flex-col overflow-hidden rounded-xl border border-(--border-subtle) bg-(--bg-glass-strong) shadow-xl shadow-black/30 backdrop-blur-3xl',
+                resolvedPlacement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1',
+                alignEnd ? 'right-0' : 'left-0',
+              )}
               {...(shouldReduce ? {} : fadeInDown)}
             >
               <div className="border-b border-(--border-subtle) p-2">

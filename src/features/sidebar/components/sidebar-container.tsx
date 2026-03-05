@@ -58,6 +58,7 @@ export function SidebarContainer({ children, isOpen, onClose, onOpen }: SidebarP
           'fixed inset-y-0 left-0 z-50 flex w-[var(--sidebar-width)] flex-col lg:hidden',
           'bg-(--bg-glass) border-r border-(--border-subtle) backdrop-blur-xl saturate-150',
           'shadow-(--shadow-elevation-2)',
+          isOpen ? 'pointer-events-auto' : 'pointer-events-none',
         )}
         aria-label="Sidebar"
       >

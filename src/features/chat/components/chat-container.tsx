@@ -210,6 +210,34 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   }, [abortTeam])
 
   useEffect(() => {
+    const onA2UIActionRequested = (event: Event) => {
+      const custom = event as CustomEvent<{ prompt?: string; webSearchEnabled?: boolean }>
+      const prompt = custom.detail?.prompt?.trim()
+      if (!prompt || isTurnActive) return
+      sendMessage({
+        content: prompt,
+        mode: CHAT_MODES.CHAT,
+        model: null,
+        conversationId: effectiveConversationId,
+        attachmentIds: [],
+        webSearchEnabled: Boolean(custom.detail?.webSearchEnabled),
+        clientRequestId: crypto.randomUUID(),
+      })
+    }
+
+    window.addEventListener(
+      BROWSER_EVENTS.A2UI_ACTION_REQUESTED,
+      onA2UIActionRequested as EventListener,
+    )
+    return () => {
+      window.removeEventListener(
+        BROWSER_EVENTS.A2UI_ACTION_REQUESTED,
+        onA2UIActionRequested as EventListener,
+      )
+    }
+  }, [effectiveConversationId, isTurnActive, sendMessage])
+
+  useEffect(() => {
     if (streamState.phase !== CHAT_STREAM_STATUS.ERROR) return
     if (!streamState.lastInput?.content) return
     chatInputRef.current?.setContent(streamState.lastInput.content)

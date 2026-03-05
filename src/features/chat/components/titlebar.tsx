@@ -23,9 +23,9 @@ import { ChatModeSchema } from '@/schemas/message'
 import { trpc } from '@/trpc/provider'
 import type { TitlebarPhase } from '@/types/stream'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check, Menu, MoreHorizontal, Pin, PinOff, Trash2 } from 'lucide-react'
+import { Check, Download, Menu, MoreHorizontal, Pencil, Pin, PinOff, Trash2 } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useChatMode } from '../context/chat-mode-context'
 import { ModeToggle } from './mode-toggle'
 
@@ -37,11 +37,13 @@ type TitlebarProps = {
 export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const { mode, setMode, setWebSearchEnabled } = useChatMode()
+  const { mode, setMode, hydrateFromConversation, setActiveConversationId } = useChatMode()
   const utils = trpc.useUtils()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showRenameDialog, setShowRenameDialog] = useState(false)
+  const [renameValue, setRenameValue] = useState('')
+  const [isExporting, setIsExporting] = useState(false)
   const [showDone, setShowDone] = useState(false)
-  const syncedConversationIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (streamPhase === 'done') {
@@ -64,27 +66,20 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
   )
 
   useEffect(() => {
-    if (!conversationId) {
-      syncedConversationIdRef.current = null
-      return
-    }
-    if (
-      syncedConversationIdRef.current !== null &&
-      syncedConversationIdRef.current !== conversationId
-    ) {
-      syncedConversationIdRef.current = null
-    }
-  }, [conversationId])
+    setActiveConversationId(conversationId ?? undefined)
+  }, [conversationId, setActiveConversationId])
 
   useEffect(() => {
     if (!conversationId || !conversation) return
-    if (syncedConversationIdRef.current === conversationId) return
 
     const parsed = ChatModeSchema.safeParse(conversation.mode)
-    if (parsed.success) setMode(parsed.data)
-    setWebSearchEnabled(conversation.webSearchEnabled)
-    syncedConversationIdRef.current = conversationId
-  }, [conversationId, conversation, setMode, setWebSearchEnabled])
+    if (!parsed.success) return
+    hydrateFromConversation({
+      id: conversationId,
+      mode: parsed.data,
+      webSearchEnabled: conversation.webSearchEnabled,
+    })
+  }, [conversationId, conversation, hydrateFromConversation, setMode])
 
   const updateMutation = trpc.conversation.update.useMutation({
     onSuccess: () => void utils.conversation.invalidate(),
@@ -106,6 +101,39 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
     if (!conversationId) return
     deleteMutation.mutate({ id: conversationId })
   }, [conversationId, deleteMutation])
+
+  const handleRenameOpen = useCallback(() => {
+    if (!conversation) return
+    setRenameValue(conversation.title)
+    setShowRenameDialog(true)
+  }, [conversation])
+
+  const handleRenameSave = useCallback(() => {
+    if (!conversationId) return
+    const nextTitle = renameValue.trim()
+    if (!nextTitle) return
+    updateMutation.mutate({ id: conversationId, title: nextTitle })
+    setShowRenameDialog(false)
+  }, [conversationId, renameValue, updateMutation])
+
+  const handleExport = useCallback(() => {
+    if (!conversationId) return
+    void (async () => {
+      setIsExporting(true)
+      try {
+        const result = await utils.conversation.exportMarkdown.fetch({ id: conversationId })
+        const blob = new Blob([result.markdown], { type: 'text/markdown' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${result.title}.md`
+        a.click()
+        URL.revokeObjectURL(url)
+      } finally {
+        setIsExporting(false)
+      }
+    })()
+  }, [conversationId, utils])
 
   const title = conversation?.title ?? null
 
@@ -202,6 +230,14 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleRenameOpen}>
+                <Pencil size={14} className="mr-2" />
+                Rename
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExport} disabled={isExporting}>
+                <Download size={14} className="mr-2" />
+                Export
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={handlePin}>
                 {conversation.isPinned ? (
                   <>
@@ -249,6 +285,26 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
             <AlertDialogAction variant="destructive" onClick={handleDeleteConfirmed}>
               {UI_TEXT.DELETE_CONFIRM_ACTION}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Rename Conversation</AlertDialogTitle>
+            <AlertDialogDescription>Choose a clear title for this thread.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <input
+            value={renameValue}
+            onChange={(event) => setRenameValue(event.target.value)}
+            className="w-full rounded-md border border-(--border-default) bg-(--bg-input) px-3 py-2 text-sm text-(--text-primary) outline-none focus:border-accent"
+            placeholder="Conversation title"
+            maxLength={255}
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRenameSave}>Save</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

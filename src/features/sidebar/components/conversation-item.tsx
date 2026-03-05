@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState, useRef, useEffect } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { motion, useReducedMotion } from 'framer-motion'
@@ -9,7 +9,7 @@ import { fadeInUp } from '@/lib/utils/motion'
 import { cn } from '@/lib/utils/cn'
 import { formatDate } from '@/lib/utils/format'
 import { ROUTES } from '@/config/routes'
-import { UX, UI_TEXT } from '@/config/constants'
+import { UI_TEXT } from '@/config/constants'
 import { trpc } from '@/trpc/provider'
 import {
   DropdownMenu,
@@ -48,11 +48,10 @@ export function ConversationItem({
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [editValue, setEditValue] = useState(title)
   const inputRef = useRef<HTMLInputElement>(null)
-  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const dropdownTriggerRef = useRef<HTMLButtonElement>(null)
 
   const utils = trpc.useUtils()
 
@@ -77,21 +76,9 @@ export function ConversationItem({
   })
 
   const handleClick = useCallback(() => {
-    if (!isEditing) router.push(ROUTES.CHAT_BY_ID(id))
-  }, [id, isEditing, router])
-
-  const handleTouchStart = useCallback(() => {
-    longPressTimerRef.current = setTimeout(() => {
-      dropdownTriggerRef.current?.click()
-    }, UX.LONG_PRESS_DELAY_MS)
-  }, [])
-
-  const handleTouchEnd = useCallback(() => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current)
-      longPressTimerRef.current = null
-    }
-  }, [])
+    if (isEditing || isMenuOpen) return
+    router.push(ROUTES.CHAT_BY_ID(id))
+  }, [id, isEditing, isMenuOpen, router])
 
   const handlePin = useCallback(
     (e: React.MouseEvent) => {
@@ -168,14 +155,6 @@ export function ConversationItem({
 
   const formattedDate = useMemo(() => formatDate(new Date(updatedAt)), [updatedAt])
 
-  useEffect(() => {
-    return () => {
-      if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current)
-      }
-    }
-  }, [])
-
   return (
     <>
       <motion.div
@@ -185,10 +164,6 @@ export function ConversationItem({
           isActive ? 'bg-(--bg-surface-active)' : 'bg-transparent',
         )}
         onClick={handleClick}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={handleTouchEnd}
-        onTouchMove={handleTouchEnd}
         {...(shouldReduce ? {} : fadeInUp)}
       >
         <div className="min-w-0 flex-1">
@@ -215,16 +190,15 @@ export function ConversationItem({
           <p className="mt-0.5 text-xs text-(--text-muted)">{formattedDate}</p>
         </div>
 
-        <DropdownMenu>
+        <DropdownMenu onOpenChange={setIsMenuOpen}>
           <DropdownMenuTrigger asChild>
             <button
-              ref={dropdownTriggerRef}
               type="button"
               onClick={(e) => e.stopPropagation()}
               className={cn(
                 'flex size-11 items-center justify-center rounded text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)',
-                'opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
-                isActive && 'opacity-100',
+                'opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus-visible:opacity-100',
+                (isActive || isMenuOpen) && 'opacity-100',
               )}
               aria-label="More options"
             >

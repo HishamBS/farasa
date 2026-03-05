@@ -6,6 +6,7 @@ import { UploadRequestSchema, ConfirmUploadSchema, StoreInlineSchema } from '@/s
 import { attachments } from '@/lib/db/schema'
 import { TRPC_CODES } from '@/config/constants'
 import { env } from '@/config/env'
+import { AppError } from '@/lib/utils/errors'
 
 export const uploadRouter = router({
   config: protectedProcedure.query(() => {
@@ -88,12 +89,19 @@ export const uploadRouter = router({
     .mutation(async ({ ctx, input }) => {
       const { runtimeConfig } = ctx
       if (!runtimeConfig.limits.supportedFileTypes.includes(input.fileType)) {
-        throw new TRPCError({ code: TRPC_CODES.BAD_REQUEST })
+        throw new TRPCError({ code: TRPC_CODES.BAD_REQUEST, message: AppError.INVALID_INPUT })
       }
 
-      const fileSize = Math.ceil(input.dataUrl.length * 0.75)
-      if (fileSize > runtimeConfig.limits.fileMaxSizeBytes) {
-        throw new TRPCError({ code: TRPC_CODES.BAD_REQUEST })
+      const estimatedSize = Math.ceil(input.dataUrl.length * 0.75)
+      const fileSize = Math.max(input.fileSize, estimatedSize)
+      if (
+        input.fileSize > runtimeConfig.limits.fileMaxSizeBytes ||
+        estimatedSize > runtimeConfig.limits.fileMaxSizeBytes
+      ) {
+        throw new TRPCError({
+          code: TRPC_CODES.BAD_REQUEST,
+          message: 'File too large. Please upload a smaller file.',
+        })
       }
 
       const [attachment] = await ctx.db

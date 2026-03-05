@@ -29,6 +29,60 @@ type HistoricalAssistantMessageProps = {
   message: Message
 }
 
+const LEGACY_COMPONENT_ALIASES: Record<string, string> = {
+  text: 'Text',
+  button: 'Button',
+  card: 'Card',
+  input: 'TextField',
+  textfield: 'TextField',
+  row: 'Row',
+  column: 'Column',
+  list: 'List',
+  divider: 'Divider',
+  code_block: 'CodeBlock',
+  contact_form: 'Column',
+  root: 'Column',
+}
+
+function normalizeComponentType(typeName: string): string {
+  return LEGACY_COMPONENT_ALIASES[typeName.toLowerCase()] ?? typeName
+}
+
+function normalizeComponentEntry(entry: unknown): unknown {
+  if (!entry || typeof entry !== 'object') return entry
+  const raw = entry as Record<string, unknown>
+  const component = raw.component
+  if (!component || typeof component !== 'object') return entry
+
+  const normalizedComponent: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(component as Record<string, unknown>)) {
+    const normalizedType = normalizeComponentType(key)
+    normalizedComponent[normalizedType] = value
+  }
+
+  return { ...raw, component: normalizedComponent }
+}
+
+function normalizeA2UIMessage(message: v0_8.A2UIMessage): v0_8.A2UIMessage {
+  const raw = message as unknown as Record<string, unknown>
+  const surfaceUpdate = raw.surfaceUpdate
+  if (!surfaceUpdate || typeof surfaceUpdate !== 'object') {
+    return message
+  }
+  const surfaceUpdateRecord = surfaceUpdate as Record<string, unknown>
+  const components = surfaceUpdateRecord.components
+  if (!Array.isArray(components)) {
+    return message
+  }
+  return {
+    ...message,
+    surfaceUpdate: {
+      ...(surfaceUpdate as object),
+      components: components.map(normalizeComponentEntry),
+    },
+  } as v0_8.A2UIMessage
+}
+
 function parseA2UIMessages(raw: unknown[] | undefined): v0_8.A2UIMessage[] {
   if (!raw || raw.length === 0) return []
   const result: v0_8.A2UIMessage[] = []
@@ -36,7 +90,7 @@ function parseA2UIMessages(raw: unknown[] | undefined): v0_8.A2UIMessage[] {
     if (typeof item !== 'string') continue
     try {
       const parsed = JSON.parse(item) as v0_8.A2UIMessage
-      result.push(parsed)
+      result.push(normalizeA2UIMessage(parsed))
     } catch {
       // Skip malformed entries
     }

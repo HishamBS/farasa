@@ -3,17 +3,23 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { trpc } from '@/trpc/provider'
 import { BROWSER_EVENTS, UX } from '@/config/constants'
+import { useStreamSession } from '../context/stream-session-context'
 
 export function useChatInput(initialModel?: string | null, conversationId?: string) {
   const [content, setContent] = useState('')
   const [attachmentIds, setAttachmentIds] = useState<string[]>([])
   const selectedModelRef = useRef<string | undefined>(initialModel ?? undefined)
   const lastConversationIdRef = useRef<string | undefined>(conversationId)
+  const pendingConversationModelRef = useRef<{ pending: boolean; value: string | undefined }>({
+    pending: false,
+    value: undefined,
+  })
   const [selectedModel, setSelectedModelState] = useState<string | undefined>(
     selectedModelRef.current,
   )
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const utils = trpc.useUtils()
+  const { isTurnActive } = useStreamSession()
 
   const prefsQuery = trpc.userPreferences.get.useQuery(undefined, {
     staleTime: UX.QUERY_STALE_TIME_FOREVER,
@@ -57,6 +63,7 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
     const handleNewChatRequested = () => {
       selectedModelRef.current = undefined
       setSelectedModelState(undefined)
+      pendingConversationModelRef.current = { pending: false, value: undefined }
     }
     window.addEventListener(BROWSER_EVENTS.NEW_CHAT_REQUESTED, handleNewChatRequested)
     return () => {
@@ -64,17 +71,33 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
     }
   }, [])
 
+  useEffect(() => {
+    if (isTurnActive || !conversationId) return
+    if (!pendingConversationModelRef.current.pending) return
+
+    const { value } = pendingConversationModelRef.current
+    pendingConversationModelRef.current = { pending: false, value: undefined }
+    updateConversationMutation.mutate({
+      id: conversationId,
+      model: value ?? null,
+    })
+  }, [conversationId, isTurnActive, updateConversationMutation])
+
   const setSelectedModel = useCallback(
     (modelId: string | undefined) => {
       selectedModelRef.current = modelId
       setSelectedModelState(modelId)
       if (!conversationId) return
+      if (isTurnActive) {
+        pendingConversationModelRef.current = { pending: true, value: modelId }
+        return
+      }
       updateConversationMutation.mutate({
         id: conversationId,
         model: modelId ?? null,
       })
     },
-    [conversationId, updateConversationMutation],
+    [conversationId, isTurnActive, updateConversationMutation],
   )
 
   const setDefaultModel = useCallback(

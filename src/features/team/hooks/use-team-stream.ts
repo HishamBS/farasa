@@ -11,6 +11,7 @@ import {
   initialStreamState,
   streamStateReducer,
 } from '@/features/stream-phases/hooks/use-stream-state'
+import { useStreamSession } from '@/features/chat/context/stream-session-context'
 import type { TeamStreamPhase } from '@/features/team/types'
 import type { TeamOutputChunk, TeamStreamInput } from '@/schemas/team'
 import { trpcClient } from '@/trpc/client'
@@ -51,6 +52,7 @@ export function useTeamStream({
   const [teamDone, setTeamDone] = useState(false)
   const [teamPersisted, setTeamPersisted] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
+  const { beginSession, endSession } = useStreamSession()
 
   const activeSubRef = useRef<ActiveSubscription | null>(null)
   const onConversationCreatedRef = useRef(onConversationCreated)
@@ -79,10 +81,11 @@ export function useTeamStream({
   const abort = useCallback(() => {
     const active = activeSubRef.current
     if (!active) return
+    endSession(active.sessionId)
     active.unsubscribe()
     activeSubRef.current = null
     setPhase(TEAM_STREAM_PHASES.IDLE)
-  }, [])
+  }, [endSession])
 
   const applyChunkToModelState = useCallback(
     (prev: Map<string, StreamState>, chunk: TeamOutputChunk) => {
@@ -204,6 +207,7 @@ export function useTeamStream({
 
     const newSub: ActiveSubscription = { sessionId, unsubscribe: () => {} }
     activeSubRef.current = newSub
+    beginSession('team', sessionId)
 
     const subscription = trpcClient.team.stream.subscribe(currentInput, {
       onData(chunk: TeamOutputChunk) {
@@ -221,6 +225,8 @@ export function useTeamStream({
           } else if (eventChunk.type === STREAM_EVENTS.ERROR) {
             setPhase(TEAM_STREAM_PHASES.ERROR)
             setError(eventChunk.message)
+            activeSubRef.current = null
+            endSession(sessionId)
           }
         } else if (chunk.type === TEAM_EVENTS.PERSISTED) {
           setTeamPersisted(true)
@@ -229,6 +235,7 @@ export function useTeamStream({
           setTeamDone(true)
           setTeamId(chunk.teamId)
           setPhase(TEAM_STREAM_PHASES.DONE)
+          endSession(sessionId)
           setModelStates((prev) => {
             const next = new Map(prev)
             for (const [modelId, state] of next) {
@@ -249,11 +256,13 @@ export function useTeamStream({
         setPhase(TEAM_STREAM_PHASES.ERROR)
         setError(err.message || 'Connection error.')
         activeSubRef.current = null
+        endSession(sessionId)
       },
       onComplete() {
         const active = activeSubRef.current
         if (!active || active.sessionId !== sessionId) return
         activeSubRef.current = null
+        endSession(sessionId)
       },
     })
 
@@ -264,8 +273,9 @@ export function useTeamStream({
       if (activeSubRef.current?.sessionId === sessionId) {
         activeSubRef.current = null
       }
+      endSession(sessionId)
     }
-  }, [enabled, inputKey, applyChunkToModelState])
+  }, [applyChunkToModelState, beginSession, enabled, endSession, inputKey])
 
   return {
     modelStates,

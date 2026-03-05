@@ -23,6 +23,7 @@ export const StoreInlineSchema = z.object({
   dataUrl: z.string().min(1).regex(BASE64_DATA_URL, 'Must be a valid base64 data URL'),
   fileName: z.string().min(1),
   fileType: z.string().min(1),
+  fileSize: z.number().int().positive(),
 })
 
 export type UploadRequest = z.infer<typeof UploadRequestSchema>

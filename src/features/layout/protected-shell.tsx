@@ -3,6 +3,7 @@
 import { PhaseBar } from '@/features/chat/components/phase-bar'
 import { Titlebar } from '@/features/chat/components/titlebar'
 import { ChatModeProvider } from '@/features/chat/context/chat-mode-context'
+import { StreamSessionProvider } from '@/features/chat/context/stream-session-context'
 import { StreamPhaseProvider, useStreamPhase } from '@/features/chat/context/stream-phase-context'
 import { TeamModeProvider } from '@/features/team/context/team-context'
 import { ConversationList } from '@/features/sidebar/components/conversation-list'
@@ -33,36 +34,44 @@ export function ProtectedShell({ children }: ProtectedShellProps) {
 
   const handleMenuClick = useCallback(() => open(), [open])
   const handleSearchToggle = useCallback(() => {
-    setIsSearchOpen((prev) => !prev)
+    setIsSearchOpen((prev) => {
+      const next = !prev
+      if (!next) {
+        setSearchValue('')
+      }
+      return next
+    })
   }, [])
 
   return (
-    <ChatModeProvider>
-      <TeamModeProvider>
-        <StreamPhaseProvider>
-          <div className="flex h-screen overflow-hidden bg-[--bg-root]">
-            <SidebarContainer isOpen={isOpen} onClose={close} onOpen={open}>
-              <SidebarHeader
-                isSearchOpen={isSearchOpen}
-                searchValue={searchValue}
-                onSearchChange={setSearchValue}
-                onClose={close}
-                onSearchToggle={handleSearchToggle}
-              />
-              <div className="flex-1 overflow-y-auto py-2">
-                <ConversationList search={searchValue} />
-              </div>
-              <UserMenu />
-            </SidebarContainer>
+    <StreamSessionProvider>
+      <ChatModeProvider>
+        <TeamModeProvider>
+          <StreamPhaseProvider>
+            <div className="flex h-screen overflow-hidden bg-[--bg-root]">
+              <SidebarContainer isOpen={isOpen} onClose={close} onOpen={open}>
+                <SidebarHeader
+                  isSearchOpen={isSearchOpen}
+                  searchValue={searchValue}
+                  onSearchChange={setSearchValue}
+                  onClose={close}
+                  onSearchToggle={handleSearchToggle}
+                />
+                <div className="flex-1 overflow-y-auto py-2">
+                  <ConversationList search={searchValue} />
+                </div>
+                <UserMenu />
+              </SidebarContainer>
 
-            <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-              <TitlebarWithPhase onMenuClick={handleMenuClick} />
-              <PhaseBar />
-              <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
+              <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+                <TitlebarWithPhase onMenuClick={handleMenuClick} />
+                <PhaseBar />
+                <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
+              </div>
             </div>
-          </div>
-        </StreamPhaseProvider>
-      </TeamModeProvider>
-    </ChatModeProvider>
+          </StreamPhaseProvider>
+        </TeamModeProvider>
+      </ChatModeProvider>
+    </StreamSessionProvider>
   )
 }

@@ -44,7 +44,12 @@ function getSpeechRecognitionConstructor(): (new () => SpeechRecognitionInstance
   return null
 }
 
-export function useSpeechToText() {
+type UseSpeechToTextOptions = {
+  getConstructor?: () => (new () => SpeechRecognitionInstance) | null
+}
+
+export function useSpeechToText(options?: UseSpeechToTextOptions) {
+  const resolveConstructor = options?.getConstructor ?? getSpeechRecognitionConstructor
   const [state, setState] = useState<STTState>({
     status: VOICE_STT_STATES.IDLE,
     transcript: '',
@@ -56,7 +61,7 @@ export function useSpeechToText() {
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
 
   const startListening = useCallback(() => {
-    const Ctor = getSpeechRecognitionConstructor()
+    const Ctor = resolveConstructor()
     if (!Ctor) return
 
     if (recognitionRef.current) {
@@ -138,7 +143,7 @@ export function useSpeechToText() {
         error: UI_TEXT.STT_TRANSCRIPTION_FAILED,
       }))
     }
-  }, [])
+  }, [resolveConstructor])
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
@@ -159,9 +164,9 @@ export function useSpeechToText() {
   }, [])
 
   useEffect(() => {
-    setState((prev) => ({ ...prev, isSupported: getSpeechRecognitionConstructor() !== null }))
+    setState((prev) => ({ ...prev, isSupported: resolveConstructor() !== null }))
     setIsReady(true)
-  }, [])
+  }, [resolveConstructor])
 
   useEffect(() => {
     return () => {

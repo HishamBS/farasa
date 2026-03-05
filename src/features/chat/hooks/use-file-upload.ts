@@ -34,6 +34,7 @@ export function useFileUpload() {
     () => runtimeConfigQuery.data?.limits.supportedFileTypes ?? [],
     [runtimeConfigQuery.data?.limits.supportedFileTypes],
   )
+  const fileMaxSizeBytes = runtimeConfigQuery.data?.limits.fileMaxSizeBytes ?? null
 
   const upsertState = useCallback(
     (token: string, updater: (previous?: UploadState) => UploadState) => {
@@ -51,6 +52,20 @@ export function useFileUpload() {
     async (file: File): Promise<UploadResult | null> => {
       const token = crypto.randomUUID()
       const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null
+
+      if (fileMaxSizeBytes !== null && file.size > fileMaxSizeBytes) {
+        upsertState(token, () => ({
+          token,
+          fileName: file.name,
+          progress: 0,
+          attachmentId: null,
+          error: 'File too large. Please upload a smaller file.',
+          isUploading: false,
+          previewUrl,
+          fileType: file.type,
+        }))
+        return null
+      }
 
       upsertState(token, () => ({
         token,
@@ -79,6 +94,7 @@ export function useFileUpload() {
           dataUrl,
           fileName: file.name,
           fileType: file.type,
+          fileSize: file.size,
         })
 
         upsertState(token, (previous) => ({
@@ -117,7 +133,7 @@ export function useFileUpload() {
         return null
       }
     },
-    [storeInlineMutation, upsertState],
+    [fileMaxSizeBytes, storeInlineMutation, upsertState],
   )
 
   const uploadFile = useCallback(

@@ -26,10 +26,9 @@ export function ButtonAdapter({
   return (
     <Button
       variant={primary ? 'default' : 'outline'}
-      size="sm"
+      size="default"
       onClick={handleClick}
       disabled={!actionAllowed}
-      className="min-h-11"
     >
       {child ? <ComponentRenderer surfaceId={surfaceId} componentId={child} /> : null}
     </Button>

@@ -110,12 +110,12 @@ A2UI v0.8 protocol: each line is a standalone JSON object.
    {"beginRendering":{"surfaceId":"surface_main","root":"root"}}
 
 2. surfaceUpdate — defines the component tree as a FLAT array. Each component has a unique "id" and a "component" object keyed by type name. Layout components reference children by ID using "children":{"explicitList":[...]}:
-   {"surfaceUpdate":{"surfaceId":"surface_main","components":[{"id":"root","component":{"Column":{"children":{"explicitList":["greeting"]}}}},{"id":"greeting","component":{"Text":{"text":{"literalString":"Hello world"},"usageHint":"body"}}}]}}
+   {"surfaceUpdate":{"surfaceId":"surface_main","components":[{"id":"root","component":{"Column":{"children":{"explicitList":["card1"]}}}},{"id":"card1","component":{"Card":{"child":"card_body"}}},{"id":"card_body","component":{"Column":{"children":{"explicitList":["title","name_field","btn_row"]}}}},{"id":"title","component":{"Text":{"text":{"literalString":"Contact Form"},"usageHint":"h2"}}},{"id":"name_field","component":{"TextField":{"label":{"literalString":"Full Name"}}}},{"id":"btn_row","component":{"Row":{"children":{"explicitList":["submit_btn","cancel_btn"]}}}},{"id":"submit_btn","component":{"Button":{"child":"submit_label","primary":true,"action":"submit_form"}}},{"id":"submit_label","component":{"Text":{"text":{"literalString":"Submit"}}}},{"id":"cancel_btn","component":{"Button":{"child":"cancel_label","action":"cancel_form"}}},{"id":"cancel_label","component":{"Text":{"text":{"literalString":"Cancel"}}}}]}}
 
 Supported component types (use ONLY these exact names):
 ${A2UI_CATEGORIZED_LIST}
 
-String values use {"literalString":"..."} wrapper. Button actions use {"action":"action_name"}.
+String values use {"literalString":"..."} wrapper. Button uses "child" to reference a Text component by ID for its label — always create a separate Text component for each button's label text. Card uses "child" similarly. Button actions use {"action":"action_name"}. Valid usageHint values for Text: h1, h2, h3, h4, h5, caption, body.
 
 Rules:
 - ALWAYS wrap A2UI JSONL in \`\`\`a2ui ... \`\`\` (triple backtick fence with a2ui label)
@@ -138,7 +138,7 @@ You must now return:
 Use this exact structural shape:
 \`\`\`a2ui
 {"beginRendering":{"surfaceId":"surface_main","root":"root"}}
-{"surfaceUpdate":{"surfaceId":"surface_main","components":[{"id":"root","component":{"Column":{"children":{"explicitList":["heading"]}}}},{"id":"heading","component":{"Text":{"text":{"literalString":"Hello"},"usageHint":"headline"}}}]}}
+{"surfaceUpdate":{"surfaceId":"surface_main","components":[{"id":"root","component":{"Column":{"children":{"explicitList":["heading","action_btn"]}}}},{"id":"heading","component":{"Text":{"text":{"literalString":"Hello"},"usageHint":"h2"}}},{"id":"action_btn","component":{"Button":{"child":"btn_text","primary":true,"action":"click"}}},{"id":"btn_text","component":{"Text":{"text":{"literalString":"Click Me"}}}}]}}
 \`\`\`
 
 CRITICAL: "root" in beginRendering MUST match the "id" of the root component in surfaceUpdate — it is a component ID, NOT a type name. ALL components MUST be in a FLAT array. Layout components reference children by ID using "children":{"explicitList":[...]}. Every component type must be one of: ${A2UI_TYPES_LIST}.

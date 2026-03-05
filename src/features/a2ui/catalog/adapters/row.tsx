@@ -34,7 +34,7 @@ export function RowAdapter({
   const childIds = children?.explicitList ?? []
 
   return (
-    <div className={cn('flex flex-row flex-wrap gap-2', distClass, alignClass)}>
+    <div className={cn('flex flex-row flex-wrap gap-3', distClass, alignClass)}>
       {childIds.map((id) => (
         <ComponentRenderer key={id} surfaceId={surfaceId} componentId={id} />
       ))}

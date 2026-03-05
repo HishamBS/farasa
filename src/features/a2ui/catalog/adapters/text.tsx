@@ -3,9 +3,11 @@
 import { cn } from '@/lib/utils/cn'
 import type { BaseComponentProps } from '../types'
 import type { TextComponentProps } from '@a2ui-sdk/types/0.8/standard-catalog'
+import { normalizeValueSource } from '../normalize-value-source'
 
 export function TextAdapter({ text, usageHint }: BaseComponentProps & TextComponentProps) {
-  const resolved = text && 'literalString' in text ? text.literalString : undefined
+  const safeText = normalizeValueSource(text)
+  const resolved = safeText && 'literalString' in safeText ? safeText.literalString : undefined
 
   if (!resolved) return null
 
@@ -18,7 +20,7 @@ export function TextAdapter({ text, usageHint }: BaseComponentProps & TextCompon
         usageHint === 'h4' && 'text-base font-medium text-(--text-primary)',
         usageHint === 'h5' && 'text-sm font-medium text-(--text-primary)',
         usageHint === 'caption' && 'text-xs text-(--text-muted)',
-        (!usageHint || usageHint === 'body') && 'text-sm text-(--text-secondary)',
+        (!usageHint || usageHint === 'body') && 'text-sm text-(--text-primary)',
       )}
     >
       {resolved}

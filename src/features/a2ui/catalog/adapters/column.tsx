@@ -34,7 +34,7 @@ export function ColumnAdapter({
   const childIds = children?.explicitList ?? []
 
   return (
-    <div className={cn('flex flex-col gap-2', distClass, alignClass)}>
+    <div className={cn('flex flex-col gap-4', distClass, alignClass)}>
       {childIds.map((id) => (
         <ComponentRenderer key={id} surfaceId={surfaceId} componentId={id} />
       ))}

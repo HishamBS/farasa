@@ -3,6 +3,18 @@ import { escapeXmlForPrompt } from '@/lib/security/runtime-safety'
 const DATA_URL_PREFIX = 'data:'
 const DATA_URL_SEPARATOR = ','
 
+const TEXT_LIKE_APPLICATION_TYPES = new Set([
+  'application/json',
+  'application/xml',
+  'application/javascript',
+  'application/typescript',
+  'application/x-yaml',
+  'application/x-sh',
+  'application/sql',
+  'application/graphql',
+  'application/toml',
+])
+
 function extractBase64Buffer(dataUrl: string): Buffer {
   const commaIndex = dataUrl.indexOf(DATA_URL_SEPARATOR)
   if (commaIndex === -1) return Buffer.alloc(0)
@@ -13,21 +25,46 @@ function isDataUrl(url: string): boolean {
   return url.startsWith(DATA_URL_PREFIX)
 }
 
+async function fetchRemoteBuffer(url: string): Promise<Buffer> {
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error(`Failed to fetch file: ${response.status}`)
+  }
+  return Buffer.from(await response.arrayBuffer())
+}
+
+async function resolveBuffer(storageUrl: string): Promise<Buffer> {
+  if (isDataUrl(storageUrl)) return extractBase64Buffer(storageUrl)
+  return fetchRemoteBuffer(storageUrl)
+}
+
+function isTextLike(fileType: string): boolean {
+  return fileType.startsWith('text/') || TEXT_LIKE_APPLICATION_TYPES.has(fileType)
+}
+
 async function extractRawText(fileType: string, storageUrl: string): Promise<string> {
-  if (fileType.startsWith('text/') || fileType === 'application/json') {
-    if (!isDataUrl(storageUrl)) return ''
-    return extractBase64Buffer(storageUrl).toString('utf-8')
+  if (isTextLike(fileType)) {
+    const buffer = await resolveBuffer(storageUrl)
+    if (buffer.length === 0) return ''
+    return buffer.toString('utf-8')
   }
 
   if (fileType === 'application/pdf') {
-    if (!isDataUrl(storageUrl)) return ''
-    const buffer = extractBase64Buffer(storageUrl)
+    const buffer = await resolveBuffer(storageUrl)
     if (buffer.length === 0) return ''
-    const { PDFParse } = await import('pdf-parse')
-    const parser = new PDFParse({ data: new Uint8Array(buffer) })
-    const result = await parser.getText()
-    await parser.destroy()
-    return result.text
+    try {
+      const { PDFParse } = await import('pdf-parse')
+      const parser = new PDFParse({ data: new Uint8Array(buffer) })
+      const result = await parser.getText()
+      await parser.destroy()
+      return result.text
+    } catch (err) {
+      console.error(
+        '[text-extraction] PDF parsing failed:',
+        err instanceof Error ? err.message : err,
+      )
+      return ''
+    }
   }
 
   return ''

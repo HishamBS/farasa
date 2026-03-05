@@ -91,11 +91,15 @@ export function streamStateReducer(state: StreamState, action: StreamAction): St
     }
 
     case STREAM_ACTIONS.TOOL_RESULT: {
-      const idx = [...state.toolExecutions]
-        .reverse()
-        .findIndex((t) => t.name === action.name && !t.completedAt)
-      if (idx < 0) return state
-      const realIdx = state.toolExecutions.length - 1 - idx
+      let realIdx = -1
+      for (let i = state.toolExecutions.length - 1; i >= 0; i--) {
+        const t = state.toolExecutions[i]
+        if (t && t.name === action.name && !t.completedAt) {
+          realIdx = i
+          break
+        }
+      }
+      if (realIdx < 0) return state
       const updated = [...state.toolExecutions]
       const current = updated[realIdx]
       if (current) {

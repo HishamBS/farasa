@@ -27,7 +27,7 @@ export function DeleteConfirmDialog({ open, onOpenChange, onConfirm }: DeleteCon
           <AlertDialogDescription>{UI_TEXT.DELETE_CONFIRM_BODY}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{UI_TEXT.CANCEL}</AlertDialogCancel>
           <AlertDialogAction variant="destructive" onClick={onConfirm}>
             {UI_TEXT.DELETE_CONFIRM_ACTION}
           </AlertDialogAction>

@@ -9,19 +9,17 @@ import { ToolExecution } from '@/features/stream-phases/components/tool-executio
 import { useActiveBlock } from '@/features/stream-phases/hooks/use-active-block'
 import { TTSControls } from '@/features/voice/components/tts-controls'
 import { staggerContainer } from '@/lib/utils/motion'
-import type { ModelCapability, RouterFactor } from '@/schemas/model'
-import type { ThinkingState, ToolExecutionState } from '@/types/stream'
+import type { ModelSelectionState, ThinkingState, ToolExecutionState } from '@/types/stream'
 import type { v0_8 } from '@a2ui-sdk/types'
 import { motion, useReducedMotion } from 'framer-motion'
 
-type RoutingDecision = {
+export type RoutingDecision = Partial<
+  Pick<ModelSelectionState, 'model' | 'category' | 'confidence' | 'factors' | 'reasoning'>
+> & {
   modelLabel: string
-  model?: string
-  category?: ModelCapability
-  confidence?: number
-  factors?: RouterFactor[]
-  reasoning?: string
 }
+
+const EMPTY_MOTION = {} as const
 
 type AssistantBodyProps = {
   routingDecision: RoutingDecision | null
@@ -87,12 +85,12 @@ export function AssistantBody({
       )}
 
       {toolExecutions.length > 0 && (
-        <motion.div className="flex flex-col gap-2" {...(shouldReduce ? {} : staggerContainer)}>
-          {toolExecutions.map((execution) => (
-            <ToolExecution
-              key={`${execution.name}-${execution.completedAt}`}
-              execution={execution}
-            />
+        <motion.div
+          className="flex flex-col gap-2"
+          {...(shouldReduce ? EMPTY_MOTION : staggerContainer)}
+        >
+          {toolExecutions.map((execution, index) => (
+            <ToolExecution key={`${execution.name}-${index}`} execution={execution} />
           ))}
         </motion.div>
       )}

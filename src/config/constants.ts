@@ -653,6 +653,11 @@ export const UI_TEXT = {
   TTS_STOP: 'Stop reading',
   TTS_LOADING: 'Loading audio...',
   DEFAULT_MODEL_LABEL: 'Selected model',
+  CANCEL: 'Cancel',
+  SAVE: 'Save',
+  RENAME_TITLE: 'Rename Conversation',
+  RENAME_DESCRIPTION: 'Choose a clear title for this thread.',
+  RENAME_PLACEHOLDER: 'Conversation title',
 } as const
 
 export const TEAM_LIMITS = {

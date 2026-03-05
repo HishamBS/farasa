@@ -248,19 +248,19 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
       <AlertDialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Rename Conversation</AlertDialogTitle>
-            <AlertDialogDescription>Choose a clear title for this thread.</AlertDialogDescription>
+            <AlertDialogTitle>{UI_TEXT.RENAME_TITLE}</AlertDialogTitle>
+            <AlertDialogDescription>{UI_TEXT.RENAME_DESCRIPTION}</AlertDialogDescription>
           </AlertDialogHeader>
           <input
             value={renameValue}
             onChange={(event) => setRenameValue(event.target.value)}
             className="w-full rounded-md border border-(--border-default) bg-(--bg-input) px-3 py-2 text-sm text-(--text-primary) outline-none focus:border-accent"
-            placeholder="Conversation title"
+            placeholder={UI_TEXT.RENAME_PLACEHOLDER}
             maxLength={255}
           />
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRenameSave}>Save</AlertDialogAction>
+            <AlertDialogCancel>{UI_TEXT.CANCEL}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRenameSave}>{UI_TEXT.SAVE}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

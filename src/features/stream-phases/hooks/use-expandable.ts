@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 type UseExpandableOptions = {
   defaultExpanded?: boolean
@@ -21,13 +21,15 @@ export function useExpandable({
   const isControlled = controlledExpanded !== undefined
   const [internalExpanded, setInternalExpanded] = useState(defaultExpanded)
   const isExpanded = isControlled ? controlledExpanded : internalExpanded
+  const prevAutoCollapseRef = useRef(autoCollapse)
 
   useEffect(() => {
-    if (!isControlled && autoCollapse && internalExpanded) {
+    const wasCollapsed = !prevAutoCollapseRef.current
+    prevAutoCollapseRef.current = autoCollapse
+    if (!isControlled && wasCollapsed && autoCollapse) {
       setInternalExpanded(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to autoCollapse transitions
-  }, [autoCollapse])
+  }, [autoCollapse, isControlled])
 
   const toggle = useCallback(() => {
     if (controlledToggle) {

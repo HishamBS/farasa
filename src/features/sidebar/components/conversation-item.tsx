@@ -2,7 +2,6 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { useRouter } from 'next/navigation'
 import { motion, useReducedMotion } from 'framer-motion'
 import { MoreHorizontal, Pin, PinOff, Trash2, Pencil, Download } from 'lucide-react'
 import { fadeInUp } from '@/lib/utils/motion'
@@ -35,21 +34,21 @@ export function ConversationItem({
   updatedAt,
 }: ConversationItemProps) {
   const shouldReduce = useReducedMotion()
-  const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [editValue, setEditValue] = useState(title)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const { updateMutation, deleteMutation, isExporting, handleExport } = useConversationOperations({
-    navigateOnDelete: isActive,
-  })
+  const { updateMutation, deleteMutation, isExporting, handleExport, navigate } =
+    useConversationOperations({
+      navigateOnDelete: isActive,
+    })
 
   const handleClick = useCallback(() => {
     if (isEditing || isMenuOpen) return
-    router.push(ROUTES.CHAT_BY_ID(id))
-  }, [id, isEditing, isMenuOpen, router])
+    navigate(ROUTES.CHAT_BY_ID(id))
+  }, [id, isEditing, isMenuOpen, navigate])
 
   const handlePin = useCallback(
     (e: React.MouseEvent) => {

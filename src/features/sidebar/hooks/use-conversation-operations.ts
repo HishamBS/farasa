@@ -32,6 +32,8 @@ export function useConversationOperations({
     onError: () => void utils.conversation.invalidate(),
   })
 
+  const navigate = useCallback((path: string) => router.push(path), [router])
+
   const handleExport = useCallback(
     async (id: string) => {
       setIsExporting(true)
@@ -53,5 +55,5 @@ export function useConversationOperations({
     [utils],
   )
 
-  return { updateMutation, deleteMutation, isExporting, handleExport }
+  return { updateMutation, deleteMutation, isExporting, handleExport, navigate }
 }

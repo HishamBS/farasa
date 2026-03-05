@@ -106,11 +106,11 @@ Response guidelines:
 
 A2UI v0.8 protocol: each line is a standalone JSON object.
 
-1. beginRendering — declares a surface. "root" MUST be a supported component type (e.g. "Column"):
-   {"beginRendering":{"surfaceId":"surface_main","root":"Column"}}
+1. beginRendering — declares a surface. "root" is the component ID of the root component in surfaceUpdate:
+   {"beginRendering":{"surfaceId":"surface_main","root":"root"}}
 
-2. surfaceUpdate — defines the component tree. Every component references a supported type:
-   {"surfaceUpdate":{"surfaceId":"surface_main","components":[{"id":"root","component":{"Column":{"components":[{"id":"greeting","component":{"Text":{"text":{"literalString":"Hello world"},"usageHint":"body"}}}]}}}]}}
+2. surfaceUpdate — defines the component tree as a FLAT array. Each component has a unique "id" and a "component" object keyed by type name. Layout components reference children by ID using "children":{"explicitList":[...]}:
+   {"surfaceUpdate":{"surfaceId":"surface_main","components":[{"id":"root","component":{"Column":{"children":{"explicitList":["greeting"]}}}},{"id":"greeting","component":{"Text":{"text":{"literalString":"Hello world"},"usageHint":"body"}}}]}}
 
 Supported component types (use ONLY these exact names):
 ${A2UI_CATEGORIZED_LIST}
@@ -119,7 +119,9 @@ String values use {"literalString":"..."} wrapper. Button actions use {"action":
 
 Rules:
 - ALWAYS wrap A2UI JSONL in \`\`\`a2ui ... \`\`\` (triple backtick fence with a2ui label)
-- The "root" field in beginRendering MUST be a layout component type, typically "Column"
+- "root" in beginRendering MUST match the "id" of the root component in surfaceUpdate — it is a component ID, NOT a type name
+- ALL components MUST be in a FLAT array in surfaceUpdate.components — do NOT nest component definitions inside other components
+- Layout components (Column, Row, Card, List) reference children by ID: {"children":{"explicitList":["child_id_1","child_id_2"]}}
 - Every "component" key inside surfaceUpdate MUST use one of the supported types listed above
 - Do NOT invent custom component names — only the listed types render correctly
 - Keep each JSON object on its own line and valid standalone
@@ -135,11 +137,11 @@ You must now return:
 
 Use this exact structural shape:
 \`\`\`a2ui
-{"beginRendering":{"surfaceId":"surface_main","root":"Column"}}
-{"surfaceUpdate":{"surfaceId":"surface_main","components":[{"id":"root","component":{"Column":{"components":[...]}}}]}}
+{"beginRendering":{"surfaceId":"surface_main","root":"root"}}
+{"surfaceUpdate":{"surfaceId":"surface_main","components":[{"id":"root","component":{"Column":{"children":{"explicitList":["heading"]}}}},{"id":"heading","component":{"Text":{"text":{"literalString":"Hello"},"usageHint":"headline"}}}]}}
 \`\`\`
 
-CRITICAL: "root" in beginRendering MUST be a supported component type (Column, Row, Card, etc.), NOT an arbitrary string. Every component type must be one of: ${A2UI_TYPES_LIST}.
+CRITICAL: "root" in beginRendering MUST match the "id" of the root component in surfaceUpdate — it is a component ID, NOT a type name. ALL components MUST be in a FLAT array. Layout components reference children by ID using "children":{"explicitList":[...]}. Every component type must be one of: ${A2UI_TYPES_LIST}.
 
 Do not use \`json\` or \`text\` fences. Do not output raw HTML/CSS.`,
 } as const

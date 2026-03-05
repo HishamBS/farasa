@@ -195,8 +195,7 @@ function collectComponentTypes(value: unknown, found: Set<string>): void {
   if (!isRecord(value)) return
 
   if ('beginRendering' in value && isRecord(value.beginRendering)) {
-    const root = value.beginRendering.root
-    if (typeof root === 'string') found.add(root)
+    // root is a component ID, not a type name — skip it for type validation
   }
 
   if ('surfaceUpdate' in value && isRecord(value.surfaceUpdate)) {

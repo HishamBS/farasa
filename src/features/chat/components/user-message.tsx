@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { X } from 'lucide-react'
@@ -16,6 +16,15 @@ type UserMessageProps = {
 export function UserMessage({ content, attachments }: UserMessageProps) {
   const shouldReduce = useReducedMotion()
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!lightboxSrc) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLightboxSrc(null)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [lightboxSrc])
 
   return (
     <motion.div className="flex justify-end" {...(shouldReduce ? {} : fadeInUp)}>

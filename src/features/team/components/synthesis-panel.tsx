@@ -131,6 +131,7 @@ export function SynthesisPanel({
           type="button"
           onClick={handleSynthesize}
           disabled={!canSynthesize}
+          aria-label={UI_TEXT.TEAM_SYNTHESIZE_ARIA}
           className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors${
             canSynthesize
               ? ' bg-(--accent) text-white hover:bg-(--accent-hover)'

@@ -132,6 +132,12 @@ export function useTextToSpeech() {
     setIsReady(true)
   }, [])
 
+  useEffect(() => {
+    return () => {
+      stop()
+    }
+  }, [stop])
+
   return {
     speak,
     stop,

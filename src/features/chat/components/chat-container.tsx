@@ -355,6 +355,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
                 type="button"
                 onClick={handleRetryLastTurn}
                 className="rounded-md border border-(--error)/40 px-2 py-1 text-xs font-medium text-(--error) transition-colors hover:bg-(--error)/10"
+                aria-label="Retry last message"
               >
                 Retry
               </button>

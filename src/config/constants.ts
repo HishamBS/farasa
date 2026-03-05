@@ -594,6 +594,7 @@ export const UI_TEXT = {
   MODEL_SEARCH_PLACEHOLDER: 'Search models...',
   TEAM_MODEL_REMOVE_ARIA_PREFIX: 'Remove',
   TEAM_SYNTHESIZER_SELECT_ARIA_PREFIX: 'Select synthesizer',
+  TEAM_SYNTHESIZE_ARIA: 'Synthesize team responses',
   WEB_SEARCH_ENABLE: 'Enable web search',
   WEB_SEARCH_DISABLE: 'Disable web search',
   WEB_SEARCH_ACTIVE: 'Web search on',

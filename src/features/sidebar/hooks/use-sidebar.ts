@@ -74,7 +74,7 @@ export function useSidebar() {
     const schedule = () => {
       if (idleTimer) clearTimeout(idleTimer)
       idleTimer = setTimeout(() => {
-        setIsOpenState(false)
+        setIsOpen(false)
       }, UX.SIDEBAR_IDLE_AUTO_MINIMIZE_MS)
     }
 
@@ -98,7 +98,7 @@ export function useSidebar() {
         document.removeEventListener(event, schedule)
       }
     }
-  }, [isOpen])
+  }, [isOpen, setIsOpen])
 
   return { isOpen, open, close, toggle }
 }

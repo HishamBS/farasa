@@ -12,9 +12,13 @@ export function CopyButton({ code }: CopyButtonProps) {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = useCallback(async () => {
-    await navigator.clipboard.writeText(code)
-    setCopied(true)
-    setTimeout(() => setCopied(false), UX.COPY_FEEDBACK_DURATION_MS)
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopied(true)
+      setTimeout(() => setCopied(false), UX.COPY_FEEDBACK_DURATION_MS)
+    } catch {
+      // Clipboard access denied — graceful no-op
+    }
   }, [code])
 
   return (

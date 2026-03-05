@@ -158,6 +158,14 @@ export function ConversationItem({
   return (
     <>
       <motion.div
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e: React.KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            handleClick()
+          }
+        }}
         className={cn(
           'group relative flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2.5 py-2',
           'transition-colors duration-150 hover:bg-(white/5)',

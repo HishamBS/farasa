@@ -1,3 +1,4 @@
+import { A2UI_COMPONENT_TYPES, A2UI_TYPES_LIST } from '@/config/constants'
 import { isRecord, sanitizeA2UIJsonLine } from '@/lib/security/runtime-safety'
 import type { RuntimeA2UIPolicy } from '@/schemas/runtime-config'
 import type { v0_8 } from '@a2ui-sdk/types'
@@ -186,6 +187,59 @@ function serializeSafeA2UIMessages(
     }
   }
   return lines
+}
+
+const validComponentTypes: ReadonlySet<string> = new Set(A2UI_COMPONENT_TYPES)
+
+function collectComponentTypes(value: unknown, found: Set<string>): void {
+  if (!isRecord(value)) return
+
+  if ('beginRendering' in value && isRecord(value.beginRendering)) {
+    const root = value.beginRendering.root
+    if (typeof root === 'string') found.add(root)
+  }
+
+  if ('surfaceUpdate' in value && isRecord(value.surfaceUpdate)) {
+    const components = value.surfaceUpdate.components
+    if (Array.isArray(components)) {
+      for (const entry of components) {
+        collectComponentTypesFromNode(entry, found)
+      }
+    }
+  }
+}
+
+function collectComponentTypesFromNode(value: unknown, found: Set<string>): void {
+  if (!isRecord(value)) return
+
+  if ('component' in value && isRecord(value.component)) {
+    for (const typeName of Object.keys(value.component)) {
+      found.add(typeName)
+      const inner = value.component[typeName]
+      if (isRecord(inner) && 'components' in inner && Array.isArray(inner.components)) {
+        for (const child of inner.components) {
+          collectComponentTypesFromNode(child, found)
+        }
+      }
+    }
+  }
+}
+
+export function validateA2UIComponentTypes(lines: readonly string[]): string[] {
+  const found = new Set<string>()
+  for (const line of lines) {
+    try {
+      collectComponentTypes(JSON.parse(line), found)
+    } catch (error) {
+      console.warn('[a2ui] failed to parse line for component type validation:', error)
+      continue
+    }
+  }
+  return [...found].filter((t) => !validComponentTypes.has(t))
+}
+
+export function buildComponentTypeFeedback(invalidTypes: readonly string[]): string {
+  return `Your A2UI output used unsupported component types: ${invalidTypes.join(', ')}. Every component type MUST be one of: ${A2UI_TYPES_LIST}.`
 }
 
 export function parseA2UIFencePayloadToJsonLines(

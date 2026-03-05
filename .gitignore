@@ -36,6 +36,20 @@ drizzle/.drizzle-studio/
 *.log
 bun-error.log*
 
+# Internal QA artifacts (local-only)
+*QA*.md
+*qa*.md
+docs/qa-*/
+docs/*qa*/
+playwright-report/
+test-results/
+traces/
+screenshots/
+videos/
+*.har
+*.trace
+*.webm
+
 # TypeScript build cache
 tsconfig.tsbuildinfo
 *.tsbuildinfo

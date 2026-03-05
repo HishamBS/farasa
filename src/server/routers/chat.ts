@@ -25,7 +25,11 @@ import {
 import type { ModelCapability, ModelResponseFormat, ModelSelectionSource } from '@/schemas/model'
 import type { RuntimeA2UIPolicy, RuntimeConfig } from '@/schemas/runtime-config'
 import type { SearchImage, SearchResult } from '@/schemas/search'
-import { parseA2UIFencePayloadToJsonLines } from '@/server/services/a2ui-message-service'
+import {
+  buildComponentTypeFeedback,
+  parseA2UIFencePayloadToJsonLines,
+  validateA2UIComponentTypes,
+} from '@/server/services/a2ui-message-service'
 import { resolveModelDecision } from '@/server/services/model-resolution-service'
 import { executeSearchEnrichment } from '@/server/services/search-enrichment-service'
 import {
@@ -578,12 +582,15 @@ export const chatRouter = router({
         return events
       }
 
+      let componentFeedback = ''
+
       for (let contractAttempt = 1; contractAttempt <= maxA2UIAttempts; contractAttempt += 1) {
         const isA2UIRetryAttempt = contractAttempt > 1 && (strictA2UIContract || forceA2UIRetry)
         const enforceA2UIContract = strictA2UIContract || forceA2UIRetry
-        const attemptSystemSections = isA2UIRetryAttempt
-          ? [...systemSections, PROMPTS.A2UI_RETRY_FORMAT_PROMPT]
-          : systemSections
+        const retrySections = isA2UIRetryAttempt
+          ? [PROMPTS.A2UI_RETRY_FORMAT_PROMPT, componentFeedback].filter(Boolean)
+          : []
+        const attemptSystemSections = [...systemSections, ...retrySections]
         const attemptMessages: Message[] = [
           { role: MESSAGE_ROLES.SYSTEM, content: attemptSystemSections.join('\n\n') },
           ...baseMessages,
@@ -970,28 +977,48 @@ export const chatRouter = router({
         if (a2uiLines.length === 0 && runtimeConfig.features.a2uiEnabled && fullText.length > 0) {
           const extracted = extractA2UILinesFromAnyCodeFence(fullText, runtimeConfig.safety.a2ui)
           if (extracted.lines.length > 0) {
-            fullText = extracted.strippedText.trim()
-            for (const line of extracted.lines) {
-              a2uiLines.push(line)
-              const a2uiEvent = emit({
-                type: STREAM_EVENTS.A2UI,
-                jsonl: line,
-              })
-              if (typeof a2uiEvent.sequence === 'number') {
-                streamSequenceMax = Math.max(streamSequenceMax, a2uiEvent.sequence)
+            const invalidTypes = validateA2UIComponentTypes(extracted.lines)
+            if (invalidTypes.length === 0) {
+              fullText = extracted.strippedText.trim()
+              for (const line of extracted.lines) {
+                a2uiLines.push(line)
+                const a2uiEvent = emit({
+                  type: STREAM_EVENTS.A2UI,
+                  jsonl: line,
+                })
+                if (typeof a2uiEvent.sequence === 'number') {
+                  streamSequenceMax = Math.max(streamSequenceMax, a2uiEvent.sequence)
+                }
+                yield a2uiEvent
               }
-              yield a2uiEvent
-            }
-            if (!enforceA2UIContract) {
-              const textSetEvent = emit({
-                type: STREAM_EVENTS.TEXT_SET,
-                content: fullText,
-              })
-              if (typeof textSetEvent.sequence === 'number') {
-                streamSequenceMax = Math.max(streamSequenceMax, textSetEvent.sequence)
+              if (!enforceA2UIContract) {
+                const textSetEvent = emit({
+                  type: STREAM_EVENTS.TEXT_SET,
+                  content: fullText,
+                })
+                if (typeof textSetEvent.sequence === 'number') {
+                  streamSequenceMax = Math.max(streamSequenceMax, textSetEvent.sequence)
+                }
+                yield textSetEvent
               }
-              yield textSetEvent
+            } else {
+              console.warn(
+                '[a2ui] invalid component types in post-stream extraction:',
+                invalidTypes,
+              )
+              componentFeedback = buildComponentTypeFeedback(invalidTypes)
+              forceA2UIRetry = true
             }
+          }
+        }
+
+        if (a2uiLines.length > 0 && runtimeConfig.features.a2uiEnabled) {
+          const invalidTypes = validateA2UIComponentTypes(a2uiLines)
+          if (invalidTypes.length > 0) {
+            console.warn('[a2ui] invalid component types in inline extraction:', invalidTypes)
+            componentFeedback = buildComponentTypeFeedback(invalidTypes)
+            a2uiLines = []
+            forceA2UIRetry = true
           }
         }
 

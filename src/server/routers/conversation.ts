@@ -104,16 +104,22 @@ export const conversationRouter = router({
       rest.teamModels !== undefined ||
       rest.teamSynthesizerModel !== undefined
 
+    const updates: Record<string, unknown> = { updatedAt: new Date() }
+    if (safeTitle !== undefined) updates.title = safeTitle
+    if (rest.isPinned !== undefined) updates.isPinned = rest.isPinned
+    if (rest.mode !== undefined) updates.mode = rest.mode
+    if (rest.model !== undefined) updates.model = rest.model
+    if (rest.webSearchEnabled !== undefined) updates.webSearchEnabled = rest.webSearchEnabled
+    if (rest.teamModels !== undefined) updates.teamModels = rest.teamModels
+    if (rest.teamSynthesizerModel !== undefined)
+      updates.teamSynthesizerModel = rest.teamSynthesizerModel
+    if (shouldBumpSettingsVersion) {
+      updates.settingsVersion = sql`${conversations.settingsVersion} + 1`
+    }
+
     const [updated] = await ctx.db
       .update(conversations)
-      .set({
-        ...rest,
-        title: safeTitle,
-        updatedAt: new Date(),
-        ...(shouldBumpSettingsVersion
-          ? { settingsVersion: sql`${conversations.settingsVersion} + 1` }
-          : {}),
-      })
+      .set(updates)
       .where(and(eq(conversations.id, id), eq(conversations.userId, ctx.userId)))
       .returning()
 

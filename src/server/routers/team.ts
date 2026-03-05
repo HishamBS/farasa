@@ -409,6 +409,10 @@ export const teamRouter = router({
               ...historyMessages,
               { role: MESSAGE_ROLES.USER, content: userContent },
             ]
+            const imageSignal = AbortSignal.any([
+              ...(signal ? [signal] : []),
+              AbortSignal.timeout(LIMITS.IMAGE_GEN_TIMEOUT_MS),
+            ])
             const response = await openrouter.chat.send(
               {
                 chatGenerationParams: {
@@ -418,7 +422,7 @@ export const teamRouter = router({
                   maxCompletionTokens: getModelMaxCompletionTokens(registry, modelId),
                 },
               },
-              { signal: signal ?? undefined },
+              { signal: imageSignal },
             )
 
             const rawMessage = response.choices[0]?.message
@@ -458,6 +462,22 @@ export const teamRouter = router({
                   content: imageContent,
                   streamRequestId: modelStreamRequestId,
                   attempt: 0,
+                } satisfies StreamChunk,
+              })
+            } else {
+              console.error(`[team:image-gen] Model ${modelId} returned no image content`)
+              fullText = AppError.IMAGE_GEN_EMPTY_RESULT
+              push({
+                done: false,
+                modelId,
+                modelIndex,
+                chunk: {
+                  type: STREAM_EVENTS.ERROR,
+                  message: AppError.IMAGE_GEN_EMPTY_RESULT,
+                  reasonCode: 'image_gen_empty_result',
+                  recoverable: false,
+                  attempt: 0,
+                  streamRequestId: modelStreamRequestId,
                 } satisfies StreamChunk,
               })
             }
@@ -867,12 +887,9 @@ export const teamRouter = router({
 
         if (titleSeedMessage.trim()) {
           try {
+            const titleSignal = AbortSignal.timeout(LIMITS.TITLE_GEN_TIMEOUT_MS)
             const { generateTitle } = await import('@/lib/ai/title')
-            const generatedTitle = await generateTitle(
-              titleSeedMessage,
-              runtimeConfig,
-              signal ?? undefined,
-            )
+            const generatedTitle = await generateTitle(titleSeedMessage, runtimeConfig, titleSignal)
             const safeTitle = generatedTitle
               .trim()
               .slice(0, runtimeConfig.limits.conversationTitleMaxLength)
@@ -884,8 +901,8 @@ export const teamRouter = router({
                   and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)),
                 )
             }
-          } catch {
-            // Title generation failure is non-fatal
+          } catch (titleError: unknown) {
+            console.error('[team:title-gen] generateTitle failed:', getErrorMessage(titleError))
           }
         }
       }

@@ -59,11 +59,9 @@ async function extractRawText(fileType: string, storageUrl: string): Promise<str
       await parser.destroy()
       return result.text
     } catch (err) {
-      console.error(
-        '[text-extraction] PDF parsing failed:',
-        err instanceof Error ? err.message : err,
-      )
-      return ''
+      const detail = err instanceof Error ? err.message : String(err)
+      console.error('[text-extraction] PDF parsing failed:', detail)
+      throw new Error(`PDF extraction failed: ${detail}`)
     }
   }
 

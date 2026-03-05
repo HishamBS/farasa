@@ -54,19 +54,20 @@ export async function linkAttachmentsToMessage(
   attachmentIds: string[],
   messageId: string,
 ): Promise<AttachmentRow[]> {
+  const uniqueIds = [...new Set(attachmentIds)]
   const linked = await dbClient
     .update(attachments)
     .set({ messageId })
     .where(
       and(
-        inArray(attachments.id, attachmentIds),
+        inArray(attachments.id, uniqueIds),
         eq(attachments.userId, userId),
         isNotNull(attachments.confirmedAt),
       ),
     )
     .returning()
 
-  if (linked.length !== attachmentIds.length) {
+  if (linked.length !== uniqueIds.length) {
     throw new TRPCError({
       code: TRPC_CODES.FORBIDDEN,
       message: AppError.ATTACHMENT_ACCESS_DENIED,
@@ -76,10 +77,38 @@ export async function linkAttachmentsToMessage(
   return linked
 }
 
-function buildHistoryAttachmentAnnotation(rows: { fileName: string; fileType: string }[]): string {
-  return rows
-    .map((att) => `[Attached file: ${escapeXmlForPrompt(att.fileName)} (${att.fileType})]`)
-    .join('\n')
+async function buildHistoryAttachmentContent(
+  rows: { fileName: string; fileType: string; storageUrl: string }[],
+): Promise<ChatMessageContentItem[]> {
+  const blocks: ChatMessageContentItem[] = []
+  for (const att of rows) {
+    if (att.fileType.startsWith('image/')) {
+      blocks.push({
+        type: ChatMessageContentItemImageType.ImageUrl,
+        imageUrl: { url: att.storageUrl },
+      })
+    } else {
+      try {
+        const fileBlock = await extractFileContentBlock(att.fileName, att.fileType, att.storageUrl)
+        if (fileBlock) {
+          blocks.push({
+            type: ChatMessageContentItemTextType.Text,
+            text: fileBlock,
+          })
+        }
+      } catch (err) {
+        console.error(
+          `[history-builder] Failed to extract ${att.fileName}:`,
+          err instanceof Error ? err.message : err,
+        )
+        blocks.push({
+          type: ChatMessageContentItemTextType.Text,
+          text: `<file name="${escapeXmlForPrompt(att.fileName)}">[Content extraction failed]</file>`,
+        })
+      }
+    }
+  }
+  return blocks
 }
 
 export async function buildEnrichedHistory(
@@ -118,6 +147,7 @@ export async function buildEnrichedHistory(
             messageId: attachments.messageId,
             fileName: attachments.fileName,
             fileType: attachments.fileType,
+            storageUrl: attachments.storageUrl,
           })
           .from(attachments)
           .where(
@@ -133,31 +163,44 @@ export async function buildEnrichedHistory(
     attachmentsByMessageId.set(att.messageId, existing)
   }
 
-  return historyRows
-    .filter((row) => !excludedMessageIds.has(row.id))
-    .map((row) => {
-      if (row.role === MESSAGE_ROLES.USER) {
-        const rowAttachments = attachmentsByMessageId.get(row.id)
-        if (rowAttachments && rowAttachments.length > 0) {
-          const annotation = buildHistoryAttachmentAnnotation(rowAttachments)
-          return { role: row.role, content: `${row.content}\n${annotation}` }
+  const enrichedRows: Message[] = []
+  for (const row of historyRows) {
+    if (excludedMessageIds.has(row.id)) continue
+
+    if (row.role === MESSAGE_ROLES.USER) {
+      const rowAttachments = attachmentsByMessageId.get(row.id)
+      if (rowAttachments && rowAttachments.length > 0) {
+        const attachmentBlocks = await buildHistoryAttachmentContent(rowAttachments)
+        if (attachmentBlocks.length > 0) {
+          enrichedRows.push({
+            role: row.role,
+            content: [
+              { type: ChatMessageContentItemTextType.Text, text: row.content },
+              ...attachmentBlocks,
+            ],
+          })
+          continue
         }
-        return { role: row.role, content: row.content }
       }
+      enrichedRows.push({ role: row.role, content: row.content })
+      continue
+    }
 
-      let enrichedContent = row.content
-      const meta = row.metadata
+    let enrichedContent = row.content
+    const meta = row.metadata
 
-      if (meta?.searchQuery && meta?.searchResults?.length) {
-        const safeQuery = escapeXmlForPrompt(meta.searchQuery)
-        enrichedContent = `[This response used web search for: "${safeQuery}"]\n${enrichedContent}`
-      }
-      if (meta?.teamId && meta?.modelUsed) {
-        const safeModel = escapeXmlForPrompt(meta.modelUsed)
-        const label = meta.isTeamSynthesis ? 'Synthesis by' : 'Response from'
-        enrichedContent = `[${label}: ${safeModel}]\n${enrichedContent}`
-      }
+    if (meta?.searchQuery && meta?.searchResults?.length) {
+      const safeQuery = escapeXmlForPrompt(meta.searchQuery)
+      enrichedContent = `[This response used web search for: "${safeQuery}"]\n${enrichedContent}`
+    }
+    if (meta?.teamId && meta?.modelUsed) {
+      const safeModel = escapeXmlForPrompt(meta.modelUsed)
+      const label = meta.isTeamSynthesis ? 'Synthesis by' : 'Response from'
+      enrichedContent = `[${label}: ${safeModel}]\n${enrichedContent}`
+    }
 
-      return { role: row.role, content: enrichedContent }
-    })
+    enrichedRows.push({ role: row.role, content: enrichedContent })
+  }
+
+  return enrichedRows
 }

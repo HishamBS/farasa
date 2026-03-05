@@ -719,6 +719,10 @@ export const chatRouter = router({
         let toolRoundCount = 0
 
         if (isImageGenModel) {
+          const imageSignal = AbortSignal.any([
+            combinedSignal,
+            AbortSignal.timeout(LIMITS.IMAGE_GEN_TIMEOUT_MS),
+          ])
           const response = await openrouter.chat.send(
             {
               chatGenerationParams: {
@@ -728,7 +732,7 @@ export const chatRouter = router({
                 maxCompletionTokens: getModelMaxCompletionTokens(registry, selectedModel),
               },
             },
-            { signal: combinedSignal },
+            { signal: imageSignal },
           )
 
           const rawMessage = response.choices[0]?.message
@@ -1338,12 +1342,9 @@ export const chatRouter = router({
               phase: STREAM_PHASES.GENERATING_TITLE,
               message: runtimeConfig.chat.statusMessages.generatingTitle,
             })
+            const titleSignal = AbortSignal.timeout(LIMITS.TITLE_GEN_TIMEOUT_MS)
             const { generateTitle } = await import('@/lib/ai/title')
-            const generatedTitle = await generateTitle(
-              titleSeedMessage,
-              runtimeConfig,
-              combinedSignal,
-            )
+            const generatedTitle = await generateTitle(titleSeedMessage, runtimeConfig, titleSignal)
             const safeTitle = generatedTitle
               .trim()
               .slice(0, runtimeConfig.limits.conversationTitleMaxLength)

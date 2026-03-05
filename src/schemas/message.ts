@@ -1,4 +1,4 @@
-import { CHAT_MODES, STREAM_EVENTS, STREAM_PHASES } from '@/config/constants'
+import { CHAT_MODES, LIMITS, STREAM_EVENTS, STREAM_PHASES } from '@/config/constants'
 import { z } from 'zod'
 import {
   ModelCapabilitySchema,
@@ -117,7 +117,7 @@ export const StreamChunkSchema = z.discriminatedUnion('type', [
 
 export const ChatInputSchema = z.object({
   conversationId: z.string().uuid().optional(),
-  content: z.string().min(1),
+  content: z.string().min(1).max(LIMITS.MESSAGE_MAX_LENGTH),
   mode: ChatModeSchema.default(CHAT_MODES.CHAT),
   model: z.string().nullable().optional(),
   clientRequestId: z.string().uuid().optional(),

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { APP_CONFIG } from './constants'
 
 const envSchema = z.object({
   AUTH_SECRET: z
@@ -36,7 +37,7 @@ const BUILD_ENV_DEFAULTS: Partial<Record<keyof z.infer<typeof envSchema>, string
   OPENROUTER_API_KEY: 'build',
   GCS_BUCKET_NAME: 'build',
   GCS_PROJECT_ID: 'build',
-  NEXT_PUBLIC_APP_URL: 'http://localhost:3010',
+  NEXT_PUBLIC_APP_URL: APP_CONFIG.DEFAULT_LOCALHOST_URL,
   NODE_ENV: 'production',
 }
 

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { AttachmentSchema, ChatModeSchema, MessageSchema } from './message'
-import { CHAT_MODES } from '@/config/constants'
+import { CHAT_MODES, LIMITS } from '@/config/constants'
 
 export const CreateConversationSchema = z.object({
   title: z.string().min(1).optional(),
@@ -20,7 +20,6 @@ export const UpdateConversationSchema = z.object({
   webSearchEnabled: z.boolean().optional(),
   teamModels: z.array(z.string()).optional(),
   teamSynthesizerModel: z.string().nullable().optional(),
-  settingsVersion: z.number().int().nonnegative().optional(),
 })
 
 export const ConversationByIdSchema = z.object({
@@ -34,7 +33,7 @@ export const DeleteConversationSchema = z.object({
 export const ConversationFilterSchema = z.object({
   limit: z.number().int().min(1).optional(),
   cursor: z.string().datetime().optional(),
-  search: z.string().min(1).optional(),
+  search: z.string().min(1).max(LIMITS.SEARCH_QUERY_MAX_LENGTH).optional(),
 })
 
 export const ConversationSummarySchema = z.object({

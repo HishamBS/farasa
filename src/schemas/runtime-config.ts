@@ -2,6 +2,7 @@ import {
   AI_PARAMS,
   CHAT_ERRORS,
   LIMITS,
+  MESSAGE_DELIMITERS,
   MODEL_IDS,
   RATE_LIMITS,
   SEARCH_DEPTHS,
@@ -55,12 +56,12 @@ const RuntimePromptsSchema = z
       .object({
         userRequestOpen: z.string().min(1).default(USER_REQUEST_DELIMITERS.OPEN),
         userRequestClose: z.string().min(1).default(USER_REQUEST_DELIMITERS.CLOSE),
-        messageOpen: z.string().min(1).default('<message>'),
-        messageClose: z.string().min(1).default('</message>'),
-        searchResultsOpen: z.string().min(1).default('<search_results>'),
-        searchResultsClose: z.string().min(1).default('</search_results>'),
-        searchResultOpen: z.string().min(1).default('<search_result>'),
-        searchResultClose: z.string().min(1).default('</search_result>'),
+        messageOpen: z.string().min(1).default(MESSAGE_DELIMITERS.MESSAGE_OPEN),
+        messageClose: z.string().min(1).default(MESSAGE_DELIMITERS.MESSAGE_CLOSE),
+        searchResultsOpen: z.string().min(1).default(MESSAGE_DELIMITERS.SEARCH_RESULTS_OPEN),
+        searchResultsClose: z.string().min(1).default(MESSAGE_DELIMITERS.SEARCH_RESULTS_CLOSE),
+        searchResultOpen: z.string().min(1).default(MESSAGE_DELIMITERS.SEARCH_RESULT_OPEN),
+        searchResultClose: z.string().min(1).default(MESSAGE_DELIMITERS.SEARCH_RESULT_CLOSE),
       })
       .default({}),
   })

@@ -1,5 +1,6 @@
 'use client'
 
+import { UX } from '@/config/constants'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { trpc } from '@/trpc/provider'
@@ -15,9 +16,8 @@ export function useAutoScroll(
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
-    const threshold = runtimeConfigQuery.data?.ux.autoScrollThreshold
-    if (threshold === undefined) return
-    const thresholdValue = threshold
+    const thresholdValue =
+      runtimeConfigQuery.data?.ux.autoScrollThreshold ?? UX.AUTO_SCROLL_THRESHOLD
 
     function onScroll() {
       if (!container) return

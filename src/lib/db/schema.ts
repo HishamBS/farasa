@@ -139,7 +139,6 @@ export const runtimeConfigs = pgTable(
   },
   (table) => ({
     runtimeScopeUnique: uniqueIndex('runtime_scope_unique').on(table.scope, table.scopeKey),
-    runtimeScopeIdx: index('runtime_scope_idx').on(table.scope, table.scopeKey),
     runtimeScopeCheck: check(
       'runtime_scope_check',
       // system must not have scopeKey; user/tenant must have scopeKey

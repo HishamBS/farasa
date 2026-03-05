@@ -1,6 +1,7 @@
 export const LIMITS = {
   MESSAGE_MAX_LENGTH: 32_000,
   FILE_MAX_SIZE_BYTES: 10 * 1024 * 1024,
+  INLINE_UPLOAD_MAX_SIZE: 14 * 1024 * 1024,
   FILE_NAME_MAX_LENGTH: 255,
   CONVERSATION_TITLE_MAX_LENGTH: 200,
   SEARCH_QUERY_MAX_LENGTH: 200,
@@ -496,11 +497,22 @@ export const EXTERNAL_URLS = {
   GCS_BASE: 'https://storage.googleapis.com',
 } as const
 
+export const THEMES = ['light', 'dark', 'system'] as const
+
+export const MESSAGE_DELIMITERS = {
+  MESSAGE_OPEN: '<message>',
+  MESSAGE_CLOSE: '</message>',
+  SEARCH_RESULTS_OPEN: '<search_results>',
+  SEARCH_RESULTS_CLOSE: '</search_results>',
+  SEARCH_RESULT_OPEN: '<search_result>',
+  SEARCH_RESULT_CLOSE: '</search_result>',
+} as const
+
 export const APP_CONFIG = {
   NAME: 'Farasa',
   DEFAULT_LOCALHOST_URL: 'http://localhost:3010',
   THEME_COLOR: '#09090b',
-  DEFAULT_THEME: 'dark',
+  DEFAULT_THEME: 'dark' satisfies (typeof THEMES)[number],
   LOCALE: 'en',
   CHAT_PLACEHOLDER: 'Ask anything…',
 } as const

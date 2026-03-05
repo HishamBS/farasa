@@ -12,14 +12,7 @@ export const ModelCapabilitySchema = z.enum([
   MODEL_CATEGORIES.FAST,
 ])
 
-export const ProviderSchema = z.enum([
-  PROVIDERS.OPENAI,
-  PROVIDERS.ANTHROPIC,
-  PROVIDERS.GOOGLE,
-  PROVIDERS.META,
-  PROVIDERS.GROQ,
-  PROVIDERS.CEREBRAS,
-])
+export const ProviderSchema = z.enum(Object.values(PROVIDERS) as [string, ...string[]])
 
 export const ModelPricingSchema = z.object({
   promptPerMillion: z.number().nonnegative(),

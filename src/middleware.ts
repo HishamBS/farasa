@@ -1,6 +1,7 @@
 import NextAuth from 'next-auth'
 import { env } from '@/config/env'
 import { edgeAuthConfig } from '@/lib/auth/edge-config'
+import { COOKIE_NAMES } from '@/config/constants'
 import { ROUTES } from '@/config/routes'
 
 const { auth } = NextAuth(edgeAuthConfig)
@@ -11,7 +12,7 @@ export default auth((req) => {
   const accessCode = env.ACCESS_CODE
   if (accessCode) {
     const isGatePage = pathname === ROUTES.GATE
-    const hasAccess = req.cookies.get('farasa_gate')?.value === accessCode
+    const hasAccess = req.cookies.get(COOKIE_NAMES.ACCESS_GATE)?.value === accessCode
     if (!hasAccess && !isGatePage) {
       return Response.redirect(new URL(ROUTES.GATE, req.nextUrl))
     }

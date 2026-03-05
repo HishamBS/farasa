@@ -1,5 +1,4 @@
 import {
-  A2UI_COMPONENT_TYPES,
   AI_MARKUP,
   AI_PARAMS,
   LIMITS,
@@ -27,6 +26,7 @@ import type { ModelCapability, ModelResponseFormat, ModelSelectionSource } from 
 import type { RuntimeA2UIPolicy, RuntimeConfig } from '@/schemas/runtime-config'
 import type { SearchImage, SearchResult } from '@/schemas/search'
 import {
+  buildComponentTypeFeedback,
   parseA2UIFencePayloadToJsonLines,
   validateA2UIComponentTypes,
 } from '@/server/services/a2ui-message-service'
@@ -1006,7 +1006,7 @@ export const chatRouter = router({
                 '[a2ui] invalid component types in post-stream extraction:',
                 invalidTypes,
               )
-              componentFeedback = `Your A2UI output used unsupported component types: ${invalidTypes.join(', ')}. Every component type MUST be one of: ${A2UI_COMPONENT_TYPES.join(', ')}.`
+              componentFeedback = buildComponentTypeFeedback(invalidTypes)
               forceA2UIRetry = true
             }
           }
@@ -1016,7 +1016,7 @@ export const chatRouter = router({
           const invalidTypes = validateA2UIComponentTypes(a2uiLines)
           if (invalidTypes.length > 0) {
             console.warn('[a2ui] invalid component types in inline extraction:', invalidTypes)
-            componentFeedback = `Your A2UI output used unsupported component types: ${invalidTypes.join(', ')}. Every component type MUST be one of: ${A2UI_COMPONENT_TYPES.join(', ')}.`
+            componentFeedback = buildComponentTypeFeedback(invalidTypes)
             a2uiLines = []
             forceA2UIRetry = true
           }

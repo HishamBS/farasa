@@ -230,11 +230,16 @@ export function validateA2UIComponentTypes(lines: readonly string[]): string[] {
   for (const line of lines) {
     try {
       collectComponentTypes(JSON.parse(line), found)
-    } catch {
+    } catch (error) {
+      console.warn('[a2ui] failed to parse line for component type validation:', error)
       continue
     }
   }
   return [...found].filter((t) => !validComponentTypes.has(t))
+}
+
+export function buildComponentTypeFeedback(invalidTypes: readonly string[]): string {
+  return `Your A2UI output used unsupported component types: ${invalidTypes.join(', ')}. Every component type MUST be one of: ${A2UI_COMPONENT_TYPES.join(', ')}.`
 }
 
 export function parseA2UIFencePayloadToJsonLines(

@@ -1,19 +1,6 @@
 'use client'
 
-import {
-  AI_PARAMS,
-  EXPANDABLE_BLOCKS,
-  MODEL_SELECTION_SOURCES,
-  TOOL_NAMES,
-  UI_TEXT,
-} from '@/config/constants'
-import { useActiveBlock } from '@/features/stream-phases/hooks/use-active-block'
-import { A2UIMessage } from '@/features/a2ui/components/a2ui-message'
-import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
-import { RoutingDecisionBlock } from '@/features/stream-phases/components/routing-decision-block'
-import { ThinkingBlock } from '@/features/stream-phases/components/thinking-block'
-import { ToolExecution } from '@/features/stream-phases/components/tool-execution'
-import { TTSControls } from '@/features/voice/components/tts-controls'
+import { AI_PARAMS, MODEL_SELECTION_SOURCES, TOOL_NAMES, UI_TEXT } from '@/config/constants'
 import { formatCost } from '@/lib/utils/format'
 import { extractModelName } from '@/lib/utils/model'
 import { fadeInUp } from '@/lib/utils/motion'
@@ -23,6 +10,7 @@ import type { ThinkingState, ToolExecutionState } from '@/types/stream'
 import type { v0_8 } from '@a2ui-sdk/types'
 import { motion, useReducedMotion } from 'framer-motion'
 import { useMemo } from 'react'
+import { AssistantBody } from './assistant-body'
 import { AssistantFrame } from './assistant-frame'
 
 type HistoricalAssistantMessageProps = {
@@ -153,8 +141,6 @@ export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessa
 
   const a2uiMessages = useMemo(() => parseA2UIMessages(metadata?.a2uiMessages), [metadata])
 
-  const { activeBlock, toggleRouting, toggleThinking } = useActiveBlock()
-
   const modelLabel = metadata?.modelUsed ? extractModelName(metadata.modelUsed) : null
   const tokenLabel =
     metadata?.usage?.totalTokens && metadata.usage.totalTokens > 0
@@ -168,56 +154,25 @@ export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessa
   return (
     <motion.div {...(shouldReduce ? {} : fadeInUp)}>
       <AssistantFrame modelLabel={modelLabel} tokenLabel={tokenLabel} costLabel={costLabel}>
-        <div className="space-y-3">
-          {(hasRouting || thinking) && (
-            <div className="flex flex-wrap items-start gap-2">
-              {hasRouting && metadata && (
-                <RoutingDecisionBlock
-                  modelLabel={modelLabel ?? UI_TEXT.DEFAULT_MODEL_LABEL}
-                  model={metadata.modelUsed}
-                  category={metadata.routerCategory}
-                  confidence={metadata.routerConfidence}
-                  factors={metadata.routerFactors}
-                  reasoning={metadata.routerReasoning}
-                  compact
-                  defaultExpanded={false}
-                  isExpanded={activeBlock === EXPANDABLE_BLOCKS.ROUTING}
-                  onToggle={toggleRouting}
-                  className="mb-0"
-                />
-              )}
-              {thinking && (
-                <ThinkingBlock
-                  thinking={thinking}
-                  isExpanded={activeBlock === EXPANDABLE_BLOCKS.THINKING}
-                  onToggle={toggleThinking}
-                  className="mb-0"
-                />
-              )}
-            </div>
-          )}
-
-          {toolExecutions.length > 0 && (
-            <div className="flex flex-col gap-2">
-              {toolExecutions.map((execution) => (
-                <ToolExecution
-                  key={`${execution.name}-${execution.completedAt}`}
-                  execution={execution}
-                />
-              ))}
-            </div>
-          )}
-
-          {message.content && <MarkdownRenderer content={message.content} autoCollapse />}
-
-          {a2uiMessages.length > 0 && <A2UIMessage messages={a2uiMessages} />}
-
-          {message.content && (
-            <div className="flex items-center">
-              <TTSControls content={message.content} />
-            </div>
-          )}
-        </div>
+        <AssistantBody
+          routingDecision={
+            hasRouting && metadata
+              ? {
+                  modelLabel: modelLabel ?? UI_TEXT.DEFAULT_MODEL_LABEL,
+                  model: metadata.modelUsed,
+                  category: metadata.routerCategory,
+                  confidence: metadata.routerConfidence,
+                  factors: metadata.routerFactors,
+                  reasoning: metadata.routerReasoning,
+                }
+              : null
+          }
+          thinking={thinking}
+          toolExecutions={toolExecutions}
+          textContent={message.content ?? ''}
+          a2uiMessages={a2uiMessages}
+          autoCollapse
+        />
       </AssistantFrame>
     </motion.div>
   )

@@ -1,11 +1,11 @@
 'use client'
 
 import { MOTION, STATUS_MESSAGES, UX } from '@/config/constants'
+import { useExpandable } from '@/features/stream-phases/hooks/use-expandable'
 import { cn } from '@/lib/utils/cn'
 import { collapse, expand } from '@/lib/utils/motion'
 import type { ThinkingState } from '@/types/stream'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { useCallback, useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeSanitize from 'rehype-sanitize'
 import remarkGfm from 'remark-gfm'
@@ -26,16 +26,12 @@ export function ThinkingBlock({
   className,
 }: ThinkingBlockProps) {
   const shouldReduce = useReducedMotion()
-  const isControlled = controlledExpanded !== undefined
-  const [internalExpanded, setInternalExpanded] = useState(!UX.THINKING_COLLAPSE_DEFAULT)
-  const isExpanded = isControlled ? controlledExpanded : internalExpanded
-
-  useEffect(() => {
-    if (!isControlled && autoCollapse && internalExpanded) {
-      setInternalExpanded(false)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to autoCollapse transitions
-  }, [autoCollapse])
+  const { isExpanded, toggle } = useExpandable({
+    defaultExpanded: !UX.THINKING_COLLAPSE_DEFAULT,
+    controlledExpanded,
+    controlledToggle,
+    autoCollapse,
+  })
 
   const isComplete = thinking.completedAt !== undefined
   const completedAt = thinking.completedAt
@@ -43,14 +39,6 @@ export function ThinkingBlock({
     isComplete && completedAt !== undefined
       ? Math.max(1, Math.round((completedAt - thinking.startedAt) / 1000))
       : null
-
-  const toggle = useCallback(() => {
-    if (controlledToggle) {
-      controlledToggle()
-    } else {
-      setInternalExpanded((p) => !p)
-    }
-  }, [controlledToggle])
 
   return (
     <>

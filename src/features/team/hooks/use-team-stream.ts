@@ -9,6 +9,7 @@ import {
 } from '@/config/constants'
 import {
   initialStreamState,
+  mapStreamChunkToAction,
   streamStateReducer,
 } from '@/features/stream-phases/hooks/use-stream-state'
 import { useStreamSession } from '@/features/chat/context/stream-session-context'
@@ -92,92 +93,12 @@ export function useTeamStream({
       if (chunk.type !== TEAM_EVENTS.MODEL_CHUNK) return prev
 
       const { modelId, chunk: streamChunk } = chunk
+      const action = mapStreamChunkToAction(streamChunk)
+      if (!action) return prev
+
       const next = new Map(prev)
       const current = next.get(modelId) ?? { ...initialStreamState }
-
-      switch (streamChunk.type) {
-        case STREAM_EVENTS.STATUS:
-          next.set(
-            modelId,
-            streamStateReducer(current, {
-              type: STREAM_ACTIONS.STATUS,
-              phase: streamChunk.phase,
-              message: streamChunk.message,
-            }),
-          )
-          break
-        case STREAM_EVENTS.MODEL_SELECTED:
-          next.set(
-            modelId,
-            streamStateReducer(current, {
-              type: STREAM_ACTIONS.MODEL_SELECTED,
-              model: streamChunk.model,
-              reasoning: streamChunk.reasoning,
-              source: streamChunk.source,
-              category: streamChunk.category,
-              confidence: streamChunk.confidence,
-              factors: streamChunk.factors,
-            }),
-          )
-          break
-        case STREAM_EVENTS.THINKING:
-          next.set(
-            modelId,
-            streamStateReducer(current, {
-              type: STREAM_ACTIONS.THINKING_CHUNK,
-              content: streamChunk.content,
-              isComplete: streamChunk.isComplete,
-            }),
-          )
-          break
-        case STREAM_EVENTS.TOOL_START:
-          next.set(
-            modelId,
-            streamStateReducer(current, {
-              type: STREAM_ACTIONS.TOOL_START,
-              name: streamChunk.toolName,
-              input: streamChunk.input,
-            }),
-          )
-          break
-        case STREAM_EVENTS.TOOL_RESULT:
-          next.set(
-            modelId,
-            streamStateReducer(current, {
-              type: STREAM_ACTIONS.TOOL_RESULT,
-              name: streamChunk.toolName,
-              result: streamChunk.result,
-            }),
-          )
-          break
-        case STREAM_EVENTS.TEXT:
-          next.set(
-            modelId,
-            streamStateReducer(current, {
-              type: STREAM_ACTIONS.TEXT_CHUNK,
-              content: streamChunk.content,
-            }),
-          )
-          break
-        case STREAM_EVENTS.ERROR:
-          next.set(
-            modelId,
-            streamStateReducer(current, {
-              type: STREAM_ACTIONS.ERROR,
-              error: {
-                message: streamChunk.message,
-                code: streamChunk.code,
-                reasonCode: streamChunk.reasonCode,
-                recoverable: streamChunk.recoverable,
-              },
-            }),
-          )
-          break
-        case STREAM_EVENTS.DONE:
-          next.set(modelId, streamStateReducer(current, { type: STREAM_ACTIONS.DONE }))
-          break
-      }
-
+      next.set(modelId, streamStateReducer(current, action))
       return next
     },
     [],

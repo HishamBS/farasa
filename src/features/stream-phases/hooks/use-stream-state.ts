@@ -1,4 +1,5 @@
-import { CHAT_STREAM_STATUS, STREAM_ACTIONS, TOOL_NAMES } from '@/config/constants'
+import { CHAT_STREAM_STATUS, STREAM_ACTIONS, STREAM_EVENTS, TOOL_NAMES } from '@/config/constants'
+import type { StreamChunk } from '@/schemas/message'
 import type { StatusMessage, StreamAction, StreamState, ThinkingState } from '@/types/stream'
 import { useCallback, useReducer } from 'react'
 
@@ -166,6 +167,53 @@ export function streamStateReducer(state: StreamState, action: StreamAction): St
     case STREAM_ACTIONS.CLEAR_PENDING_USER_MESSAGE: {
       return { ...state, pendingUserMessage: null, pendingClientRequestId: null }
     }
+  }
+}
+
+export function mapStreamChunkToAction(chunk: StreamChunk): StreamAction | null {
+  switch (chunk.type) {
+    case STREAM_EVENTS.STATUS:
+      return { type: STREAM_ACTIONS.STATUS, phase: chunk.phase, message: chunk.message }
+    case STREAM_EVENTS.MODEL_SELECTED:
+      return {
+        type: STREAM_ACTIONS.MODEL_SELECTED,
+        model: chunk.model,
+        reasoning: chunk.reasoning,
+        source: chunk.source,
+        category: chunk.category,
+        responseFormat: chunk.responseFormat,
+        confidence: chunk.confidence,
+        factors: chunk.factors,
+      }
+    case STREAM_EVENTS.THINKING:
+      return {
+        type: STREAM_ACTIONS.THINKING_CHUNK,
+        content: chunk.content,
+        isComplete: chunk.isComplete,
+      }
+    case STREAM_EVENTS.TOOL_START:
+      return { type: STREAM_ACTIONS.TOOL_START, name: chunk.toolName, input: chunk.input }
+    case STREAM_EVENTS.TOOL_RESULT:
+      return { type: STREAM_ACTIONS.TOOL_RESULT, name: chunk.toolName, result: chunk.result }
+    case STREAM_EVENTS.TEXT:
+      return { type: STREAM_ACTIONS.TEXT_CHUNK, content: chunk.content }
+    case STREAM_EVENTS.TEXT_SET:
+      return { type: STREAM_ACTIONS.TEXT_SET, content: chunk.content }
+    case STREAM_EVENTS.ERROR:
+      return {
+        type: STREAM_ACTIONS.ERROR,
+        error: {
+          message: chunk.message,
+          code: chunk.code,
+          reasonCode: chunk.reasonCode,
+          recoverable: chunk.recoverable,
+          attempt: chunk.attempt,
+        },
+      }
+    case STREAM_EVENTS.DONE:
+      return { type: STREAM_ACTIONS.DONE }
+    default:
+      return null
   }
 }
 

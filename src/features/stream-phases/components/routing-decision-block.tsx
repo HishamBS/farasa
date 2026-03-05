@@ -13,6 +13,7 @@ import {
   STREAM_PHASES,
   STREAM_PROGRESS,
 } from '@/config/constants'
+import { useExpandable } from '@/features/stream-phases/hooks/use-expandable'
 import { cn } from '@/lib/utils/cn'
 import { resolveProviderKey } from '@/lib/utils/model'
 import { expand, fadeIn } from '@/lib/utils/motion'
@@ -31,7 +32,7 @@ import {
   Zap,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 
 type RoutingDecisionBlockProps = {
   modelLabel: string
@@ -160,23 +161,12 @@ export function RoutingDecisionBlock({
   className,
 }: RoutingDecisionBlockProps) {
   const shouldReduce = useReducedMotion()
-  const isControlled = controlledExpanded !== undefined
-  const [internalExpanded, setInternalExpanded] = useState(defaultExpanded)
-  const isExpanded = isControlled ? controlledExpanded : internalExpanded
-  const toggle = useCallback(() => {
-    if (controlledToggle) {
-      controlledToggle()
-    } else {
-      setInternalExpanded((prev) => !prev)
-    }
-  }, [controlledToggle])
-
-  useEffect(() => {
-    if (!isControlled && autoCollapse && internalExpanded) {
-      setInternalExpanded(false)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to autoCollapse transitions
-  }, [autoCollapse])
+  const { isExpanded, toggle } = useExpandable({
+    defaultExpanded,
+    controlledExpanded,
+    controlledToggle,
+    autoCollapse,
+  })
 
   const provider = useMemo(
     () => (model ? resolveProviderKey(model, PROVIDER_ALIASES) : null),

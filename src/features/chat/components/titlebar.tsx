@@ -1,5 +1,6 @@
 'use client'
 
+import { DeleteConfirmDialog } from '@/components/delete-confirm-dialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,13 +19,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { MOTION, NEW_CHAT_TITLE, UI_TEXT, UX } from '@/config/constants'
-import { PATTERNS, ROUTES } from '@/config/routes'
-import { trpc } from '@/trpc/provider'
+import { PATTERNS } from '@/config/routes'
+import { useConversationOperations } from '@/features/sidebar/hooks/use-conversation-operations'
 import type { TitlebarPhase } from '@/types/stream'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Check, Download, Menu, MoreHorizontal, Pencil, Pin, PinOff, Trash2 } from 'lucide-react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { trpc } from '@/trpc/provider'
 import { useChatMode } from '../context/chat-mode-context'
 import { ModeToggle } from './mode-toggle'
 
@@ -35,13 +37,13 @@ type TitlebarProps = {
 
 export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
   const pathname = usePathname()
-  const router = useRouter()
   const { mode, setMode, setActiveConversationId } = useChatMode()
-  const utils = trpc.useUtils()
+  const { updateMutation, deleteMutation, isExporting, handleExport } = useConversationOperations({
+    navigateOnDelete: true,
+  })
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showRenameDialog, setShowRenameDialog] = useState(false)
   const [renameValue, setRenameValue] = useState('')
-  const [isExporting, setIsExporting] = useState(false)
   const [showDone, setShowDone] = useState(false)
 
   useEffect(() => {
@@ -69,17 +71,6 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
     setActiveConversationId(conversationId ?? undefined)
   }, [conversationId, setActiveConversationId])
 
-  const updateMutation = trpc.conversation.update.useMutation({
-    onSuccess: () => void utils.conversation.invalidate(),
-  })
-
-  const deleteMutation = trpc.conversation.delete.useMutation({
-    onSuccess: () => {
-      void utils.conversation.invalidate()
-      router.push(ROUTES.CHAT)
-    },
-  })
-
   const handlePin = useCallback(() => {
     if (!conversationId || !conversation) return
     updateMutation.mutate({ id: conversationId, isPinned: !conversation.isPinned })
@@ -104,24 +95,10 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
     setShowRenameDialog(false)
   }, [conversationId, renameValue, updateMutation])
 
-  const handleExport = useCallback(() => {
+  const handleExportClick = useCallback(() => {
     if (!conversationId) return
-    void (async () => {
-      setIsExporting(true)
-      try {
-        const result = await utils.conversation.exportMarkdown.fetch({ id: conversationId })
-        const blob = new Blob([result.markdown], { type: 'text/markdown' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `${result.title}.md`
-        a.click()
-        URL.revokeObjectURL(url)
-      } finally {
-        setIsExporting(false)
-      }
-    })()
-  }, [conversationId, utils])
+    void handleExport(conversationId)
+  }, [conversationId, handleExport])
 
   const title = conversation?.title ?? null
 
@@ -232,7 +209,7 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
                 <Pencil size={14} className="mr-2" />
                 Rename
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleExport} disabled={isExporting}>
+              <DropdownMenuItem onClick={handleExportClick} disabled={isExporting}>
                 <Download size={14} className="mr-2" />
                 Export
               </DropdownMenuItem>
@@ -262,20 +239,11 @@ export function Titlebar({ onMenuClick, streamPhase = 'idle' }: TitlebarProps) {
         )}
       </header>
 
-      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{UI_TEXT.DELETE_CONFIRM_TITLE}</AlertDialogTitle>
-            <AlertDialogDescription>{UI_TEXT.DELETE_CONFIRM_BODY}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={handleDeleteConfirmed}>
-              {UI_TEXT.DELETE_CONFIRM_ACTION}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        onConfirm={handleDeleteConfirmed}
+      />
 
       <AlertDialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
         <AlertDialogContent>

@@ -11,7 +11,10 @@ import {
 } from '@/config/constants'
 import { ROUTES } from '@/config/routes'
 import { useStreamSession } from '@/features/chat/context/stream-session-context'
-import { useStreamState } from '@/features/stream-phases/hooks/use-stream-state'
+import {
+  mapStreamChunkToAction,
+  useStreamState,
+} from '@/features/stream-phases/hooks/use-stream-state'
 import type { MessageWithAttachments } from '@/schemas/conversation'
 import type { ChatInput, StreamChunk } from '@/schemas/message'
 import { trpcClient } from '@/trpc/client'
@@ -235,45 +238,6 @@ export function useChatStream(conversationId?: string) {
                   if (convId) void utils.conversation.getById.invalidate({ id: convId })
                 }
                 break
-              case STREAM_EVENTS.MODEL_SELECTED:
-                dispatch({
-                  type: STREAM_ACTIONS.MODEL_SELECTED,
-                  model: chunk.model,
-                  reasoning: chunk.reasoning,
-                  source: chunk.source,
-                  category: chunk.category,
-                  responseFormat: chunk.responseFormat,
-                  confidence: chunk.confidence,
-                  factors: chunk.factors,
-                })
-                break
-              case STREAM_EVENTS.THINKING:
-                dispatch({
-                  type: STREAM_ACTIONS.THINKING_CHUNK,
-                  content: chunk.content,
-                  isComplete: chunk.isComplete,
-                })
-                break
-              case STREAM_EVENTS.TOOL_START:
-                dispatch({
-                  type: STREAM_ACTIONS.TOOL_START,
-                  name: chunk.toolName,
-                  input: chunk.input,
-                })
-                break
-              case STREAM_EVENTS.TOOL_RESULT:
-                dispatch({
-                  type: STREAM_ACTIONS.TOOL_RESULT,
-                  name: chunk.toolName,
-                  result: chunk.result,
-                })
-                break
-              case STREAM_EVENTS.TEXT:
-                dispatch({ type: STREAM_ACTIONS.TEXT_CHUNK, content: chunk.content })
-                break
-              case STREAM_EVENTS.TEXT_SET:
-                dispatch({ type: STREAM_ACTIONS.TEXT_SET, content: chunk.content })
-                break
               case STREAM_EVENTS.A2UI:
                 try {
                   const parsed: unknown = JSON.parse(chunk.jsonl)
@@ -310,6 +274,11 @@ export function useChatStream(conversationId?: string) {
                   pendingRouteConversationIdRef.current = undefined
                   router.replace(ROUTES.CHAT_BY_ID(pendingRouteId))
                 }
+                break
+              }
+              default: {
+                const action = mapStreamChunkToAction(chunk)
+                if (action) dispatch(action)
                 break
               }
             }

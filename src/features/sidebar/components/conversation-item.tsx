@@ -9,8 +9,8 @@ import { fadeInUp } from '@/lib/utils/motion'
 import { cn } from '@/lib/utils/cn'
 import { formatDate } from '@/lib/utils/format'
 import { ROUTES } from '@/config/routes'
-import { UI_TEXT } from '@/config/constants'
-import { trpc } from '@/trpc/provider'
+import { DeleteConfirmDialog } from '@/components/delete-confirm-dialog'
+import { useConversationOperations } from '@/features/sidebar/hooks/use-conversation-operations'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,16 +18,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 
 type ConversationItemProps = {
   id: string
@@ -47,32 +37,13 @@ export function ConversationItem({
   const shouldReduce = useReducedMotion()
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
-  const [isExporting, setIsExporting] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [editValue, setEditValue] = useState(title)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const utils = trpc.useUtils()
-
-  const updateMutation = trpc.conversation.update.useMutation({
-    onSuccess: () => {
-      void utils.conversation.list.invalidate()
-      void utils.conversation.getById.invalidate({ id })
-    },
-    onError: () => {
-      void utils.conversation.list.invalidate()
-    },
-  })
-
-  const deleteMutation = trpc.conversation.delete.useMutation({
-    onSuccess: () => {
-      void utils.conversation.list.invalidate()
-      if (isActive) router.push(ROUTES.CHAT)
-    },
-    onError: () => {
-      void utils.conversation.list.invalidate()
-    },
+  const { updateMutation, deleteMutation, isExporting, handleExport } = useConversationOperations({
+    navigateOnDelete: isActive,
   })
 
   const handleClick = useCallback(() => {
@@ -97,28 +68,12 @@ export function ConversationItem({
     deleteMutation.mutate({ id })
   }, [id, deleteMutation])
 
-  const handleExport = useCallback(
+  const handleExportClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation()
-      void (async () => {
-        setIsExporting(true)
-        try {
-          const result = await utils.conversation.exportMarkdown.fetch({ id })
-          const blob = new Blob([result.markdown], { type: 'text/markdown' })
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = url
-          a.download = `${result.title}.md`
-          a.click()
-          URL.revokeObjectURL(url)
-        } catch {
-          // Export failure is visible via isExporting staying false
-        } finally {
-          setIsExporting(false)
-        }
-      })()
+      void handleExport(id)
     },
-    [id, utils],
+    [id, handleExport],
   )
 
   const handleEditChange = useCallback(
@@ -224,7 +179,7 @@ export function ConversationItem({
               <Pencil size={14} className="mr-2" />
               Rename
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleExport} disabled={isExporting}>
+            <DropdownMenuItem onClick={handleExportClick} disabled={isExporting}>
               <Download size={14} className="mr-2" />
               Export
             </DropdownMenuItem>
@@ -253,20 +208,11 @@ export function ConversationItem({
         </DropdownMenu>
       </motion.div>
 
-      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{UI_TEXT.DELETE_CONFIRM_TITLE}</AlertDialogTitle>
-            <AlertDialogDescription>{UI_TEXT.DELETE_CONFIRM_BODY}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={handleDeleteConfirmed}>
-              {UI_TEXT.DELETE_CONFIRM_ACTION}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        onConfirm={handleDeleteConfirmed}
+      />
     </>
   )
 }

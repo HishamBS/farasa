@@ -31,7 +31,7 @@ function A2UIContent({ onAction }: A2UIContentProps) {
   const { surfaces } = useSurfaceContext()
   if (surfaces.size === 0) return null
   return (
-    <div className="p-3">
+    <div className="p-4">
       <A2UIRenderer onAction={onAction} />
     </div>
   )

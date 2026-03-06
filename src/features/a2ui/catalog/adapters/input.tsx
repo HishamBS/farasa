@@ -37,7 +37,6 @@ export function InputAdapter({
         value={value}
         onChange={handleChange}
         placeholder={resolvedLabel ? `Enter ${resolvedLabel.toLowerCase()}...` : undefined}
-        className="border-(--border-default) bg-(--bg-input) text-(--text-primary) placeholder:text-(--text-ghost) focus-visible:ring-2 focus-visible:ring-(--accent)/30 focus-visible:border-(--accent)"
       />
     </div>
   )

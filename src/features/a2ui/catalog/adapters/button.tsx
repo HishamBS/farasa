@@ -53,7 +53,10 @@ export function ButtonAdapter({
   return (
     <Button
       variant={primary ? 'default' : 'outline'}
-      size="default"
+      size="lg"
+      className={
+        primary ? 'bg-(--accent) text-white hover:bg-(--accent-hover) font-medium' : undefined
+      }
       onClick={handleClick}
       disabled={!actionAllowed}
     >

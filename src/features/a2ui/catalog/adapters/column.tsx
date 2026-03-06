@@ -15,7 +15,7 @@ export function ColumnAdapter({
   const distClass = distribution
     ? (DISTRIBUTION_MAP[distribution] ?? 'justify-start')
     : 'justify-start'
-  const alignClass = alignment ? (ALIGNMENT_MAP[alignment] ?? 'items-start') : 'items-start'
+  const alignClass = alignment ? (ALIGNMENT_MAP[alignment] ?? 'items-stretch') : 'items-stretch'
   const childIds = children?.explicitList ?? []
 
   return (

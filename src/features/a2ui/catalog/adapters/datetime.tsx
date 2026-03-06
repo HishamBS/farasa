@@ -4,10 +4,15 @@ import { useCallback } from 'react'
 import { useDataBinding, useFormBinding } from '@a2ui-sdk/react/0.8'
 import type { BaseComponentProps } from '../types'
 import type { DateTimeInputComponentProps } from '@a2ui-sdk/types/0.8/standard-catalog'
-import { normalizeValueSource } from '../normalize-value-source'
+import {
+  normalizeValueSource,
+  ensureWritablePath,
+  extractLiteralDefault,
+} from '../normalize-value-source'
 
 export function DateTimeInputAdapter({
   surfaceId,
+  componentId,
   label,
   value,
   enableDate = true,
@@ -16,7 +21,9 @@ export function DateTimeInputAdapter({
   const safeLabel = normalizeValueSource(label)
   const safeValue = normalizeValueSource(value)
   const resolvedLabel = useDataBinding<string>(surfaceId, safeLabel, '')
-  const [current, setCurrent] = useFormBinding<string>(surfaceId, safeValue, '')
+  const writableSource = ensureWritablePath(safeValue, componentId)
+  const initialValue = extractLiteralDefault(safeValue, '')
+  const [current, setCurrent] = useFormBinding<string>(surfaceId, writableSource, initialValue)
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => setCurrent(e.target.value),

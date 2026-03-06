@@ -4,17 +4,24 @@ import { useCallback } from 'react'
 import { useDataBinding, useFormBinding } from '@a2ui-sdk/react/0.8'
 import type { BaseComponentProps } from '../types'
 import type { CheckBoxComponentProps } from '@a2ui-sdk/types/0.8/standard-catalog'
-import { normalizeValueSource } from '../normalize-value-source'
+import {
+  normalizeValueSource,
+  ensureWritablePath,
+  extractLiteralDefault,
+} from '../normalize-value-source'
 
 export function CheckBoxAdapter({
   surfaceId,
+  componentId,
   label,
   value,
 }: BaseComponentProps & CheckBoxComponentProps) {
   const safeLabel = normalizeValueSource(label)
   const safeValue = normalizeValueSource(value)
   const resolvedLabel = useDataBinding<string>(surfaceId, safeLabel, '')
-  const [checked, setChecked] = useFormBinding<boolean>(surfaceId, safeValue, false)
+  const writableSource = ensureWritablePath(safeValue, componentId)
+  const initialValue = extractLiteralDefault(safeValue, false)
+  const [checked, setChecked] = useFormBinding<boolean>(surfaceId, writableSource, initialValue)
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => setChecked(e.target.checked),

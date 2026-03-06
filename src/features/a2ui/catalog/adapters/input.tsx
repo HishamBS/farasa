@@ -5,17 +5,24 @@ import { Input } from '@/components/ui/input'
 import { useDataBinding, useFormBinding } from '@a2ui-sdk/react/0.8'
 import type { BaseComponentProps } from '../types'
 import type { TextFieldComponentProps } from '@a2ui-sdk/types/0.8/standard-catalog'
-import { normalizeValueSource } from '../normalize-value-source'
+import {
+  normalizeValueSource,
+  ensureWritablePath,
+  extractLiteralDefault,
+} from '../normalize-value-source'
 
 export function InputAdapter({
   surfaceId,
+  componentId,
   label,
   text,
 }: BaseComponentProps & TextFieldComponentProps) {
   const safeLabel = normalizeValueSource(label)
   const safeText = normalizeValueSource(text)
   const resolvedLabel = useDataBinding<string>(surfaceId, safeLabel, '')
-  const [value, setValue] = useFormBinding<string>(surfaceId, safeText, '')
+  const writableSource = ensureWritablePath(safeText, componentId)
+  const initialValue = extractLiteralDefault(safeText, '')
+  const [value, setValue] = useFormBinding<string>(surfaceId, writableSource, initialValue)
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => setValue(e.target.value),

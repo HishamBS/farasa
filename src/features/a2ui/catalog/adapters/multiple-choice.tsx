@@ -4,11 +4,16 @@ import { useCallback } from 'react'
 import { useDataBinding, useFormBinding } from '@a2ui-sdk/react/0.8'
 import type { BaseComponentProps } from '../types'
 import type { MultipleChoiceComponentProps } from '@a2ui-sdk/types/0.8/standard-catalog'
-import { normalizeValueSource } from '../normalize-value-source'
+import {
+  normalizeValueSource,
+  ensureWritablePath,
+  extractLiteralDefault,
+} from '../normalize-value-source'
 import { cn } from '@/lib/utils/cn'
 
 export function MultipleChoiceAdapter({
   surfaceId,
+  componentId,
   label,
   selections,
   options,
@@ -16,7 +21,9 @@ export function MultipleChoiceAdapter({
   const safeLabel = normalizeValueSource(label)
   const safeSelections = normalizeValueSource(selections)
   const resolvedLabel = useDataBinding<string>(surfaceId, safeLabel, '')
-  const [selected, setSelected] = useFormBinding<string>(surfaceId, safeSelections, '')
+  const writableSource = ensureWritablePath(safeSelections, componentId)
+  const initialValue = extractLiteralDefault(safeSelections, '')
+  const [selected, setSelected] = useFormBinding<string>(surfaceId, writableSource, initialValue)
 
   const handleSelect = useCallback((value: string) => setSelected(value), [setSelected])
 

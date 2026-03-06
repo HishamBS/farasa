@@ -51,10 +51,10 @@ function SelectedChip({
         <button
           type="button"
           onClick={() => onRemove(modelId)}
-          className="flex size-4 items-center justify-center rounded-full text-(--text-ghost) hover:bg-(--bg-surface-hover) hover:text-(--text-muted)"
+          className="flex size-5 items-center justify-center rounded-full bg-(--bg-surface-hover) text-(--text-muted) transition-colors hover:bg-(--error)/15 hover:text-(--error)"
           aria-label={`${UI_TEXT.TEAM_MODEL_REMOVE_ARIA_PREFIX} ${modelLabel}`}
         >
-          <X className="size-3" />
+          <X className="size-3.5" />
         </button>
       )}
     </span>

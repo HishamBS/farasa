@@ -4,6 +4,7 @@ import {
   BROWSER_EVENTS,
   CHAT_MODES,
   MESSAGE_ROLES,
+  NEW_CHAT_TITLE,
   STATUS_MESSAGES,
   STREAM_ACTIONS,
   STREAM_EVENTS,
@@ -32,6 +33,7 @@ type ActiveStreamSession = {
   unsubscribe: () => void
   isSettled: boolean
   terminalEvent: (typeof TERMINAL_EVENTS)[keyof typeof TERMINAL_EVENTS] | null
+  firstUserMessage: string | undefined
 }
 
 function isA2UIMessage(value: unknown): value is v0_8.A2UIMessage {
@@ -52,6 +54,16 @@ export function useChatStream(conversationId?: string) {
   const cancelStreamMutation = trpc.chat.cancel.useMutation()
   const cancelMutateRef = useRef(cancelStreamMutation.mutateAsync)
   cancelMutateRef.current = cancelStreamMutation.mutateAsync
+  const generateTitleMutation = trpc.conversation.generateTitle.useMutation({
+    onSuccess: () => {
+      void utils.conversation.list.invalidate()
+      if (resolvedConversationIdRef.current) {
+        void utils.conversation.getById.invalidate({ id: resolvedConversationIdRef.current })
+      }
+    },
+  })
+  const generateTitleMutateRef = useRef(generateTitleMutation.mutate)
+  generateTitleMutateRef.current = generateTitleMutation.mutate
   const activeSessionRef = useRef<ActiveStreamSession | null>(null)
   const { beginSession, endSession } = useStreamSession()
   const sendLockRef = useRef(false)
@@ -141,6 +153,7 @@ export function useChatStream(conversationId?: string) {
         unsubscribe: () => {},
         isSettled: false,
         terminalEvent: null,
+        firstUserMessage: input.content,
       }
       activeSessionRef.current = session
 
@@ -376,6 +389,16 @@ export function useChatStream(conversationId?: string) {
     if (conversationId) {
       void cancelMutateRef.current({ conversationId })
       void utils.conversation.messages.invalidate({ conversationId })
+
+      // Generate title if still "New Chat" — the server won't do it after cancel
+      void utils.conversation.getById.fetch({ id: conversationId }).then((conv) => {
+        if (conv?.title === NEW_CHAT_TITLE && active.firstUserMessage) {
+          generateTitleMutateRef.current({
+            conversationId,
+            firstMessage: active.firstUserMessage,
+          })
+        }
+      })
     }
   }, [dispatch, reset, teardownSession, utils])
 

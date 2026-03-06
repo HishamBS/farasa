@@ -41,6 +41,14 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
   const updateConversationMutateRef = useRef(updateConversationMutation.mutate)
   updateConversationMutateRef.current = updateConversationMutation.mutate
 
+  const clear = useCallback(() => {
+    setContent('')
+    setAttachmentIds([])
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+    }
+  }, [])
+
   // Only reset selection when conversation identity changes.
   // This prevents stale server echoes from overwriting a freshly selected model.
   useEffect(() => {
@@ -82,17 +90,13 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
       selectedModelRef.current = userDefault
       setSelectedModelState(userDefault)
       pendingConversationModelRef.current = { pending: false, value: undefined }
-      setContent('')
-      setAttachmentIds([])
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto'
-      }
+      clear()
     }
     window.addEventListener(BROWSER_EVENTS.NEW_CHAT_REQUESTED, handleNewChatRequested)
     return () => {
       window.removeEventListener(BROWSER_EVENTS.NEW_CHAT_REQUESTED, handleNewChatRequested)
     }
-  }, [prefsQuery.data?.defaultModel])
+  }, [clear, prefsQuery.data?.defaultModel])
 
   // Sync user default model to new chats when preferences load
   useEffect(() => {
@@ -179,14 +183,6 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
     },
     [],
   )
-
-  const clear = useCallback(() => {
-    setContent('')
-    setAttachmentIds([])
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-    }
-  }, [])
 
   const addAttachment = useCallback((id: string) => {
     setAttachmentIds((prev) => [...prev, id])

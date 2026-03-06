@@ -224,11 +224,7 @@ class StreamSessionService {
           recoverable: true,
         }
       }
-      if (
-        message.includes('extraction failed') ||
-        message.includes('pdf') ||
-        message.includes('parsing failed')
-      ) {
+      if (message.includes('extraction failed') || message.includes('parsing failed')) {
         return {
           message: runtimeConfig.chat.errors.fileProcessing ?? CHAT_ERRORS.FILE_PROCESSING,
           code: error.name,

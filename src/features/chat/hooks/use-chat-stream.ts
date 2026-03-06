@@ -54,16 +54,6 @@ export function useChatStream(conversationId?: string) {
   const cancelStreamMutation = trpc.chat.cancel.useMutation()
   const cancelMutateRef = useRef(cancelStreamMutation.mutateAsync)
   cancelMutateRef.current = cancelStreamMutation.mutateAsync
-  const generateTitleMutation = trpc.conversation.generateTitle.useMutation({
-    onSuccess: () => {
-      void utils.conversation.list.invalidate()
-      if (resolvedConversationIdRef.current) {
-        void utils.conversation.getById.invalidate({ id: resolvedConversationIdRef.current })
-      }
-    },
-  })
-  const generateTitleMutateRef = useRef(generateTitleMutation.mutate)
-  generateTitleMutateRef.current = generateTitleMutation.mutate
   const activeSessionRef = useRef<ActiveStreamSession | null>(null)
   const { beginSession, endSession } = useStreamSession()
   const sendLockRef = useRef(false)
@@ -393,10 +383,12 @@ export function useChatStream(conversationId?: string) {
       // Generate title if still "New Chat" — the server won't do it after cancel
       void utils.conversation.getById.fetch({ id: conversationId }).then((conv) => {
         if (conv?.title === NEW_CHAT_TITLE && active.firstUserMessage) {
-          generateTitleMutateRef.current({
-            conversationId,
-            firstMessage: active.firstUserMessage,
-          })
+          void trpcClient.conversation.generateTitle
+            .mutate({ conversationId, firstMessage: active.firstUserMessage })
+            .then(() => {
+              void utils.conversation.list.invalidate()
+              void utils.conversation.getById.invalidate({ id: conversationId })
+            })
         }
       })
     }

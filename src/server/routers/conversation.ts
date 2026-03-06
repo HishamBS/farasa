@@ -198,9 +198,20 @@ export const conversationRouter = router({
         if (msg.role === MESSAGE_ROLES.USER) {
           lines.push(`**You:** ${msg.content}`, '')
         } else if (msg.role === MESSAGE_ROLES.ASSISTANT) {
-          const modelLine = (msg.metadata as MessageMetadata | null)?.modelUsed
+          const meta = msg.metadata as MessageMetadata | null
+          const modelLine = meta?.modelUsed
           const prefix = modelLine ? `**Assistant** (${modelLine}):` : '**Assistant:**'
           lines.push(`${prefix} ${msg.content}`, '')
+
+          if (meta?.searchResults && meta.searchResults.length > 0) {
+            lines.push('**Search Sources:**', '')
+            for (const result of meta.searchResults) {
+              if (result.title && result.url) {
+                lines.push(`- [${result.title}](${result.url})`)
+              }
+            }
+            lines.push('')
+          }
         }
       }
 

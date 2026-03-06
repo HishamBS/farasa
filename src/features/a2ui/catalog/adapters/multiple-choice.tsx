@@ -1,10 +1,11 @@
 'use client'
 
-import { useCallback, useState } from 'react'
-import { useDataBinding, useDataModelContext } from '@a2ui-sdk/react/0.8'
+import { useCallback } from 'react'
+import { useDataBinding } from '@a2ui-sdk/react/0.8'
 import type { BaseComponentProps } from '../types'
 import type { MultipleChoiceComponentProps } from '@a2ui-sdk/types/0.8/standard-catalog'
 import { normalizeValueSource, extractLiteralDefault } from '../normalize-value-source'
+import { useFormField } from '../../hooks/use-form-field'
 import { cn } from '@/lib/utils/cn'
 
 export function MultipleChoiceAdapter({
@@ -16,17 +17,14 @@ export function MultipleChoiceAdapter({
 }: BaseComponentProps & MultipleChoiceComponentProps) {
   const safeLabel = normalizeValueSource(label)
   const resolvedLabel = useDataBinding<string>(surfaceId, safeLabel, '')
-  const { setDataValue } = useDataModelContext()
-  const initialValue = extractLiteralDefault(normalizeValueSource(selections), '')
-  const [selected, setSelected] = useState(initialValue)
-
-  const handleSelect = useCallback(
-    (value: string) => {
-      setSelected(value)
-      setDataValue(surfaceId, `/${componentId}`, value)
-    },
-    [setDataValue, surfaceId, componentId],
+  const { value: selected, setValue: setSelected } = useFormField(
+    surfaceId,
+    componentId,
+    selections,
+    '',
   )
+
+  const handleSelect = useCallback((value: string) => setSelected(value), [setSelected])
 
   if (!options || options.length === 0) return null
 

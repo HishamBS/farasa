@@ -8,6 +8,7 @@ import type { Action } from '@a2ui-sdk/types/0.8'
 import type { ButtonComponentProps } from '@a2ui-sdk/types/0.8/standard-catalog'
 import { useA2UIPolicy } from '@/features/a2ui/context/policy-context'
 import { isAllowedA2UIButtonAction } from '@/lib/security/runtime-safety'
+import { normalizeAction } from '../normalize-value-source'
 
 export function ButtonAdapter({
   child,
@@ -20,13 +21,7 @@ export function ButtonAdapter({
   const { getDataModel } = useDataModelContext()
   const policy = useA2UIPolicy()
 
-  // Models may send action as a raw string instead of the {name, context} object the SDK expects
-  const action = useMemo((): Action | undefined => {
-    if (!rawAction) return undefined
-    const raw: unknown = rawAction
-    if (typeof raw === 'string') return { name: raw }
-    return rawAction
-  }, [rawAction])
+  const action = useMemo(() => normalizeAction(rawAction), [rawAction])
 
   const actionAllowed = policy ? isAllowedA2UIButtonAction(action, policy.action.pattern) : false
 

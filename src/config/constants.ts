@@ -353,6 +353,27 @@ export const A2UI_COMPONENT_TYPES = [
 
 export const A2UI_TYPES_LIST = A2UI_COMPONENT_TYPES.join(', ')
 
+export const A2UI_ACTIONS = {
+  NEW_CHAT: 'newchat',
+  RENAME: 'rename',
+  PIN: 'pin',
+  UNPIN: 'unpin',
+  DELETE: 'delete',
+  REFRESH_MODELS: 'refreshmodels',
+  SEARCH: 'search',
+} as const
+
+export const A2UI_ACTION_PREFIXES = {
+  SUBMIT: 'submit',
+  PARSE: 'parse',
+  CANCEL: 'cancel',
+} as const
+
+export const A2UI_ACTION_EXACT = {
+  GENERATE: 'generate',
+  TRANSFORM: 'transform',
+} as const
+
 export const AI_MARKUP = {
   A2UI_FENCE_START: '```a2ui',
   CODE_FENCE_END: '```',

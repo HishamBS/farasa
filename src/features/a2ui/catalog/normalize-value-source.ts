@@ -1,4 +1,4 @@
-import type { ValueSource } from '@a2ui-sdk/types/0.8'
+import type { ValueSource, Action } from '@a2ui-sdk/types/0.8'
 
 /**
  * Models sometimes send raw strings instead of ValueSource objects.
@@ -33,4 +33,15 @@ export function extractLiteralDefault(
   if ('literalBoolean' in source && typeof source.literalBoolean === 'boolean')
     return source.literalBoolean
   return fallback
+}
+
+/**
+ * Models sometimes send action as a raw string instead of the {name, context} object
+ * the SDK expects. This normalizes at the system boundary.
+ */
+export function normalizeAction(rawAction: Action | undefined): Action | undefined {
+  if (!rawAction) return undefined
+  const raw: unknown = rawAction
+  if (typeof raw === 'string') return { name: raw }
+  return rawAction
 }

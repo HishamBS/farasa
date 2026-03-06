@@ -1,11 +1,12 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback } from 'react'
 import { Input } from '@/components/ui/input'
-import { useDataBinding, useDataModelContext } from '@a2ui-sdk/react/0.8'
+import { useDataBinding } from '@a2ui-sdk/react/0.8'
 import type { BaseComponentProps } from '../types'
 import type { TextFieldComponentProps } from '@a2ui-sdk/types/0.8/standard-catalog'
-import { normalizeValueSource, extractLiteralDefault } from '../normalize-value-source'
+import { normalizeValueSource } from '../normalize-value-source'
+import { useFormField } from '../../hooks/use-form-field'
 
 export function InputAdapter({
   surfaceId,
@@ -15,17 +16,11 @@ export function InputAdapter({
 }: BaseComponentProps & TextFieldComponentProps) {
   const safeLabel = normalizeValueSource(label)
   const resolvedLabel = useDataBinding<string>(surfaceId, safeLabel, '')
-  const { setDataValue } = useDataModelContext()
-  const initialValue = extractLiteralDefault(normalizeValueSource(text), '')
-  const [value, setValue] = useState(initialValue)
+  const { value, setValue } = useFormField(surfaceId, componentId, text, '')
 
   const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const newValue = e.target.value
-      setValue(newValue)
-      setDataValue(surfaceId, `/${componentId}`, newValue)
-    },
-    [setDataValue, surfaceId, componentId],
+    (e: React.ChangeEvent<HTMLInputElement>) => setValue(e.target.value),
+    [setValue],
   )
 
   return (

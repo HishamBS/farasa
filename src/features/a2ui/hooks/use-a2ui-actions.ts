@@ -4,7 +4,12 @@ import { useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { trpc } from '@/trpc/provider'
 import { ROUTES } from '@/config/routes'
-import { BROWSER_EVENTS } from '@/config/constants'
+import {
+  A2UI_ACTIONS,
+  A2UI_ACTION_EXACT,
+  A2UI_ACTION_PREFIXES,
+  BROWSER_EVENTS,
+} from '@/config/constants'
 import type { ActionPayload } from '@a2ui-sdk/types/0.8'
 import type { RuntimeConfig } from '@/schemas/runtime-config'
 
@@ -52,14 +57,14 @@ export function useA2UIActions() {
       if (!rawName) return
       const name = rawName.toLowerCase()
       switch (name) {
-        case 'newchat': {
+        case A2UI_ACTIONS.NEW_CHAT: {
           void createConversation.mutateAsync({}).then((conv) => {
             void utils.conversation.list.invalidate()
             router.push(ROUTES.CHAT_BY_ID(conv.id))
           })
           return
         }
-        case 'rename': {
+        case A2UI_ACTIONS.RENAME: {
           const id = String(getContextValue(action, 'id') ?? '')
           const title = String(getContextValue(action, 'title') ?? '').trim()
           if (!id || !title) return
@@ -68,16 +73,16 @@ export function useA2UIActions() {
             .then(() => utils.conversation.list.invalidate())
           return
         }
-        case 'pin':
-        case 'unpin': {
+        case A2UI_ACTIONS.PIN:
+        case A2UI_ACTIONS.UNPIN: {
           const id = String(getContextValue(action, 'id') ?? '')
           if (!id) return
           void updateConversation
-            .mutateAsync({ id, isPinned: name === 'pin' })
+            .mutateAsync({ id, isPinned: name === A2UI_ACTIONS.PIN })
             .then(() => utils.conversation.list.invalidate())
           return
         }
-        case 'delete': {
+        case A2UI_ACTIONS.DELETE: {
           const id = String(getContextValue(action, 'id') ?? '')
           if (!id) return
           void deleteConversation.mutateAsync({ id }).then(() => {
@@ -86,11 +91,11 @@ export function useA2UIActions() {
           })
           return
         }
-        case 'refreshmodels': {
+        case A2UI_ACTIONS.REFRESH_MODELS: {
           void refreshModels.mutateAsync({ force: true }).then(() => utils.model.list.invalidate())
           return
         }
-        case 'search': {
+        case A2UI_ACTIONS.SEARCH: {
           const query = String(getContextValue(action, 'query') ?? '').trim()
           if (!query) return
           const runtimeConfig = runtimeConfigRef.current
@@ -113,10 +118,10 @@ export function useA2UIActions() {
 
       // Form submission actions (prefix match for model-generated names like "submit_appointment")
       if (
-        name.startsWith('submit') ||
-        name.startsWith('parse') ||
-        name === 'generate' ||
-        name === 'transform'
+        name.startsWith(A2UI_ACTION_PREFIXES.SUBMIT) ||
+        name.startsWith(A2UI_ACTION_PREFIXES.PARSE) ||
+        name === A2UI_ACTION_EXACT.GENERATE ||
+        name === A2UI_ACTION_EXACT.TRANSFORM
       ) {
         const summary = buildContextSummary(action)
         dispatchActionPrompt({
@@ -138,7 +143,7 @@ export function useA2UIActions() {
       }
 
       // Cancel actions (prefix match for "cancel_form", "cancel_booking", etc.)
-      if (name.startsWith('cancel')) {
+      if (name.startsWith(A2UI_ACTION_PREFIXES.CANCEL)) {
         dispatchActionPrompt({
           prompt: `The user cancelled the form from the interactive A2UI artifact. Acknowledge the cancellation briefly and ask if they'd like to try something different.`,
           webSearchEnabled: false,

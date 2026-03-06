@@ -1,5 +1,5 @@
 {
-  "id": "1ee33626-5b8d-4bd0-860f-8c2e938e765a",
+  "id": "323eb971-39cf-4de4-8bce-9ee99cc1455a",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -543,27 +543,6 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "runtime_scope_idx": {
-          "name": "runtime_scope_idx",
-          "columns": [
-            {
-              "expression": "scope",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "scope_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}

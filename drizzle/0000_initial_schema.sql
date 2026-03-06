@@ -142,5 +142,4 @@ CREATE INDEX IF NOT EXISTS "att_msg_idx" ON "attachments" USING btree ("message_
 CREATE INDEX IF NOT EXISTS "conv_user_updated_idx" ON "conversations" USING btree ("user_id","updated_at");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "msg_conv_created_idx" ON "messages" USING btree ("conversation_id","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS "msg_conv_request_unique" ON "messages" USING btree ("conversation_id","role","client_request_id");--> statement-breakpoint
-CREATE UNIQUE INDEX IF NOT EXISTS "runtime_scope_unique" ON "runtime_configs" USING btree ("scope","scope_key");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "runtime_scope_idx" ON "runtime_configs" USING btree ("scope","scope_key");
+CREATE UNIQUE INDEX IF NOT EXISTS "runtime_scope_unique" ON "runtime_configs" USING btree ("scope","scope_key");

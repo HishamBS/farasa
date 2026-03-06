@@ -23,6 +23,10 @@ type A2UIContentProps = {
   onAction: (action: ActionPayload) => void
 }
 
+type A2UIMessageProcessorProps = {
+  messages: v0_8.A2UIMessage[]
+}
+
 function A2UIContent({ onAction }: A2UIContentProps) {
   const { surfaces } = useSurfaceContext()
   if (surfaces.size === 0) return null
@@ -38,7 +42,7 @@ function A2UIContent({ onAction }: A2UIContentProps) {
  * This preserves user edits and form state — unlike the messages prop approach
  * which clears all state on every array change.
  */
-function A2UIMessageProcessor({ messages }: { messages: v0_8.A2UIMessage[] }) {
+function A2UIMessageProcessor({ messages }: A2UIMessageProcessorProps) {
   const { processMessage, processMessages, clear } = useA2UIMessageHandler()
   const processedCountRef = useRef(0)
 

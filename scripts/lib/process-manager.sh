@@ -126,6 +126,8 @@ kill_tracked_pgids() {
 
     while IFS=: read -r pgid name; do
         [[ -z "$pgid" ]] && continue
+        # Never send signals to PGID 1 (init) or the current shell's group
+        [[ "$pgid" -le 1 ]] && continue
 
         if kill -0 -"$pgid" 2>/dev/null; then
             echo "  Killing process group $pgid ($name)..."
@@ -139,6 +141,7 @@ kill_tracked_pgids() {
 
         while IFS=: read -r pgid name; do
             [[ -z "$pgid" ]] && continue
+            [[ "$pgid" -le 1 ]] && continue
             if kill -0 -"$pgid" 2>/dev/null; then
                 echo "  Force killing PGID $pgid..."
                 kill -9 -"$pgid" 2>/dev/null || true
@@ -191,8 +194,8 @@ kill_by_app_ports() {
 }
 
 kill_by_patterns() {
+    # Only kill Farasa-specific background processes — never Docker or the current shell.
     local patterns=(
-        "start.sh"
         "drizzle-kit"
     )
 
@@ -207,14 +210,18 @@ kill_by_patterns() {
 
         local pid
         for pid in $pids; do
+            # Never kill ourselves
+            [[ "$pid" -eq $$ ]] && continue
+
             local cmd
             cmd=$(ps -p "$pid" -o command= 2>/dev/null || true)
-            if [[ "$cmd" =~ [Dd]ocker ]] || [[ "$cmd" =~ com\.docker ]]; then
+            # Skip any Docker-related processes
+            if [[ "$cmd" =~ [Dd]ocker ]] || [[ "$cmd" =~ com\.docker ]] || [[ "$cmd" =~ containerd ]]; then
                 continue
             fi
 
             echo "  Killing PID $pid ($pattern)"
-            kill -9 "$pid" 2>/dev/null || true
+            kill -TERM "$pid" 2>/dev/null || true
         done
     done
 
@@ -228,21 +235,29 @@ kill_by_patterns() {
 emergency_cleanup_all() {
     echo ""
     echo "============================================================"
-    echo "  Farasa EMERGENCY CLEANUP - 4-Layer Defense"
+    echo "  Farasa EMERGENCY CLEANUP"
     echo "============================================================"
     echo ""
 
-    echo "[Layer 1/4] Killing tracked process groups..."
-    kill_tracked_pgids
+    echo "[Step 1/4] Stopping Docker containers..."
+    if check_docker_running 2>/dev/null; then
+        local compose_file
+        for compose_file in "${COMPOSE_DEV_FILE}" "${COMPOSE_PROD_FILE}"; do
+            if [[ -f "$compose_file" ]]; then
+                docker compose -f "$compose_file" down --remove-orphans --timeout 10 2>/dev/null || true
+            fi
+        done
+    fi
 
-    echo "[Layer 2/4] Killing tracked PIDs..."
+    echo "[Step 2/4] Killing tracked processes..."
+    kill_tracked_pgids
     kill_tracked_pids
 
-    echo "[Layer 3/4] Killing by app ports (${FARASA_APP_PORTS[*]})..."
+    echo "[Step 3/4] Killing by app ports (${FARASA_APP_PORTS[*]})..."
     echo "  (Infrastructure ports ${FARASA_INFRA_PORTS[*]} are preserved)"
     kill_by_app_ports
 
-    echo "[Layer 4/4] Killing by process patterns..."
+    echo "[Step 4/4] Killing by process patterns..."
     kill_by_patterns
 
     echo ""
@@ -260,20 +275,26 @@ graceful_cleanup() {
     trap - HUP INT TERM QUIT PIPE
 
     echo ""
-    echo "Stopping services gracefully..."
+    echo "Stopping Farasa services gracefully..."
 
+    # 1. Stop only native (non-Docker) tracked processes
+    kill_tracked_pids
+
+    # 2. Stop Docker containers gently — use 'stop' not 'down' to avoid
+    #    tearing down networks/volumes while Docker Desktop is mid-operation.
+    #    Only stop Farasa-specific services, never touch the daemon itself.
     if check_docker_running 2>/dev/null; then
         local compose_file
         for compose_file in "${COMPOSE_DEV_FILE}" "${COMPOSE_PROD_FILE}"; do
-            if [[ -f "$compose_file" ]]; then
+            if [[ -f "$compose_file" ]] && \
+               docker compose -f "$compose_file" ps --status running --services 2>/dev/null | grep -q .; then
                 echo "Stopping Docker containers ($compose_file)..."
-                docker compose -f "$compose_file" down --remove-orphans --timeout 10 2>/dev/null || true
+                docker compose -f "$compose_file" stop --timeout 10 2>/dev/null || true
             fi
         done
     fi
 
-    kill_tracked_pids
-
+    # 3. Clean up any remaining native processes on app ports only
     local remaining=0
     local port
     for port in "${FARASA_APP_PORTS[@]}"; do
@@ -284,7 +305,6 @@ graceful_cleanup() {
 
     if [[ $remaining -gt 0 ]]; then
         kill_by_app_ports
-        kill_by_patterns
     fi
 
     clear_process_tracking

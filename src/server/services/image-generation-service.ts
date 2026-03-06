@@ -2,7 +2,6 @@ import { LIMITS } from '@/config/constants'
 import type { ModelConfig } from '@/schemas/model'
 import { UsageSchema } from '@/schemas/message'
 import type { Usage } from '@/schemas/message'
-import { getModelMaxCompletionTokens } from '@/lib/ai/registry'
 import type { Message } from '@openrouter/sdk/models'
 import { z } from 'zod'
 
@@ -89,19 +88,33 @@ export async function executeImageGeneration(params: {
     AbortSignal.timeout(LIMITS.IMAGE_GEN_TIMEOUT_MS),
   ])
 
-  const response = await openrouter.chat.send(
-    {
-      chatGenerationParams: {
-        model: params.model,
-        messages: params.messages,
-        stream: false,
-        maxCompletionTokens: getModelMaxCompletionTokens(params.registry, params.model),
-      },
-    },
-    { signal: imageSignal },
-  )
+  console.log('[image-gen] Calling model:', params.model, 'timeout:', LIMITS.IMAGE_GEN_TIMEOUT_MS)
 
+  let response
+  try {
+    response = await openrouter.chat.send(
+      {
+        chatGenerationParams: {
+          model: params.model,
+          messages: params.messages,
+          stream: false,
+        },
+      },
+      { signal: imageSignal },
+    )
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('[image-gen] API call failed:', msg)
+    throw error
+  }
+
+  console.log('[image-gen] Response received, choices:', response.choices?.length)
   const rawMessage = response.choices[0]?.message
+  if (!rawMessage) {
+    console.error('[image-gen] No message in response choices')
+  } else {
+    console.log('[image-gen] Response message keys:', Object.keys(rawMessage))
+  }
   const imageContent = parseImageResponse(rawMessage)
 
   let usage: Usage | undefined

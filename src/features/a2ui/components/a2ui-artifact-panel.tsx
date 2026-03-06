@@ -2,12 +2,11 @@
 
 import { Blocks, Code2, Eye } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { createHighlighter, type Highlighter } from 'shiki'
 import { useTheme } from 'next-themes'
 import type { v0_8 } from '@a2ui-sdk/types'
 import type { RuntimeA2UIPolicy } from '@/schemas/runtime-config'
-import { SHIKI_DARK_THEME, SHIKI_LIGHT_THEME } from '@/config/constants'
-import { SHIKI_LANGS } from '@/features/markdown/config/shiki-config'
+import { SHIKI_DARK_THEME, SHIKI_LIGHT_THEME, UX } from '@/config/constants'
+import { getShikiHighlighter } from '@/features/markdown/config/shiki-config'
 import { CopyButton } from '@/features/markdown/components/copy-button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { A2UIMessage } from './a2ui-message'
@@ -17,18 +16,6 @@ const ARTIFACT_TABS = {
   PREVIEW: 'preview',
   CODE: 'code',
 } as const
-
-let highlighterPromise: Promise<Highlighter> | null = null
-
-function getHighlighter(): Promise<Highlighter> {
-  if (!highlighterPromise) {
-    highlighterPromise = createHighlighter({
-      themes: [SHIKI_LIGHT_THEME, SHIKI_DARK_THEME],
-      langs: [...SHIKI_LANGS],
-    })
-  }
-  return highlighterPromise
-}
 
 type A2UICodeViewProps = {
   rawLines: string[]
@@ -55,13 +42,14 @@ function A2UICodeView({ rawLines }: A2UICodeViewProps) {
     const shikiTheme = resolvedTheme === 'light' ? SHIKI_LIGHT_THEME : SHIKI_DARK_THEME
     void (async () => {
       try {
-        const highlighter = await getHighlighter()
+        const highlighter = await getShikiHighlighter()
         const rendered = highlighter.codeToHtml(formattedCode, {
           lang: 'json',
           theme: shikiTheme,
         })
         if (!cancelled) setHtml(rendered)
-      } catch {
+      } catch (error) {
+        console.error('[a2ui] Shiki highlighting failed:', error)
         if (!cancelled) setHtml('')
       }
     })()
@@ -137,13 +125,16 @@ export function A2UIArtifactPanel({
         </div>
 
         <TabsContent value={ARTIFACT_TABS.PREVIEW} className="min-h-0 flex-1 overflow-y-auto">
-          <div className="max-h-[600px] overflow-y-auto">
+          <div className="overflow-y-auto" style={{ maxHeight: UX.ARTIFACT_PANEL_MAX_HEIGHT_PX }}>
             <A2UIMessage messages={messages} policy={policy} />
           </div>
         </TabsContent>
 
         <TabsContent value={ARTIFACT_TABS.CODE} className="min-h-0 flex-1 overflow-y-auto">
-          <div className="max-h-[600px] overflow-y-auto bg-(--bg-code-header)">
+          <div
+            className="overflow-y-auto bg-(--bg-code-header)"
+            style={{ maxHeight: UX.ARTIFACT_PANEL_MAX_HEIGHT_PX }}
+          >
             <A2UICodeView rawLines={rawLines} />
           </div>
         </TabsContent>

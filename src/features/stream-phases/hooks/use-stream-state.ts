@@ -152,7 +152,7 @@ export function streamStateReducer(state: StreamState, action: StreamAction): St
       return {
         ...state,
         lastInput: action.input,
-        pendingUserMessage: action.input.content,
+        pendingUserMessage: action.input.isA2UIAction ? null : action.input.content,
         pendingClientRequestId: action.input.clientRequestId ?? null,
       }
     }

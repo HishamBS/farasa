@@ -50,7 +50,11 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
 
   const [teamStreamInput, setTeamStreamInput] = useState<TeamStreamInput | null>(null)
   const teamConversationIdRef = useRef<string | undefined>(conversationId)
-  const pendingA2UIRef = useRef<{ prompt: string; webSearchEnabled: boolean } | null>(null)
+  const pendingA2UIRef = useRef<{
+    prompt: string
+    webSearchEnabled: boolean
+    isA2UIAction: boolean
+  } | null>(null)
   const synthesis = useTeamSynthesis()
 
   useEffect(() => {
@@ -240,13 +244,18 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
 
   useEffect(() => {
     const onA2UIActionRequested = (event: Event) => {
-      const custom = event as CustomEvent<{ prompt?: string; webSearchEnabled?: boolean }>
+      const custom = event as CustomEvent<{
+        prompt?: string
+        webSearchEnabled?: boolean
+        isA2UIAction?: boolean
+      }>
       const prompt = custom.detail?.prompt?.trim()
       if (!prompt) return
       if (isTurnActive) {
         pendingA2UIRef.current = {
           prompt,
           webSearchEnabled: Boolean(custom.detail?.webSearchEnabled),
+          isA2UIAction: Boolean(custom.detail?.isA2UIAction),
         }
         return
       }
@@ -258,6 +267,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
         attachmentIds: [],
         webSearchEnabled: Boolean(custom.detail?.webSearchEnabled),
         clientRequestId: crypto.randomUUID(),
+        isA2UIAction: Boolean(custom.detail?.isA2UIAction),
       })
     }
 
@@ -286,6 +296,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
       attachmentIds: [],
       webSearchEnabled: pending.webSearchEnabled,
       clientRequestId: crypto.randomUUID(),
+      isA2UIAction: pending.isA2UIAction,
     })
   }, [isTurnActive, effectiveConversationId, sendMessage])
 

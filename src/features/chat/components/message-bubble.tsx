@@ -11,6 +11,7 @@ type MessageBubbleProps = {
 
 export function MessageBubble({ message }: MessageBubbleProps) {
   if (message.role === MESSAGE_ROLES.USER) {
+    if (message.metadata?.isA2UIAction) return null
     return <UserMessage content={message.content} attachments={message.attachments} />
   }
   if (message.role === MESSAGE_ROLES.ASSISTANT) {

@@ -78,15 +78,31 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
 
   useEffect(() => {
     const handleNewChatRequested = () => {
-      selectedModelRef.current = undefined
-      setSelectedModelState(undefined)
+      const userDefault = prefsQuery.data?.defaultModel ?? undefined
+      selectedModelRef.current = userDefault
+      setSelectedModelState(userDefault)
       pendingConversationModelRef.current = { pending: false, value: undefined }
+      setContent('')
+      setAttachmentIds([])
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto'
+      }
     }
     window.addEventListener(BROWSER_EVENTS.NEW_CHAT_REQUESTED, handleNewChatRequested)
     return () => {
       window.removeEventListener(BROWSER_EVENTS.NEW_CHAT_REQUESTED, handleNewChatRequested)
     }
-  }, [])
+  }, [prefsQuery.data?.defaultModel])
+
+  // Sync user default model to new chats when preferences load
+  useEffect(() => {
+    if (conversationId) return
+    const userDefault = prefsQuery.data?.defaultModel ?? undefined
+    if (!userDefault) return
+    if (selectedModelRef.current !== undefined) return
+    selectedModelRef.current = userDefault
+    setSelectedModelState(userDefault)
+  }, [conversationId, prefsQuery.data?.defaultModel])
 
   useEffect(() => {
     if (isTurnActive || !conversationId) return

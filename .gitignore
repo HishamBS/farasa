@@ -36,6 +36,9 @@ drizzle/.drizzle-studio/
 *.log
 bun-error.log*
 
+# E2E testing artifacts (local-only)
+e2e/
+
 # Internal QA artifacts (local-only)
 *QA*.md
 *qa*.md

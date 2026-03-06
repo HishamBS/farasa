@@ -106,6 +106,8 @@ class StreamSessionService {
   ): (payload: StreamChunkPayload) => StreamChunk {
     let sequence = 0
     return (payload: StreamChunkPayload): StreamChunk => {
+      // Justified assertion: DistributiveOmit strips fields from a discriminated union,
+      // and TypeScript cannot infer that re-adding them restores the original union type.
       const base = {
         ...payload,
         streamRequestId,

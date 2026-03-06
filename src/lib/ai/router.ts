@@ -1,4 +1,4 @@
-import { MESSAGE_ROLES, MODEL_CATEGORIES, RESPONSE_FORMATS } from '@/config/constants'
+import { LIMITS, MESSAGE_ROLES, MODEL_CATEGORIES, RESPONSE_FORMATS } from '@/config/constants'
 import { buildRouterPrompt } from '@/config/prompts'
 import type { ModelConfig, ModelSelection } from '@/schemas/model'
 import { ModelCapabilitySchema, ModelSelectionSchema } from '@/schemas/model'
@@ -109,8 +109,12 @@ function parseModelSelectionResponse(raw: string): ModelSelection {
   const responseFormat =
     responseFormatRaw === RESPONSE_FORMATS.A2UI ? RESPONSE_FORMATS.A2UI : RESPONSE_FORMATS.MARKDOWN
 
-  const confidenceRaw = typeof payload.confidence === 'number' ? payload.confidence : 0.75
-  const confidence = Math.min(1, Math.max(0, confidenceRaw))
+  const confidenceRaw =
+    typeof payload.confidence === 'number' ? payload.confidence : LIMITS.ROUTER_DEFAULT_CONFIDENCE
+  const confidence = Math.min(
+    LIMITS.ROUTER_CONFIDENCE_MAX,
+    Math.max(LIMITS.ROUTER_CONFIDENCE_MIN, confidenceRaw),
+  )
 
   const parsedFactors = parseSelectionFactors(payload.factors)
   const factors =

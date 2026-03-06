@@ -6,12 +6,13 @@ import type { ActionPayload } from '@a2ui-sdk/types/0.8'
 import React from 'react'
 import { customCatalog } from '../catalog/custom-catalog'
 import { useA2UIActions } from '../hooks/use-a2ui-actions'
-import { trpc } from '@/trpc/provider'
 import { A2UIPolicyProvider } from '../context/policy-context'
+import type { RuntimeA2UIPolicy } from '@/schemas/runtime-config'
 import { useMemo } from 'react'
 
 type A2UIMessageProps = {
   messages: v0_8.A2UIMessage[]
+  policy: RuntimeA2UIPolicy
 }
 
 type A2UIContentProps = {
@@ -24,7 +25,7 @@ function A2UIContent({ onAction }: A2UIContentProps) {
   if (surfaces.size === 0) return null
 
   return (
-    <div className="rounded-xl border border-(--border-subtle) bg-(--bg-surface) p-3">
+    <div className="p-3">
       <A2UIRenderer onAction={onAction} />
     </div>
   )
@@ -87,27 +88,19 @@ class A2UIErrorBoundary extends React.Component<
   }
 }
 
-export function A2UIMessage({ messages }: A2UIMessageProps) {
+export function A2UIMessage({ messages, policy }: A2UIMessageProps) {
   const { handleAction } = useA2UIActions()
-  const runtimeConfigQuery = trpc.runtimeConfig.get.useQuery()
-  const policy = runtimeConfigQuery.data?.safety.a2ui
   const isRenderable = useMemo(() => hasRenderableSurfaceRoot(messages), [messages])
 
-  if (!policy || messages.length === 0) return null
+  if (messages.length === 0 || !isRenderable) return null
 
   return (
     <A2UIPolicyProvider policy={policy}>
-      {isRenderable ? (
-        <A2UIProvider messages={messages} catalog={customCatalog}>
-          <A2UIErrorBoundary>
-            <A2UIContent onAction={handleAction} />
-          </A2UIErrorBoundary>
-        </A2UIProvider>
-      ) : (
-        <div className="rounded-xl border border-(--border-subtle) bg-(--bg-surface) p-3 text-sm text-(--text-muted)">
-          Interactive UI payload is invalid for this message.
-        </div>
-      )}
+      <A2UIProvider messages={messages} catalog={customCatalog}>
+        <A2UIErrorBoundary>
+          <A2UIContent onAction={handleAction} />
+        </A2UIErrorBoundary>
+      </A2UIProvider>
     </A2UIPolicyProvider>
   )
 }

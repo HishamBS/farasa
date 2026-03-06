@@ -1,13 +1,9 @@
 import { MESSAGE_ROLES, MODEL_CATEGORIES, RESPONSE_FORMATS } from '@/config/constants'
-import { buildRouterPrompt, formatModelLine } from '@/config/prompts'
+import { buildRouterPrompt } from '@/config/prompts'
 import type { ModelConfig, ModelSelection } from '@/schemas/model'
 import { ModelCapabilitySchema, ModelSelectionSchema } from '@/schemas/model'
 import type { RuntimeConfig } from '@/schemas/runtime-config'
-import { z } from 'zod'
 import { openrouter } from './client'
-
-const ADJUDICATION_MAX_OUTPUT_CHARS = 8_000
-const REVIEW_MAX_TOKENS = 300
 
 function extractFirstJsonObject(raw: string): string {
   const start = raw.indexOf('{')
@@ -148,10 +144,6 @@ function parseModelSelectionResponse(raw: string): ModelSelection {
   })
 }
 
-function buildModelSummaryLines(registry: ReadonlyArray<ModelConfig>): string {
-  return registry.map(formatModelLine).join('\n')
-}
-
 function selectRoutingEngineModel(
   registry: ReadonlyArray<ModelConfig>,
   runtimeConfig: RuntimeConfig,
@@ -190,61 +182,6 @@ function validateModelSelection(
   }
 
   return selection
-}
-
-const A2UIRecoveryDecisionSchema = z.object({
-  retryAsA2UI: z.boolean(),
-  reason: z.string().min(1),
-})
-
-export async function decideA2UIRecovery(
-  prompt: string,
-  assistantOutput: string,
-  registry: ReadonlyArray<ModelConfig>,
-  runtimeConfig: RuntimeConfig,
-  signal?: AbortSignal,
-): Promise<z.infer<typeof A2UIRecoveryDecisionSchema>> {
-  const routingModelId = selectRoutingEngineModel(registry, runtimeConfig)
-  const safeOutput = assistantOutput.slice(0, ADJUDICATION_MAX_OUTPUT_CHARS)
-  const wrappedPrompt =
-    `${runtimeConfig.prompts.wrappers.userRequestOpen}\n` +
-    `${prompt}\n` +
-    `${runtimeConfig.prompts.wrappers.userRequestClose}`
-
-  const response = await openrouter.chat.send(
-    {
-      chatGenerationParams: {
-        model: routingModelId,
-        messages: [
-          {
-            role: MESSAGE_ROLES.SYSTEM,
-            content: `${runtimeConfig.prompts.routerSystem}\n\nYou are deciding whether this request/response pair should be retried using strict A2UI contract.\nSet retryAsA2UI=true only when the user asked for generated UI (forms/components/layouts/dashboards) and the assistant output failed to provide valid A2UI protocol output.\nReturn JSON only: {"retryAsA2UI":true|false,"reason":"..."}`,
-          },
-          {
-            role: MESSAGE_ROLES.USER,
-            content:
-              `${wrappedPrompt}\n\n` +
-              `<assistant_output_preview>\n${safeOutput}\n</assistant_output_preview>\n` +
-              `<available_models>\n${buildModelSummaryLines(registry)}\n</available_models>`,
-          },
-        ],
-        responseFormat: { type: 'json_object' },
-        maxCompletionTokens: REVIEW_MAX_TOKENS,
-        temperature: runtimeConfig.ai.routerTemperature,
-      },
-    },
-    { signal },
-  )
-
-  const raw = response.choices[0]?.message.content
-  if (typeof raw !== 'string') {
-    return { retryAsA2UI: false, reason: 'no_response' }
-  }
-  const parsed = A2UIRecoveryDecisionSchema.safeParse(parseJsonObject(raw))
-  if (!parsed.success) {
-    return { retryAsA2UI: false, reason: 'invalid_response' }
-  }
-  return parsed.data
 }
 
 export async function routeModel(

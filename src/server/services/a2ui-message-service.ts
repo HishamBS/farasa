@@ -1,4 +1,4 @@
-import { A2UI_COMPONENT_TYPES, A2UI_TYPES_LIST } from '@/config/constants'
+import { A2UI_COMPONENT_TYPES } from '@/config/constants'
 import { isRecord, sanitizeA2UIJsonLine } from '@/lib/security/runtime-safety'
 import type { RuntimeA2UIPolicy } from '@/schemas/runtime-config'
 import type { v0_8 } from '@a2ui-sdk/types'
@@ -45,82 +45,6 @@ function parseJsonLines(source: string): unknown[] {
   return parsed
 }
 
-function parseConcatenatedJson(source: string): unknown[] {
-  const parsed: unknown[] = []
-  const length = source.length
-  let cursor = 0
-
-  while (cursor < length) {
-    while (cursor < length && /[\s,]/.test(source[cursor] ?? '')) {
-      cursor += 1
-    }
-    if (cursor >= length) break
-
-    const first = source[cursor]
-    if (first !== '{' && first !== '[') {
-      cursor += 1
-      continue
-    }
-
-    let depth = 0
-    let inString = false
-    let escaped = false
-    let foundEnd = false
-
-    for (let index = cursor; index < length; index += 1) {
-      const char = source[index]
-      if (char === undefined) continue
-
-      if (inString) {
-        if (escaped) {
-          escaped = false
-          continue
-        }
-        if (char === '\\') {
-          escaped = true
-          continue
-        }
-        if (char === '"') {
-          inString = false
-        }
-        continue
-      }
-
-      if (char === '"') {
-        inString = true
-        continue
-      }
-      if (char === '{' || char === '[') {
-        depth += 1
-        continue
-      }
-      if (char === '}' || char === ']') {
-        depth -= 1
-        if (depth === 0) {
-          const slice = source.slice(cursor, index + 1)
-          try {
-            const value = JSON.parse(slice)
-            if (Array.isArray(value)) {
-              parsed.push(...value)
-            } else {
-              parsed.push(value)
-            }
-          } catch {
-            return parsed
-          }
-          cursor = index + 1
-          foundEnd = true
-          break
-        }
-      }
-    }
-
-    if (!foundEnd) break
-  }
-
-  return parsed
-}
-
 function parseFencePayload(source: string): unknown[] {
   const trimmed = source.trim()
   if (!trimmed) return []
@@ -129,9 +53,7 @@ function parseFencePayload(source: string): unknown[] {
   if (whole.length > 0) return whole
 
   const jsonLines = parseJsonLines(trimmed)
-  if (jsonLines.length > 0) return jsonLines
-
-  return parseConcatenatedJson(trimmed)
+  return jsonLines
 }
 
 function validateProtocolStructure(message: v0_8.A2UIMessage): boolean {
@@ -334,10 +256,6 @@ export function validateA2UIComponentTypes(lines: readonly string[]): string[] {
     }
   }
   return [...found].filter((t) => !validComponentTypes.has(t))
-}
-
-export function buildComponentTypeFeedback(invalidTypes: readonly string[]): string {
-  return `Your A2UI output used unsupported component types: ${invalidTypes.join(', ')}. Every component type MUST be one of: ${A2UI_TYPES_LIST}.`
 }
 
 export function parseA2UIFencePayloadToJsonLines(

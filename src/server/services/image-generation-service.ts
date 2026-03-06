@@ -16,13 +16,14 @@ const ImageContentItemSchema = z.object({
 })
 
 const ImageMessageSchema = z.object({
-  content: z.union([z.string(), z.array(ImageContentItemSchema)]).optional(),
+  content: z
+    .union([z.string(), z.array(ImageContentItemSchema)])
+    .optional()
+    .nullable(),
   images: z
     .array(
       z.object({
-        imageUrl: ImageUrlObjectSchema.optional(),
-        url: z.string().optional(),
-        b64_json: z.string().optional(),
+        imageUrl: z.object({ url: z.string() }),
       }),
     )
     .optional(),
@@ -49,12 +50,8 @@ function parseImageResponse(rawMessage: unknown): string {
   if (images && images.length > 0) {
     const parts: string[] = []
     for (const img of images) {
-      if (img.imageUrl?.url) {
+      if (img.imageUrl.url) {
         parts.push(`![Generated Image](${img.imageUrl.url})`)
-      } else if (img.url) {
-        parts.push(`![Generated Image](${img.url})`)
-      } else if (img.b64_json) {
-        parts.push(`![Generated Image](data:image/png;base64,${img.b64_json})`)
       }
     }
     if (parts.length > 0) return parts.join('\n\n')
@@ -98,6 +95,7 @@ export async function executeImageGeneration(params: {
           model: params.model,
           messages: params.messages,
           stream: false,
+          modalities: ['image'],
         },
       },
       { signal: imageSignal },

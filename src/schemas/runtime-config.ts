@@ -186,7 +186,7 @@ const RuntimeConfigObjectSchema = z.object({
   features: z
     .object({
       searchEnabled: z.boolean().default(true),
-      a2uiEnabled: z.boolean().default(false),
+      a2uiEnabled: z.boolean().default(true),
     })
     .default({}),
 })

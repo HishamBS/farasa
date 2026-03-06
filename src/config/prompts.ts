@@ -1,5 +1,5 @@
 import type { ModelConfig } from '@/schemas/model'
-import { A2UI_COMPONENT_CATEGORIES, A2UI_TYPES_LIST, MODEL_CATEGORIES } from './constants'
+import { A2UI_COMPONENT_CATEGORIES, MODEL_CATEGORIES } from './constants'
 
 const A2UI_CATEGORIZED_LIST = Object.entries(A2UI_COMPONENT_CATEGORIES)
   .map(([category, types]) => `${category}: ${types.join(', ')}`)
@@ -127,24 +127,15 @@ Rules:
 - Do NOT use lowercase or snake_case component names (for example "text", "contact_form", "root")
 - Keep each JSON object on its own line and valid standalone
 - Use safe button action names (alphanumeric and underscore only)
-- Use A2UI for UI generation requests; use Markdown for all non-UI requests`,
+- Use A2UI for UI generation requests; use Markdown for all non-UI requests
 
-  A2UI_RETRY_FORMAT_PROMPT: `Your previous response did not satisfy the required A2UI output contract.
+CRITICAL ROUTING RULES:
+- "Write code", "Show implementation", "Create a component" (code-focused) → Use standard code fences (\`\`\`tsx, \`\`\`python, etc.). NEVER use \`\`\`a2ui for code examples.
+- "Build a UI", "Create a form", "Design a layout", "Show me a dashboard" (visual-focused) → Write explanation text first, then use \`\`\`a2ui for the interactive visual.
+- "Create X and show me what it looks like" (both code + visual) → Write explanation with code fences for the implementation, THEN add a \`\`\`a2ui block for the visual preview.
 
-You must now return:
-1) A brief explanation sentence.
-2) A single fenced block labeled exactly \`a2ui\`.
-3) Inside that fence, valid A2UI v0.8 JSONL protocol messages only.
+The \`\`\`a2ui fence is ONLY for A2UI protocol JSONL that renders interactive components. It is NEVER a substitute for code blocks.`,
 
-Use this exact structural shape:
-\`\`\`a2ui
-{"beginRendering":{"surfaceId":"surface_main","root":"root"}}
-{"surfaceUpdate":{"surfaceId":"surface_main","components":[{"id":"root","component":{"Column":{"children":{"explicitList":["heading","action_btn"]}}}},{"id":"heading","component":{"Text":{"text":{"literalString":"Hello"},"usageHint":"h2"}}},{"id":"action_btn","component":{"Button":{"child":"btn_text","primary":true,"action":"click"}}},{"id":"btn_text","component":{"Text":{"text":{"literalString":"Click Me"}}}}]}}
-\`\`\`
-
-CRITICAL: "root" in beginRendering MUST match the "id" of the root component in surfaceUpdate — it is a component ID, NOT a type name. ALL components MUST be in a FLAT array. Layout components reference children by ID using "children":{"explicitList":[...]}. Every component type must be one of: ${A2UI_TYPES_LIST}.
-
-Do not use \`json\` or \`text\` fences. Do not output raw HTML/CSS.`,
   TTS_READ_ALOUD:
     'Read the following text aloud exactly as written, without adding any commentary:',
 } as const

@@ -88,7 +88,7 @@ export function TeamModelPicker() {
 
   const selectedModelIds = policy?.normalizedSelectedModelIds ?? teamModels
   const selectedCount = selectedModelIds.length
-  const canRemove = policy ? selectedCount > policy.minModels : false
+  const canRemove = policy ? selectedCount >= policy.minModels : false
   const maxModels = policy?.maxModels ?? selectedCount
 
   const filteredModels = useMemo(() => {

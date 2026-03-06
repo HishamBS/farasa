@@ -2,12 +2,16 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { TEAM_TAB_VALUES, PROVIDER_ALIASES, PROVIDER_DOT_CLASSES, UX } from '@/config/constants'
+import { buildToolExecutions } from '@/features/chat/utils/build-tool-executions'
 import type { UseSynthesisReturn } from '@/features/team/hooks/use-team-synthesis'
 import { useTeamSynthesis } from '@/features/team/hooks/use-team-synthesis'
 import type { ModelMeta } from '@/features/team/types'
 import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
+import { ToolExecution } from '@/features/stream-phases/components/tool-execution'
 import { cn } from '@/lib/utils/cn'
 import { extractModelName, resolveProviderKey } from '@/lib/utils/model'
+import type { MessageMetadata } from '@/schemas/message'
+import { MessageMetadataSchema } from '@/schemas/message'
 import type { StreamState, ToolExecutionState } from '@/types/stream'
 import { useMemo } from 'react'
 import { TeamTabs } from './team-tabs'
@@ -17,6 +21,7 @@ type HistoricalMessage = {
   modelId: string
   content: string
   modelLabel?: string
+  metadata?: MessageMetadata | null
 }
 
 type LiveTeamProps = {
@@ -64,12 +69,15 @@ function HistoricalTabs({
     () =>
       messages.map((msg) => {
         const providerKey = resolveProviderKey(msg.modelId, PROVIDER_ALIASES)
+        const parsedMeta = msg.metadata ? MessageMetadataSchema.safeParse(msg.metadata) : null
+        const validMeta = parsedMeta?.success ? parsedMeta.data : null
         return {
           modelId: msg.modelId,
           providerKey,
           label: msg.modelLabel ?? extractModelName(msg.modelId),
           dotClass: PROVIDER_DOT_CLASSES[providerKey] ?? 'bg-(--text-muted)',
           content: msg.content,
+          toolExecutions: validMeta ? buildToolExecutions(validMeta) : [],
         }
       }),
     [messages],
@@ -88,9 +96,16 @@ function HistoricalTabs({
         <TabsTrigger value={TEAM_TAB_VALUES.SYNTHESIS}>Synthesis</TabsTrigger>
       </TabsList>
 
-      {tabMetas.map(({ modelId, content }) => (
+      {tabMetas.map(({ modelId, content, toolExecutions }) => (
         <TabsContent key={modelId} value={modelId}>
           <div className={cn('py-1', UX.PROSE_BODY_CLASS)}>
+            {toolExecutions.length > 0 && (
+              <div className="mb-3 flex flex-col gap-2">
+                {toolExecutions.map((execution, index) => (
+                  <ToolExecution key={`${execution.name}-${index}`} execution={execution} />
+                ))}
+              </div>
+            )}
             <MarkdownRenderer content={content} />
           </div>
         </TabsContent>

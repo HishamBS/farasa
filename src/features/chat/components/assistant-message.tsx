@@ -3,6 +3,7 @@
 import { CHAT_STREAM_STATUS, MODEL_SELECTION_SOURCES } from '@/config/constants'
 import { extractModelName } from '@/lib/utils/model'
 import { fadeInUp } from '@/lib/utils/motion'
+import { trpc } from '@/trpc/provider'
 import type { StreamState } from '@/types/stream'
 import { motion, useReducedMotion } from 'framer-motion'
 import { AssistantBody } from './assistant-body'
@@ -14,6 +15,8 @@ type AssistantMessageProps = {
 
 export function AssistantMessage({ streamState }: AssistantMessageProps) {
   const shouldReduce = useReducedMotion()
+  const runtimeConfigQuery = trpc.runtimeConfig.get.useQuery()
+  const a2uiPolicy = runtimeConfigQuery.data?.safety.a2ui
   const isStreaming = streamState.phase === CHAT_STREAM_STATUS.ACTIVE
 
   const modelLabel = streamState.modelSelection
@@ -43,6 +46,8 @@ export function AssistantMessage({ streamState }: AssistantMessageProps) {
           toolExecutions={streamState.toolExecutions}
           textContent={streamState.textContent}
           a2uiMessages={streamState.a2uiMessages}
+          a2uiPolicy={a2uiPolicy}
+          statusMessages={streamState.statusMessages}
           isStreaming={isStreaming}
           modelResolved={!!streamState.modelSelection}
           autoCollapse={streamState.phase === CHAT_STREAM_STATUS.COMPLETE}

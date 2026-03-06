@@ -1,12 +1,14 @@
 'use client'
 
-import { AI_PARAMS, MODEL_SELECTION_SOURCES, TOOL_NAMES, UI_TEXT } from '@/config/constants'
+import { AI_PARAMS, MODEL_SELECTION_SOURCES, UI_TEXT } from '@/config/constants'
+import { buildToolExecutions } from '@/features/chat/utils/build-tool-executions'
 import { formatCost } from '@/lib/utils/format'
 import { extractModelName } from '@/lib/utils/model'
 import { fadeInUp } from '@/lib/utils/motion'
 import type { Message, MessageMetadata } from '@/schemas/message'
 import { MessageMetadataSchema } from '@/schemas/message'
-import type { ThinkingState, ToolExecutionState } from '@/types/stream'
+import { trpc } from '@/trpc/provider'
+import type { ThinkingState } from '@/types/stream'
 import type { v0_8 } from '@a2ui-sdk/types'
 import { motion, useReducedMotion } from 'framer-motion'
 import { useMemo } from 'react'
@@ -95,38 +97,10 @@ function buildThinkingState(metadata: MessageMetadata): ThinkingState | null {
   }
 }
 
-function buildToolExecutions(metadata: MessageMetadata): ToolExecutionState[] {
-  if (metadata.toolCalls && metadata.toolCalls.length > 0) {
-    return metadata.toolCalls.map((toolCall, index) => ({
-      name: toolCall.name,
-      input: toolCall.input,
-      result: toolCall.result,
-      completedAt: index + 1,
-    }))
-  }
-
-  if (
-    (!metadata.searchResults || metadata.searchResults.length === 0) &&
-    (!metadata.searchImages || metadata.searchImages.length === 0)
-  ) {
-    return []
-  }
-  return [
-    {
-      name: TOOL_NAMES.WEB_SEARCH,
-      input: { query: metadata.searchQuery ?? '' },
-      result: {
-        query: metadata.searchQuery ?? '',
-        results: metadata.searchResults ?? [],
-        images: metadata.searchImages ?? [],
-      },
-      completedAt: 1,
-    },
-  ]
-}
-
 export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessageProps) {
   const shouldReduce = useReducedMotion()
+  const runtimeConfigQuery = trpc.runtimeConfig.get.useQuery()
+  const a2uiPolicy = runtimeConfigQuery.data?.safety.a2ui
 
   const parsed = useMemo(
     () => MessageMetadataSchema.safeParse(message.metadata),
@@ -171,6 +145,7 @@ export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessa
           toolExecutions={toolExecutions}
           textContent={message.content ?? ''}
           a2uiMessages={a2uiMessages}
+          a2uiPolicy={a2uiPolicy}
           autoCollapse
           messageId={message.id}
         />

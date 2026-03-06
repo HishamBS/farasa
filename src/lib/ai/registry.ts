@@ -16,16 +16,32 @@ type OpenRouterModel = {
   id: string
   name: string
   context_length?: number
-  architecture?: { modality?: string; tokenizer?: string }
+  architecture?: {
+    modality?: string
+    tokenizer?: string
+    output_modalities?: string[]
+    input_modalities?: string[]
+  }
   pricing?: { prompt?: string; completion?: string }
   supported_parameters?: string[]
   top_provider?: { max_completion_tokens?: number | null }
 }
 
-function parseModality(modality: string): {
+function parseModality(
+  modality: string,
+  outputModalities?: string[],
+): {
   supportsVision: boolean
   supportsImageGeneration: boolean
 } {
+  if (outputModalities && outputModalities.length > 0) {
+    const parts = modality.split('->')
+    const input = parts[0] ?? ''
+    return {
+      supportsVision: input.includes('image'),
+      supportsImageGeneration: outputModalities.includes('image'),
+    }
+  }
   const parts = modality.split('->')
   const input = parts[0] ?? ''
   const output = parts[1] ?? ''
@@ -41,16 +57,13 @@ function inferCapabilities(model: OpenRouterModel): ModelCapability[] {
   const params = model.supported_parameters ?? []
   const { supportsVision, supportsImageGeneration } = parseModality(
     model.architecture?.modality ?? '',
+    model.architecture?.output_modalities,
   )
   const supportsThinking = params.includes('reasoning')
 
   const caps = new Set<ModelCapability>()
 
   if (supportsImageGeneration) {
-    caps.add(MODEL_CATEGORIES.IMAGE_GENERATION)
-  }
-
-  if (ROUTER_CAPABILITY_PATTERNS.IMAGE_GENERATION.some((p) => id.includes(p) || name.includes(p))) {
     caps.add(MODEL_CATEGORIES.IMAGE_GENERATION)
   }
 
@@ -107,7 +120,10 @@ async function fetchFromOpenRouter(runtimeConfig: RuntimeConfig): Promise<ModelC
   for (const raw of json.data) {
     const params = raw.supported_parameters ?? []
 
-    const modality = parseModality(raw.architecture?.modality ?? '')
+    const modality = parseModality(
+      raw.architecture?.modality ?? '',
+      raw.architecture?.output_modalities,
+    )
     const supportsThinking = params.includes('reasoning')
     const parsed = ModelConfigSchema.safeParse({
       id: raw.id,

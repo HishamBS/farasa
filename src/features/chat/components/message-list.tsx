@@ -210,6 +210,7 @@ export function MessageList({
                 const historicalMessages = item.messages.map((msg) => ({
                   modelId: msg.metadata?.modelUsed ?? '',
                   content: msg.content,
+                  metadata: msg.metadata,
                 }))
                 return (
                   <TeamMessageGroup

@@ -16,7 +16,6 @@ export const LIMITS = {
   TITLE_GEN_TIMEOUT_MS: 15_000,
   SEARCH_MAX_RESULTS: 10,
   SEARCH_MAX_TOOL_CALL_ROUNDS: 12,
-  A2UI_CONTRACT_MAX_ATTEMPTS: 3,
   CODE_BLOCK_LINE_NUMBER_THRESHOLD: 5,
   CODE_BLOCK_COLLAPSE_THRESHOLD: 15,
   TOKENS_PER_K: 1_000,
@@ -122,7 +121,6 @@ export const ROUTER_CAPABILITY_PATTERNS = {
   CODE: ['code', 'coder', 'codex', 'starcoder'] as const,
   FAST: ['flash', 'lite', 'mini', 'haiku', 'nano'] as const,
   ANALYSIS: ['o1', 'o3', 'o4', 'sonnet', 'opus', 'ultra'] as const,
-  IMAGE_GENERATION: ['dall-e', 'stable-diffusion', 'sdxl', 'flux', 'imagen'] as const,
 } as const
 
 type ModelCategoryValue = (typeof MODEL_CATEGORIES)[keyof typeof MODEL_CATEGORIES]
@@ -492,7 +490,6 @@ export const EXPANDABLE_BLOCKS = {
 export const STREAM_REASON_CODES = {
   AUTHORIZATION_EXPIRED: 'authorization_expired',
   ROUTER_FAILED: 'router_failed',
-  A2UI_CONTRACT_VIOLATION: 'a2ui_contract_violation',
   IMAGE_GEN_INCOMPATIBLE: 'image_gen_incompatible',
   IMAGE_GEN_EMPTY_RESULT: 'image_gen_empty_result',
   VALIDATION_REJECTED: 'validation_rejected',

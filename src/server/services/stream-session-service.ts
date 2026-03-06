@@ -177,33 +177,27 @@ class StreamSessionService {
       if (error.code === TRPC_CODES.BAD_REQUEST) {
         const invalidModel = error.message === AppError.INVALID_MODEL
         const routerFailed = error.message === AppError.ROUTER_FAILED
-        const a2uiContractFailed = error.message === AppError.A2UI_CONTRACT_FAILED
         const imageGenIncompatible = error.message === AppError.IMAGE_GEN_INCOMPATIBLE
         const imageGenEmptyResult = error.message === AppError.IMAGE_GEN_EMPTY_RESULT
         return {
           message: routerFailed
             ? AppError.ROUTER_FAILED
-            : a2uiContractFailed
-              ? AppError.A2UI_CONTRACT_FAILED
-              : imageGenIncompatible
-                ? runtimeConfig.chat.errors.imageGenIncompatible
-                : imageGenEmptyResult
-                  ? runtimeConfig.chat.errors.processing
-                  : invalidModel
-                    ? runtimeConfig.chat.errors.invalidModel
-                    : runtimeConfig.chat.errors.processing,
+            : imageGenIncompatible
+              ? runtimeConfig.chat.errors.imageGenIncompatible
+              : imageGenEmptyResult
+                ? runtimeConfig.chat.errors.processing
+                : invalidModel
+                  ? runtimeConfig.chat.errors.invalidModel
+                  : runtimeConfig.chat.errors.processing,
           code: error.code,
           reasonCode: routerFailed
             ? STREAM_REASON_CODES.ROUTER_FAILED
-            : a2uiContractFailed
-              ? STREAM_REASON_CODES.A2UI_CONTRACT_VIOLATION
-              : imageGenIncompatible
-                ? STREAM_REASON_CODES.IMAGE_GEN_INCOMPATIBLE
-                : imageGenEmptyResult
-                  ? STREAM_REASON_CODES.IMAGE_GEN_EMPTY_RESULT
-                  : STREAM_REASON_CODES.VALIDATION_REJECTED,
-          recoverable:
-            routerFailed || a2uiContractFailed || imageGenIncompatible || imageGenEmptyResult,
+            : imageGenIncompatible
+              ? STREAM_REASON_CODES.IMAGE_GEN_INCOMPATIBLE
+              : imageGenEmptyResult
+                ? STREAM_REASON_CODES.IMAGE_GEN_EMPTY_RESULT
+                : STREAM_REASON_CODES.VALIDATION_REJECTED,
+          recoverable: routerFailed || imageGenIncompatible || imageGenEmptyResult,
         }
       }
       return {

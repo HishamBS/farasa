@@ -257,7 +257,11 @@ export function useChatStream(conversationId?: string) {
                 try {
                   const parsed: unknown = JSON.parse(chunk.jsonl)
                   if (isA2UIMessage(parsed)) {
-                    dispatch({ type: STREAM_ACTIONS.A2UI_MESSAGE, message: parsed })
+                    dispatch({
+                      type: STREAM_ACTIONS.A2UI_MESSAGE,
+                      message: parsed,
+                      rawLine: chunk.jsonl,
+                    })
                   }
                 } catch {
                   // malformed A2UI lines are ignored without failing the stream

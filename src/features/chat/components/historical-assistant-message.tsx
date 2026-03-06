@@ -115,6 +115,11 @@ export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessa
 
   const a2uiMessages = useMemo(() => parseA2UIMessages(metadata?.a2uiMessages), [metadata])
 
+  const a2uiRawLines = useMemo(() => {
+    if (!metadata?.a2uiMessages) return []
+    return metadata.a2uiMessages.filter((item): item is string => typeof item === 'string')
+  }, [metadata])
+
   const modelLabel = metadata?.modelUsed ? extractModelName(metadata.modelUsed) : null
   const tokenLabel =
     metadata?.usage?.totalTokens && metadata.usage.totalTokens > 0
@@ -145,6 +150,7 @@ export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessa
           toolExecutions={toolExecutions}
           textContent={message.content ?? ''}
           a2uiMessages={a2uiMessages}
+          a2uiRawLines={a2uiRawLines}
           a2uiPolicy={a2uiPolicy}
           autoCollapse
           messageId={message.id}

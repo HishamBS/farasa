@@ -34,6 +34,7 @@ type AssistantBodyProps = {
   toolExecutions: ToolExecutionState[]
   textContent: string
   a2uiMessages: v0_8.A2UIMessage[]
+  a2uiRawLines: string[]
   a2uiPolicy?: RuntimeA2UIPolicy
   statusMessages?: StatusMessage[]
   isStreaming?: boolean
@@ -48,6 +49,7 @@ export function AssistantBody({
   toolExecutions,
   textContent,
   a2uiMessages,
+  a2uiRawLines,
   a2uiPolicy,
   statusMessages,
   isStreaming = false,
@@ -122,25 +124,33 @@ export function AssistantBody({
         </motion.div>
       )}
 
-      {a2uiMessages.length > 0 && a2uiPolicy && textContent ? (
-        <div className="flex flex-col gap-4 lg:flex-row">
-          <div className="min-w-0 flex-1">
-            <MarkdownRenderer content={textContent} autoCollapse={autoCollapse} />
-            {isStreaming && <StreamingCursor />}
+      {a2uiMessages.length > 0 && a2uiPolicy ? (
+        textContent ? (
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+            <div className="min-w-0 flex-1">
+              <MarkdownRenderer content={textContent} autoCollapse={autoCollapse} />
+              {isStreaming && <StreamingCursor />}
+            </div>
+            <A2UIArtifactPanel
+              messages={a2uiMessages}
+              rawLines={a2uiRawLines}
+              policy={a2uiPolicy}
+              className="w-full lg:w-[48%] lg:max-w-[520px] lg:shrink-0 lg:sticky lg:top-4"
+            />
           </div>
-          <A2UIArtifactPanel
-            messages={a2uiMessages}
-            policy={a2uiPolicy}
-            className="lg:w-[45%] lg:shrink-0 lg:self-start"
-          />
-        </div>
+        ) : (
+          <div className="mx-auto max-w-2xl">
+            <A2UIArtifactPanel
+              messages={a2uiMessages}
+              rawLines={a2uiRawLines}
+              policy={a2uiPolicy}
+            />
+          </div>
+        )
       ) : (
         <>
           {textContent && <MarkdownRenderer content={textContent} autoCollapse={autoCollapse} />}
           {isStreaming && textContent && <StreamingCursor />}
-          {a2uiMessages.length > 0 && a2uiPolicy && (
-            <A2UIArtifactPanel messages={a2uiMessages} policy={a2uiPolicy} />
-          )}
         </>
       )}
 

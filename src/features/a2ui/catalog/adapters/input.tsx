@@ -23,14 +23,15 @@ export function InputAdapter({
   )
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-2">
       {resolvedLabel && (
-        <label className="text-xs font-medium text-(--text-muted)">{resolvedLabel}</label>
+        <label className="text-sm font-medium text-(--text-secondary)">{resolvedLabel}</label>
       )}
       <Input
         value={value}
         onChange={handleChange}
-        className="border-(--border-default) bg-(--bg-input) text-(--text-primary) placeholder:text-(--text-ghost)"
+        placeholder={resolvedLabel ? `Enter ${resolvedLabel.toLowerCase()}...` : undefined}
+        className="border-(--border-default) bg-(--bg-input) text-(--text-primary) placeholder:text-(--text-ghost) focus-visible:ring-2 focus-visible:ring-(--accent)/30 focus-visible:border-(--accent)"
       />
     </div>
   )

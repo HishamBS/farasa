@@ -192,9 +192,7 @@ export async function resolveModelDecision(
       const selectedModel = findModelById(input.registry, selection.selectedModel)
       ensureSearchCompatible(selectedModel, requiresSearch)
 
-      const responseFormat = input.runtimeConfig.features.a2uiEnabled
-        ? selection.responseFormat
-        : RESPONSE_FORMATS.MARKDOWN
+      const responseFormat = selection.responseFormat
 
       const baseFactors = buildFactors({
         source: MODEL_SELECTION_SOURCES.AUTO_ROUTER,

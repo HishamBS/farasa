@@ -11,6 +11,7 @@ export const initialStreamState: StreamState = {
   toolExecutions: [],
   textContent: '',
   a2uiMessages: [],
+  a2uiRawLines: [],
   error: null,
   lastInput: null,
   detectedSearchMode: false,
@@ -120,6 +121,7 @@ export function streamStateReducer(state: StreamState, action: StreamAction): St
       return {
         ...state,
         a2uiMessages: [...state.a2uiMessages, action.message],
+        a2uiRawLines: [...state.a2uiRawLines, action.rawLine],
       }
     }
 

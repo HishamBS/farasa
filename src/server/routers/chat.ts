@@ -383,14 +383,12 @@ export const chatRouter = router({
       }
 
       const systemSections = [PROMPTS.CHAT_SYSTEM_PROMPT, runtimeConfig.prompts.chatSystem]
-      if (runtimeConfig.features.a2uiEnabled) {
-        systemSections.push(PROMPTS.A2UI_SYSTEM_PROMPT)
-        systemSections.push(runtimeConfig.prompts.a2uiSystem)
-        if (routerResponseFormat === RESPONSE_FORMATS.A2UI) {
-          systemSections.push(
-            `Response format policy: For this request, provide a concise explanation followed by valid A2UI JSONL inside an \`${RESPONSE_FORMATS.A2UI}\` fenced block.`,
-          )
-        }
+      systemSections.push(PROMPTS.A2UI_SYSTEM_PROMPT)
+      systemSections.push(runtimeConfig.prompts.a2uiSystem)
+      if (routerResponseFormat === RESPONSE_FORMATS.A2UI) {
+        systemSections.push(
+          `Response format policy: For this request, provide a concise explanation followed by valid A2UI JSONL inside an \`${RESPONSE_FORMATS.A2UI}\` fenced block.`,
+        )
       }
       if (searchContext) {
         systemSections.push(searchContext)
@@ -734,7 +732,7 @@ export const chatRouter = router({
             yield thinkingCompleteEvent
           }
 
-          if (a2uiLines.length > 0 && runtimeConfig.features.a2uiEnabled) {
+          if (a2uiLines.length > 0) {
             const invalidTypes = validateA2UIComponentTypes(a2uiLines)
             if (invalidTypes.length > 0) {
               console.warn('[a2ui] invalid component types detected:', invalidTypes)

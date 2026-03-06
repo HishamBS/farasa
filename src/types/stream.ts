@@ -47,6 +47,7 @@ export type StreamState = {
   toolExecutions: ToolExecutionState[]
   textContent: string
   a2uiMessages: v0_8.A2UIMessage[]
+  a2uiRawLines: string[]
   error: {
     message: string
     code?: string
@@ -78,7 +79,7 @@ export type StreamAction =
   | { type: typeof STREAM_ACTIONS.TOOL_RESULT; name: string; result: unknown }
   | { type: typeof STREAM_ACTIONS.TEXT_CHUNK; content: string }
   | { type: typeof STREAM_ACTIONS.TEXT_SET; content: string }
-  | { type: typeof STREAM_ACTIONS.A2UI_MESSAGE; message: v0_8.A2UIMessage }
+  | { type: typeof STREAM_ACTIONS.A2UI_MESSAGE; message: v0_8.A2UIMessage; rawLine: string }
   | {
       type: typeof STREAM_ACTIONS.ERROR
       error: {

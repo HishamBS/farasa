@@ -46,6 +46,7 @@ export function AssistantMessage({ streamState }: AssistantMessageProps) {
           toolExecutions={streamState.toolExecutions}
           textContent={streamState.textContent}
           a2uiMessages={streamState.a2uiMessages}
+          a2uiRawLines={streamState.a2uiRawLines}
           a2uiPolicy={a2uiPolicy}
           statusMessages={streamState.statusMessages}
           isStreaming={isStreaming}

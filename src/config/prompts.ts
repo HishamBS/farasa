@@ -110,12 +110,12 @@ A2UI v0.8 protocol: each line is a standalone JSON object.
    {"beginRendering":{"surfaceId":"surface_main","root":"root"}}
 
 2. surfaceUpdate — defines the component tree as a FLAT array. Each component has a unique "id" and a "component" object keyed by type name. Layout components reference children by ID using "children":{"explicitList":[...]}:
-   {"surfaceUpdate":{"surfaceId":"surface_main","components":[{"id":"root","component":{"Column":{"children":{"explicitList":["card1"]}}}},{"id":"card1","component":{"Card":{"child":"card_body"}}},{"id":"card_body","component":{"Column":{"children":{"explicitList":["title","name_field","btn_row"]}}}},{"id":"title","component":{"Text":{"text":{"literalString":"Contact Form"},"usageHint":"h2"}}},{"id":"name_field","component":{"TextField":{"label":{"literalString":"Full Name"}}}},{"id":"btn_row","component":{"Row":{"children":{"explicitList":["submit_btn","cancel_btn"]}}}},{"id":"submit_btn","component":{"Button":{"child":"submit_label","primary":true,"action":"submit_form"}}},{"id":"submit_label","component":{"Text":{"text":{"literalString":"Submit"}}}},{"id":"cancel_btn","component":{"Button":{"child":"cancel_label","action":"cancel_form"}}},{"id":"cancel_label","component":{"Text":{"text":{"literalString":"Cancel"}}}}]}}
+   {"surfaceUpdate":{"surfaceId":"surface_main","components":[{"id":"root","component":{"Column":{"children":{"explicitList":["card1"]}}}},{"id":"card1","component":{"Card":{"child":"card_body"}}},{"id":"card_body","component":{"Column":{"children":{"explicitList":["title","name_field","btn_row"]}}}},{"id":"title","component":{"Text":{"text":{"literalString":"Contact Form"},"usageHint":"h2"}}},{"id":"name_field","component":{"TextField":{"label":{"literalString":"Full Name"}}}},{"id":"btn_row","component":{"Row":{"children":{"explicitList":["submit_btn","cancel_btn"]}}}},{"id":"submit_btn","component":{"Button":{"child":"submit_label","primary":true,"action":{"name":"submit_form"}}}},{"id":"submit_label","component":{"Text":{"text":{"literalString":"Submit"}}}},{"id":"cancel_btn","component":{"Button":{"child":"cancel_label","action":{"name":"cancel_form"}}}},{"id":"cancel_label","component":{"Text":{"text":{"literalString":"Cancel"}}}}]}}
 
 Supported component types (use ONLY these exact names):
 ${A2UI_CATEGORIZED_LIST}
 
-String values use {"literalString":"..."} wrapper. Button uses "child" to reference a Text component by ID for its label — always create a separate Text component for each button's label text. Card uses "child" similarly. Button actions use {"action":"action_name"}. Valid usageHint values for Text: h1, h2, h3, h4, h5, caption, body.
+String values use {"literalString":"..."} wrapper. Button uses "child" to reference a Text component by ID for its label — always create a separate Text component for each button's label text. Card uses "child" similarly. Button actions use {"action":{"name":"action_name"}} — the action value MUST be an object with a "name" key, NOT a raw string. Valid usageHint values for Text: h1, h2, h3, h4, h5, caption, body.
 
 Rules:
 - ALWAYS wrap A2UI JSONL in \`\`\`a2ui ... \`\`\` (triple backtick fence with a2ui label)
@@ -125,7 +125,7 @@ Rules:
 - Every "component" key inside surfaceUpdate MUST use one of the supported types listed above
 - Do NOT invent custom component names — only the listed types render correctly
 - Do NOT use lowercase or snake_case component names (for example "text", "contact_form", "root")
-- Keep each JSON object on its own line and valid standalone
+- Each JSON object MUST be a single line — NEVER use multi-line or pretty-printed JSON inside the a2ui fence
 - Use safe button action names (alphanumeric and underscore only)
 - Use A2UI for UI generation requests; use Markdown for all non-UI requests
 

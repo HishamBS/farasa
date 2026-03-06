@@ -383,9 +383,9 @@ export const chatRouter = router({
       }
 
       const systemSections = [PROMPTS.CHAT_SYSTEM_PROMPT, runtimeConfig.prompts.chatSystem]
+      systemSections.push(PROMPTS.A2UI_SYSTEM_PROMPT)
+      systemSections.push(runtimeConfig.prompts.a2uiSystem)
       if (routerResponseFormat === RESPONSE_FORMATS.A2UI) {
-        systemSections.push(PROMPTS.A2UI_SYSTEM_PROMPT)
-        systemSections.push(runtimeConfig.prompts.a2uiSystem)
         systemSections.push(PROMPTS.A2UI_FORMAT_POLICY)
       }
       if (searchContext) {
@@ -415,7 +415,7 @@ export const chatRouter = router({
       let streamSequenceMax = 0
 
       const emitA2UIFromPayload = (payload: string): StreamChunk[] => {
-        const parsedLines = parseA2UIFencePayloadToJsonLines(payload, runtimeConfig.safety.a2ui)
+        const parsedLines = parseA2UIFencePayloadToJsonLines(payload)
         const events: StreamChunk[] = []
         for (const line of parsedLines) {
           a2uiLines.push(line)
@@ -734,8 +734,7 @@ export const chatRouter = router({
           if (a2uiLines.length > 0) {
             const invalidTypes = validateA2UIComponentTypes(a2uiLines)
             if (invalidTypes.length > 0) {
-              console.warn('[a2ui] invalid component types detected:', invalidTypes)
-              a2uiLines = []
+              console.warn('[a2ui] unregistered component types detected:', invalidTypes)
             }
           }
         } // end else (streaming path)

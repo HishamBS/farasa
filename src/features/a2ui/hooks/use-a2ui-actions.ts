@@ -108,52 +108,59 @@ export function useA2UIActions() {
           })
           return
         }
-        case 'submit':
-        case 'submit_form':
-        case 'parse':
-        case 'parse_csv':
-        case 'generate':
-        case 'transform': {
-          const summary = buildContextSummary(action)
-          dispatchActionPrompt({
-            prompt: [
-              `The user submitted the form from the interactive A2UI artifact you generated.`,
-              `Action: "${rawName}"`,
-              `Submitted data:`,
-              summary,
-              ``,
-              `Process this submission meaningfully:`,
-              `- Acknowledge what was submitted with specific field values`,
-              `- Validate the data (flag any issues like missing required fields or invalid formats)`,
-              `- Explain what would happen next in a real system`,
-              `- If appropriate, generate a follow-up A2UI artifact (e.g., a success confirmation card or next-step form)`,
-            ].join('\n'),
-            webSearchEnabled: false,
-          })
-          return
-        }
-        case 'cancel':
-        case 'cancel_form': {
-          dispatchActionPrompt({
-            prompt: `The user cancelled the form from the interactive A2UI artifact. Acknowledge the cancellation briefly and ask if they'd like to try something different.`,
-            webSearchEnabled: false,
-          })
-          return
-        }
-        default: {
-          const summary = buildContextSummary(action)
-          dispatchActionPrompt({
-            prompt: [
-              `The user triggered action "${rawName}" from the interactive A2UI artifact.`,
-              summary ? `Context data:\n${summary}` : '',
-              `Respond appropriately to this action.`,
-            ]
-              .filter(Boolean)
-              .join('\n'),
-            webSearchEnabled: false,
-          })
-          return
-        }
+        default:
+          break
+      }
+
+      // Form submission actions (prefix match for model-generated names like "submit_appointment")
+      if (
+        name.startsWith('submit') ||
+        name.startsWith('parse') ||
+        name === 'generate' ||
+        name === 'transform'
+      ) {
+        const summary = buildContextSummary(action)
+        dispatchActionPrompt({
+          prompt: [
+            `The user submitted the form from the interactive A2UI artifact you generated.`,
+            `Action: "${rawName}"`,
+            `Submitted data:`,
+            summary,
+            ``,
+            `Process this submission meaningfully:`,
+            `- Acknowledge what was submitted with specific field values`,
+            `- Validate the data (flag any issues like missing required fields or invalid formats)`,
+            `- Explain what would happen next in a real system`,
+            `- If appropriate, generate a follow-up A2UI artifact (e.g., a success confirmation card or next-step form)`,
+          ].join('\n'),
+          webSearchEnabled: false,
+        })
+        return
+      }
+
+      // Cancel actions (prefix match for "cancel_form", "cancel_booking", etc.)
+      if (name.startsWith('cancel')) {
+        dispatchActionPrompt({
+          prompt: `The user cancelled the form from the interactive A2UI artifact. Acknowledge the cancellation briefly and ask if they'd like to try something different.`,
+          webSearchEnabled: false,
+        })
+        return
+      }
+
+      // Generic action handler
+      {
+        const summary = buildContextSummary(action)
+        dispatchActionPrompt({
+          prompt: [
+            `The user triggered action "${rawName}" from the interactive A2UI artifact.`,
+            summary ? `Context data:\n${summary}` : '',
+            `Respond appropriately to this action.`,
+          ]
+            .filter(Boolean)
+            .join('\n'),
+          webSearchEnabled: false,
+        })
+        return
       }
     },
     [

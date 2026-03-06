@@ -1,45 +1,60 @@
 import { describe, expect, it } from 'bun:test'
 import { parseA2UIFencePayloadToJsonLines } from '@/server/services/a2ui-message-service'
-import type { RuntimeA2UIPolicy } from '@/schemas/runtime-config'
-
-const policy: RuntimeA2UIPolicy = {
-  image: {
-    allowedProtocols: ['https', 'data', 'relative'],
-    allowedHosts: [],
-  },
-  action: {
-    pattern: '^[a-zA-Z0-9_.:\\-/]+$',
-  },
-}
 
 describe('parseA2UIFencePayloadToJsonLines', () => {
-  it('accepts valid surface graph payloads', () => {
+  it('extracts protocol messages from single-line JSONL', () => {
     const payload = `
 {"beginRendering":{"surfaceId":"surface_main","root":"root"}}
 {"surfaceUpdate":{"surfaceId":"surface_main","components":[{"id":"root","component":{"Column":{"children":{"explicitList":["title"]}}}},{"id":"title","component":{"Text":{"text":{"literalString":"Hello"},"usageHint":"headline"}}}]}}
 `
-
-    const lines = parseA2UIFencePayloadToJsonLines(payload, policy)
+    const lines = parseA2UIFencePayloadToJsonLines(payload)
     expect(lines.length).toBe(2)
   })
 
-  it('rejects payloads where beginRendering root id is missing from components', () => {
+  it('extracts protocol messages from multi-line pretty-printed JSON', () => {
     const payload = `
 {"beginRendering":{"surfaceId":"surface_main","root":"root"}}
-{"surfaceUpdate":{"surfaceId":"surface_main","components":[{"id":"title","component":{"Text":{"text":{"literalString":"Hello"},"usageHint":"headline"}}}]}}
+{"surfaceUpdate":{"surfaceId":"surface_main","components":[
+  {"id":"root","component":{"Column":{"children":{"explicitList":["title"]}}}},
+  {"id":"title","component":{"Text":{"text":{"literalString":"Hello"}}}}
+]}}
 `
-
-    const lines = parseA2UIFencePayloadToJsonLines(payload, policy)
-    expect(lines.length).toBe(0)
+    const lines = parseA2UIFencePayloadToJsonLines(payload)
+    expect(lines.length).toBe(2)
   })
 
-  it('rejects payloads where children reference missing component ids', () => {
+  it('passes through payloads with mismatched root ids (SDK handles validation)', () => {
     const payload = `
 {"beginRendering":{"surfaceId":"surface_main","root":"root"}}
-{"surfaceUpdate":{"surfaceId":"surface_main","components":[{"id":"root","component":{"Column":{"children":{"explicitList":["missing_child"]}}}}]}}
+{"surfaceUpdate":{"surfaceId":"surface_main","components":[{"id":"title","component":{"Text":{"text":{"literalString":"Hello"}}}}]}}
 `
+    const lines = parseA2UIFencePayloadToJsonLines(payload)
+    expect(lines.length).toBe(2)
+  })
 
-    const lines = parseA2UIFencePayloadToJsonLines(payload, policy)
-    expect(lines.length).toBe(0)
+  it('filters out non-protocol JSON objects', () => {
+    const payload = `
+{"beginRendering":{"surfaceId":"surface_main","root":"root"}}
+{"someRandomKey":"not a protocol message"}
+{"surfaceUpdate":{"surfaceId":"surface_main","components":[]}}
+`
+    const lines = parseA2UIFencePayloadToJsonLines(payload)
+    expect(lines.length).toBe(2)
+  })
+
+  it('returns empty array for empty payload', () => {
+    expect(parseA2UIFencePayloadToJsonLines('')).toEqual([])
+    expect(parseA2UIFencePayloadToJsonLines('   ')).toEqual([])
+  })
+
+  it('handles markdown mixed with JSONL inside fence', () => {
+    const payload = `
+Here is the form:
+{"beginRendering":{"surfaceId":"surface_main","root":"root"}}
+Some explanation text
+{"surfaceUpdate":{"surfaceId":"surface_main","components":[]}}
+`
+    const lines = parseA2UIFencePayloadToJsonLines(payload)
+    expect(lines.length).toBe(2)
   })
 })

@@ -32,6 +32,7 @@ import {
   persistUserMessage,
   persistAssistantMessage,
 } from '@/server/services/message-persistence-service'
+import { mergeSearchImages, mergeSearchResults } from '@/server/services/search-tool-service'
 import { executeSearchEnrichment } from '@/server/services/search-enrichment-service'
 import { streamSessions } from '@/server/services/stream-session-service'
 import type { StreamSession } from '@/server/services/stream-session-service'
@@ -578,8 +579,8 @@ export const teamRouter = router({
 
               modelSearchResults = searchResult.mergedResults
               modelSearchImages = searchResult.mergedImages
-              searchResults = searchResult.mergedResults
-              searchImages = searchResult.mergedImages
+              searchResults = mergeSearchResults(searchResults, searchResult.mergedResults)
+              searchImages = mergeSearchImages(searchImages, searchResult.mergedImages)
 
               push({
                 done: false,
@@ -785,7 +786,7 @@ export const teamRouter = router({
         }
       }
     } catch (err: unknown) {
-      const message = getErrorMessage(err, 'An unexpected error occurred')
+      const message = getErrorMessage(err, AppError.CHAT_PROCESSING)
       yield {
         type: TEAM_EVENTS.STREAM_EVENT,
         chunk: {

@@ -4,12 +4,13 @@ import { TRPC_CODES } from '@/config/constants'
 import { AppError } from '@/lib/utils/errors'
 import { TRPCError } from '@trpc/server'
 import type { DB } from '@/lib/db/client'
+import type { ChatMode } from '@/schemas/message'
 
 export async function createConversation(params: {
   db: DB
   userId: string
   model?: string | null
-  mode: string
+  mode: ChatMode
   webSearchEnabled?: boolean
   teamModels?: string[]
 }): Promise<{ id: string }> {
@@ -67,7 +68,7 @@ export async function updateConversationSettings(params: {
   userId: string
   settings: Partial<{
     model: string | null
-    mode: string
+    mode: ChatMode
     webSearchEnabled: boolean
     teamModels: string[]
     teamSynthesizerModel: string

@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { messages } from '@/lib/db/schema'
 import { MESSAGE_ROLES, TRPC_CODES } from '@/config/constants'
+import { AppError } from '@/lib/utils/errors'
 import { TRPCError } from '@trpc/server'
 import type { DB } from '@/lib/db/client'
 
@@ -39,7 +40,7 @@ export async function persistUserMessage(params: {
     .returning({ id: messages.id })
 
   if (!created) {
-    throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
+    throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR, message: AppError.INTERNAL })
   }
 
   return { messageId: created.id, isNew: true }
@@ -97,7 +98,7 @@ export async function persistAssistantMessage(params: {
     .returning({ id: messages.id })
 
   if (!created) {
-    throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
+    throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR, message: AppError.INTERNAL })
   }
 
   return { messageId: created.id, isUpdate: false }

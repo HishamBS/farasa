@@ -40,6 +40,7 @@ export async function executeSearchEnrichment(
   query: string,
   runtimeConfig: RuntimeConfig,
 ): Promise<SearchEnrichment> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
   const response = await Promise.race([
     tavilySearch({
       query,
@@ -48,9 +49,11 @@ export async function executeSearchEnrichment(
       searchDepth: runtimeConfig.search.defaultDepth,
     }),
     new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Search timeout')), LIMITS.SEARCH_TIMEOUT_MS)
+      timeoutId = setTimeout(() => reject(new Error('Search timeout')), LIMITS.SEARCH_TIMEOUT_MS)
     }),
-  ])
+  ]).finally(() => {
+    clearTimeout(timeoutId)
+  })
 
   return {
     query: response.query,

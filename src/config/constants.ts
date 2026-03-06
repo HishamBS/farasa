@@ -412,6 +412,7 @@ export const UX = {
   INFINITE_SCROLL_THRESHOLD: 0.1,
   MODEL_MENU_FALLBACK_HEIGHT: 320,
   MODEL_MENU_FALLBACK_WIDTH: 352,
+  DROPDOWN_Z_INDEX: 9999,
 } as const
 
 export const MOTION = {
@@ -636,6 +637,8 @@ export const UI_TEXT = {
   RENAME_TITLE: 'Rename Conversation',
   RENAME_DESCRIPTION: 'Choose a clear title for this thread.',
   RENAME_PLACEHOLDER: 'Conversation title',
+  ERROR_BOUNDARY_FALLBACK: 'Something went wrong. Please try refreshing the page.',
+  MODE_TOGGLE_DISABLED_HINT: 'Cannot switch mode during active stream',
 } as const
 
 export const TEAM_LIMITS = {
@@ -678,10 +681,6 @@ export const HTTP_STATUS = {
   INTERNAL_SERVER_ERROR: 500,
   BAD_GATEWAY: 502,
   SERVICE_UNAVAILABLE: 503,
-} as const
-
-export const APP_DEFAULTS = {
-  THEME: 'dark',
 } as const
 
 export const TEAM_TAB_STATUS = {

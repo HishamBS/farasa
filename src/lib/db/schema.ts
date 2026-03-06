@@ -16,7 +16,7 @@ import type { AdapterAccountType } from '@auth/core/adapters'
 import type { MessageMetadata } from '@/schemas/message'
 import type { RuntimeConfigOverride } from '@/schemas/runtime-config'
 import {
-  APP_DEFAULTS,
+  APP_CONFIG,
   CHAT_MODES,
   MESSAGE_ROLES,
   NEW_CHAT_TITLE,
@@ -162,7 +162,7 @@ export const userPreferences = pgTable('user_preferences', {
   userId: text('user_id')
     .primaryKey()
     .references(() => users.id, { onDelete: 'cascade' }),
-  theme: text('theme').notNull().default(APP_DEFAULTS.THEME),
+  theme: text('theme').notNull().default(APP_CONFIG.DEFAULT_THEME),
   sidebarExpanded: boolean('sidebar_expanded').notNull().default(true),
   defaultModel: text('default_model'),
   teamModels: jsonb('team_models').$type<string[]>(),

@@ -1,5 +1,6 @@
 'use client'
 
+import { UI_TEXT } from '@/config/constants'
 import { Component } from 'react'
 import type { ReactNode, ErrorInfo } from 'react'
 
@@ -31,7 +32,7 @@ export class ErrorBoundary extends Component<Props, State> {
             role="alert"
             className="flex items-center justify-center p-6 text-sm text-(--text-muted)"
           >
-            Something went wrong. Please try refreshing the page.
+            {UI_TEXT.ERROR_BOUNDARY_FALLBACK}
           </div>
         )
       )

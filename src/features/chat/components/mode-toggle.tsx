@@ -1,6 +1,6 @@
 'use client'
 
-import { CHAT_MODES } from '@/config/constants'
+import { CHAT_MODES, UI_TEXT } from '@/config/constants'
 import { useStreamSession } from '@/features/chat/context/stream-session-context'
 import { cn } from '@/lib/utils/cn'
 import { springBounce } from '@/lib/utils/motion'
@@ -32,7 +32,7 @@ export function ModeToggle({ value, onChange }: ModeToggleProps) {
           type="button"
           onClick={handleChange(modeValue)}
           disabled={isTurnActive}
-          title={isTurnActive ? 'Cannot switch mode during active stream' : undefined}
+          title={isTurnActive ? UI_TEXT.MODE_TOGGLE_DISABLED_HINT : undefined}
           className={cn(
             'relative flex min-h-7 min-w-14 items-center justify-center rounded-md px-3 py-1 text-xs font-medium transition-all duration-200 ease-out',
             value === modeValue

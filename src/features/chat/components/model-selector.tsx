@@ -1,6 +1,8 @@
 'use client'
 
 import { LIMITS, PROVIDER_DOT_CLASSES, UI_TEXT, UX } from '@/config/constants'
+
+const EMPTY_EXCLUDED: string[] = []
 import { cn } from '@/lib/utils/cn'
 import { chevronSpin, fadeInDown } from '@/lib/utils/motion'
 import type { ModelConfig } from '@/schemas/model'
@@ -38,7 +40,7 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
       value,
       onChange,
       includeAuto = true,
-      excludedModelIds = [],
+      excludedModelIds = EMPTY_EXCLUDED,
       emptyLabel,
       menuPlacement = 'auto',
     },
@@ -287,15 +289,24 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
           placement === 'bottom' ? triggerRect.bottom + 4 : triggerRect.top - menuHeight - 4
         const left = shouldAlignEnd ? triggerRect.right - menuWidth : triggerRect.left
 
-        setPortalStyle({ position: 'fixed', top, left, zIndex: 9999 })
+        setPortalStyle({ position: 'fixed', top, left, zIndex: UX.DROPDOWN_Z_INDEX })
       }
 
       measure()
-      window.addEventListener('resize', measure)
-      window.addEventListener('scroll', measure, true)
+      let rafId = 0
+      const throttled = () => {
+        if (rafId) return
+        rafId = requestAnimationFrame(() => {
+          measure()
+          rafId = 0
+        })
+      }
+      window.addEventListener('resize', throttled)
+      window.addEventListener('scroll', throttled, true)
       return () => {
-        window.removeEventListener('resize', measure)
-        window.removeEventListener('scroll', measure, true)
+        cancelAnimationFrame(rafId)
+        window.removeEventListener('resize', throttled)
+        window.removeEventListener('scroll', throttled, true)
       }
     }, [menuPlacement, open])
 

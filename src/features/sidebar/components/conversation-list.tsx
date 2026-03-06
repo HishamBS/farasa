@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import { trpc } from '@/trpc/provider'
 import { ConversationItem } from './conversation-item'
@@ -27,7 +27,15 @@ export function ConversationList({ search }: ConversationListProps) {
       },
     )
 
-  const conversations = data?.pages.flatMap((p) => p.items) ?? []
+  const conversations = useMemo(() => data?.pages.flatMap((p) => p.items) ?? [], [data?.pages])
+  const pinnedConversations = useMemo(
+    () => conversations.filter((c) => c.isPinned),
+    [conversations],
+  )
+  const unpinnedConversations = useMemo(
+    () => conversations.filter((c) => !c.isPinned),
+    [conversations],
+  )
 
   useEffect(() => {
     const el = sentinelRef.current
@@ -68,11 +76,32 @@ export function ConversationList({ search }: ConversationListProps) {
   return (
     <div className="flex flex-col gap-0.5 px-1.5 pb-3">
       {!search.trim() && (
-        <p className="px-3.5 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-(--text-muted)">
-          Recent
-        </p>
+        <>
+          {pinnedConversations.length > 0 && (
+            <>
+              <p className="px-3.5 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-(--text-muted)">
+                Pinned
+              </p>
+              {pinnedConversations.map((conv) => (
+                <ConversationItem
+                  key={conv.id}
+                  id={conv.id}
+                  title={conv.title}
+                  isPinned={conv.isPinned}
+                  isActive={pathname === ROUTES.CHAT_BY_ID(conv.id)}
+                  updatedAt={conv.updatedAt}
+                />
+              ))}
+            </>
+          )}
+          {unpinnedConversations.length > 0 && (
+            <p className="px-3.5 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-(--text-muted)">
+              Recent
+            </p>
+          )}
+        </>
       )}
-      {conversations.map((conv) => (
+      {(search.trim() ? conversations : unpinnedConversations).map((conv) => (
         <ConversationItem
           key={conv.id}
           id={conv.id}

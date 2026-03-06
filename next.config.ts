@@ -2,9 +2,11 @@ import withSerwist from '@serwist/next'
 import withBundleAnalyzer from '@next/bundle-analyzer'
 import type { NextConfig } from 'next'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 const CSP_DIRECTIVES = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
+  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ''}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://* https://openrouter.ai https://*.openrouter.ai https://storage.googleapis.com https://lh3.googleusercontent.com",
   "font-src 'self'",

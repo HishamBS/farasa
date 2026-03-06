@@ -1,14 +1,10 @@
 'use client'
 
-import { useCallback } from 'react'
-import { useDataBinding, useFormBinding } from '@a2ui-sdk/react/0.8'
+import { useCallback, useState } from 'react'
+import { useDataBinding, useDataModelContext } from '@a2ui-sdk/react/0.8'
 import type { BaseComponentProps } from '../types'
 import type { SliderComponentProps } from '@a2ui-sdk/types/0.8/standard-catalog'
-import {
-  normalizeValueSource,
-  ensureWritablePath,
-  extractLiteralDefault,
-} from '../normalize-value-source'
+import { normalizeValueSource, extractLiteralDefault } from '../normalize-value-source'
 
 export function SliderAdapter({
   surfaceId,
@@ -19,15 +15,18 @@ export function SliderAdapter({
   maxValue = 100,
 }: BaseComponentProps & SliderComponentProps) {
   const safeLabel = normalizeValueSource(label)
-  const safeValue = normalizeValueSource(value)
   const resolvedLabel = useDataBinding<string>(surfaceId, safeLabel, '')
-  const writableSource = ensureWritablePath(safeValue, componentId)
-  const initialValue = extractLiteralDefault(safeValue, minValue)
-  const [current, setCurrent] = useFormBinding<number>(surfaceId, writableSource, initialValue)
+  const { setDataValue } = useDataModelContext()
+  const initialValue = extractLiteralDefault(normalizeValueSource(value), minValue)
+  const [current, setCurrent] = useState(initialValue)
 
   const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => setCurrent(Number(e.target.value)),
-    [setCurrent],
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newValue = Number(e.target.value)
+      setCurrent(newValue)
+      setDataValue(surfaceId, `/${componentId}`, newValue)
+    },
+    [setDataValue, surfaceId, componentId],
   )
 
   return (

@@ -15,22 +15,8 @@ export function normalizeValueSource(value: ValueSource | undefined): ValueSourc
 }
 
 /**
- * Ensures a value source has a writable path for useFormBinding.
- * The SDK's useFormBinding setter is a no-op when the source lacks a "path"
- * property (e.g. literalString is read-only). This creates a synthetic path
- * using the component ID so the SDK can read/write form state in the data model.
- */
-export function ensureWritablePath(
-  source: ValueSource | undefined,
-  componentId: string,
-): ValueSource {
-  if (source && typeof source === 'object' && 'path' in source) return source
-  return { path: componentId }
-}
-
-/**
  * Extracts the initial display value from a literal value source.
- * Used as the default for useFormBinding when replacing literalString with a path.
+ * Used as the default for useState in interactive adapters.
  */
 export function extractLiteralDefault<T>(source: ValueSource | undefined, fallback: T): T {
   if (!source || typeof source !== 'object') return fallback

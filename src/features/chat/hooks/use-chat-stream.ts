@@ -180,6 +180,15 @@ export function useChatStream(conversationId?: string) {
         { ...input, conversationId: effectiveConversationId, clientRequestId },
         {
           onData(chunk: StreamChunk) {
+            // Title updates arrive after DONE when session is already torn down —
+            // handle before the active session guard (mirrors team mode pattern)
+            if (chunk.type === STREAM_EVENTS.TITLE_UPDATED) {
+              void utils.conversation.list.invalidate()
+              const convId = resolvedConversationIdRef.current
+              if (convId) void utils.conversation.getById.invalidate({ id: convId })
+              return
+            }
+
             const active = activeSessionRef.current
             if (!active || active.sessionId !== sessionId) return
 
@@ -244,12 +253,6 @@ export function useChatStream(conversationId?: string) {
                   if (convId) void utils.conversation.getById.invalidate({ id: convId })
                 }
                 break
-              case STREAM_EVENTS.TITLE_UPDATED: {
-                void utils.conversation.list.invalidate()
-                const convId = resolvedConversationIdRef.current
-                if (convId) void utils.conversation.getById.invalidate({ id: convId })
-                break
-              }
               case STREAM_EVENTS.A2UI:
                 try {
                   const parsed: unknown = JSON.parse(chunk.jsonl)

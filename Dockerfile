@@ -37,6 +37,8 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+# Ensure native PDF dependencies are available in standalone
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@napi-rs /app/node_modules/@napi-rs
 
 USER nextjs
 

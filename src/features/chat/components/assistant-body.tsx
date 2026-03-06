@@ -31,6 +31,7 @@ type AssistantBodyProps = {
   isStreaming?: boolean
   modelResolved?: boolean
   autoCollapse?: boolean
+  messageId?: string
 }
 
 export function AssistantBody({
@@ -42,6 +43,7 @@ export function AssistantBody({
   isStreaming = false,
   modelResolved = true,
   autoCollapse = false,
+  messageId,
 }: AssistantBodyProps) {
   const shouldReduce = useReducedMotion()
   const { activeBlock, toggleRouting, toggleThinking } = useActiveBlock()
@@ -102,9 +104,9 @@ export function AssistantBody({
 
       {a2uiMessages.length > 0 && <A2UIMessage messages={a2uiMessages} />}
 
-      {textContent && (
+      {textContent && messageId && (
         <div className="flex items-center">
-          <TTSControls content={textContent} />
+          <TTSControls content={textContent} messageId={messageId} />
         </div>
       )}
     </div>

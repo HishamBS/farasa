@@ -18,6 +18,10 @@ function isAudioElementSupported(): boolean {
   return typeof window !== 'undefined' && typeof window.Audio === 'function'
 }
 
+// Module-level cache — persists across re-renders and component remounts.
+// Keyed by messageId so replay of the same message skips the API call.
+const ttsCache = new Map<string, Blob>()
+
 export function useTextToSpeech() {
   const [state, setState] = useState<TtsState>({
     status: VOICE_TTS_STATES.IDLE,
@@ -52,8 +56,37 @@ export function useTextToSpeech() {
     })
   }, [cleanupAudio])
 
+  const playBlob = useCallback(
+    async (blob: Blob) => {
+      const objectUrl = URL.createObjectURL(blob)
+      objectUrlRef.current = objectUrl
+      const audio = new Audio(objectUrl)
+      audioRef.current = audio
+
+      audio.onended = () => {
+        cleanupAudio()
+        setState({ status: VOICE_TTS_STATES.IDLE, error: null })
+      }
+
+      audio.onerror = () => {
+        cleanupAudio()
+        setState({ status: VOICE_TTS_STATES.ERROR, error: UI_TEXT.TTS_UNAVAILABLE })
+      }
+
+      try {
+        await audio.play()
+        setState({ status: VOICE_TTS_STATES.SPEAKING, error: null })
+      } catch (playError) {
+        console.error('[tts] Audio playback failed:', playError)
+        cleanupAudio()
+        setState({ status: VOICE_TTS_STATES.ERROR, error: UI_TEXT.TTS_UNAVAILABLE })
+      }
+    },
+    [cleanupAudio],
+  )
+
   const speak = useCallback(
-    async (text: string) => {
+    async (text: string, messageId: string) => {
       stop()
 
       if (!isAudioElementSupported()) {
@@ -66,6 +99,14 @@ export function useTextToSpeech() {
 
       const trimmed = text.slice(0, VOICE.TTS_MAX_CHARS).trim()
       if (!trimmed) return
+
+      // Serve from cache if available — no API call needed
+      const cached = ttsCache.get(messageId)
+      if (cached) {
+        setState({ status: VOICE_TTS_STATES.LOADING, error: null })
+        await playBlob(cached)
+        return
+      }
 
       const controller = new AbortController()
       abortControllerRef.current = controller
@@ -99,29 +140,8 @@ export function useTextToSpeech() {
         const audioBlob = await response.blob()
         if (controller.signal.aborted) return
 
-        const objectUrl = URL.createObjectURL(audioBlob)
-        objectUrlRef.current = objectUrl
-        const audio = new Audio(objectUrl)
-        audioRef.current = audio
-
-        audio.onended = () => {
-          cleanupAudio()
-          setState({ status: VOICE_TTS_STATES.IDLE, error: null })
-        }
-
-        audio.onerror = () => {
-          cleanupAudio()
-          setState({ status: VOICE_TTS_STATES.ERROR, error: UI_TEXT.TTS_UNAVAILABLE })
-        }
-
-        try {
-          await audio.play()
-          setState({ status: VOICE_TTS_STATES.SPEAKING, error: null })
-        } catch (playError) {
-          console.error('[tts] Audio playback failed:', playError)
-          cleanupAudio()
-          setState({ status: VOICE_TTS_STATES.ERROR, error: UI_TEXT.TTS_UNAVAILABLE })
-        }
+        ttsCache.set(messageId, audioBlob)
+        await playBlob(audioBlob)
       } catch {
         if (controller.signal.aborted) return
         setState({
@@ -130,7 +150,7 @@ export function useTextToSpeech() {
         })
       }
     },
-    [cleanupAudio, stop],
+    [playBlob, stop],
   )
 
   useEffect(() => {

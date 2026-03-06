@@ -172,6 +172,7 @@ export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessa
           textContent={message.content ?? ''}
           a2uiMessages={a2uiMessages}
           autoCollapse
+          messageId={message.id}
         />
       </AssistantFrame>
     </motion.div>

@@ -8,9 +8,10 @@ import { UI_TEXT, VOICE_TTS_STATES } from '@/config/constants'
 
 type TTSControlsProps = {
   content: string
+  messageId: string
 }
 
-export function TTSControls({ content }: TTSControlsProps) {
+export function TTSControls({ content, messageId }: TTSControlsProps) {
   const { speak, stop, status, error, isReady } = useTextToSpeech()
   const effectiveStatus = isReady ? status : VOICE_TTS_STATES.IDLE
 
@@ -19,9 +20,9 @@ export function TTSControls({ content }: TTSControlsProps) {
     if (status === VOICE_TTS_STATES.SPEAKING) {
       stop()
     } else {
-      await speak(content)
+      await speak(content, messageId)
     }
-  }, [status, speak, stop, content])
+  }, [status, speak, stop, content, messageId])
 
   type TtsControlPresentation = {
     ariaLabel: string

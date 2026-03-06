@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { codeToHtml } from 'shiki'
+import { createHighlighter, type Highlighter } from 'shiki'
 import { SHIKI_LANGS } from '../config/shiki-config'
 import {
   LIMITS,
@@ -17,6 +17,20 @@ import { expand } from '@/lib/utils/motion'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 
 const PREVIEW_MAX_HEIGHT = `${UX.CODE_BLOCK_PREVIEW_LINES * UX.CODE_BLOCK_LINE_HEIGHT * UX.CODE_BLOCK_FONT_SIZE_REM + UX.CODE_BLOCK_PREVIEW_PADDING_REM}rem`
+
+// Singleton highlighter — pre-loads themes and languages once,
+// avoids lazy dynamic imports that fail in standalone Docker builds
+let highlighterPromise: Promise<Highlighter> | null = null
+
+function getHighlighter(): Promise<Highlighter> {
+  if (!highlighterPromise) {
+    highlighterPromise = createHighlighter({
+      themes: [SHIKI_LIGHT_THEME, SHIKI_DARK_THEME],
+      langs: [...SHIKI_LANGS],
+    })
+  }
+  return highlighterPromise
+}
 
 type CodeBlockProps = {
   children?: React.ReactNode
@@ -55,10 +69,11 @@ export function CodeBlock({ children, className, autoCollapse }: CodeBlockProps)
     const shikiTheme = resolvedTheme === 'light' ? SHIKI_LIGHT_THEME : SHIKI_DARK_THEME
     void (async () => {
       try {
-        const rendered = await codeToHtml(code, { lang: validLang, theme: shikiTheme })
+        const highlighter = await getHighlighter()
+        const rendered = highlighter.codeToHtml(code, { lang: validLang, theme: shikiTheme })
         if (!cancelled) setHtml(rendered)
-      } catch {
-        // Leave as plain pre/code on error
+      } catch (error) {
+        console.error('[CodeBlock] Shiki highlighting failed:', error)
       }
     })()
     return () => {

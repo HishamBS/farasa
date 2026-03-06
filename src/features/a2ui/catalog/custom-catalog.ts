@@ -10,6 +10,15 @@ import { ColumnAdapter } from './adapters/column'
 import { ListAdapter } from './adapters/list'
 import { DividerAdapter } from './adapters/divider'
 import { CodeBlockAdapter } from './adapters/code'
+import { CheckBoxAdapter } from './adapters/checkbox'
+import { MultipleChoiceAdapter } from './adapters/multiple-choice'
+import { SliderAdapter } from './adapters/slider'
+import { DateTimeInputAdapter } from './adapters/datetime'
+import { IconAdapter } from './adapters/icon'
+import { VideoAdapter } from './adapters/video'
+import { AudioPlayerAdapter } from './adapters/audio-player'
+import { TabsAdapter } from './adapters/tabs'
+import { ModalAdapter } from './adapters/modal'
 
 export const customCatalog: Catalog = {
   ...standardCatalog,
@@ -25,5 +34,14 @@ export const customCatalog: Catalog = {
     List: ListAdapter,
     Divider: DividerAdapter,
     CodeBlock: CodeBlockAdapter,
+    CheckBox: CheckBoxAdapter,
+    MultipleChoice: MultipleChoiceAdapter,
+    Slider: SliderAdapter,
+    DateTimeInput: DateTimeInputAdapter,
+    Icon: IconAdapter,
+    Video: VideoAdapter,
+    AudioPlayer: AudioPlayerAdapter,
+    Tabs: TabsAdapter,
+    Modal: ModalAdapter,
   },
 }

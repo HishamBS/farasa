@@ -116,7 +116,18 @@ export function useA2UIActions() {
         case 'transform': {
           const summary = buildContextSummary(action)
           dispatchActionPrompt({
-            prompt: `Action "${rawName}" was submitted from an interactive UI.\n\nData:\n${summary}\n\nUse this data to produce the requested outcome.`,
+            prompt: [
+              `The user submitted the form from the interactive A2UI artifact you generated.`,
+              `Action: "${rawName}"`,
+              `Submitted data:`,
+              summary,
+              ``,
+              `Process this submission meaningfully:`,
+              `- Acknowledge what was submitted with specific field values`,
+              `- Validate the data (flag any issues like missing required fields or invalid formats)`,
+              `- Explain what would happen next in a real system`,
+              `- If appropriate, generate a follow-up A2UI artifact (e.g., a success confirmation card or next-step form)`,
+            ].join('\n'),
             webSearchEnabled: false,
           })
           return
@@ -124,7 +135,7 @@ export function useA2UIActions() {
         case 'cancel':
         case 'cancel_form': {
           dispatchActionPrompt({
-            prompt: `Action "${rawName}" was cancelled. Confirm cancellation and provide next-step options.`,
+            prompt: `The user cancelled the form from the interactive A2UI artifact. Acknowledge the cancellation briefly and ask if they'd like to try something different.`,
             webSearchEnabled: false,
           })
           return
@@ -132,7 +143,13 @@ export function useA2UIActions() {
         default: {
           const summary = buildContextSummary(action)
           dispatchActionPrompt({
-            prompt: `Run action "${rawName}" from interactive UI with this context:\n${summary}`,
+            prompt: [
+              `The user triggered action "${rawName}" from the interactive A2UI artifact.`,
+              summary !== 'No form fields were provided.' ? `Context data:\n${summary}` : '',
+              `Respond appropriately to this action.`,
+            ]
+              .filter(Boolean)
+              .join('\n'),
             webSearchEnabled: false,
           })
           return

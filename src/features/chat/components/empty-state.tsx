@@ -13,6 +13,9 @@ import {
   FileText,
   Box,
   RefreshCw,
+  ClipboardList,
+  Calculator,
+  CalendarCheck,
 } from 'lucide-react'
 import { fadeInUp } from '@/lib/utils/motion'
 import { EMPTY_STATE_SUGGESTIONS, UI_TEXT, MOTION, LIMITS, UX } from '@/config/constants'
@@ -32,6 +35,9 @@ const ICON_MAP = {
   Lightbulb,
   FileText,
   Box,
+  ClipboardList,
+  Calculator,
+  CalendarCheck,
 } as const
 
 const getShuffledItems = (count: number) => {

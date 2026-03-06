@@ -212,6 +212,17 @@ class StreamSessionService {
 
     if (error instanceof Error) {
       const message = error.message.toLowerCase()
+      if (
+        message.includes('context length') ||
+        (message.includes('token') && message.includes('requested'))
+      ) {
+        return {
+          message: runtimeConfig.chat.errors.contextOverflow,
+          code: error.name,
+          reasonCode: STREAM_REASON_CODES.CONTEXT_OVERFLOW,
+          recoverable: false,
+        }
+      }
       if (message.includes('abort') || message.includes('timeout')) {
         return {
           message: runtimeConfig.chat.errors.connection,

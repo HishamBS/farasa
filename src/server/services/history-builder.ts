@@ -118,11 +118,14 @@ async function buildHistoryAttachmentContent(
   return blocks
 }
 
+const INLINE_IMAGE_DATA_URI_RE = /!\[([^\]]*)\]\(data:image\/[^)]+\)/g
+
 export async function buildEnrichedHistory(
   dbClient: typeof db,
   conversationId: string,
   options?: {
     excludeMessageIds?: string[]
+    stripInlineImages?: boolean
   },
 ): Promise<Message[]> {
   const excludedMessageIds = new Set(options?.excludeMessageIds ?? [])
@@ -226,6 +229,13 @@ export async function buildEnrichedHistory(
 
     let enrichedContent = row.content
     const meta = row.metadata
+
+    if (options?.stripInlineImages) {
+      enrichedContent = enrichedContent.replace(
+        INLINE_IMAGE_DATA_URI_RE,
+        '![$1](previously-generated-image)',
+      )
+    }
 
     if (meta?.searchQuery && meta?.searchResults?.length) {
       const safeQuery = escapeXmlForPrompt(meta.searchQuery)

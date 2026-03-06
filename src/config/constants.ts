@@ -298,6 +298,8 @@ export const CHAT_ERRORS = {
   IMAGE_GEN_INCOMPATIBLE:
     'This model does not support image generation. Please select an image-capable model.',
   PROVIDER_UNAVAILABLE: 'The AI provider is temporarily unavailable. Please try again shortly.',
+  CONTEXT_OVERFLOW:
+    'This conversation has grown too large for the selected model. Please start a new chat to continue.',
   FILE_PROCESSING: 'Failed to process the attached file. Please try a different file or format.',
 } as const
 
@@ -503,6 +505,7 @@ export const STREAM_REASON_CODES = {
   SUPERSEDED: 'superseded_by_new_stream',
   STREAM_CLOSED: 'stream_closed_unexpectedly',
   FILE_PROCESSING_FAILED: 'file_processing_failed',
+  CONTEXT_OVERFLOW: 'context_overflow',
 } as const
 
 export const MODEL_REGISTRY_CACHE_KEY = 'models' as const
@@ -607,6 +610,27 @@ export const EMPTY_STATE_SUGGESTIONS = [
     prompt:
       'Teach me the basics of Docker. What are containers, images, and volumes? Provide a simple example of a Dockerfile.',
     icon: 'Box',
+  },
+  {
+    title: 'Build me a survey',
+    label: 'about developer tools',
+    prompt:
+      'Build an interactive survey form about developer tool preferences. Include multiple choice questions, text fields for open feedback, and a submit button. Make it visually engaging.',
+    icon: 'ClipboardList',
+  },
+  {
+    title: 'Create a calculator',
+    label: 'for project estimates',
+    prompt:
+      'Create an interactive project cost estimation calculator. Include fields for team size, project duration, hourly rate, and a slider for complexity level. Calculate and display the total estimate when submitted.',
+    icon: 'Calculator',
+  },
+  {
+    title: 'Design a booking form',
+    label: 'for appointments',
+    prompt:
+      'Design an interactive appointment booking form with fields for name, email, date selection, time preference, and service type (multiple choice). Include submit and cancel buttons.',
+    icon: 'CalendarCheck',
   },
 ] as const
 

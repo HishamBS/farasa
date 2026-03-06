@@ -28,7 +28,7 @@ function parseJsonLines(source: string): unknown[] {
   const lines = source
     .split('\n')
     .map((line) => line.trim())
-    .filter((line) => line.length > 0)
+    .filter((line) => line.length > 0 && (line.startsWith('{') || line.startsWith('[')))
 
   if (lines.length === 0) {
     return []
@@ -39,7 +39,6 @@ function parseJsonLines(source: string): unknown[] {
     try {
       parsed.push(JSON.parse(line))
     } catch {
-      console.warn('[a2ui] skipping malformed JSONL line:', line.slice(0, 80))
       continue
     }
   }

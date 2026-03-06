@@ -383,9 +383,9 @@ export const chatRouter = router({
       }
 
       const systemSections = [PROMPTS.CHAT_SYSTEM_PROMPT, runtimeConfig.prompts.chatSystem]
-      systemSections.push(PROMPTS.A2UI_SYSTEM_PROMPT)
-      systemSections.push(runtimeConfig.prompts.a2uiSystem)
       if (routerResponseFormat === RESPONSE_FORMATS.A2UI) {
+        systemSections.push(PROMPTS.A2UI_SYSTEM_PROMPT)
+        systemSections.push(runtimeConfig.prompts.a2uiSystem)
         systemSections.push(
           `Response format policy: For this request, provide a concise explanation followed by valid A2UI JSONL inside an \`${RESPONSE_FORMATS.A2UI}\` fenced block.`,
         )
@@ -397,6 +397,7 @@ export const chatRouter = router({
       const { buildEnrichedHistory } = await import('@/server/services/history-builder')
       const historyMessages = await buildEnrichedHistory(ctx.db, conversationId, {
         excludeMessageIds: userMessageId ? [userMessageId] : [],
+        stripInlineImages: isImageGenModel,
       })
 
       const baseMessages: Message[] = [

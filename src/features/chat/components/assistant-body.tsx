@@ -51,7 +51,6 @@ export function AssistantBody({
   a2uiMessages,
   a2uiRawLines,
   a2uiPolicy,
-  statusMessages,
   isStreaming = false,
   modelResolved = true,
   autoCollapse = false,
@@ -70,20 +69,6 @@ export function AssistantBody({
           </div>
         </div>
       )}
-
-      {isStreaming &&
-        statusMessages &&
-        statusMessages.length > 0 &&
-        !textContent &&
-        !thinking &&
-        toolExecutions.length === 0 && (
-          <div className="w-fit rounded-xl border border-(--border-subtle) bg-(--bg-surface) px-3 py-2 text-xs text-(--text-muted)">
-            <div className="flex items-center gap-2">
-              <span className="size-1.5 animate-pulse rounded-full bg-(--accent)" />
-              <span>{statusMessages[statusMessages.length - 1]?.message}</span>
-            </div>
-          </div>
-        )}
 
       {(routingDecision || thinking) && (
         <div className="flex flex-wrap items-start gap-2">

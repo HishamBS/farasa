@@ -44,6 +44,7 @@ const ChatErrorsSchema = z
     imageGenIncompatible: z.string().min(1).default(CHAT_ERRORS.IMAGE_GEN_INCOMPATIBLE),
     rateLimited: z.string().min(1).default(RATE_LIMITS.ERROR_MESSAGE),
     providerUnavailable: z.string().min(1).default(CHAT_ERRORS.PROVIDER_UNAVAILABLE),
+    contextOverflow: z.string().min(1).default(CHAT_ERRORS.CONTEXT_OVERFLOW),
     fileProcessing: z.string().min(1).default(CHAT_ERRORS.FILE_PROCESSING),
   })
   .default({})

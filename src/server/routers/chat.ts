@@ -9,7 +9,6 @@ import {
   STATUS_MESSAGES,
   STREAM_EVENTS,
   STREAM_PHASES,
-  STREAM_REASON_CODES,
   TRPC_CODES,
 } from '@/config/constants'
 import { PROMPTS } from '@/config/prompts'
@@ -1013,22 +1012,19 @@ export const chatRouter = router({
   }),
 
   cancel: protectedProcedure.input(CancelStreamInputSchema).mutation(async ({ ctx, input }) => {
-    const active = streamSessions.findByConversation(ctx.userId, input.conversationId)
-    if (!active) {
-      return { cancelled: false }
-    }
-    if (input.streamRequestId && active.streamRequestId !== input.streamRequestId) {
-      return { cancelled: false }
-    }
-    active.abortController.abort(STREAM_REASON_CODES.CANCELLED)
-    streamSessions.end(active)
+    const result = streamSessions.cancelStream(
+      ctx.userId,
+      input.conversationId,
+      input.streamRequestId,
+    )
+    if (!result.cancelled) return { cancelled: false }
 
     await ctx.db
       .delete(messages)
       .where(
         and(
           eq(messages.conversationId, input.conversationId),
-          eq(messages.clientRequestId, active.streamRequestId),
+          eq(messages.clientRequestId, result.activeStreamRequestId),
           eq(messages.role, MESSAGE_ROLES.ASSISTANT),
         ),
       )

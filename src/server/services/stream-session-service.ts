@@ -83,6 +83,22 @@ class StreamSessionService {
     return this.byRequest.get(requestId)
   }
 
+  cancelStream(
+    userId: string,
+    conversationId: string,
+    streamRequestId?: string,
+  ): { cancelled: false } | { cancelled: true; activeStreamRequestId: string } {
+    const active = this.findByConversation(userId, conversationId)
+    if (!active) return { cancelled: false }
+    if (streamRequestId && active.streamRequestId !== streamRequestId) {
+      return { cancelled: false }
+    }
+    const activeStreamRequestId = active.streamRequestId
+    active.abortController.abort(STREAM_REASON_CODES.CANCELLED)
+    this.end(active)
+    return { cancelled: true, activeStreamRequestId }
+  }
+
   createChunkEmitter(
     streamRequestId: string,
     attempt: number,

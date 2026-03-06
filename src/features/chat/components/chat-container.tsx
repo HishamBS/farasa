@@ -71,10 +71,12 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   )
 
   const handleTeamTitleUpdated = useCallback(
-    (_title: string) => {
+    (title: string) => {
       const convId = teamConversationIdRef.current
       if (convId) {
-        void utils.conversation.getById.invalidate({ id: convId })
+        utils.conversation.getById.setData({ id: convId }, (prev) =>
+          prev ? { ...prev, title } : prev,
+        )
         void utils.conversation.list.invalidate()
       }
     },

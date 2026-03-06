@@ -8,7 +8,6 @@ import {
   STATUS_MESSAGES,
   STREAM_EVENTS,
   STREAM_PHASES,
-  STREAM_REASON_CODES,
   TEAM_EVENTS,
   TEAM_LIMITS,
   TRPC_CODES,
@@ -987,18 +986,15 @@ Your task: write a single unified response that combines the strongest elements 
   cancel: rateLimitedChatProcedure
     .input(z.object({ conversationId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const active = streamSessions.findByConversation(ctx.userId, input.conversationId)
-      if (!active) return { cancelled: false }
-
-      active.abortController.abort(STREAM_REASON_CODES.CANCELLED)
-      streamSessions.end(active)
+      const result = streamSessions.cancelStream(ctx.userId, input.conversationId)
+      if (!result.cancelled) return { cancelled: false }
 
       await ctx.db
         .delete(messages)
         .where(
           and(
             eq(messages.conversationId, input.conversationId),
-            eq(messages.clientRequestId, active.streamRequestId),
+            eq(messages.clientRequestId, result.activeStreamRequestId),
             eq(messages.role, MESSAGE_ROLES.ASSISTANT),
           ),
         )

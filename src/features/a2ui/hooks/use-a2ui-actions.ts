@@ -1,11 +1,12 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { trpc } from '@/trpc/provider'
 import { ROUTES } from '@/config/routes'
 import { BROWSER_EVENTS } from '@/config/constants'
 import type { ActionPayload } from '@a2ui-sdk/types/0.8'
+import type { RuntimeConfig } from '@/schemas/runtime-config'
 
 export function useA2UIActions() {
   const router = useRouter()
@@ -16,6 +17,8 @@ export function useA2UIActions() {
   const refreshModels = trpc.model.refresh.useMutation()
   const executeSearch = trpc.search.execute.useMutation()
   const runtimeConfigQuery = trpc.runtimeConfig.get.useQuery()
+  const runtimeConfigRef = useRef<RuntimeConfig | undefined>(undefined)
+  runtimeConfigRef.current = runtimeConfigQuery.data
 
   const dispatchActionPrompt = useCallback(
     (payload: { prompt: string; webSearchEnabled?: boolean }) => {
@@ -32,13 +35,9 @@ export function useA2UIActions() {
     const entries = Object.entries(action.context ?? {})
     if (entries.length === 0) return ''
     return entries
-      .map(([key, value]) => {
-        if (value === null) return `${key}: null`
-        if (typeof value === 'string') return `${key}: ${value}`
-        if (typeof value === 'number' || typeof value === 'boolean')
-          return `${key}: ${String(value)}`
-        return `${key}: ${JSON.stringify(value)}`
-      })
+      .map(([key, value]) =>
+        typeof value === 'string' ? `${key}: ${value}` : `${key}: ${JSON.stringify(value)}`,
+      )
       .join('\n')
   }, [])
 
@@ -94,7 +93,7 @@ export function useA2UIActions() {
         case 'search': {
           const query = String(getContextValue(action, 'query') ?? '').trim()
           if (!query) return
-          const runtimeConfig = runtimeConfigQuery.data
+          const runtimeConfig = runtimeConfigRef.current
           if (!runtimeConfig) return
           void executeSearch.mutateAsync({
             query,
@@ -172,7 +171,6 @@ export function useA2UIActions() {
       refreshModels,
       getContextValue,
       router,
-      runtimeConfigQuery.data,
       updateConversation,
       utils.conversation.list,
       utils.model.list,

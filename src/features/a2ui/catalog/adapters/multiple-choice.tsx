@@ -39,12 +39,10 @@ export function MultipleChoiceAdapter({
       )}
       <div className="flex flex-col gap-1.5">
         {options.map((option) => {
-          const optionLabel =
-            option.label && typeof option.label === 'object' && 'literalString' in option.label
-              ? option.label.literalString
-              : typeof option.label === 'string'
-                ? option.label
-                : option.value
+          const optionLabel = extractLiteralDefault(
+            normalizeValueSource(option.label),
+            option.value,
+          )
           const isSelected = selected === option.value
 
           return (

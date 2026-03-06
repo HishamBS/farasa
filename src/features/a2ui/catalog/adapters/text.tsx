@@ -1,12 +1,17 @@
 'use client'
 
+import { useDataBinding } from '@a2ui-sdk/react/0.8'
 import type { BaseComponentProps } from '../types'
 import type { TextComponentProps } from '@a2ui-sdk/types/0.8/standard-catalog'
 import { normalizeValueSource } from '../normalize-value-source'
 
-export function TextAdapter({ text, usageHint }: BaseComponentProps & TextComponentProps) {
+export function TextAdapter({
+  surfaceId,
+  text,
+  usageHint,
+}: BaseComponentProps & TextComponentProps) {
   const safeText = normalizeValueSource(text)
-  const resolved = safeText && 'literalString' in safeText ? safeText.literalString : undefined
+  const resolved = useDataBinding<string>(surfaceId, safeText, '')
 
   if (!resolved) return null
 

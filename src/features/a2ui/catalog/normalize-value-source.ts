@@ -18,10 +18,19 @@ export function normalizeValueSource(value: ValueSource | undefined): ValueSourc
  * Extracts the initial display value from a literal value source.
  * Used as the default for useState in interactive adapters.
  */
-export function extractLiteralDefault<T>(source: ValueSource | undefined, fallback: T): T {
+export function extractLiteralDefault(source: ValueSource | undefined, fallback: string): string
+export function extractLiteralDefault(source: ValueSource | undefined, fallback: number): number
+export function extractLiteralDefault(source: ValueSource | undefined, fallback: boolean): boolean
+export function extractLiteralDefault(
+  source: ValueSource | undefined,
+  fallback: string | number | boolean,
+): string | number | boolean {
   if (!source || typeof source !== 'object') return fallback
-  if ('literalString' in source) return source.literalString as unknown as T
-  if ('literalNumber' in source) return source.literalNumber as unknown as T
-  if ('literalBoolean' in source) return source.literalBoolean as unknown as T
+  if ('literalString' in source && typeof source.literalString === 'string')
+    return source.literalString
+  if ('literalNumber' in source && typeof source.literalNumber === 'number')
+    return source.literalNumber
+  if ('literalBoolean' in source && typeof source.literalBoolean === 'boolean')
+    return source.literalBoolean
   return fallback
 }

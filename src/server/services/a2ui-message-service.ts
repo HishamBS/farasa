@@ -58,13 +58,16 @@ function extractJsonObjects(source: string): unknown[] {
   return results
 }
 
-/** Extracts A2UI protocol messages from fence content. Transparent pass-through to client SDK. */
-export function parseA2UIFencePayloadToJsonLines(payload: string): string[] {
+/** Extracts A2UI protocol messages from fence content as parsed objects. */
+function parseA2UIFenceObjects(payload: string): unknown[] {
   const trimmed = payload.trim()
   if (!trimmed) return []
-  return extractJsonObjects(trimmed)
-    .filter(isProtocolMessage)
-    .map((obj) => JSON.stringify(obj))
+  return extractJsonObjects(trimmed).filter(isProtocolMessage)
+}
+
+/** Extracts A2UI protocol messages from fence content. Transparent pass-through to client SDK. */
+export function parseA2UIFencePayloadToJsonLines(payload: string): string[] {
+  return parseA2UIFenceObjects(payload).map((obj) => JSON.stringify(obj))
 }
 
 const validComponentTypes: ReadonlySet<string> = new Set(A2UI_COMPONENT_TYPES)
@@ -72,22 +75,23 @@ const validComponentTypes: ReadonlySet<string> = new Set(A2UI_COMPONENT_TYPES)
 export function validateA2UIComponentTypes(lines: readonly string[]): string[] {
   const found = new Set<string>()
   for (const line of lines) {
+    let parsed: unknown
     try {
-      const parsed = JSON.parse(line)
-      if (isRecord(parsed) && 'surfaceUpdate' in parsed && isRecord(parsed.surfaceUpdate)) {
-        const components = parsed.surfaceUpdate.components
-        if (Array.isArray(components)) {
-          for (const entry of components) {
-            if (isRecord(entry) && 'component' in entry && isRecord(entry.component)) {
-              for (const typeName of Object.keys(entry.component)) {
-                found.add(typeName)
-              }
+      parsed = JSON.parse(line)
+    } catch {
+      continue
+    }
+    if (isRecord(parsed) && 'surfaceUpdate' in parsed && isRecord(parsed.surfaceUpdate)) {
+      const components = parsed.surfaceUpdate.components
+      if (Array.isArray(components)) {
+        for (const entry of components) {
+          if (isRecord(entry) && 'component' in entry && isRecord(entry.component)) {
+            for (const typeName of Object.keys(entry.component)) {
+              found.add(typeName)
             }
           }
         }
       }
-    } catch {
-      continue
     }
   }
   return [...found].filter((t) => !validComponentTypes.has(t))

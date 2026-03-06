@@ -54,8 +54,10 @@ import { TRPCError } from '@trpc/server'
 import { and, desc, eq } from 'drizzle-orm'
 import { protectedProcedure, rateLimitedChatProcedure, router } from '../trpc'
 
+const A2UI_FENCE_RE = new RegExp(`\`\`\`[ \\t]*${RESPONSE_FORMATS.A2UI}\\b`)
+
 function findA2UIFenceStart(source: string): { index: number; length: number } | null {
-  const match = new RegExp(`\\\`\\\`\\\`[ \\t]*${RESPONSE_FORMATS.A2UI}\\b`).exec(source)
+  const match = A2UI_FENCE_RE.exec(source)
   if (!match || typeof match.index !== 'number') {
     return null
   }

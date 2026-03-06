@@ -5,6 +5,7 @@ import { X } from 'lucide-react'
 import { ComponentRenderer } from '@a2ui-sdk/react/0.8'
 import type { BaseComponentProps } from '../types'
 import type { ModalComponentProps } from '@a2ui-sdk/types/0.8/standard-catalog'
+import { cn } from '@/lib/utils/cn'
 
 const MODAL_CONTENT_MAX_HEIGHT = 'max-h-[85vh]'
 
@@ -17,15 +18,12 @@ export function ModalAdapter({
 
   const handleOpen = useCallback(() => setIsOpen(true), [])
   const handleClose = useCallback(() => setIsOpen(false), [])
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault()
-        handleOpen()
-      }
-    },
-    [handleOpen],
-  )
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      setIsOpen(true)
+    }
+  }, [])
 
   return (
     <>
@@ -48,7 +46,10 @@ export function ModalAdapter({
             onClick={handleClose}
           />
           <div
-            className={`relative z-10 m-4 ${MODAL_CONTENT_MAX_HEIGHT} w-full max-w-lg overflow-y-auto rounded-xl border border-(--border-default) bg-(--bg-surface) p-5 shadow-2xl`}
+            className={cn(
+              'relative z-10 m-4 w-full max-w-lg overflow-y-auto rounded-xl border border-(--border-default) bg-(--bg-surface) p-5 shadow-2xl',
+              MODAL_CONTENT_MAX_HEIGHT,
+            )}
           >
             <button
               type="button"

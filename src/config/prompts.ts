@@ -1,5 +1,5 @@
 import type { ModelConfig } from '@/schemas/model'
-import { A2UI_COMPONENT_CATEGORIES, MODEL_CATEGORIES } from './constants'
+import { A2UI_COMPONENT_CATEGORIES, MODEL_CATEGORIES, RESPONSE_FORMATS } from './constants'
 
 const A2UI_CATEGORIZED_LIST = Object.entries(A2UI_COMPONENT_CATEGORIES)
   .map(([category, types]) => `${category}: ${types.join(', ')}`)
@@ -135,6 +135,8 @@ CRITICAL ROUTING RULES:
 - "Create X and show me what it looks like" (both code + visual) → Write explanation with code fences for the implementation, THEN add a \`\`\`a2ui block for the visual preview.
 
 The \`\`\`a2ui fence is ONLY for A2UI protocol JSONL that renders interactive components. It is NEVER a substitute for code blocks.`,
+
+  A2UI_FORMAT_POLICY: `Response format policy: For this request, provide a concise explanation followed by valid A2UI JSONL inside an \`${RESPONSE_FORMATS.A2UI}\` fenced block.`,
 
   TTS_READ_ALOUD:
     'Read the following text aloud exactly as written, without adding any commentary:',

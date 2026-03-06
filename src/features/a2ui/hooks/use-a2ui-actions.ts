@@ -30,7 +30,7 @@ export function useA2UIActions() {
 
   const buildContextSummary = useCallback((action: ActionPayload): string => {
     const entries = Object.entries(action.context ?? {})
-    if (entries.length === 0) return 'No form fields were provided.'
+    if (entries.length === 0) return ''
     return entries
       .map(([key, value]) => {
         if (value === null) return `${key}: null`
@@ -145,7 +145,7 @@ export function useA2UIActions() {
           dispatchActionPrompt({
             prompt: [
               `The user triggered action "${rawName}" from the interactive A2UI artifact.`,
-              summary !== 'No form fields were provided.' ? `Context data:\n${summary}` : '',
+              summary ? `Context data:\n${summary}` : '',
               `Respond appropriately to this action.`,
             ]
               .filter(Boolean)

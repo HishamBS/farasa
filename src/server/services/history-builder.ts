@@ -1,4 +1,4 @@
-import { LIMITS, MESSAGE_ROLES, TRPC_CODES } from '@/config/constants'
+import { IMAGE_STRIP_PLACEHOLDER, LIMITS, MESSAGE_ROLES, TRPC_CODES } from '@/config/constants'
 import type { db } from '@/lib/db/client'
 import { attachments, messages } from '@/lib/db/schema'
 import { escapeXmlForPrompt } from '@/lib/security/runtime-safety'
@@ -233,7 +233,7 @@ export async function buildEnrichedHistory(
     if (options?.stripInlineImages) {
       enrichedContent = enrichedContent.replace(
         INLINE_IMAGE_DATA_URI_RE,
-        '![$1](previously-generated-image)',
+        `![$1](${IMAGE_STRIP_PLACEHOLDER})`,
       )
     }
 

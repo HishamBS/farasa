@@ -386,9 +386,7 @@ export const chatRouter = router({
       if (routerResponseFormat === RESPONSE_FORMATS.A2UI) {
         systemSections.push(PROMPTS.A2UI_SYSTEM_PROMPT)
         systemSections.push(runtimeConfig.prompts.a2uiSystem)
-        systemSections.push(
-          `Response format policy: For this request, provide a concise explanation followed by valid A2UI JSONL inside an \`${RESPONSE_FORMATS.A2UI}\` fenced block.`,
-        )
+        systemSections.push(PROMPTS.A2UI_FORMAT_POLICY)
       }
       if (searchContext) {
         systemSections.push(searchContext)

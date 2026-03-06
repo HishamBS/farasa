@@ -8,6 +8,13 @@ import type { ValueSource } from '@a2ui-sdk/types/0.8'
 import { normalizeValueSource } from '../normalize-value-source'
 import { cn } from '@/lib/utils/cn'
 
+type TabTriggerProps = {
+  surfaceId: string
+  title: ValueSource | undefined
+  isActive: boolean
+  onClick: () => void
+}
+
 export function TabsAdapter({ surfaceId, tabItems }: BaseComponentProps & TabsComponentProps) {
   const [activeIndex, setActiveIndex] = useState(0)
 
@@ -25,7 +32,7 @@ export function TabsAdapter({ surfaceId, tabItems }: BaseComponentProps & TabsCo
       >
         {tabItems.map((tab, index) => (
           <TabTrigger
-            key={index}
+            key={tab.child ?? `tab-${String(index)}`}
             surfaceId={surfaceId}
             title={tab.title}
             isActive={index === activeIndex}
@@ -42,17 +49,7 @@ export function TabsAdapter({ surfaceId, tabItems }: BaseComponentProps & TabsCo
   )
 }
 
-function TabTrigger({
-  surfaceId,
-  title,
-  isActive,
-  onClick,
-}: {
-  surfaceId: string
-  title: ValueSource | undefined
-  isActive: boolean
-  onClick: () => void
-}) {
+function TabTrigger({ surfaceId, title, isActive, onClick }: TabTriggerProps) {
   const safeTitle = normalizeValueSource(title)
   const resolvedTitle = useDataBinding<string>(surfaceId, safeTitle, 'Tab')
 

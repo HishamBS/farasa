@@ -79,7 +79,6 @@ export function EmptyState({ onSelect }: EmptyStateProps) {
 
   return (
     <div className="relative flex h-full flex-col items-center justify-center px-4 pb-12">
-      {/* Hero Section */}
       <motion.div
         className="mb-10 flex flex-col items-center gap-2 text-center"
         initial={shouldReduce ? {} : { opacity: 0, y: 10, scale: 0.95 }}
@@ -98,7 +97,6 @@ export function EmptyState({ onSelect }: EmptyStateProps) {
         </p>
       </motion.div>
 
-      {/* Explore More Header */}
       <motion.div
         className="mb-3 flex w-full max-w-3xl justify-end"
         initial={shouldReduce ? {} : { opacity: 0 }}
@@ -120,7 +118,6 @@ export function EmptyState({ onSelect }: EmptyStateProps) {
         </button>
       </motion.div>
 
-      {/* Suggestion Grid */}
       <motion.div className="grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2">
         {currentSuggestions.map((suggestion, index) => {
           const Icon = ICON_MAP[suggestion.icon]

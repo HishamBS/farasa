@@ -303,6 +303,8 @@ export const CHAT_ERRORS = {
   FILE_PROCESSING: 'Failed to process the attached file. Please try a different file or format.',
 } as const
 
+export const IMAGE_STRIP_PLACEHOLDER = 'previously-generated-image' as const
+
 export const STREAM_PROGRESS = {
   STATUS: {
     INACTIVE: 'inactive',

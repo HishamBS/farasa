@@ -8,6 +8,7 @@ import {
   STATUS_MESSAGES,
   STREAM_EVENTS,
   STREAM_PHASES,
+  STREAM_REASON_CODES,
   TEAM_EVENTS,
   TEAM_LIMITS,
   TRPC_CODES,
@@ -48,6 +49,7 @@ import { ToolChoiceOptionAuto } from '@openrouter/sdk/models'
 import { TRPCError } from '@trpc/server'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { createHash } from 'node:crypto'
+import { z } from 'zod'
 import { rateLimitedChatProcedure, router } from '../trpc'
 
 type QueueItem =
@@ -191,6 +193,7 @@ export const teamRouter = router({
 
     let conversationId = input.conversationId
     let streamSession: StreamSession | null = null
+    let signalCleanup: (() => void) | null = null
 
     try {
       if (!conversationId) {
@@ -224,6 +227,14 @@ export const teamRouter = router({
         conversationId,
         streamRequestId,
       })
+
+      const { signal: combinedSignal, cleanup } = streamSessions.buildCombinedAbortSignal(
+        signal
+          ? [signal, streamSession.abortController.signal]
+          : [streamSession.abortController.signal],
+        runtimeConfig.chat.stream.timeoutMs,
+      )
+      signalCleanup = cleanup
 
       const userResult = await persistUserMessage({
         db: ctx.db,
@@ -414,7 +425,7 @@ export const teamRouter = router({
             const imageResult = await executeImageGeneration({
               model: modelId,
               messages: imageGenMessages,
-              signal: signal ?? AbortSignal.timeout(LIMITS.IMAGE_GEN_TIMEOUT_MS),
+              signal: combinedSignal,
               registry,
             })
 
@@ -463,7 +474,7 @@ export const teamRouter = router({
                     : {}),
                 },
               },
-              { signal: signal ?? undefined },
+              { signal: combinedSignal },
             )
 
             const toolCallDeltas = new Map<
@@ -797,6 +808,7 @@ export const teamRouter = router({
         } satisfies StreamChunk,
       }
     } finally {
+      signalCleanup?.()
       if (streamSession) {
         streamSessions.end(streamSession)
       }
@@ -904,27 +916,37 @@ Your task: write a single unified response that combines the strongest elements 
 
       const { openrouter } = await import('@/lib/ai/client')
 
-      const stream = await openrouter.chat.send(
-        {
-          chatGenerationParams: {
-            model: input.synthesisModel,
-            messages: [{ role: MESSAGE_ROLES.USER, content: synthesisPrompt }],
-            stream: true,
-            maxCompletionTokens: getModelMaxCompletionTokens(registry, input.synthesisModel),
-          },
-        },
-        { signal: signal ?? undefined },
-      )
+      const { signal: synthSignal, cleanup: synthSignalCleanup } =
+        streamSessions.buildCombinedAbortSignal(
+          signal ? [signal] : [],
+          runtimeConfig.chat.stream.timeoutMs,
+        )
 
       let synthesisText = ''
-      for await (const streamChunk of stream) {
-        const delta = streamChunk.choices[0]?.delta
-        if (!delta?.content) continue
-        synthesisText += delta.content
-        yield {
-          type: TEAM_EVENTS.SYNTHESIS_CHUNK,
-          content: delta.content,
+      try {
+        const stream = await openrouter.chat.send(
+          {
+            chatGenerationParams: {
+              model: input.synthesisModel,
+              messages: [{ role: MESSAGE_ROLES.USER, content: synthesisPrompt }],
+              stream: true,
+              maxCompletionTokens: getModelMaxCompletionTokens(registry, input.synthesisModel),
+            },
+          },
+          { signal: synthSignal },
+        )
+
+        for await (const streamChunk of stream) {
+          const delta = streamChunk.choices[0]?.delta
+          if (!delta?.content) continue
+          synthesisText += delta.content
+          yield {
+            type: TEAM_EVENTS.SYNTHESIS_CHUNK,
+            content: delta.content,
+          }
         }
+      } finally {
+        synthSignalCleanup()
       }
 
       const synthesisMetadata = MessageMetadataSchema.parse({
@@ -960,5 +982,27 @@ Your task: write a single unified response that combines the strongest elements 
         type: TEAM_EVENTS.SYNTHESIS_DONE,
         teamId: input.teamId,
       }
+    }),
+
+  cancel: rateLimitedChatProcedure
+    .input(z.object({ conversationId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const active = streamSessions.findByConversation(ctx.userId, input.conversationId)
+      if (!active) return { cancelled: false }
+
+      active.abortController.abort(STREAM_REASON_CODES.CANCELLED)
+      streamSessions.end(active)
+
+      await ctx.db
+        .delete(messages)
+        .where(
+          and(
+            eq(messages.conversationId, input.conversationId),
+            eq(messages.clientRequestId, active.streamRequestId),
+            eq(messages.role, MESSAGE_ROLES.ASSISTANT),
+          ),
+        )
+
+      return { cancelled: true }
     }),
 })

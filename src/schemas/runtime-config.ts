@@ -5,6 +5,7 @@ import {
   MESSAGE_DELIMITERS,
   MODEL_IDS,
   RATE_LIMITS,
+  RETRY_DEFAULTS,
   SEARCH_DEPTHS,
   STATUS_MESSAGES,
   SUPPORTED_FILE_TYPES,
@@ -17,9 +18,9 @@ import { z } from 'zod'
 const StreamRetryPolicySchema = z
   .object({
     maxAttempts: z.number().int().min(0).default(0),
-    baseDelayMs: z.number().int().min(0).default(1000),
-    maxDelayMs: z.number().int().positive().default(5000),
-    jitterMs: z.number().int().min(0).default(500),
+    baseDelayMs: z.number().int().min(0).default(RETRY_DEFAULTS.BASE_DELAY_MS),
+    maxDelayMs: z.number().int().positive().default(RETRY_DEFAULTS.MAX_DELAY_MS),
+    jitterMs: z.number().int().min(0).default(RETRY_DEFAULTS.JITTER_MS),
   })
   .default({})
 
@@ -167,7 +168,9 @@ const RuntimeConfigObjectSchema = z.object({
     .default({}),
   search: z
     .object({
-      defaultDepth: z.enum(['basic', 'advanced']).default(SEARCH_DEPTHS.BASIC),
+      defaultDepth: z
+        .enum([SEARCH_DEPTHS.BASIC, SEARCH_DEPTHS.ADVANCED])
+        .default(SEARCH_DEPTHS.BASIC),
       includeImagesByDefault: z.boolean().default(false),
       toolName: z.string().min(1).default(TOOL_NAMES.WEB_SEARCH),
     })

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { VOICE, VOICE_STT_STATES, UI_TEXT } from '@/config/constants'
+import { SPEECH_ERRORS, VOICE, VOICE_STT_STATES, UI_TEXT } from '@/config/constants'
 
 type SttStatus = (typeof VOICE_STT_STATES)[keyof typeof VOICE_STT_STATES]
 
@@ -111,7 +111,7 @@ export function useSpeechToText(options?: UseSpeechToTextOptions) {
     }
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-      if (event.error === 'aborted' || event.error === 'no-speech') return
+      if (event.error === SPEECH_ERRORS.ABORTED || event.error === SPEECH_ERRORS.NO_SPEECH) return
 
       recognitionRef.current = null
       setState((prev) => ({
@@ -119,7 +119,7 @@ export function useSpeechToText(options?: UseSpeechToTextOptions) {
         status: VOICE_STT_STATES.ERROR,
         interimTranscript: '',
         error:
-          event.error === 'not-allowed'
+          event.error === SPEECH_ERRORS.NOT_ALLOWED
             ? UI_TEXT.STT_PERMISSION_DENIED
             : UI_TEXT.STT_TRANSCRIPTION_FAILED,
       }))

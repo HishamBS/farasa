@@ -70,6 +70,17 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     [utils],
   )
 
+  const handleTeamTitleUpdated = useCallback(
+    (_title: string) => {
+      const convId = teamConversationIdRef.current
+      if (convId) {
+        void utils.conversation.getById.invalidate({ id: convId })
+        void utils.conversation.list.invalidate()
+      }
+    },
+    [utils],
+  )
+
   const {
     modelStates,
     modelOrder,
@@ -83,6 +94,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     enabled: teamStreamInput !== null,
     input: teamStreamInput,
     onConversationCreated: handleTeamConversationCreated,
+    onTitleUpdated: handleTeamTitleUpdated,
   })
 
   useEffect(() => {

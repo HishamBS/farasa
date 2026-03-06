@@ -36,7 +36,10 @@ type ImageGenerationResult = {
 
 function parseImageResponse(rawMessage: unknown): string {
   const parsed = ImageMessageSchema.safeParse(rawMessage)
-  if (!parsed.success) return ''
+  if (!parsed.success) {
+    console.error('[image-gen] Response validation failed:', parsed.error.message)
+    return ''
+  }
 
   const { content, images } = parsed.data
 

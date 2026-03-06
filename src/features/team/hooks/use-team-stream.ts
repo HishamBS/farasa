@@ -36,6 +36,7 @@ type UseTeamStreamOptions = {
   enabled: boolean
   input: TeamStreamInput | null
   onConversationCreated?: (conversationId: string) => void
+  onTitleUpdated?: (title: string) => void
 }
 
 type ActiveSubscription = {
@@ -47,6 +48,7 @@ export function useTeamStream({
   enabled,
   input,
   onConversationCreated,
+  onTitleUpdated,
 }: UseTeamStreamOptions): UseTeamStreamReturn {
   const [modelStates, setModelStates] = useState<Map<string, StreamState>>(new Map())
   const [modelOrder, setModelOrder] = useState<string[]>([])
@@ -61,6 +63,8 @@ export function useTeamStream({
   const receivedTerminalEventRef = useRef(false)
   const onConversationCreatedRef = useRef(onConversationCreated)
   onConversationCreatedRef.current = onConversationCreated
+  const onTitleUpdatedRef = useRef(onTitleUpdated)
+  onTitleUpdatedRef.current = onTitleUpdated
 
   const inputRef = useRef(input)
   useEffect(() => {
@@ -136,6 +140,18 @@ export function useTeamStream({
 
     const subscription = trpcClient.team.stream.subscribe(currentInput, {
       onData(chunk: TeamOutputChunk) {
+        // Title updates arrive after DONE when activeSubRef is already cleared —
+        // handle before the active session guard
+        if (
+          chunk.type === TEAM_EVENTS.STREAM_EVENT &&
+          chunk.chunk.type === STREAM_EVENTS.TITLE_UPDATED &&
+          'title' in chunk.chunk &&
+          typeof chunk.chunk.title === 'string'
+        ) {
+          onTitleUpdatedRef.current?.(chunk.chunk.title)
+          return
+        }
+
         const active = activeSubRef.current
         if (!active || active.sessionId !== sessionId) return
 
@@ -147,6 +163,14 @@ export function useTeamStream({
 
           if (eventChunk.type === STREAM_EVENTS.CONVERSATION_CREATED) {
             onConversationCreatedRef.current?.(eventChunk.conversationId)
+          } else if (
+            eventChunk.type === STREAM_EVENTS.USER_MESSAGE_SAVED ||
+            eventChunk.type === STREAM_EVENTS.STATUS
+          ) {
+            // USER_MESSAGE_SAVED: team mode doesn't optimistically insert user messages —
+            // the message is persisted server-side and appears on cache invalidation at DONE.
+            // STATUS: top-level status events (e.g. searching phase) are no-ops here;
+            // per-model statuses are handled via MODEL_CHUNK.
           } else if (eventChunk.type === STREAM_EVENTS.ERROR) {
             receivedTerminalEventRef.current = true
             setPhase(TEAM_STREAM_PHASES.ERROR)

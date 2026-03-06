@@ -1,4 +1,5 @@
 import { tavily } from '@tavily/core'
+import { SEARCH_DEPTHS } from '@/config/constants'
 import { env } from '@/config/env'
 import { SearchResultSchema, SearchImageSchema } from '@/schemas/search'
 import type { SearchQuery, SearchResponse, SearchResult, SearchImage } from '@/schemas/search'
@@ -11,7 +12,7 @@ export async function tavilySearch(input: SearchQuery): Promise<SearchResponse> 
   }
 
   const result = await client.search(input.query, {
-    searchDepth: input.searchDepth ?? 'basic',
+    searchDepth: input.searchDepth ?? SEARCH_DEPTHS.BASIC,
     maxResults: input.maxResults,
     includeImages: input.includeImages ?? false,
   })

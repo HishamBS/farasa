@@ -468,7 +468,10 @@ export const ModelSelector = forwardRef<ModelSelectorHandle, ModelSelectorProps>
                       </div>
                     ))}
                     {Object.keys(grouped).length === 0 && searchQuery && (
-                      <div className="px-4 py-8 text-center text-sm text-(--text-muted)">
+                      <div
+                        className="px-4 py-8 text-center text-sm text-(--text-muted)"
+                        aria-live="polite"
+                      >
                         No models found for &quot;{searchQuery}&quot;
                       </div>
                     )}

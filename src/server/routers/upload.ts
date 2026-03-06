@@ -58,7 +58,7 @@ export const uploadRouter = router({
         .returning()
 
       if (!attachment) {
-        throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
+        throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR, message: AppError.INTERNAL })
       }
 
       return {
@@ -117,7 +117,7 @@ export const uploadRouter = router({
         .returning({ id: attachments.id })
 
       if (!attachment) {
-        throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR })
+        throw new TRPCError({ code: TRPC_CODES.INTERNAL_SERVER_ERROR, message: AppError.INTERNAL })
       }
 
       return { attachmentId: attachment.id }

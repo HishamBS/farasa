@@ -262,6 +262,19 @@ export const TOOL_NAMES = {
 
 export const SEARCH_DEPTHS = {
   BASIC: 'basic',
+  ADVANCED: 'advanced',
+} as const
+
+export const RETRY_DEFAULTS = {
+  BASE_DELAY_MS: 1000,
+  MAX_DELAY_MS: 5000,
+  JITTER_MS: 500,
+} as const
+
+export const SPEECH_ERRORS = {
+  ABORTED: 'aborted',
+  NO_SPEECH: 'no-speech',
+  NOT_ALLOWED: 'not-allowed',
 } as const
 
 export const STATUS_MESSAGES = {
@@ -484,6 +497,7 @@ export const STREAM_REASON_CODES = {
   VALIDATION_REJECTED: 'validation_rejected',
   PROVIDER_UNAVAILABLE: 'provider_unavailable',
   TRANSIENT_NETWORK: 'transient_network',
+  CANCELLED: 'cancelled_by_client',
   SUPERSEDED: 'superseded_by_new_stream',
   STREAM_CLOSED: 'stream_closed_unexpectedly',
 } as const

@@ -24,13 +24,6 @@ export const fadeInDown = {
   transition: { duration: MOTION.DURATION_NORMAL, ease } satisfies Transition,
 }
 
-export const slideInRight = {
-  initial: { x: '100%', opacity: 0 },
-  animate: { x: 0, opacity: 1 },
-  exit: { x: '100%', opacity: 0 },
-  transition: { duration: MOTION.DURATION_SLOW, ease } satisfies Transition,
-}
-
 export const slideInLeft = {
   initial: { x: '-100%', opacity: 0 },
   animate: { x: 0, opacity: 1 },
@@ -59,29 +52,6 @@ export const collapse = {
   transition: { duration: MOTION.DURATION_NORMAL, ease } satisfies Transition,
 }
 
-export const pulse = {
-  animate: { opacity: [1, 0.5, 1] },
-  transition: {
-    duration: MOTION.DURATION_LOOP,
-    repeat: MOTION.REPEAT_INFINITE,
-    ease: MOTION.EASING_IN_OUT,
-  } satisfies Transition,
-}
-
-export const shimmer = {
-  animate: { backgroundPosition: ['200% 0', '-200% 0'] },
-  transition: {
-    duration: MOTION.DURATION_LOOP,
-    repeat: MOTION.REPEAT_INFINITE,
-    ease: MOTION.EASING_LINEAR,
-  } satisfies Transition,
-}
-
-export const hoverPress = {
-  whileHover: { scale: MOTION.SCALE_HOVER_MICRO },
-  whileTap: { scale: MOTION.SCALE_TAP_MICRO },
-}
-
 export const chevronSpin: Transition = {
   duration: MOTION.DURATION_FAST,
   ease,
@@ -97,30 +67,6 @@ export const staggerContainer = {
   animate: {
     transition: {
       staggerChildren: MOTION.STAGGER_CHILDREN,
-    },
-  },
-}
-
-export const timelineStagger = {
-  variants: {
-    hidden: {},
-    visible: {
-      transition: {
-        staggerChildren: MOTION.STAGGER_CHILDREN,
-      },
-    },
-  },
-  initial: 'hidden' as const,
-  animate: 'visible' as const,
-}
-
-export const timelineNodeReveal = {
-  variants: {
-    hidden: { opacity: 0, y: 8 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: MOTION.DURATION_MEDIUM, ease },
     },
   },
 }

@@ -9,6 +9,7 @@ import {
   STATUS_MESSAGES,
   STREAM_EVENTS,
   STREAM_PHASES,
+  STREAM_REASON_CODES,
   TRPC_CODES,
 } from '@/config/constants'
 import { PROMPTS } from '@/config/prompts'
@@ -1019,7 +1020,7 @@ export const chatRouter = router({
     if (input.streamRequestId && active.streamRequestId !== input.streamRequestId) {
       return { cancelled: false }
     }
-    active.abortController.abort('cancelled_by_client')
+    active.abortController.abort(STREAM_REASON_CODES.CANCELLED)
     streamSessions.end(active)
 
     await ctx.db

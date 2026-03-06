@@ -112,8 +112,14 @@ export function useTextToSpeech() {
           setState({ status: VOICE_TTS_STATES.ERROR, error: UI_TEXT.TTS_UNAVAILABLE })
         }
 
-        await audio.play()
-        setState({ status: VOICE_TTS_STATES.SPEAKING, error: null })
+        try {
+          await audio.play()
+          setState({ status: VOICE_TTS_STATES.SPEAKING, error: null })
+        } catch (playError) {
+          console.error('[tts] Audio playback failed:', playError)
+          cleanupAudio()
+          setState({ status: VOICE_TTS_STATES.ERROR, error: UI_TEXT.TTS_UNAVAILABLE })
+        }
       } catch {
         if (controller.signal.aborted) return
         setState({

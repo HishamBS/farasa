@@ -4,13 +4,7 @@ import { cn } from '@/lib/utils/cn'
 import { ComponentRenderer } from '@a2ui-sdk/react/0.8'
 import type { BaseComponentProps } from '../types'
 import type { ListComponentProps } from '@a2ui-sdk/types/0.8/standard-catalog'
-
-const ALIGNMENT_MAP: Record<string, string> = {
-  start: 'items-start',
-  center: 'items-center',
-  end: 'items-end',
-  stretch: 'items-stretch',
-}
+import { ALIGNMENT_MAP } from './flex-maps'
 
 export function ListAdapter({
   children,

@@ -1,6 +1,6 @@
 'use client'
 
-import { APP_CONFIG, CHAT_MODES, LIMITS, MOTION, UI_TEXT } from '@/config/constants'
+import { APP_CONFIG, CHAT_MODES, LIMITS, MOTION, TEAM_LIMITS, UI_TEXT } from '@/config/constants'
 import { TeamModelPicker } from '@/features/team/components/team-model-picker'
 import { useTeamMode } from '@/features/team/context/team-context'
 import { MicButton } from '@/features/voice/components/mic-button'
@@ -113,8 +113,11 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     ) {
       return false
     }
+    if (mode === CHAT_MODES.TEAM && teamModels.length < TEAM_LIMITS.MIN_MODELS) {
+      return false
+    }
     return true
-  }, [content, hasUploadErrors, hasUploadingFiles, isStreaming, isTooLong])
+  }, [content, hasUploadErrors, hasUploadingFiles, isStreaming, isTooLong, mode, teamModels.length])
 
   const handleSubmit = useCallback(() => {
     if (!content.trim() || isStreaming || isTooLong || hasUploadingFiles || hasUploadErrors) return
@@ -403,7 +406,11 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           )}
 
           <span className="ml-auto text-[11.5px] text-(--text-muted) hidden sm:block tracking-wide">
-            {isTooLong ? (
+            {mode === CHAT_MODES.TEAM && teamModels.length < TEAM_LIMITS.MIN_MODELS ? (
+              <span className="text-(--warning)">
+                Select at least {TEAM_LIMITS.MIN_MODELS} models for team mode
+              </span>
+            ) : isTooLong ? (
               <span className="text-(--error)">
                 {content.length.toLocaleString()} / {LIMITS.MESSAGE_MAX_LENGTH.toLocaleString()} —
                 message too long

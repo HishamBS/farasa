@@ -226,28 +226,28 @@ missing, the app fails with typed runtime-config errors instead of silently degr
 
 ## Tech Stack
 
-| Layer             | Technology                                               | Version       | Why                                                              |
-| ----------------- | -------------------------------------------------------- | ------------- | ---------------------------------------------------------------- |
-| Runtime           | [Bun](https://bun.sh)                                    | 1.2+          | Native TS execution, fast installs                               |
-| Framework         | [Next.js](https://nextjs.org)                            | 15 App Router | RSC + middleware + React 19                                      |
-| API               | [tRPC](https://trpc.io)                                  | v11           | End-to-end types, zero codegen, SSE built-in                     |
-| Client state      | [TanStack Query](https://tanstack.com/query)             | v5            | Caching, optimistic updates                                      |
-| AI gateway        | [OpenRouter](https://openrouter.ai)                      | —             | One key, 100+ models, live pricing metadata                      |
-| AI SDK            | `@openrouter/sdk`                                        | pinned        | Native OpenRouter SDK — typed provider routing, reasoning, tools |
-| Agent UI          | `@a2ui-sdk/react`                                        | v0.8          | Agent-generated interactive components                           |
-| Validation        | [Zod](https://zod.dev)                                   | latest        | SSOT — all TS types derived via `z.infer`                        |
-| Auth              | [Auth.js](https://authjs.dev)                            | v5            | Google OAuth, middleware-native                                  |
-| ORM               | [Drizzle ORM](https://orm.drizzle.team)                  | latest        | No query engine, SQL-transparent, edge-safe                      |
-| Database          | [Neon Postgres](https://neon.tech)                       | serverless    | Scales to zero, HTTP driver                                      |
-| Storage           | [Google Cloud Storage](https://cloud.google.com/storage) | —             | Presigned URL direct uploads                                     |
-| Search            | [Tavily](https://tavily.com)                             | latest        | AI-optimised search with image results                           |
-| Styling           | [Tailwind CSS](https://tailwindcss.com)                  | v4            | CSS custom property token system                                 |
-| UI                | [shadcn/ui](https://ui.shadcn.com)                       | latest        | Owned, accessible components                                     |
-| Animation         | [Framer Motion](https://www.framer.com/motion/)          | latest        | Spring physics, FLIP, gestures                                   |
-| Code highlighting | [Shiki](https://shiki.matsu.io)                          | latest        | VS Code grammar engine, SSR-safe                                 |
-| Markdown          | react-markdown + plugins                                 | latest        | GFM, sanitized HTML, KaTeX math                                  |
-| PWA               | [@serwist/next](https://serwist.pages.dev)               | latest        | Service worker, offline shell                                    |
-| Deployment        | [GCP Cloud Run](https://cloud.google.com/run)            | —             | `me-central1`, scales to zero                                    |
+| Layer             | Technology                                               | Version       | Why                                                                  |
+| ----------------- | -------------------------------------------------------- | ------------- | -------------------------------------------------------------------- |
+| Runtime           | [Bun](https://bun.sh)                                    | 1.2+          | Native TS execution, fast installs                                   |
+| Framework         | [Next.js](https://nextjs.org)                            | 15 App Router | RSC + middleware + React 19                                          |
+| API               | [tRPC](https://trpc.io)                                  | v11           | End-to-end types, zero codegen, SSE built-in                         |
+| Client state      | [TanStack Query](https://tanstack.com/query)             | v5            | Caching, optimistic updates                                          |
+| AI gateway        | [OpenRouter](https://openrouter.ai)                      | —             | One key, 100+ models, live pricing metadata                          |
+| AI SDK            | `@openrouter/sdk`                                        | pinned        | Native OpenRouter SDK — typed provider routing, reasoning, tools     |
+| Agent UI          | `@a2ui-sdk/react`                                        | 0.4.0         | Agent-generated interactive components (imports from `/0.8` subpath) |
+| Validation        | [Zod](https://zod.dev)                                   | latest        | SSOT — all TS types derived via `z.infer`                            |
+| Auth              | [Auth.js](https://authjs.dev)                            | v5 beta       | Google OAuth, middleware-native                                      |
+| ORM               | [Drizzle ORM](https://orm.drizzle.team)                  | latest        | No query engine, SQL-transparent, edge-safe                          |
+| Database          | [Neon Postgres](https://neon.tech)                       | serverless    | Scales to zero, HTTP driver                                          |
+| Storage           | [Google Cloud Storage](https://cloud.google.com/storage) | —             | Presigned URL direct uploads                                         |
+| Search            | [Tavily](https://tavily.com)                             | latest        | AI-optimised search with image results                               |
+| Styling           | [Tailwind CSS](https://tailwindcss.com)                  | v4            | CSS custom property token system                                     |
+| UI                | [shadcn/ui](https://ui.shadcn.com)                       | latest        | Owned, accessible components                                         |
+| Animation         | [Framer Motion](https://www.framer.com/motion/)          | latest        | Spring physics, FLIP, gestures                                       |
+| Code highlighting | [Shiki](https://shiki.matsu.io)                          | latest        | VS Code grammar engine, SSR-safe                                     |
+| Markdown          | react-markdown + plugins                                 | latest        | GFM, sanitized HTML, KaTeX math                                      |
+| PWA               | [@serwist/next](https://serwist.pages.dev)               | latest        | Service worker, offline shell                                        |
+| Deployment        | [GCP Cloud Run](https://cloud.google.com/run)            | —             | `me-central1`, scales to zero                                        |
 
 ---
 
@@ -257,6 +257,7 @@ missing, the app fails with typed runtime-config errors instead of silently degr
 src/
 ├── app/                         # Next.js 15 App Router
 │   ├── (auth)/login/            # Google OAuth sign-in
+│   ├── (auth)/gate/             # Auth gate — redirect logic
 │   ├── (protected)/chat/        # Main chat UI (auth-gated)
 │   │   └── [[...id]]/           # Catch-all conversation view
 │   ├── api/
@@ -387,8 +388,8 @@ chat.cancel({
 ```ts
 conversation.list({ limit?, cursor?, search? })  // Paginated — pinned first
 conversation.getById({ id })                      // Conversation + all messages
-conversation.create({ title? })                   // New conversation
-conversation.update({ id, title?, isPinned?, mode? }) // General update
+conversation.create({ title?, model?, mode?, webSearchEnabled?, teamModels?, teamSynthesizerModel? })
+conversation.update({ id, title?, model?, isPinned?, mode?, webSearchEnabled?, teamModels?, teamSynthesizerModel? })
 conversation.delete({ id })                       // Cascade: messages + attachments
 conversation.generateTitle({ conversationId })    // LLM-generated title
 conversation.exportMarkdown({ id })               // Markdown string
@@ -483,13 +484,9 @@ bun run db:studio    # Drizzle Studio on :4983
 ## Docker
 
 ```bash
-docker build \
-  --build-arg NEXT_PUBLIC_APP_URL=http://localhost:3010 \
-  --build-arg DATABASE_URL=postgresql://farasa_user:farasa_password@localhost:5433/farasa_db \
-  -t farasa .
-
-./start.sh                                        # interactive menu
-docker compose -f docker/docker-compose.yml up    # direct
+./start.sh                    # interactive menu — select Docker options
+./start.sh dev:docker         # full Docker stack (app + Postgres)
+./start.sh dev:hybrid         # Docker Postgres + native Next.js (recommended)
 ```
 
 | Service  | Port     | Description                                     |

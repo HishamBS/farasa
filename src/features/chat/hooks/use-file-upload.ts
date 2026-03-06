@@ -37,6 +37,17 @@ export function useFileUpload() {
   )
   const fileMaxSizeBytes = runtimeConfigQuery.data?.limits.fileMaxSizeBytes ?? null
 
+  const unsupportedFileTypeMessage = useMemo(() => {
+    const extensions = supportedFileTypes
+      .map((mime) => {
+        const entry = Object.entries(FILE_EXTENSION_TO_MIME).find(([, m]) => m === mime)
+        return entry ? `.${entry[0]}` : null
+      })
+      .filter(Boolean)
+    const formatsList = extensions.length > 0 ? ` Supported formats: ${extensions.join(', ')}` : ''
+    return `Unsupported file type.${formatsList}`
+  }, [supportedFileTypes])
+
   const upsertState = useCallback(
     (token: string, updater: (previous?: UploadState) => UploadState) => {
       setUploadStates((prev) => {
@@ -91,11 +102,7 @@ export function useFileUpload() {
       const token = crypto.randomUUID()
       const resolvedType = resolveAllowedFileType(file)
       if (!resolvedType) {
-        setRejectedFileState(
-          token,
-          file,
-          'Unsupported file type. Please upload a supported format.',
-        )
+        setRejectedFileState(token, file, unsupportedFileTypeMessage)
         return null
       }
 
@@ -192,6 +199,7 @@ export function useFileUpload() {
       resolveAllowedFileType,
       setRejectedFileState,
       storeInlineMutation,
+      unsupportedFileTypeMessage,
       upsertState,
     ],
   )
@@ -201,11 +209,7 @@ export function useFileUpload() {
       const token = crypto.randomUUID()
       const resolvedType = resolveAllowedFileType(file)
       if (!resolvedType) {
-        setRejectedFileState(
-          token,
-          file,
-          'Unsupported file type. Please upload a supported format.',
-        )
+        setRejectedFileState(token, file, unsupportedFileTypeMessage)
         return null
       }
 
@@ -304,6 +308,7 @@ export function useFileUpload() {
       presignedUrlMutation,
       resolveAllowedFileType,
       setRejectedFileState,
+      unsupportedFileTypeMessage,
       upsertState,
     ],
   )

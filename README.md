@@ -278,17 +278,24 @@ src/
 │   │   ├── upload.ts            # GCS presigned URL + confirmation
 │   │   └── user-preferences.ts  # Per-user UI settings (theme, defaults)
 │   ├── services/
-│   │   ├── a2ui-message-service.ts      # A2UI fence parsing + sanitization
+│   │   ├── a2ui-message-service.ts      # A2UI fence parsing + component validation
+│   │   ├── conversation-service.ts      # Conversation creation + settings persistence
 │   │   ├── history-builder.ts           # Enriched conversation history + attachment helpers
-│   │   ├── model-resolution-service.ts  # Hierarchical model selection + auto-router
-│   │   ├── search-enrichment-service.ts # Tavily search execution + result merging
-│   │   └── search-tool-service.ts       # Tool call parsing for web search
+│   │   ├── image-generation-service.ts  # Image model delegation + response handling
+│   │   ├── message-persistence-service.ts # Assistant message save + metadata assembly
+│   │   ├── model-resolution-service.ts  # 4-tier model selection + auto-router
+│   │   ├── search-enrichment-service.ts # Tavily search execution + XML context building
+│   │   ├── search-tool-service.ts       # Tool call parsing for web search
+│   │   ├── stream-session-service.ts    # SSE session lifecycle + abort coordination
+│   │   ├── text-extraction.ts           # File content extraction for attachments
+│   │   ├── title-generation-service.ts  # Async title generation after first exchange
+│   │   └── tool-execution-service.ts    # Multi-round tool call orchestration
 │   └── trpc.ts                  # Context, auth middleware, rate limiting
 │
 ├── features/
 │   ├── chat/                    # Container, input, message list, model selector
 │   ├── stream-phases/           # Phase bar, thinking block, tool execution cards
-│   ├── a2ui/                    # A2UI renderer + shadcn catalog adapters
+│   ├── a2ui/                    # 19 shadcn adapters, useFormField hook, policy context
 │   ├── search/                  # Result cards, image gallery
 │   ├── sidebar/                 # Conversation list, navigation, user menu
 │   ├── markdown/                # Renderer, Shiki blocks, copy button

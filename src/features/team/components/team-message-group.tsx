@@ -8,7 +8,7 @@ import type { ModelMeta } from '@/features/team/types'
 import { MarkdownRenderer } from '@/features/markdown/components/markdown-renderer'
 import { cn } from '@/lib/utils/cn'
 import { extractModelName, resolveProviderKey } from '@/lib/utils/model'
-import type { StreamState } from '@/types/stream'
+import type { StreamState, ToolExecutionState } from '@/types/stream'
 import { useMemo } from 'react'
 import { TeamTabs } from './team-tabs'
 import { SynthesisPanel } from './synthesis-panel'
@@ -28,6 +28,7 @@ type LiveTeamProps = {
   conversationId: string
   synthesis: UseSynthesisReturn
   models: ModelMeta[]
+  teamToolExecutions?: ToolExecutionState[]
 }
 
 type HistoricalTeamProps = {
@@ -122,6 +123,7 @@ export function TeamMessageGroup(props: TeamMessageGroupProps) {
           conversationId={props.conversationId}
           synthesis={props.synthesis}
           models={props.models}
+          teamToolExecutions={props.teamToolExecutions}
         />
       </div>
     )

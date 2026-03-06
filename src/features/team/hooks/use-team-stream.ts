@@ -18,7 +18,7 @@ import { useStreamSession } from '@/features/chat/context/stream-session-context
 import type { TeamStreamPhase } from '@/features/team/types'
 import type { TeamOutputChunk, TeamStreamInput } from '@/schemas/team'
 import { trpcClient } from '@/trpc/client'
-import type { StreamState } from '@/types/stream'
+import type { StreamState, ToolExecutionState } from '@/types/stream'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 type UseTeamStreamReturn = {
@@ -28,6 +28,7 @@ type UseTeamStreamReturn = {
   teamId: string | undefined
   teamDone: boolean
   teamPersisted: boolean
+  teamToolExecutions: ToolExecutionState[]
   error: string | undefined
   abort: () => void
 }
@@ -57,6 +58,7 @@ export function useTeamStream({
   const [teamDone, setTeamDone] = useState(false)
   const [teamPersisted, setTeamPersisted] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
+  const [teamToolExecutions, setTeamToolExecutions] = useState<ToolExecutionState[]>([])
   const { beginSession, endSession } = useStreamSession()
 
   const activeSubRef = useRef<ActiveSubscription | null>(null)
@@ -132,6 +134,7 @@ export function useTeamStream({
     setTeamDone(false)
     setTeamPersisted(false)
     setError(undefined)
+    setTeamToolExecutions([])
 
     const newSub: ActiveSubscription = { sessionId, unsubscribe: () => {} }
     activeSubRef.current = newSub
@@ -171,6 +174,22 @@ export function useTeamStream({
             // the message is persisted server-side and appears on cache invalidation at DONE.
             // STATUS: top-level status events (e.g. searching phase) are no-ops here;
             // per-model statuses are handled via MODEL_CHUNK.
+          } else if (eventChunk.type === STREAM_EVENTS.TOOL_START) {
+            setTeamToolExecutions((prev) => [
+              ...prev,
+              {
+                name: eventChunk.toolName,
+                input: eventChunk.input,
+              },
+            ])
+          } else if (eventChunk.type === STREAM_EVENTS.TOOL_RESULT) {
+            setTeamToolExecutions((prev) =>
+              prev.map((te) =>
+                te.name === eventChunk.toolName && te.result === undefined
+                  ? { ...te, result: eventChunk.result, completedAt: Date.now() }
+                  : te,
+              ),
+            )
           } else if (eventChunk.type === STREAM_EVENTS.ERROR) {
             receivedTerminalEventRef.current = true
             setPhase(TEAM_STREAM_PHASES.ERROR)
@@ -241,6 +260,7 @@ export function useTeamStream({
     teamId,
     teamDone,
     teamPersisted,
+    teamToolExecutions,
     error,
     abort,
   }

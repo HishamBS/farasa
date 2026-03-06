@@ -12,7 +12,8 @@ import type { UseSynthesisReturn } from '@/features/team/hooks/use-team-synthesi
 import type { ModelMeta } from '@/features/team/types'
 import { cn } from '@/lib/utils/cn'
 import { extractModelName, resolveProviderKey } from '@/lib/utils/model'
-import type { StreamState } from '@/types/stream'
+import type { StreamState, ToolExecutionState } from '@/types/stream'
+import { ToolExecution } from '@/features/stream-phases/components/tool-execution'
 import { useMemo } from 'react'
 import { SynthesisPanel } from './synthesis-panel'
 import { TeamResponsePanel } from './team-response-panel'
@@ -25,6 +26,7 @@ type TeamTabsProps = {
   conversationId: string
   synthesis: UseSynthesisReturn
   models: ModelMeta[]
+  teamToolExecutions?: ToolExecutionState[]
 }
 
 type TeamTabStatusValue = (typeof TEAM_TAB_STATUS)[keyof typeof TEAM_TAB_STATUS]
@@ -75,6 +77,7 @@ export function TeamTabs({
   conversationId,
   synthesis,
   models,
+  teamToolExecutions,
 }: TeamTabsProps) {
   const modelMetaMap = useMemo(() => {
     const map = new Map<string, ModelMeta>()
@@ -107,63 +110,72 @@ export function TeamTabs({
   }, [modelOrder, modelStates, teamDone])
 
   return (
-    <Tabs defaultValue={defaultTab} className="w-full">
-      <TabsList className="flex-wrap">
+    <>
+      {teamToolExecutions && teamToolExecutions.length > 0 && (
+        <div className="mb-3 flex flex-col gap-2">
+          {teamToolExecutions.map((execution, index) => (
+            <ToolExecution key={`${execution.name}-${index}`} execution={execution} />
+          ))}
+        </div>
+      )}
+      <Tabs defaultValue={defaultTab} className="w-full">
+        <TabsList className="flex-wrap">
+          {modelOrder.map((modelId) => {
+            const resolved = resolvedMetaMap.get(modelId)
+            const streamState = modelStates.get(modelId)
+            const status: TeamTabStatusValue =
+              streamState?.phase === CHAT_STREAM_STATUS.ERROR
+                ? TEAM_TAB_STATUS.ERROR
+                : streamState?.phase === CHAT_STREAM_STATUS.COMPLETE
+                  ? TEAM_TAB_STATUS.DONE
+                  : streamState?.phase === CHAT_STREAM_STATUS.ACTIVE
+                    ? TEAM_TAB_STATUS.STREAMING
+                    : TEAM_TAB_STATUS.IDLE
+            return (
+              <TabsTrigger key={modelId} value={modelId}>
+                <ModelTabTrigger
+                  providerKey={resolved?.providerKey ?? ''}
+                  label={resolved?.label ?? modelId}
+                  status={status}
+                />
+              </TabsTrigger>
+            )
+          })}
+          <TabsTrigger value={TEAM_TAB_VALUES.SYNTHESIS}>Synthesis</TabsTrigger>
+        </TabsList>
+        <div className="mt-2 flex items-center gap-3 px-1 text-[0.6875rem] text-(--text-ghost)">
+          <span>Left dot = provider</span>
+          <span>Right dot = stream status</span>
+        </div>
+
         {modelOrder.map((modelId) => {
           const resolved = resolvedMetaMap.get(modelId)
           const streamState = modelStates.get(modelId)
-          const status: TeamTabStatusValue =
-            streamState?.phase === CHAT_STREAM_STATUS.ERROR
-              ? TEAM_TAB_STATUS.ERROR
-              : streamState?.phase === CHAT_STREAM_STATUS.COMPLETE
-                ? TEAM_TAB_STATUS.DONE
-                : streamState?.phase === CHAT_STREAM_STATUS.ACTIVE
-                  ? TEAM_TAB_STATUS.STREAMING
-                  : TEAM_TAB_STATUS.IDLE
           return (
-            <TabsTrigger key={modelId} value={modelId}>
-              <ModelTabTrigger
-                providerKey={resolved?.providerKey ?? ''}
-                label={resolved?.label ?? modelId}
-                status={status}
-              />
-            </TabsTrigger>
+            <TabsContent key={modelId} value={modelId}>
+              {streamState && (
+                <TeamResponsePanel
+                  modelLabel={resolved?.label ?? modelId}
+                  providerKey={resolved?.providerKey ?? ''}
+                  streamState={streamState}
+                />
+              )}
+            </TabsContent>
           )
         })}
-        <TabsTrigger value={TEAM_TAB_VALUES.SYNTHESIS}>Synthesis</TabsTrigger>
-      </TabsList>
-      <div className="mt-2 flex items-center gap-3 px-1 text-[0.6875rem] text-(--text-ghost)">
-        <span>Left dot = provider</span>
-        <span>Right dot = stream status</span>
-      </div>
 
-      {modelOrder.map((modelId) => {
-        const resolved = resolvedMetaMap.get(modelId)
-        const streamState = modelStates.get(modelId)
-        return (
-          <TabsContent key={modelId} value={modelId}>
-            {streamState && (
-              <TeamResponsePanel
-                modelLabel={resolved?.label ?? modelId}
-                providerKey={resolved?.providerKey ?? ''}
-                streamState={streamState}
-              />
-            )}
-          </TabsContent>
-        )
-      })}
-
-      <TabsContent value={TEAM_TAB_VALUES.SYNTHESIS}>
-        {teamId && (
-          <SynthesisPanel
-            comparisonModelIds={modelOrder}
-            conversationId={conversationId}
-            teamId={teamId}
-            teamDone={synthesisReady}
-            synthesis={synthesis}
-          />
-        )}
-      </TabsContent>
-    </Tabs>
+        <TabsContent value={TEAM_TAB_VALUES.SYNTHESIS}>
+          {teamId && (
+            <SynthesisPanel
+              comparisonModelIds={modelOrder}
+              conversationId={conversationId}
+              teamId={teamId}
+              teamDone={synthesisReady}
+              synthesis={synthesis}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
+    </>
   )
 }

@@ -1,5 +1,5 @@
 import { TEAM_STREAM_PHASES } from '@/config/constants'
-import type { StreamState } from '@/types/stream'
+import type { StreamState, ToolExecutionState } from '@/types/stream'
 import type { UseSynthesisReturn } from '@/features/team/hooks/use-team-synthesis'
 
 export type ModelMeta = {
@@ -24,4 +24,5 @@ export type LiveTeamData = {
   conversationId: string
   synthesis: UseSynthesisReturn
   models: ModelMeta[]
+  teamToolExecutions: ToolExecutionState[]
 }

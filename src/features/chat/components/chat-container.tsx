@@ -90,6 +90,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     teamId,
     teamDone,
     teamPersisted,
+    teamToolExecutions,
     error: teamError,
     abort: abortTeam,
   } = useTeamStream({
@@ -331,6 +332,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
       conversationId: teamConversationIdRef.current ?? conversationId ?? '',
       synthesis,
       models: activeTeamModels,
+      teamToolExecutions,
     }
   }, [
     teamPhase,
@@ -341,6 +343,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     conversationId,
     synthesis,
     activeTeamModels,
+    teamToolExecutions,
     teamPersisted,
     hasPersistedTeamMessages,
   ])

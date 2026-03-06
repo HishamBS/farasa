@@ -243,6 +243,7 @@ export function MessageList({
                 conversationId={liveTeam.conversationId}
                 synthesis={liveTeam.synthesis}
                 models={liveTeam.models}
+                teamToolExecutions={liveTeam.teamToolExecutions}
               />
             )}
           </div>

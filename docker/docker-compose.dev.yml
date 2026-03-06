@@ -32,3 +32,4 @@ services:
 volumes:
   farasa_postgres_data:
     name: farasa_postgres_data
+    external: true

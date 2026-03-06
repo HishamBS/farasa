@@ -42,6 +42,13 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@napi-rs /app/node_m
 # pdfjs-dist worker files are loaded at runtime via relative path and missed by Next.js trace
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pdfjs-dist/legacy/build /app/node_modules/pdfjs-dist/legacy/build
 
+# Database migration support: SQL files + migration runner + deps
+COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/drizzle-orm /app/node_modules/drizzle-orm
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/postgres /app/node_modules/postgres
+COPY --from=builder --chown=nextjs:nodejs /app/docker/migrate.ts ./migrate.ts
+COPY --from=builder --chown=nextjs:nodejs /app/docker/entrypoint.sh ./entrypoint.sh
+
 USER nextjs
 
 EXPOSE 3010
@@ -49,4 +56,4 @@ EXPOSE 3010
 ENV PORT=3010
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["bun", "server.js"]
+ENTRYPOINT ["sh", "/app/entrypoint.sh"]

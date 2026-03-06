@@ -8,11 +8,12 @@ node_modules
 logs
 .farasa
 *.sh
+!docker/entrypoint.sh
 *.ps1
 *.bat
 README.md
 docs/
 mockups/
-docker/
+docker/docker-compose*.yml
 .claude/
 .DS_Store

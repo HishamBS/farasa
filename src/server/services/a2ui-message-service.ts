@@ -39,7 +39,8 @@ function parseJsonLines(source: string): unknown[] {
     try {
       parsed.push(JSON.parse(line))
     } catch {
-      return []
+      console.warn('[a2ui] skipping malformed JSONL line:', line.slice(0, 80))
+      continue
     }
   }
   return parsed

@@ -73,6 +73,7 @@ export function AssistantBody({
         statusMessages &&
         statusMessages.length > 0 &&
         !textContent &&
+        !thinking &&
         toolExecutions.length === 0 && (
           <div className="w-fit rounded-xl border border-(--border-subtle) bg-(--bg-surface) px-3 py-2 text-xs text-(--text-muted)">
             <div className="flex items-center gap-2">

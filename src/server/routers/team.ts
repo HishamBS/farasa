@@ -718,10 +718,16 @@ export const teamRouter = router({
       for (const modelId of input.models) {
         const outcome = modelOutcomes.get(modelId)
         const content = outcome?.content.trim() ?? ''
-        if (content.length === 0) {
+        const hasError = Boolean(outcome?.error)
+
+        if (content.length === 0 && !hasError) {
           continue
         }
-        successfulModels.push(modelId)
+
+        if (!hasError) {
+          successfulModels.push(modelId)
+        }
+
         const metadata = MessageMetadataSchema.parse({
           streamRequestId,
           teamId,
@@ -734,6 +740,7 @@ export const teamRouter = router({
           searchImages:
             outcome && outcome.searchImages.length > 0 ? outcome.searchImages : undefined,
           toolCalls: outcome && outcome.toolCalls.length > 0 ? outcome.toolCalls : undefined,
+          errorMessage: hasError ? outcome?.error : undefined,
         })
         const assistantClientRequestId = buildDeterministicClientRequestId(
           `${streamRequestId}:${modelId}:assistant`,
@@ -742,7 +749,7 @@ export const teamRouter = router({
         await persistAssistantMessage({
           db: ctx.db,
           conversationId,
-          content,
+          content: hasError ? '' : content,
           clientRequestId: assistantClientRequestId,
           metadata,
         })

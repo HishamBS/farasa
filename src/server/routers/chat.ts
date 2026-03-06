@@ -559,9 +559,17 @@ export const chatRouter = router({
                 if (!inA2UI) {
                   const fenceStartMatch = findA2UIFenceStart(remaining)
                   if (!fenceStartMatch) {
+                    const fencePattern = AI_MARKUP.A2UI_FENCE_START
                     let reserveFrom = remaining.length
-                    while (reserveFrom > 0 && remaining[reserveFrom - 1] === '`') {
-                      reserveFrom -= 1
+                    for (
+                      let tailLen = 1;
+                      tailLen <= Math.min(remaining.length, fencePattern.length);
+                      tailLen++
+                    ) {
+                      const tail = remaining.slice(remaining.length - tailLen)
+                      if (fencePattern.startsWith(tail)) {
+                        reserveFrom = remaining.length - tailLen
+                      }
                     }
                     if (reserveFrom < remaining.length) {
                       fenceLookback = remaining.slice(reserveFrom)

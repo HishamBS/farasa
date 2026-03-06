@@ -1,14 +1,18 @@
 'use client'
 
-import { A2UIProvider, A2UIRenderer, useSurfaceContext } from '@a2ui-sdk/react/0.8'
+import {
+  A2UIProvider,
+  A2UIRenderer,
+  useSurfaceContext,
+  useA2UIMessageHandler,
+} from '@a2ui-sdk/react/0.8'
 import type { v0_8 } from '@a2ui-sdk/types'
 import type { ActionPayload } from '@a2ui-sdk/types/0.8'
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 import { customCatalog } from '../catalog/custom-catalog'
 import { useA2UIActions } from '../hooks/use-a2ui-actions'
 import { A2UIPolicyProvider } from '../context/policy-context'
 import type { RuntimeA2UIPolicy } from '@/schemas/runtime-config'
-import { useMemo } from 'react'
 
 type A2UIMessageProps = {
   messages: v0_8.A2UIMessage[]
@@ -21,9 +25,7 @@ type A2UIContentProps = {
 
 function A2UIContent({ onAction }: A2UIContentProps) {
   const { surfaces } = useSurfaceContext()
-
   if (surfaces.size === 0) return null
-
   return (
     <div className="p-3">
       <A2UIRenderer onAction={onAction} />
@@ -31,32 +33,37 @@ function A2UIContent({ onAction }: A2UIContentProps) {
   )
 }
 
-function hasRenderableSurfaceRoot(messages: v0_8.A2UIMessage[]): boolean {
-  const roots = new Map<string, string>()
-  const componentsBySurface = new Map<string, Set<string>>()
+/**
+ * Processes A2UI messages incrementally using the SDK's useA2UIMessageHandler hook.
+ * This preserves user edits and form state — unlike the messages prop approach
+ * which clears all state on every array change.
+ */
+function A2UIMessageProcessor({ messages }: { messages: v0_8.A2UIMessage[] }) {
+  const { processMessage, processMessages, clear } = useA2UIMessageHandler()
+  const processedCountRef = useRef(0)
 
-  for (const message of messages) {
-    const beginRendering = message.beginRendering
-    if (beginRendering?.surfaceId && beginRendering.root) {
-      roots.set(beginRendering.surfaceId, beginRendering.root)
+  useEffect(() => {
+    if (messages.length === 0) {
+      processedCountRef.current = 0
+      clear()
+      return
     }
-    const surfaceUpdate = message.surfaceUpdate
-    if (surfaceUpdate?.surfaceId && Array.isArray(surfaceUpdate.components)) {
-      const set = componentsBySurface.get(surfaceUpdate.surfaceId) ?? new Set<string>()
-      for (const component of surfaceUpdate.components) {
-        if (typeof component?.id === 'string' && component.id.trim().length > 0) {
-          set.add(component.id)
-        }
-      }
-      componentsBySurface.set(surfaceUpdate.surfaceId, set)
-    }
-  }
 
-  for (const [surfaceId, rootId] of roots) {
-    const ids = componentsBySurface.get(surfaceId)
-    if (!ids || !ids.has(rootId)) return false
-  }
-  return roots.size > 0
+    if (messages.length < processedCountRef.current) {
+      clear()
+      processMessages(messages)
+      processedCountRef.current = messages.length
+      return
+    }
+
+    const newMessages = messages.slice(processedCountRef.current)
+    for (const msg of newMessages) {
+      processMessage(msg)
+    }
+    processedCountRef.current = messages.length
+  }, [messages, processMessage, processMessages, clear])
+
+  return null
 }
 
 class A2UIErrorBoundary extends React.Component<
@@ -90,13 +97,13 @@ class A2UIErrorBoundary extends React.Component<
 
 export function A2UIMessage({ messages, policy }: A2UIMessageProps) {
   const { handleAction } = useA2UIActions()
-  const isRenderable = useMemo(() => hasRenderableSurfaceRoot(messages), [messages])
 
-  if (messages.length === 0 || !isRenderable) return null
+  if (messages.length === 0) return null
 
   return (
     <A2UIPolicyProvider policy={policy}>
-      <A2UIProvider messages={messages} catalog={customCatalog}>
+      <A2UIProvider catalog={customCatalog}>
+        <A2UIMessageProcessor messages={messages} />
         <A2UIErrorBoundary>
           <A2UIContent onAction={handleAction} />
         </A2UIErrorBoundary>

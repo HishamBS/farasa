@@ -172,6 +172,7 @@ export const MessageMetadataSchema = z.object({
   teamId: z.string().uuid().optional(),
   isTeamSynthesis: z.boolean().optional(),
   userMessageId: z.string().uuid().optional(),
+  errorMessage: z.string().optional(),
 })
 
 export const MessageSchema = z.object({

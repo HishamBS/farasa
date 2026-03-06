@@ -73,19 +73,26 @@ function normalizeA2UIMessage(message: v0_8.A2UIMessage): v0_8.A2UIMessage {
   } as v0_8.A2UIMessage
 }
 
-function parseA2UIMessages(raw: unknown[] | undefined): v0_8.A2UIMessage[] {
-  if (!raw || raw.length === 0) return []
-  const result: v0_8.A2UIMessage[] = []
+type ParsedA2UIData = {
+  messages: v0_8.A2UIMessage[]
+  rawLines: string[]
+}
+
+function parseA2UIData(raw: unknown[] | undefined): ParsedA2UIData {
+  if (!raw || raw.length === 0) return { messages: [], rawLines: [] }
+  const messages: v0_8.A2UIMessage[] = []
+  const rawLines: string[] = []
   for (const item of raw) {
     if (typeof item !== 'string') continue
+    rawLines.push(item)
     try {
       const parsed = JSON.parse(item) as v0_8.A2UIMessage
-      result.push(normalizeA2UIMessage(parsed))
+      messages.push(normalizeA2UIMessage(parsed))
     } catch {
       // Skip malformed entries
     }
   }
-  return result
+  return { messages, rawLines }
 }
 
 function buildThinkingState(metadata: MessageMetadata): ThinkingState | null {
@@ -113,12 +120,10 @@ export function HistoricalAssistantMessage({ message }: HistoricalAssistantMessa
 
   const toolExecutions = useMemo(() => (metadata ? buildToolExecutions(metadata) : []), [metadata])
 
-  const a2uiMessages = useMemo(() => parseA2UIMessages(metadata?.a2uiMessages), [metadata])
-
-  const a2uiRawLines = useMemo(() => {
-    if (!metadata?.a2uiMessages) return []
-    return metadata.a2uiMessages.filter((item): item is string => typeof item === 'string')
-  }, [metadata])
+  const { messages: a2uiMessages, rawLines: a2uiRawLines } = useMemo(
+    () => parseA2UIData(metadata?.a2uiMessages),
+    [metadata],
+  )
 
   const modelLabel = metadata?.modelUsed ? extractModelName(metadata.modelUsed) : null
   const tokenLabel =

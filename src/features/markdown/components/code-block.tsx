@@ -1,15 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { SHIKI_LANGS, getShikiHighlighter } from '../config/shiki-config'
-import {
-  LIMITS,
-  UX,
-  CODE_BLOCK_DEFAULT_LANG,
-  SHIKI_DARK_THEME,
-  SHIKI_LIGHT_THEME,
-} from '@/config/constants'
-import { useTheme } from 'next-themes'
+import { SHIKI_LANGS } from '../config/shiki-config'
+import { useShikiHighlight } from '../hooks/use-shiki-highlight'
+import { LIMITS, UX, CODE_BLOCK_DEFAULT_LANG } from '@/config/constants'
 import { CopyButton } from './copy-button'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { expand } from '@/lib/utils/motion'
@@ -46,25 +40,7 @@ export function CodeBlock({ children, className, autoCollapse }: CodeBlockProps)
   }, [autoCollapse, isLargeBlock])
 
   const shouldReduce = useReducedMotion()
-  const { resolvedTheme } = useTheme()
-  const [html, setHtml] = useState<string>('')
-
-  useEffect(() => {
-    let cancelled = false
-    const shikiTheme = resolvedTheme === 'light' ? SHIKI_LIGHT_THEME : SHIKI_DARK_THEME
-    void (async () => {
-      try {
-        const highlighter = await getShikiHighlighter()
-        const rendered = highlighter.codeToHtml(code, { lang: validLang, theme: shikiTheme })
-        if (!cancelled) setHtml(rendered)
-      } catch (error) {
-        console.error('[CodeBlock] Shiki highlighting failed:', error)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [code, validLang, resolvedTheme])
+  const html = useShikiHighlight(code, validLang)
 
   const toggleBtnClass =
     'flex w-full items-center justify-center gap-1.5 border-t border-(--border-subtle) py-1.5 text-xs text-(--text-muted) transition-colors hover:bg-(--bg-surface-hover) hover:text-(--text-secondary)'

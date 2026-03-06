@@ -1,4 +1,4 @@
-import { STREAM_REASON_CODES, TRPC_CODES } from '@/config/constants'
+import { CHAT_ERRORS, STREAM_REASON_CODES, TRPC_CODES } from '@/config/constants'
 import { AppError } from '@/lib/utils/errors'
 import type { RuntimeConfig } from '@/schemas/runtime-config'
 import type { StreamChunk } from '@/schemas/message'
@@ -222,6 +222,18 @@ class StreamSessionService {
           code: error.name,
           reasonCode: STREAM_REASON_CODES.TRANSIENT_NETWORK,
           recoverable: true,
+        }
+      }
+      if (
+        message.includes('extraction failed') ||
+        message.includes('pdf') ||
+        message.includes('parsing failed')
+      ) {
+        return {
+          message: runtimeConfig.chat.errors.fileProcessing ?? CHAT_ERRORS.FILE_PROCESSING,
+          code: error.name,
+          reasonCode: STREAM_REASON_CODES.FILE_PROCESSING_FAILED,
+          recoverable: false,
         }
       }
     }

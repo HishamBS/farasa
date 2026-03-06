@@ -297,6 +297,7 @@ export const CHAT_ERRORS = {
   IMAGE_GEN_INCOMPATIBLE:
     'This model does not support image generation. Please select an image-capable model.',
   PROVIDER_UNAVAILABLE: 'The AI provider is temporarily unavailable. Please try again shortly.',
+  FILE_PROCESSING: 'Failed to process the attached file. Please try a different file or format.',
 } as const
 
 export const STREAM_PROGRESS = {
@@ -500,6 +501,7 @@ export const STREAM_REASON_CODES = {
   CANCELLED: 'cancelled_by_client',
   SUPERSEDED: 'superseded_by_new_stream',
   STREAM_CLOSED: 'stream_closed_unexpectedly',
+  FILE_PROCESSING_FAILED: 'file_processing_failed',
 } as const
 
 export const MODEL_REGISTRY_CACHE_KEY = 'models' as const

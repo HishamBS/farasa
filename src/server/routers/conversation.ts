@@ -196,6 +196,8 @@ export const conversationRouter = router({
 
       for (const msg of msgs) {
         if (msg.role === MESSAGE_ROLES.USER) {
+          const userMeta = msg.metadata as MessageMetadata | null
+          if (userMeta?.isA2UIAction) continue
           lines.push(`**You:** ${msg.content}`, '')
         } else if (msg.role === MESSAGE_ROLES.ASSISTANT) {
           const meta = msg.metadata as MessageMetadata | null

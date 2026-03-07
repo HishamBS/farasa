@@ -29,7 +29,7 @@ export function useA2UIActions() {
     (payload: { prompt: string; webSearchEnabled?: boolean }) => {
       window.dispatchEvent(
         new CustomEvent(BROWSER_EVENTS.A2UI_ACTION_REQUESTED, {
-          detail: payload,
+          detail: { ...payload, isA2UIAction: true },
         }),
       )
     },

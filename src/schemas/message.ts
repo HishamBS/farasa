@@ -132,6 +132,7 @@ export const ChatInputSchema = z.object({
   clientRequestId: z.string().uuid().optional(),
   webSearchEnabled: z.boolean().default(false),
   attachmentIds: z.array(z.string().uuid()).default([]),
+  isA2UIAction: z.boolean().optional(),
 })
 
 export const ToolCallSchema = z.object({
@@ -171,6 +172,7 @@ export const MessageMetadataSchema = z.object({
   usage: UsageSchema.optional(),
   teamId: z.string().uuid().optional(),
   isTeamSynthesis: z.boolean().optional(),
+  isA2UIAction: z.boolean().optional(),
   userMessageId: z.string().uuid().optional(),
   errorMessage: z.string().optional(),
 })

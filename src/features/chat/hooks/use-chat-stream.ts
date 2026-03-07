@@ -215,7 +215,7 @@ export function useChatStream(conversationId?: string) {
                     conversationId: convId,
                     role: MESSAGE_ROLES.USER,
                     content: input.content,
-                    metadata: null,
+                    metadata: input.isA2UIAction ? { isA2UIAction: true } : null,
                     clientRequestId,
                     streamSequenceMax: null,
                     tokenCount: null,

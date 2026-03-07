@@ -160,6 +160,7 @@ export const chatRouter = router({
         conversationId,
         content: input.content,
         clientRequestId: streamRequestId,
+        ...(input.isA2UIAction ? { metadata: { isA2UIAction: true } } : {}),
       })
       userMessageId = userResult.messageId
 

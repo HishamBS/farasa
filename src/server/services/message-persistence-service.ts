@@ -5,13 +5,14 @@ import { AppError } from '@/lib/utils/errors'
 import { TRPCError } from '@trpc/server'
 import type { DB } from '@/lib/db/client'
 
-type MessageMetadata = Record<string, unknown>
+import type { MessageMetadata } from '@/schemas/message'
 
 export async function persistUserMessage(params: {
   db: DB
   conversationId: string
   content: string
   clientRequestId: string
+  metadata?: MessageMetadata
 }): Promise<{ messageId: string; isNew: boolean }> {
   const [existing] = await params.db
     .select({ id: messages.id })
@@ -36,6 +37,7 @@ export async function persistUserMessage(params: {
       role: MESSAGE_ROLES.USER,
       content: params.content,
       clientRequestId: params.clientRequestId,
+      ...(params.metadata ? { metadata: params.metadata } : {}),
     })
     .returning({ id: messages.id })
 

@@ -7,8 +7,6 @@ import type { DB } from '@/lib/db/client'
 
 import type { MessageMetadata } from '@/schemas/message'
 
-type AssistantMessageMetadata = Record<string, unknown>
-
 export async function persistUserMessage(params: {
   db: DB
   conversationId: string
@@ -55,7 +53,7 @@ export async function persistAssistantMessage(params: {
   conversationId: string
   content: string
   clientRequestId: string
-  metadata: AssistantMessageMetadata
+  metadata: MessageMetadata
   streamSequenceMax?: number | null
   tokenCount?: number | null
 }): Promise<{ messageId: string; isUpdate: boolean }> {

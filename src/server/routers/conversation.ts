@@ -195,11 +195,12 @@ export const conversationRouter = router({
       const lines: string[] = [`# ${conversation.title}`, '']
 
       for (const msg of msgs) {
-        const meta = msg.metadata as MessageMetadata | null
         if (msg.role === MESSAGE_ROLES.USER) {
-          if (meta?.isA2UIAction) continue
+          const userMeta = msg.metadata as MessageMetadata | null
+          if (userMeta?.isA2UIAction) continue
           lines.push(`**You:** ${msg.content}`, '')
         } else if (msg.role === MESSAGE_ROLES.ASSISTANT) {
+          const meta = msg.metadata as MessageMetadata | null
           const modelLine = meta?.modelUsed
           const prefix = modelLine ? `**Assistant** (${modelLine}):` : '**Assistant:**'
           lines.push(`${prefix} ${msg.content}`, '')

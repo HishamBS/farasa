@@ -30,6 +30,12 @@ import type { ChatInputHandle } from './chat-input'
 import { ChatInput } from './chat-input'
 import { MessageList } from './message-list'
 
+type PendingA2UIAction = {
+  prompt: string
+  webSearchEnabled: boolean
+  isA2UIAction: boolean
+}
+
 type ChatContainerProps = {
   conversationId?: string
 }
@@ -50,11 +56,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
 
   const [teamStreamInput, setTeamStreamInput] = useState<TeamStreamInput | null>(null)
   const teamConversationIdRef = useRef<string | undefined>(conversationId)
-  const pendingA2UIRef = useRef<{
-    prompt: string
-    webSearchEnabled: boolean
-    isA2UIAction: boolean
-  } | null>(null)
+  const pendingA2UIRef = useRef<PendingA2UIAction | null>(null)
   const synthesis = useTeamSynthesis()
 
   useEffect(() => {
@@ -251,12 +253,10 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
       }>
       const prompt = custom.detail?.prompt?.trim()
       if (!prompt) return
+      const webSearchEnabled = Boolean(custom.detail?.webSearchEnabled)
+      const isA2UIAction = Boolean(custom.detail?.isA2UIAction)
       if (isTurnActive) {
-        pendingA2UIRef.current = {
-          prompt,
-          webSearchEnabled: Boolean(custom.detail?.webSearchEnabled),
-          isA2UIAction: Boolean(custom.detail?.isA2UIAction),
-        }
+        pendingA2UIRef.current = { prompt, webSearchEnabled, isA2UIAction }
         return
       }
       sendMessage({
@@ -265,9 +265,9 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
         model: null,
         conversationId: effectiveConversationId,
         attachmentIds: [],
-        webSearchEnabled: Boolean(custom.detail?.webSearchEnabled),
+        webSearchEnabled,
         clientRequestId: crypto.randomUUID(),
-        isA2UIAction: Boolean(custom.detail?.isA2UIAction),
+        isA2UIAction,
       })
     }
 

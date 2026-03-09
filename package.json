@@ -70,7 +70,7 @@
     "shiki": "^1.10.3",
     "superjson": "^2.2.1",
     "tailwind-merge": "^3.5.0",
-    "zod": "^3.22.4"
+    "zod": "^4.3.6"
   },
   "overrides": {
     "hono": ">=4.12.4",

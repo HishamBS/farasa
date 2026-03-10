@@ -23,7 +23,6 @@ export function ConversationList({ search }: ConversationListProps) {
       },
       {
         getNextPageParam: (lastPage) => lastPage.nextCursor,
-        staleTime: UX.QUERY_STALE_TIME_FOREVER,
       },
     )
 

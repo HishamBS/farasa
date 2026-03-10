@@ -14,6 +14,7 @@ type StreamSession = {
   chunkBuffer: unknown[]
   emitter: EventEmitter
   completed: boolean
+  mode: string
 }
 
 type DistributiveOmit<T, K extends string> = T extends unknown ? Omit<T, K> : never
@@ -32,6 +33,7 @@ class StreamSessionService {
     userId: string
     conversationId: string
     streamRequestId: string
+    mode: string
   }): StreamSession {
     const byRequest = this.byRequest.get(params.streamRequestId)
     if (byRequest && byRequest.userId === params.userId) {
@@ -65,6 +67,7 @@ class StreamSessionService {
       chunkBuffer: [],
       emitter: new EventEmitter(),
       completed: false,
+      mode: params.mode,
     }
     this.byConversation.set(key, session)
     this.byRequest.set(session.streamRequestId, session)
@@ -136,6 +139,16 @@ class StreamSessionService {
 
   findByConversation(userId: string, conversationId: string): StreamSession | undefined {
     return this.byConversation.get(this.getKey(userId, conversationId))
+  }
+
+  findByConversationAndMode(
+    userId: string,
+    conversationId: string,
+    mode: string,
+  ): StreamSession | undefined {
+    const session = this.byConversation.get(this.getKey(userId, conversationId))
+    if (session && session.mode === mode) return session
+    return undefined
   }
 
   findByRequest(requestId: string): StreamSession | undefined {

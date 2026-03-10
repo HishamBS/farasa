@@ -197,7 +197,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
 
   const { data: conversation } = trpc.conversation.getById.useQuery(
     { id: effectiveConversationId ?? '' },
-    { staleTime: UX.QUERY_STALE_TIME_FOREVER, enabled: !!effectiveConversationId },
+    { enabled: !!effectiveConversationId },
   )
 
   useEffect(() => {
@@ -214,7 +214,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
 
   const { data: messagesData, isLoading: isLoadingMessages } = trpc.conversation.messages.useQuery(
     { conversationId: effectiveConversationId ?? '' },
-    { staleTime: UX.QUERY_STALE_TIME_FOREVER, enabled: !!effectiveConversationId },
+    { enabled: !!effectiveConversationId },
   )
   const messages = useMemo(() => messagesData?.messages ?? [], [messagesData])
   const hasPersistedTeamMessages = useMemo(() => {

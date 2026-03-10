@@ -9,6 +9,7 @@ import {
   MODEL_SELECTION_SOURCES,
   STATUS_MESSAGES,
   STREAM_EVENTS,
+  STREAM_MODES,
   STREAM_PHASES,
   TRPC_CODES,
 } from '@/config/constants'
@@ -141,6 +142,7 @@ export const chatRouter = router({
         userId: ctx.userId,
         conversationId,
         streamRequestId,
+        mode: STREAM_MODES.CHAT,
       })
       const resolvedConversationId = conversationId
       if (!resolvedConversationId) {
@@ -876,7 +878,11 @@ export const chatRouter = router({
     input,
     signal,
   }) {
-    const session = streamSessions.findByConversation(ctx.userId, input.conversationId)
+    const session = streamSessions.findByConversationAndMode(
+      ctx.userId,
+      input.conversationId,
+      STREAM_MODES.CHAT,
+    )
     if (!session) {
       const noStream: RejoinStatusEvent = {
         type: STREAM_EVENTS.REJOIN_STATUS,

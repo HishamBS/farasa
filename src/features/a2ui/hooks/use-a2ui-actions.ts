@@ -16,10 +16,26 @@ import type { RuntimeConfig } from '@/schemas/runtime-config'
 export function useA2UIActions() {
   const router = useRouter()
   const utils = trpc.useUtils()
-  const createConversation = trpc.conversation.create.useMutation()
-  const updateConversation = trpc.conversation.update.useMutation()
-  const deleteConversation = trpc.conversation.delete.useMutation()
-  const refreshModels = trpc.model.refresh.useMutation()
+  const createConversation = trpc.conversation.create.useMutation({
+    onSettled: () => {
+      void utils.conversation.list.invalidate()
+    },
+  })
+  const updateConversation = trpc.conversation.update.useMutation({
+    onSettled: () => {
+      void utils.conversation.invalidate()
+    },
+  })
+  const deleteConversation = trpc.conversation.delete.useMutation({
+    onSettled: () => {
+      void utils.conversation.list.invalidate()
+    },
+  })
+  const refreshModels = trpc.model.refresh.useMutation({
+    onSettled: () => {
+      void utils.model.list.invalidate()
+    },
+  })
   const executeSearch = trpc.search.execute.useMutation()
   const runtimeConfigQuery = trpc.runtimeConfig.get.useQuery()
   const runtimeConfigRef = useRef<RuntimeConfig | undefined>(undefined)
@@ -59,7 +75,6 @@ export function useA2UIActions() {
       switch (name) {
         case A2UI_ACTIONS.NEW_CHAT: {
           void createConversation.mutateAsync({}).then((conv) => {
-            void utils.conversation.list.invalidate()
             router.push(ROUTES.CHAT_BY_ID(conv.id))
           })
           return
@@ -68,31 +83,26 @@ export function useA2UIActions() {
           const id = String(getContextValue(action, 'id') ?? '')
           const title = String(getContextValue(action, 'title') ?? '').trim()
           if (!id || !title) return
-          void updateConversation
-            .mutateAsync({ id, title })
-            .then(() => utils.conversation.list.invalidate())
+          void updateConversation.mutateAsync({ id, title })
           return
         }
         case A2UI_ACTIONS.PIN:
         case A2UI_ACTIONS.UNPIN: {
           const id = String(getContextValue(action, 'id') ?? '')
           if (!id) return
-          void updateConversation
-            .mutateAsync({ id, isPinned: name === A2UI_ACTIONS.PIN })
-            .then(() => utils.conversation.list.invalidate())
+          void updateConversation.mutateAsync({ id, isPinned: name === A2UI_ACTIONS.PIN })
           return
         }
         case A2UI_ACTIONS.DELETE: {
           const id = String(getContextValue(action, 'id') ?? '')
           if (!id) return
           void deleteConversation.mutateAsync({ id }).then(() => {
-            void utils.conversation.list.invalidate()
             router.push(ROUTES.CHAT)
           })
           return
         }
         case A2UI_ACTIONS.REFRESH_MODELS: {
-          void refreshModels.mutateAsync({ force: true }).then(() => utils.model.list.invalidate())
+          void refreshModels.mutateAsync({ force: true })
           return
         }
         case A2UI_ACTIONS.SEARCH: {
@@ -177,8 +187,6 @@ export function useA2UIActions() {
       getContextValue,
       router,
       updateConversation,
-      utils.conversation.list,
-      utils.model.list,
     ],
   )
 

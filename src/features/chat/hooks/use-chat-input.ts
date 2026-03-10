@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { trpc } from '@/trpc/provider'
+import { useUpdatePreferences } from '@/trpc/mutations'
 import { BROWSER_EVENTS, UX } from '@/config/constants'
 import { useStreamSession } from '../context/stream-session-context'
 
@@ -25,10 +26,8 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
   const utils = trpc.useUtils()
   const { isTurnActive } = useStreamSession()
 
-  const prefsQuery = trpc.userPreferences.get.useQuery(undefined, {
-    staleTime: UX.QUERY_STALE_TIME_FOREVER,
-  })
-  const updatePrefsMutation = trpc.userPreferences.update.useMutation()
+  const prefsQuery = trpc.userPreferences.get.useQuery()
+  const updatePrefsMutation = useUpdatePreferences()
   const updateConversationMutation = trpc.conversation.update.useMutation({
     onSuccess: (_data, variables) => {
       if (variables.model !== undefined) {
@@ -36,6 +35,9 @@ export function useChatInput(initialModel?: string | null, conversationId?: stri
           old ? { ...old, model: variables.model ?? null } : old,
         )
       }
+    },
+    onSettled: (_data, _error, variables) => {
+      void utils.conversation.getById.invalidate({ id: variables.id })
     },
   })
   const updateConversationMutateRef = useRef(updateConversationMutation.mutate)

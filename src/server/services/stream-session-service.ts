@@ -2,7 +2,7 @@ import { EventEmitter } from 'events'
 import { CHAT_ERRORS, STREAM_REASON_CODES, TRPC_CODES } from '@/config/constants'
 import { AppError } from '@/lib/utils/errors'
 import type { RuntimeConfig } from '@/schemas/runtime-config'
-import type { StreamChunk } from '@/schemas/message'
+import type { ChatMode, StreamChunk } from '@/schemas/message'
 import { TRPCError } from '@trpc/server'
 
 type StreamSession = {
@@ -14,7 +14,7 @@ type StreamSession = {
   chunkBuffer: unknown[]
   emitter: EventEmitter
   completed: boolean
-  mode: string
+  mode: ChatMode
 }
 
 type DistributiveOmit<T, K extends string> = T extends unknown ? Omit<T, K> : never
@@ -33,7 +33,7 @@ class StreamSessionService {
     userId: string
     conversationId: string
     streamRequestId: string
-    mode: string
+    mode: ChatMode
   }): StreamSession {
     const byRequest = this.byRequest.get(params.streamRequestId)
     if (byRequest && byRequest.userId === params.userId) {
@@ -144,9 +144,9 @@ class StreamSessionService {
   findByConversationAndMode(
     userId: string,
     conversationId: string,
-    mode: string,
+    mode: ChatMode,
   ): StreamSession | undefined {
-    const session = this.byConversation.get(this.getKey(userId, conversationId))
+    const session = this.findByConversation(userId, conversationId)
     if (session && session.mode === mode) return session
     return undefined
   }

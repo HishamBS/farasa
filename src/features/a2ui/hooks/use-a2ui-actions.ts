@@ -22,8 +22,9 @@ export function useA2UIActions() {
     },
   })
   const updateConversation = trpc.conversation.update.useMutation({
-    onSettled: () => {
-      void utils.conversation.invalidate()
+    onSettled: (_data, _error, variables) => {
+      void utils.conversation.list.invalidate()
+      void utils.conversation.getById.invalidate({ id: variables.id })
     },
   })
   const deleteConversation = trpc.conversation.delete.useMutation({

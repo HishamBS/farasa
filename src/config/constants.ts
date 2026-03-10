@@ -521,11 +521,6 @@ export const EXPANDABLE_BLOCKS = {
   THINKING: 'thinking',
 } as const
 
-export const STREAM_MODES = {
-  CHAT: 'chat',
-  TEAM: 'team',
-} as const
-
 export const STREAM_REASON_CODES = {
   AUTHORIZATION_EXPIRED: 'authorization_expired',
   ROUTER_FAILED: 'router_failed',

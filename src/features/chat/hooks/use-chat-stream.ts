@@ -20,7 +20,7 @@ import {
   useStreamState,
 } from '@/features/stream-phases/hooks/use-stream-state'
 import type { MessageWithAttachments } from '@/schemas/conversation'
-import type { ChatInput, StreamChunk } from '@/schemas/message'
+import type { ChatInput, RejoinStatusEvent, StreamChunk } from '@/schemas/message'
 import { trpcClient } from '@/trpc/client'
 import { trpc } from '@/trpc/provider'
 import type { v0_8 } from '@a2ui-sdk/types'
@@ -59,6 +59,7 @@ export function useChatStream(conversationId?: string) {
   const sendLockRef = useRef(false)
   const resolvedConversationIdRef = useRef<string | undefined>(undefined)
   const pendingRouteConversationIdRef = useRef<string | undefined>(undefined)
+  const rejoinSubRef = useRef<{ unsubscribe: () => void; sessionId: string } | null>(null)
 
   useEffect(() => {
     resolvedConversationIdRef.current = conversationId
@@ -78,11 +79,18 @@ export function useChatStream(conversationId?: string) {
   )
 
   const clearActiveSession = useCallback(() => {
+    const rejoin = rejoinSubRef.current
+    if (rejoin) {
+      rejoin.unsubscribe()
+      endSession(rejoin.sessionId)
+      rejoinSubRef.current = null
+    }
+
     const active = activeSessionRef.current
     if (!active) return
     active.unsubscribe()
     teardownSession(active.sessionId)
-  }, [teardownSession])
+  }, [endSession, teardownSession])
 
   const ensureConversationId = useCallback(
     async (input: ChatInput): Promise<string | undefined> => {
@@ -114,12 +122,7 @@ export function useChatStream(conversationId?: string) {
       resolvedConversationIdRef.current = effectiveConversationId
 
       const activeSession = activeSessionRef.current
-      if (
-        activeSession &&
-        !activeSession.isSettled &&
-        activeSession.sessionId !== sessionId &&
-        activeSession.conversationId === effectiveConversationId
-      ) {
+      if (activeSession && !activeSession.isSettled && activeSession.sessionId !== sessionId) {
         activeSession.unsubscribe()
         teardownSession(activeSession.sessionId)
       }
@@ -346,6 +349,13 @@ export function useChatStream(conversationId?: string) {
       }
       sendLockRef.current = true
 
+      const rejoin = rejoinSubRef.current
+      if (rejoin) {
+        rejoin.unsubscribe()
+        endSession(rejoin.sessionId)
+        rejoinSubRef.current = null
+      }
+
       const sessionId = crypto.randomUUID()
       beginSession(CHAT_MODES.CHAT, sessionId)
       dispatch({ type: STREAM_ACTIONS.BEGIN })
@@ -368,10 +378,25 @@ export function useChatStream(conversationId?: string) {
         })
       })
     },
-    [beginSession, dispatch, runStreamAttempt, teardownSession],
+    [beginSession, dispatch, endSession, runStreamAttempt, teardownSession],
   )
 
   const abort = useCallback(() => {
+    const rejoin = rejoinSubRef.current
+    if (rejoin) {
+      rejoin.unsubscribe()
+      endSession(rejoin.sessionId)
+      rejoinSubRef.current = null
+      dispatch({ type: STREAM_ACTIONS.CLEAR_PENDING_USER_MESSAGE })
+      reset()
+      const convId = resolvedConversationIdRef.current
+      if (convId) {
+        void cancelMutateRef.current({ conversationId: convId })
+        void utils.conversation.messages.invalidate({ conversationId: convId })
+      }
+      return
+    }
+
     const active = activeSessionRef.current
     if (!active) return
 
@@ -399,16 +424,125 @@ export function useChatStream(conversationId?: string) {
         }
       })
     }
-  }, [dispatch, reset, teardownSession, utils])
+  }, [dispatch, endSession, reset, teardownSession, utils])
+
+  useEffect(() => {
+    if (!conversationId) return
+    if (activeSessionRef.current) return
+
+    let rejoinSessionId: string | null = null
+
+    const sub = trpcClient.chat.rejoin.subscribe(
+      { conversationId },
+      {
+        onData(chunk: StreamChunk | RejoinStatusEvent) {
+          if (activeSessionRef.current) {
+            sub.unsubscribe()
+            if (rejoinSessionId) {
+              endSession(rejoinSessionId)
+              rejoinSessionId = null
+            }
+            rejoinSubRef.current = null
+            return
+          }
+
+          if (chunk.type === STREAM_EVENTS.REJOIN_STATUS) return
+
+          if (!rejoinSessionId) {
+            rejoinSessionId = crypto.randomUUID()
+            beginSession(CHAT_MODES.CHAT, rejoinSessionId)
+            dispatch({ type: STREAM_ACTIONS.BEGIN })
+            dispatch({
+              type: STREAM_ACTIONS.SET_CONVERSATION_ID,
+              conversationId,
+            })
+            rejoinSubRef.current = {
+              unsubscribe: () => sub.unsubscribe(),
+              sessionId: rejoinSessionId,
+            }
+          }
+
+          if (chunk.type === STREAM_EVENTS.TITLE_UPDATED) {
+            void utils.conversation.list.invalidate()
+            void utils.conversation.getById.invalidate({ id: conversationId })
+            return
+          }
+
+          if (chunk.type === STREAM_EVENTS.A2UI) {
+            try {
+              const parsed: unknown = JSON.parse(chunk.jsonl)
+              if (isA2UIMessage(parsed)) {
+                dispatch({
+                  type: STREAM_ACTIONS.A2UI_MESSAGE,
+                  message: parsed,
+                  rawLine: chunk.jsonl,
+                })
+              }
+            } catch {
+              // malformed A2UI lines ignored
+            }
+            return
+          }
+
+          const action = mapStreamChunkToAction(chunk)
+          if (action) dispatch(action)
+
+          if (
+            chunk.type === STREAM_EVENTS.STATUS &&
+            chunk.phase === STREAM_PHASES.GENERATING_TITLE
+          ) {
+            void utils.conversation.list.invalidate()
+            void utils.conversation.getById.invalidate({ id: conversationId })
+          }
+
+          if (chunk.type === STREAM_EVENTS.DONE || chunk.type === STREAM_EVENTS.ERROR) {
+            if (rejoinSessionId) {
+              endSession(rejoinSessionId)
+              rejoinSessionId = null
+            }
+            rejoinSubRef.current = null
+            void utils.conversation.messages.invalidate({ conversationId })
+            if (chunk.type === STREAM_EVENTS.DONE) {
+              void utils.conversation.getById.invalidate({ id: conversationId })
+              void utils.conversation.list.invalidate()
+            }
+          }
+        },
+        onComplete() {
+          if (rejoinSessionId) {
+            endSession(rejoinSessionId)
+            rejoinSessionId = null
+          }
+          rejoinSubRef.current = null
+        },
+      },
+    )
+
+    return () => {
+      sub.unsubscribe()
+      if (rejoinSessionId) {
+        endSession(rejoinSessionId)
+        rejoinSessionId = null
+      }
+      rejoinSubRef.current = null
+    }
+  }, [beginSession, conversationId, dispatch, endSession, utils])
 
   useEffect(() => {
     return () => {
+      const rejoin = rejoinSubRef.current
+      if (rejoin) {
+        rejoin.unsubscribe()
+        endSession(rejoin.sessionId)
+        rejoinSubRef.current = null
+      }
+
       const active = activeSessionRef.current
       if (!active) return
       active.unsubscribe()
       teardownSession(active.sessionId)
     }
-  }, [teardownSession])
+  }, [endSession, teardownSession])
 
   useEffect(() => {
     const handleNewChatRequested = () => {

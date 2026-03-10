@@ -14,8 +14,8 @@ import {
 } from '@/config/constants'
 import { conversations, messages } from '@/lib/db/schema'
 import { AppError, getErrorMessage } from '@/lib/utils/errors'
-import type { StreamChunk } from '@/schemas/message'
-import { MessageMetadataSchema } from '@/schemas/message'
+import type { RejoinStatusEvent, StreamChunk } from '@/schemas/message'
+import { MessageMetadataSchema, RejoinInputSchema } from '@/schemas/message'
 import type { SearchImage, SearchResult } from '@/schemas/search'
 import type { TeamOutputChunk, TeamSynthesisOutputChunk } from '@/schemas/team'
 import {
@@ -49,7 +49,7 @@ import { TRPCError } from '@trpc/server'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
-import { rateLimitedChatProcedure, router } from '../trpc'
+import { protectedProcedure, rateLimitedChatProcedure, router } from '../trpc'
 
 type QueueItem =
   | { done: false; modelId: string; modelIndex: number; chunk: StreamChunk }
@@ -227,6 +227,13 @@ export const teamRouter = router({
         streamRequestId,
       })
 
+      const resolvedConversationId = conversationId
+      if (!resolvedConversationId) {
+        throw new TRPCError({
+          code: TRPC_CODES.INTERNAL_SERVER_ERROR,
+          message: AppError.INVALID_INPUT,
+        })
+      }
       const { signal: combinedSignal, cleanup } = streamSessions.buildCombinedAbortSignal(
         signal
           ? [signal, streamSession.abortController.signal]
@@ -234,574 +241,577 @@ export const teamRouter = router({
         runtimeConfig.chat.stream.timeoutMs,
       )
       signalCleanup = cleanup
+      yield* streamSessions.withBuffering(streamSession, async function* () {
+        const conversationId = resolvedConversationId
 
-      const userResult = await persistUserMessage({
-        db: ctx.db,
-        conversationId,
-        content: input.content,
-        clientRequestId: streamRequestId,
-      })
-      const userMessageId = userResult.messageId
-
-      yield {
-        type: TEAM_EVENTS.STREAM_EVENT,
-        chunk: {
-          type: STREAM_EVENTS.USER_MESSAGE_SAVED,
-          streamRequestId,
-          messageId: userMessageId,
-        } satisfies StreamChunk,
-      }
-
-      let linkedAttachmentRows: AttachmentRow[] = []
-      if (input.attachmentIds.length > 0) {
-        const { linkAttachmentsToMessage } = await import('@/server/services/history-builder')
-        linkedAttachmentRows = await linkAttachmentsToMessage(
-          ctx.db,
-          ctx.userId,
-          input.attachmentIds,
-          userMessageId,
-        )
-      }
-
-      const { buildUserContent } = await import('@/server/services/history-builder')
-      const userContent = await buildUserContent(input.content, linkedAttachmentRows)
-
-      const teamId = crypto.randomUUID()
-      const searchToolName = runtimeConfig.search.toolName
-      let searchContext = ''
-      let searchResults: SearchResult[] = []
-      let searchImages: SearchImage[] = []
-
-      await updateConversationSettings({
-        db: ctx.db,
-        conversationId,
-        userId: ctx.userId,
-        settings: {
-          model: input.models[0] ?? null,
-          mode: CHAT_MODES.TEAM,
-          webSearchEnabled: input.webSearchEnabled,
-          teamModels: input.models,
-        },
-      })
-
-      if (input.webSearchEnabled) {
-        if (!runtimeConfig.features.searchEnabled) {
-          throw new TRPCError({
-            code: TRPC_CODES.BAD_REQUEST,
-            message: runtimeConfig.chat.errors.processing,
-          })
-        }
-
-        yield {
-          type: TEAM_EVENTS.STREAM_EVENT,
-          chunk: {
-            type: STREAM_EVENTS.STATUS,
-            streamRequestId,
-            phase: STREAM_PHASES.SEARCHING,
-            message: runtimeConfig.chat.statusMessages.searching,
-          } satisfies StreamChunk,
-        }
-        yield {
-          type: TEAM_EVENTS.STREAM_EVENT,
-          chunk: {
-            type: STREAM_EVENTS.TOOL_START,
-            streamRequestId,
-            toolName: searchToolName,
-            input: { query: input.content },
-          } satisfies StreamChunk,
-        }
-
-        const enrichment = await executeSearchEnrichment(input.content, runtimeConfig)
-        searchContext = enrichment.context
-        searchResults = enrichment.results
-        searchImages = enrichment.images
-
-        yield {
-          type: TEAM_EVENTS.STREAM_EVENT,
-          chunk: {
-            type: STREAM_EVENTS.TOOL_RESULT,
-            streamRequestId,
-            toolName: searchToolName,
-            result: {
-              query: enrichment.query,
-              results: enrichment.results,
-              images: enrichment.images,
-            },
-          } satisfies StreamChunk,
-        }
-      }
-
-      const { buildEnrichedHistory } = await import('@/server/services/history-builder')
-      const historyMessages = await buildEnrichedHistory(ctx.db, conversationId, {
-        excludeMessageIds: [userMessageId],
-      })
-
-      const systemPrompt = searchContext
-        ? `${runtimeConfig.prompts.chatSystem}\n\n${searchContext}`
-        : runtimeConfig.prompts.chatSystem
-      const sdkMessages: Message[] = [
-        { role: MESSAGE_ROLES.SYSTEM, content: systemPrompt },
-        ...historyMessages,
-        { role: MESSAGE_ROLES.USER, content: userContent },
-      ]
-
-      const { openrouter } = await import('@/lib/ai/client')
-      const { ALL_TOOLS } = await import('@/lib/ai/tools')
-
-      const queue: QueueItem[] = []
-      let resolver: (() => void) | null = null
-
-      const push = (item: QueueItem): void => {
-        queue.push(item)
-        if (resolver) {
-          resolver()
-          resolver = null
-        }
-      }
-
-      const next = (): Promise<void> => {
-        if (queue.length > 0) return Promise.resolve()
-        return new Promise<void>((r) => {
-          resolver = r
+        const userResult = await persistUserMessage({
+          db: ctx.db,
+          conversationId,
+          content: input.content,
+          clientRequestId: streamRequestId,
         })
-      }
+        const userMessageId = userResult.messageId
 
-      const modelOutcomes: Map<string, ModelStreamOutcome> = new Map()
+        yield {
+          type: TEAM_EVENTS.STREAM_EVENT,
+          chunk: {
+            type: STREAM_EVENTS.USER_MESSAGE_SAVED,
+            streamRequestId,
+            messageId: userMessageId,
+          } satisfies StreamChunk,
+        }
 
-      const spawnModelStream = async (modelId: string, modelIndex: number): Promise<void> => {
-        try {
-          const modelStreamRequestId = crypto.randomUUID()
-          push({
-            done: false,
-            modelId,
-            modelIndex,
+        let linkedAttachmentRows: AttachmentRow[] = []
+        if (input.attachmentIds.length > 0) {
+          const { linkAttachmentsToMessage } = await import('@/server/services/history-builder')
+          linkedAttachmentRows = await linkAttachmentsToMessage(
+            ctx.db,
+            ctx.userId,
+            input.attachmentIds,
+            userMessageId,
+          )
+        }
+
+        const { buildUserContent } = await import('@/server/services/history-builder')
+        const userContent = await buildUserContent(input.content, linkedAttachmentRows)
+
+        const teamId = crypto.randomUUID()
+        const searchToolName = runtimeConfig.search.toolName
+        let searchContext = ''
+        let searchResults: SearchResult[] = []
+        let searchImages: SearchImage[] = []
+
+        await updateConversationSettings({
+          db: ctx.db,
+          conversationId,
+          userId: ctx.userId,
+          settings: {
+            model: input.models[0] ?? null,
+            mode: CHAT_MODES.TEAM,
+            webSearchEnabled: input.webSearchEnabled,
+            teamModels: input.models,
+          },
+        })
+
+        if (input.webSearchEnabled) {
+          if (!runtimeConfig.features.searchEnabled) {
+            throw new TRPCError({
+              code: TRPC_CODES.BAD_REQUEST,
+              message: runtimeConfig.chat.errors.processing,
+            })
+          }
+
+          yield {
+            type: TEAM_EVENTS.STREAM_EVENT,
             chunk: {
-              type: STREAM_EVENTS.MODEL_SELECTED,
-              streamRequestId: modelStreamRequestId,
-              model: modelId,
-              reasoning: AI_REASONING.MODEL_EXPLICIT,
-              source: MODEL_SELECTION_SOURCES.EXPLICIT_REQUEST,
-              confidence: 1,
-              factors: [
-                {
-                  key: 'selection_source',
-                  label: 'Selection Source',
-                  value: MODEL_SELECTION_SOURCES.EXPLICIT_REQUEST,
-                },
-              ],
+              type: STREAM_EVENTS.STATUS,
+              streamRequestId,
+              phase: STREAM_PHASES.SEARCHING,
+              message: runtimeConfig.chat.statusMessages.searching,
             } satisfies StreamChunk,
+          }
+          yield {
+            type: TEAM_EVENTS.STREAM_EVENT,
+            chunk: {
+              type: STREAM_EVENTS.TOOL_START,
+              streamRequestId,
+              toolName: searchToolName,
+              input: { query: input.content },
+            } satisfies StreamChunk,
+          }
+
+          const enrichment = await executeSearchEnrichment(input.content, runtimeConfig)
+          searchContext = enrichment.context
+          searchResults = enrichment.results
+          searchImages = enrichment.images
+
+          yield {
+            type: TEAM_EVENTS.STREAM_EVENT,
+            chunk: {
+              type: STREAM_EVENTS.TOOL_RESULT,
+              streamRequestId,
+              toolName: searchToolName,
+              result: {
+                query: enrichment.query,
+                results: enrichment.results,
+                images: enrichment.images,
+              },
+            } satisfies StreamChunk,
+          }
+        }
+
+        const { buildEnrichedHistory } = await import('@/server/services/history-builder')
+        const historyMessages = await buildEnrichedHistory(ctx.db, conversationId, {
+          excludeMessageIds: [userMessageId],
+        })
+
+        const systemPrompt = searchContext
+          ? `${runtimeConfig.prompts.chatSystem}\n\n${searchContext}`
+          : runtimeConfig.prompts.chatSystem
+        const sdkMessages: Message[] = [
+          { role: MESSAGE_ROLES.SYSTEM, content: systemPrompt },
+          ...historyMessages,
+          { role: MESSAGE_ROLES.USER, content: userContent },
+        ]
+
+        const { openrouter } = await import('@/lib/ai/client')
+        const { ALL_TOOLS } = await import('@/lib/ai/tools')
+
+        const queue: QueueItem[] = []
+        let resolver: (() => void) | null = null
+
+        const push = (item: QueueItem): void => {
+          queue.push(item)
+          if (resolver) {
+            resolver()
+            resolver = null
+          }
+        }
+
+        const next = (): Promise<void> => {
+          if (queue.length > 0) return Promise.resolve()
+          return new Promise<void>((r) => {
+            resolver = r
           })
+        }
 
-          let fullText = ''
-          let toolRoundCount = 0
-          let thinkingStatusEmitted = false
-          let modelSearchResults = [...searchResults]
-          let modelSearchImages = [...searchImages]
-          const modelToolCalls: ModelStreamOutcome['toolCalls'] = []
-          const attemptMessages: Message[] = [...sdkMessages]
-          const isImageGen =
-            registry.find((m) => m.id === modelId)?.supportsImageGeneration ?? false
+        const modelOutcomes: Map<string, ModelStreamOutcome> = new Map()
 
-          if (isImageGen) {
+        const spawnModelStream = async (modelId: string, modelIndex: number): Promise<void> => {
+          try {
+            const modelStreamRequestId = crypto.randomUUID()
             push({
               done: false,
               modelId,
               modelIndex,
               chunk: {
-                type: STREAM_EVENTS.STATUS,
+                type: STREAM_EVENTS.MODEL_SELECTED,
                 streamRequestId: modelStreamRequestId,
-                phase: STREAM_PHASES.GENERATING_IMAGE,
-                message: STATUS_MESSAGES.GENERATING_IMAGE,
+                model: modelId,
+                reasoning: AI_REASONING.MODEL_EXPLICIT,
+                source: MODEL_SELECTION_SOURCES.EXPLICIT_REQUEST,
+                confidence: 1,
+                factors: [
+                  {
+                    key: 'selection_source',
+                    label: 'Selection Source',
+                    value: MODEL_SELECTION_SOURCES.EXPLICIT_REQUEST,
+                  },
+                ],
               } satisfies StreamChunk,
             })
 
-            const imageGenMessages: Message[] = [
-              ...historyMessages,
-              { role: MESSAGE_ROLES.USER, content: userContent },
-            ]
-            const { executeImageGeneration } =
-              await import('@/server/services/image-generation-service')
-            const imageResult = await executeImageGeneration({
-              model: modelId,
-              messages: imageGenMessages,
-              signal: combinedSignal,
-              registry,
-            })
+            let fullText = ''
+            let toolRoundCount = 0
+            let thinkingStatusEmitted = false
+            let modelSearchResults = [...searchResults]
+            let modelSearchImages = [...searchImages]
+            const modelToolCalls: ModelStreamOutcome['toolCalls'] = []
+            const attemptMessages: Message[] = [...sdkMessages]
+            const isImageGen =
+              registry.find((m) => m.id === modelId)?.supportsImageGeneration ?? false
 
-            if (imageResult.imageContent.length > 0) {
-              fullText = imageResult.imageContent
+            if (isImageGen) {
               push({
                 done: false,
                 modelId,
                 modelIndex,
                 chunk: {
-                  type: STREAM_EVENTS.TEXT,
-                  content: imageResult.imageContent,
+                  type: STREAM_EVENTS.STATUS,
                   streamRequestId: modelStreamRequestId,
-                  attempt: 0,
+                  phase: STREAM_PHASES.GENERATING_IMAGE,
+                  message: STATUS_MESSAGES.GENERATING_IMAGE,
                 } satisfies StreamChunk,
               })
-            } else {
-              console.error(`[team:image-gen] Model ${modelId} returned no image content`)
-              fullText = AppError.IMAGE_GEN_EMPTY_RESULT
+
+              const imageGenMessages: Message[] = [
+                ...historyMessages,
+                { role: MESSAGE_ROLES.USER, content: userContent },
+              ]
+              const { executeImageGeneration } =
+                await import('@/server/services/image-generation-service')
+              const imageResult = await executeImageGeneration({
+                model: modelId,
+                messages: imageGenMessages,
+                signal: combinedSignal,
+                registry,
+              })
+
+              if (imageResult.imageContent.length > 0) {
+                fullText = imageResult.imageContent
+                push({
+                  done: false,
+                  modelId,
+                  modelIndex,
+                  chunk: {
+                    type: STREAM_EVENTS.TEXT,
+                    content: imageResult.imageContent,
+                    streamRequestId: modelStreamRequestId,
+                    attempt: 0,
+                  } satisfies StreamChunk,
+                })
+              } else {
+                console.error(`[team:image-gen] Model ${modelId} returned no image content`)
+                fullText = AppError.IMAGE_GEN_EMPTY_RESULT
+                push({
+                  done: false,
+                  modelId,
+                  modelIndex,
+                  chunk: {
+                    type: STREAM_EVENTS.ERROR,
+                    message: AppError.IMAGE_GEN_EMPTY_RESULT,
+                    reasonCode: 'image_gen_empty_result',
+                    recoverable: false,
+                    attempt: 0,
+                    streamRequestId: modelStreamRequestId,
+                  } satisfies StreamChunk,
+                })
+              }
+            }
+
+            while (!isImageGen) {
+              const stream = await openrouter.chat.send(
+                {
+                  chatGenerationParams: {
+                    model: modelId,
+                    messages: attemptMessages,
+                    stream: true,
+                    maxCompletionTokens: getModelMaxCompletionTokens(registry, modelId),
+                    ...(input.webSearchEnabled
+                      ? { tools: ALL_TOOLS, toolChoice: ToolChoiceOptionAuto.Auto }
+                      : {}),
+                  },
+                },
+                { signal: combinedSignal },
+              )
+
+              const toolCallDeltas = new Map<
+                number,
+                { id?: string; name?: string; argsJson: string }
+              >()
+              let roundAssistantText = ''
+
+              for await (const streamChunk of stream) {
+                const delta = streamChunk.choices[0]?.delta
+                if (!delta) continue
+
+                if (delta.toolCalls && delta.toolCalls.length > 0) {
+                  for (const toolCallDelta of delta.toolCalls) {
+                    accumulateToolCallDelta(toolCallDeltas, toolCallDelta)
+                  }
+                }
+
+                if (delta.reasoning) {
+                  if (!thinkingStatusEmitted) {
+                    push({
+                      done: false,
+                      modelId,
+                      modelIndex,
+                      chunk: {
+                        type: STREAM_EVENTS.STATUS,
+                        streamRequestId: modelStreamRequestId,
+                        phase: STREAM_PHASES.THINKING,
+                        message: runtimeConfig.chat.statusMessages.thinking,
+                      } satisfies StreamChunk,
+                    })
+                    thinkingStatusEmitted = true
+                  }
+                  push({
+                    done: false,
+                    modelId,
+                    modelIndex,
+                    chunk: {
+                      type: STREAM_EVENTS.THINKING,
+                      streamRequestId: modelStreamRequestId,
+                      content: delta.reasoning,
+                      isComplete: false,
+                    } satisfies StreamChunk,
+                  })
+                }
+
+                if (!delta.content) continue
+
+                fullText += delta.content
+                roundAssistantText += delta.content
+                push({
+                  done: false,
+                  modelId,
+                  modelIndex,
+                  chunk: {
+                    type: STREAM_EVENTS.TEXT,
+                    content: delta.content,
+                    streamRequestId: modelStreamRequestId,
+                    attempt: toolRoundCount,
+                  } satisfies StreamChunk,
+                })
+              }
+
+              if (toolCallDeltas.size === 0) {
+                break
+              }
+
+              if (toolRoundCount >= LIMITS.SEARCH_MAX_TOOL_CALL_ROUNDS) {
+                throw new TRPCError({
+                  code: TRPC_CODES.BAD_REQUEST,
+                  message: runtimeConfig.chat.errors.processing,
+                })
+              }
+
+              const roundToolCalls = buildRoundToolCalls(toolCallDeltas)
+
+              if (roundToolCalls.length === 0) {
+                break
+              }
+
+              attemptMessages.push({
+                role: MESSAGE_ROLES.ASSISTANT,
+                content: roundAssistantText,
+                toolCalls: roundToolCalls,
+              })
+
+              for (const call of roundToolCalls) {
+                if (call.function.name !== searchToolName) {
+                  attemptMessages.push(buildUnsupportedToolResponse(call))
+                  continue
+                }
+
+                push({
+                  done: false,
+                  modelId,
+                  modelIndex,
+                  chunk: {
+                    type: STREAM_EVENTS.TOOL_START,
+                    streamRequestId: modelStreamRequestId,
+                    toolName: searchToolName,
+                    input: { query: input.content },
+                  } satisfies StreamChunk,
+                })
+
+                const searchResult = await executeSearchToolCall({
+                  call,
+                  searchToolName,
+                  fallbackQuery: input.content,
+                  runtimeConfig,
+                  existingResults: modelSearchResults,
+                  existingImages: modelSearchImages,
+                })
+
+                modelSearchResults = searchResult.mergedResults
+                modelSearchImages = searchResult.mergedImages
+                searchResults = mergeSearchResults(searchResults, searchResult.mergedResults)
+                searchImages = mergeSearchImages(searchImages, searchResult.mergedImages)
+
+                push({
+                  done: false,
+                  modelId,
+                  modelIndex,
+                  chunk: {
+                    type: STREAM_EVENTS.TOOL_RESULT,
+                    streamRequestId: modelStreamRequestId,
+                    toolName: searchToolName,
+                    result: searchResult.toolCallEntry.result,
+                  } satisfies StreamChunk,
+                })
+
+                modelToolCalls.push(searchResult.toolCallEntry)
+                attemptMessages.push(searchResult.toolMessage)
+              }
+
+              toolRoundCount += 1
+            }
+
+            push({
+              done: false,
+              modelId,
+              modelIndex,
+              chunk: {
+                type: STREAM_EVENTS.THINKING,
+                streamRequestId: modelStreamRequestId,
+                content: '',
+                isComplete: true,
+              } satisfies StreamChunk,
+            })
+            push({
+              done: false,
+              modelId,
+              modelIndex,
+              chunk: {
+                type: STREAM_EVENTS.DONE,
+                streamRequestId: modelStreamRequestId,
+              } satisfies StreamChunk,
+            })
+
+            if (fullText.trim().length === 0) {
+              const errorMessage = runtimeConfig.chat.errors.processing
               push({
                 done: false,
                 modelId,
                 modelIndex,
                 chunk: {
                   type: STREAM_EVENTS.ERROR,
-                  message: AppError.IMAGE_GEN_EMPTY_RESULT,
-                  reasonCode: 'image_gen_empty_result',
+                  streamRequestId: modelStreamRequestId,
+                  message: errorMessage,
                   recoverable: false,
-                  attempt: 0,
-                  streamRequestId: modelStreamRequestId,
                 } satisfies StreamChunk,
               })
-            }
-          }
-
-          while (!isImageGen) {
-            const stream = await openrouter.chat.send(
-              {
-                chatGenerationParams: {
-                  model: modelId,
-                  messages: attemptMessages,
-                  stream: true,
-                  maxCompletionTokens: getModelMaxCompletionTokens(registry, modelId),
-                  ...(input.webSearchEnabled
-                    ? { tools: ALL_TOOLS, toolChoice: ToolChoiceOptionAuto.Auto }
-                    : {}),
-                },
-              },
-              { signal: combinedSignal },
-            )
-
-            const toolCallDeltas = new Map<
-              number,
-              { id?: string; name?: string; argsJson: string }
-            >()
-            let roundAssistantText = ''
-
-            for await (const streamChunk of stream) {
-              const delta = streamChunk.choices[0]?.delta
-              if (!delta) continue
-
-              if (delta.toolCalls && delta.toolCalls.length > 0) {
-                for (const toolCallDelta of delta.toolCalls) {
-                  accumulateToolCallDelta(toolCallDeltas, toolCallDelta)
-                }
-              }
-
-              if (delta.reasoning) {
-                if (!thinkingStatusEmitted) {
-                  push({
-                    done: false,
-                    modelId,
-                    modelIndex,
-                    chunk: {
-                      type: STREAM_EVENTS.STATUS,
-                      streamRequestId: modelStreamRequestId,
-                      phase: STREAM_PHASES.THINKING,
-                      message: runtimeConfig.chat.statusMessages.thinking,
-                    } satisfies StreamChunk,
-                  })
-                  thinkingStatusEmitted = true
-                }
-                push({
-                  done: false,
-                  modelId,
-                  modelIndex,
-                  chunk: {
-                    type: STREAM_EVENTS.THINKING,
-                    streamRequestId: modelStreamRequestId,
-                    content: delta.reasoning,
-                    isComplete: false,
-                  } satisfies StreamChunk,
-                })
-              }
-
-              if (!delta.content) continue
-
-              fullText += delta.content
-              roundAssistantText += delta.content
-              push({
-                done: false,
-                modelId,
-                modelIndex,
-                chunk: {
-                  type: STREAM_EVENTS.TEXT,
-                  content: delta.content,
-                  streamRequestId: modelStreamRequestId,
-                  attempt: toolRoundCount,
-                } satisfies StreamChunk,
+              modelOutcomes.set(modelId, {
+                content: '',
+                searchResults: modelSearchResults,
+                searchImages: modelSearchImages,
+                toolCalls: modelToolCalls,
+                error: errorMessage,
               })
+              push({ done: true, modelId })
+              return
             }
 
-            if (toolCallDeltas.size === 0) {
-              break
-            }
-
-            if (toolRoundCount >= LIMITS.SEARCH_MAX_TOOL_CALL_ROUNDS) {
-              throw new TRPCError({
-                code: TRPC_CODES.BAD_REQUEST,
-                message: runtimeConfig.chat.errors.processing,
-              })
-            }
-
-            const roundToolCalls = buildRoundToolCalls(toolCallDeltas)
-
-            if (roundToolCalls.length === 0) {
-              break
-            }
-
-            attemptMessages.push({
-              role: MESSAGE_ROLES.ASSISTANT,
-              content: roundAssistantText,
-              toolCalls: roundToolCalls,
+            modelOutcomes.set(modelId, {
+              content: fullText,
+              searchResults: modelSearchResults,
+              searchImages: modelSearchImages,
+              toolCalls: modelToolCalls,
             })
-
-            for (const call of roundToolCalls) {
-              if (call.function.name !== searchToolName) {
-                attemptMessages.push(buildUnsupportedToolResponse(call))
-                continue
-              }
-
-              push({
-                done: false,
-                modelId,
-                modelIndex,
-                chunk: {
-                  type: STREAM_EVENTS.TOOL_START,
-                  streamRequestId: modelStreamRequestId,
-                  toolName: searchToolName,
-                  input: { query: input.content },
-                } satisfies StreamChunk,
-              })
-
-              const searchResult = await executeSearchToolCall({
-                call,
-                searchToolName,
-                fallbackQuery: input.content,
-                runtimeConfig,
-                existingResults: modelSearchResults,
-                existingImages: modelSearchImages,
-              })
-
-              modelSearchResults = searchResult.mergedResults
-              modelSearchImages = searchResult.mergedImages
-              searchResults = mergeSearchResults(searchResults, searchResult.mergedResults)
-              searchImages = mergeSearchImages(searchImages, searchResult.mergedImages)
-
-              push({
-                done: false,
-                modelId,
-                modelIndex,
-                chunk: {
-                  type: STREAM_EVENTS.TOOL_RESULT,
-                  streamRequestId: modelStreamRequestId,
-                  toolName: searchToolName,
-                  result: searchResult.toolCallEntry.result,
-                } satisfies StreamChunk,
-              })
-
-              modelToolCalls.push(searchResult.toolCallEntry)
-              attemptMessages.push(searchResult.toolMessage)
-            }
-
-            toolRoundCount += 1
-          }
-
-          push({
-            done: false,
-            modelId,
-            modelIndex,
-            chunk: {
-              type: STREAM_EVENTS.THINKING,
-              streamRequestId: modelStreamRequestId,
-              content: '',
-              isComplete: true,
-            } satisfies StreamChunk,
-          })
-          push({
-            done: false,
-            modelId,
-            modelIndex,
-            chunk: {
-              type: STREAM_EVENTS.DONE,
-              streamRequestId: modelStreamRequestId,
-            } satisfies StreamChunk,
-          })
-
-          if (fullText.trim().length === 0) {
-            const errorMessage = runtimeConfig.chat.errors.processing
+          } catch (error) {
+            console.error('[team.stream] model error:', getErrorMessage(error))
+            const terminal = streamSessions.classifyTerminalError(runtimeConfig, error)
             push({
               done: false,
               modelId,
               modelIndex,
               chunk: {
                 type: STREAM_EVENTS.ERROR,
-                streamRequestId: modelStreamRequestId,
-                message: errorMessage,
-                recoverable: false,
+                streamRequestId: crypto.randomUUID(),
+                message: terminal.message,
+                recoverable: terminal.recoverable,
               } satisfies StreamChunk,
             })
             modelOutcomes.set(modelId, {
               content: '',
-              searchResults: modelSearchResults,
-              searchImages: modelSearchImages,
-              toolCalls: modelToolCalls,
-              error: errorMessage,
+              searchResults: [...searchResults],
+              searchImages: [...searchImages],
+              toolCalls: [],
+              error: terminal.message,
             })
-            push({ done: true, modelId })
-            return
           }
-
-          modelOutcomes.set(modelId, {
-            content: fullText,
-            searchResults: modelSearchResults,
-            searchImages: modelSearchImages,
-            toolCalls: modelToolCalls,
-          })
-        } catch (error) {
-          console.error('[team.stream] model error:', getErrorMessage(error))
-          const terminal = streamSessions.classifyTerminalError(runtimeConfig, error)
-          push({
-            done: false,
-            modelId,
-            modelIndex,
-            chunk: {
-              type: STREAM_EVENTS.ERROR,
-              streamRequestId: crypto.randomUUID(),
-              message: terminal.message,
-              recoverable: terminal.recoverable,
-            } satisfies StreamChunk,
-          })
-          modelOutcomes.set(modelId, {
-            content: '',
-            searchResults: [...searchResults],
-            searchImages: [...searchImages],
-            toolCalls: [],
-            error: terminal.message,
-          })
-        }
-        push({ done: true, modelId })
-      }
-
-      for (let i = 0; i < input.models.length; i++) {
-        const modelId = input.models[i]
-        if (modelId !== undefined) {
-          void spawnModelStream(modelId, i)
-        }
-      }
-
-      let completedCount = 0
-      while (completedCount < input.models.length) {
-        if (queue.length === 0) {
-          await next()
-        }
-        const item = queue.shift()
-        if (!item) continue
-        if (item.done) {
-          completedCount++
-          continue
-        }
-        yield {
-          type: TEAM_EVENTS.MODEL_CHUNK,
-          teamId,
-          modelId: item.modelId,
-          modelIndex: item.modelIndex,
-          chunk: item.chunk,
-        }
-      }
-
-      const successfulModels: string[] = []
-      for (const modelId of input.models) {
-        const outcome = modelOutcomes.get(modelId)
-        const content = outcome?.content.trim() ?? ''
-        const hasError = Boolean(outcome?.error)
-
-        if (content.length === 0 && !hasError) {
-          continue
+          push({ done: true, modelId })
         }
 
-        if (!hasError) {
-          successfulModels.push(modelId)
+        for (let i = 0; i < input.models.length; i++) {
+          const modelId = input.models[i]
+          if (modelId !== undefined) {
+            void spawnModelStream(modelId, i)
+          }
         }
 
-        const metadata = MessageMetadataSchema.parse({
-          streamRequestId,
-          teamId,
-          modelUsed: modelId,
-          userMessageId,
-          requiresSearch: input.webSearchEnabled,
-          searchQuery: input.webSearchEnabled ? input.content : undefined,
-          searchResults:
-            outcome && outcome.searchResults.length > 0 ? outcome.searchResults : undefined,
-          searchImages:
-            outcome && outcome.searchImages.length > 0 ? outcome.searchImages : undefined,
-          toolCalls: outcome && outcome.toolCalls.length > 0 ? outcome.toolCalls : undefined,
-          errorMessage: hasError ? outcome?.error : undefined,
-        })
-        const assistantClientRequestId = buildDeterministicClientRequestId(
-          `${streamRequestId}:${modelId}:assistant`,
-        )
-
-        await persistAssistantMessage({
-          db: ctx.db,
-          conversationId,
-          content: hasError ? '' : content,
-          clientRequestId: assistantClientRequestId,
-          metadata,
-        })
-      }
-
-      if (successfulModels.length === 0) {
-        throw new TRPCError({
-          code: TRPC_CODES.INTERNAL_SERVER_ERROR,
-          message: runtimeConfig.chat.errors.processing,
-        })
-      }
-
-      await ctx.db
-        .update(conversations)
-        .set({ updatedAt: new Date() })
-        .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
-
-      yield {
-        type: TEAM_EVENTS.PERSISTED,
-        teamId,
-        conversationId,
-      }
-
-      yield {
-        type: TEAM_EVENTS.DONE,
-        teamId,
-        completedModels: input.models,
-      }
-
-      const shouldGenerateTitle = conversation.title === NEW_CHAT_TITLE
-      if (shouldGenerateTitle) {
-        const { generateAndPersistTitle } =
-          await import('@/server/services/title-generation-service')
-        const result = await generateAndPersistTitle({
-          db: ctx.db,
-          conversationId,
-          userId: ctx.userId,
-          currentTitle: conversation.title,
-          fallbackContent: input.content,
-          runtimeConfig,
-        })
-        if (result?.title) {
+        let completedCount = 0
+        while (completedCount < input.models.length) {
+          if (queue.length === 0) {
+            await next()
+          }
+          const item = queue.shift()
+          if (!item) continue
+          if (item.done) {
+            completedCount++
+            continue
+          }
           yield {
-            type: TEAM_EVENTS.STREAM_EVENT,
-            chunk: {
-              type: STREAM_EVENTS.TITLE_UPDATED,
-              streamRequestId,
-              title: result.title,
-            } satisfies StreamChunk,
+            type: TEAM_EVENTS.MODEL_CHUNK,
+            teamId,
+            modelId: item.modelId,
+            modelIndex: item.modelIndex,
+            chunk: item.chunk,
           }
         }
-      }
+
+        const successfulModels: string[] = []
+        for (const modelId of input.models) {
+          const outcome = modelOutcomes.get(modelId)
+          const content = outcome?.content.trim() ?? ''
+          const hasError = Boolean(outcome?.error)
+
+          if (content.length === 0 && !hasError) {
+            continue
+          }
+
+          if (!hasError) {
+            successfulModels.push(modelId)
+          }
+
+          const metadata = MessageMetadataSchema.parse({
+            streamRequestId,
+            teamId,
+            modelUsed: modelId,
+            userMessageId,
+            requiresSearch: input.webSearchEnabled,
+            searchQuery: input.webSearchEnabled ? input.content : undefined,
+            searchResults:
+              outcome && outcome.searchResults.length > 0 ? outcome.searchResults : undefined,
+            searchImages:
+              outcome && outcome.searchImages.length > 0 ? outcome.searchImages : undefined,
+            toolCalls: outcome && outcome.toolCalls.length > 0 ? outcome.toolCalls : undefined,
+            errorMessage: hasError ? outcome?.error : undefined,
+          })
+          const assistantClientRequestId = buildDeterministicClientRequestId(
+            `${streamRequestId}:${modelId}:assistant`,
+          )
+
+          await persistAssistantMessage({
+            db: ctx.db,
+            conversationId,
+            content: hasError ? '' : content,
+            clientRequestId: assistantClientRequestId,
+            metadata,
+          })
+        }
+
+        if (successfulModels.length === 0) {
+          throw new TRPCError({
+            code: TRPC_CODES.INTERNAL_SERVER_ERROR,
+            message: runtimeConfig.chat.errors.processing,
+          })
+        }
+
+        await ctx.db
+          .update(conversations)
+          .set({ updatedAt: new Date() })
+          .where(and(eq(conversations.id, conversationId), eq(conversations.userId, ctx.userId)))
+
+        yield {
+          type: TEAM_EVENTS.PERSISTED,
+          teamId,
+          conversationId,
+        }
+
+        yield {
+          type: TEAM_EVENTS.DONE,
+          teamId,
+          completedModels: input.models,
+        }
+
+        const shouldGenerateTitle = conversation.title === NEW_CHAT_TITLE
+        if (shouldGenerateTitle) {
+          const { generateAndPersistTitle } =
+            await import('@/server/services/title-generation-service')
+          const result = await generateAndPersistTitle({
+            db: ctx.db,
+            conversationId,
+            userId: ctx.userId,
+            currentTitle: conversation.title,
+            fallbackContent: input.content,
+            runtimeConfig,
+          })
+          if (result?.title) {
+            yield {
+              type: TEAM_EVENTS.STREAM_EVENT,
+              chunk: {
+                type: STREAM_EVENTS.TITLE_UPDATED,
+                streamRequestId,
+                title: result.title,
+              } satisfies StreamChunk,
+            }
+          }
+        }
+      })
     } catch (err: unknown) {
       const message = getErrorMessage(err, AppError.CHAT_PROCESSING)
       yield {
@@ -819,6 +829,23 @@ export const teamRouter = router({
         streamSessions.end(streamSession)
       }
     }
+  }),
+
+  rejoin: protectedProcedure.input(RejoinInputSchema).subscription(async function* ({
+    ctx,
+    input,
+    signal,
+  }) {
+    const session = streamSessions.findByConversation(ctx.userId, input.conversationId)
+    if (!session) {
+      const noStream: RejoinStatusEvent = {
+        type: STREAM_EVENTS.REJOIN_STATUS,
+        status: 'no_active_stream',
+      }
+      yield noStream
+      return
+    }
+    yield* streamSessions.rejoinStream<TeamOutputChunk>(session, signal)
   }),
 
   synthesize: rateLimitedChatProcedure

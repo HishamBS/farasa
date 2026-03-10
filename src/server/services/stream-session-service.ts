@@ -1,3 +1,4 @@
+import { EventEmitter } from 'events'
 import { CHAT_ERRORS, STREAM_REASON_CODES, TRPC_CODES } from '@/config/constants'
 import { AppError } from '@/lib/utils/errors'
 import type { RuntimeConfig } from '@/schemas/runtime-config'
@@ -10,6 +11,9 @@ type StreamSession = {
   conversationId: string
   streamRequestId: string
   abortController: AbortController
+  chunkBuffer: unknown[]
+  emitter: EventEmitter
+  completed: boolean
 }
 
 type DistributiveOmit<T, K extends string> = T extends unknown ? Omit<T, K> : never
@@ -58,6 +62,9 @@ class StreamSessionService {
       conversationId: params.conversationId,
       streamRequestId: params.streamRequestId,
       abortController: new AbortController(),
+      chunkBuffer: [],
+      emitter: new EventEmitter(),
+      completed: false,
     }
     this.byConversation.set(key, session)
     this.byRequest.set(session.streamRequestId, session)
@@ -65,6 +72,8 @@ class StreamSessionService {
   }
 
   end(session: StreamSession): void {
+    session.completed = true
+    session.emitter.emit('update')
     const activeForConversation = this.byConversation.get(session.key)
     if (activeForConversation?.streamRequestId === session.streamRequestId) {
       this.byConversation.delete(session.key)
@@ -72,6 +81,51 @@ class StreamSessionService {
     const activeForRequest = this.byRequest.get(session.streamRequestId)
     if (activeForRequest?.key === session.key) {
       this.byRequest.delete(session.streamRequestId)
+    }
+  }
+
+  async *withBuffering<T>(
+    session: StreamSession,
+    inner: () => AsyncIterable<T>,
+  ): AsyncGenerator<T> {
+    for await (const chunk of inner()) {
+      session.chunkBuffer.push(chunk)
+      session.emitter.emit('update')
+      yield chunk
+    }
+  }
+
+  async *rejoinStream<T>(
+    session: StreamSession,
+    signal: AbortSignal | undefined,
+  ): AsyncGenerator<T> {
+    let cursor = 0
+    let resolver: (() => void) | null = null
+
+    const onUpdate = (): void => {
+      if (resolver) {
+        resolver()
+        resolver = null
+      }
+    }
+    session.emitter.on('update', onUpdate)
+
+    try {
+      while (!signal?.aborted) {
+        while (cursor < session.chunkBuffer.length) {
+          const chunk = session.chunkBuffer[cursor] as T | undefined
+          if (chunk) yield chunk
+          cursor++
+        }
+
+        if (session.completed) return
+
+        await new Promise<void>((r) => {
+          resolver = r
+        })
+      }
+    } finally {
+      session.emitter.off('update', onUpdate)
     }
   }
 

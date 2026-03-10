@@ -15,11 +15,12 @@ import { PROMPTS } from '@/config/prompts'
 import { attachments, conversations, messages } from '@/lib/db/schema'
 import type { AttachmentRow } from '@/server/services/history-builder'
 import { AppError, getErrorMessage } from '@/lib/utils/errors'
-import type { StreamChunk, ToolCall, Usage } from '@/schemas/message'
+import type { RejoinStatusEvent, StreamChunk, ToolCall, Usage } from '@/schemas/message'
 import {
   CancelStreamInputSchema,
   ChatInputSchema,
   MessageMetadataSchema,
+  RejoinInputSchema,
   UsageSchema,
 } from '@/schemas/message'
 import type { ModelCapability, ModelResponseFormat, ModelSelectionSource } from '@/schemas/model'
@@ -140,6 +141,13 @@ export const chatRouter = router({
         conversationId,
         streamRequestId,
       })
+      const resolvedConversationId = conversationId
+      if (!resolvedConversationId) {
+        throw new TRPCError({
+          code: TRPC_CODES.INTERNAL_SERVER_ERROR,
+          message: AppError.INVALID_INPUT,
+        })
+      }
       const { signal: combinedSignal, cleanup } = streamSessions.buildCombinedAbortSignal(
         signal
           ? [signal, streamSession.abortController.signal]
@@ -147,691 +155,701 @@ export const chatRouter = router({
         runtimeConfig.chat.stream.timeoutMs,
       )
       signalCleanup = cleanup
+      yield* streamSessions.withBuffering(streamSession, async function* () {
+        // Shadow outer `let` with narrowed `const` — TypeScript doesn't carry
+        // control-flow narrowing across function boundaries (async function*)
+        const conversationId = resolvedConversationId
 
-      if (input.webSearchEnabled && !runtimeConfig.features.searchEnabled) {
-        throw new TRPCError({
-          code: TRPC_CODES.BAD_REQUEST,
-          message: AppError.SEARCH_UNAVAILABLE,
-        })
-      }
-
-      const userResult = await persistUserMessage({
-        db: ctx.db,
-        conversationId,
-        content: input.content,
-        clientRequestId: streamRequestId,
-        ...(input.isA2UIAction ? { metadata: { isA2UIAction: true } } : {}),
-      })
-      userMessageId = userResult.messageId
-
-      let linkedAttachmentRows: AttachmentRow[] = []
-      if (input.attachmentIds.length > 0 && userMessageId) {
-        const { linkAttachmentsToMessage } = await import('@/server/services/history-builder')
-        linkedAttachmentRows = await linkAttachmentsToMessage(
-          ctx.db,
-          ctx.userId,
-          input.attachmentIds,
-          userMessageId,
-        )
-      }
-
-      const userMessageAttachments =
-        userMessageId && linkedAttachmentRows.length === 0
-          ? await ctx.db
-              .select({
-                id: attachments.id,
-                fileName: attachments.fileName,
-                fileType: attachments.fileType,
-                fileSize: attachments.fileSize,
-                storageUrl: attachments.storageUrl,
-              })
-              .from(attachments)
-              .where(
-                and(eq(attachments.messageId, userMessageId), eq(attachments.userId, ctx.userId)),
-              )
-          : linkedAttachmentRows.map((att) => ({
-              id: att.id,
-              fileName: att.fileName,
-              fileType: att.fileType,
-              fileSize: att.fileSize,
-              storageUrl: att.storageUrl,
-            }))
-
-      yield emit({
-        type: STREAM_EVENTS.USER_MESSAGE_SAVED,
-        messageId: userMessageId,
-        attachments: userMessageAttachments,
-      })
-
-      const [existingAssistantMessageForTurn] = await ctx.db
-        .select({
-          id: messages.id,
-          content: messages.content,
-          metadata: messages.metadata,
-          tokenCount: messages.tokenCount,
-        })
-        .from(messages)
-        .where(
-          and(
-            eq(messages.conversationId, conversationId),
-            eq(messages.role, MESSAGE_ROLES.ASSISTANT),
-            eq(messages.clientRequestId, streamRequestId),
-          ),
-        )
-        .limit(1)
-
-      if (existingAssistantMessageForTurn) {
-        if (existingAssistantMessageForTurn.content.trim().length > 0) {
-          yield emit({
-            type: STREAM_EVENTS.TEXT_SET,
-            content: existingAssistantMessageForTurn.content,
-          })
-        }
-
-        const parsedExistingMetadata = MessageMetadataSchema.safeParse(
-          existingAssistantMessageForTurn.metadata,
-        )
-        if (parsedExistingMetadata.success && parsedExistingMetadata.data.a2uiMessages) {
-          for (const line of parsedExistingMetadata.data.a2uiMessages) {
-            if (typeof line !== 'string') continue
-            yield emit({
-              type: STREAM_EVENTS.A2UI,
-              jsonl: line,
-            })
-          }
-        }
-
-        yield emit({
-          type: STREAM_EVENTS.DONE,
-          usage: parsedExistingMetadata.success ? parsedExistingMetadata.data.usage : undefined,
-          terminalReason: 'done',
-        })
-        return
-      }
-
-      let selectedModel: string | undefined
-      let conversationMode = input.mode
-      let routerReasoning: string | undefined
-      let routerSource: ModelSelectionSource | undefined
-      let routerCategory: ModelCapability | undefined
-      let routerResponseFormat: ModelResponseFormat | undefined
-      let routerConfidence: number | undefined
-      let routerFactors:
-        | Array<{
-            key: string
-            label: string
-            value: string
-          }>
-        | undefined
-      const webSearchEnabled = input.webSearchEnabled
-      const { getModelRegistry, getModelMaxCompletionTokens } = await import('@/lib/ai/registry')
-      const registry = await getModelRegistry({ runtimeConfig })
-
-      if (!input.model) {
-        yield emit({
-          type: STREAM_EVENTS.STATUS,
-          phase: STREAM_PHASES.ROUTING,
-          message: runtimeConfig.chat.statusMessages.routing,
-        })
-      }
-
-      const resolvedDecision = await resolveModelDecision({
-        dbClient: ctx.db,
-        userId: ctx.userId,
-        conversationId,
-        requestedModel: input.model,
-        requestedMode: input.mode,
-        requestedWebSearchEnabled: input.webSearchEnabled,
-        prompt: input.content,
-        registry,
-        runtimeConfig,
-        signal: combinedSignal,
-      })
-
-      selectedModel = resolvedDecision.selectedModel
-      conversationMode = resolvedDecision.requestedMode
-      routerReasoning = resolvedDecision.reasoning
-      routerSource = resolvedDecision.source
-      routerCategory = resolvedDecision.category
-      routerResponseFormat = resolvedDecision.responseFormat
-      routerConfidence = resolvedDecision.confidence
-      routerFactors = resolvedDecision.factors
-
-      yield emit({
-        type: STREAM_EVENTS.MODEL_SELECTED,
-        model: selectedModel,
-        reasoning: resolvedDecision.reasoning,
-        source: resolvedDecision.source,
-        category: resolvedDecision.category,
-        responseFormat: resolvedDecision.responseFormat,
-        confidence: resolvedDecision.confidence,
-        factors: resolvedDecision.factors,
-      })
-
-      if (!selectedModel) {
-        throw new TRPCError({
-          code: TRPC_CODES.INTERNAL_SERVER_ERROR,
-          message: AppError.INVALID_MODEL,
-        })
-      }
-
-      const isImageGenModel =
-        registry.find((m) => m.id === selectedModel)?.supportsImageGeneration ?? false
-
-      const wrappedContent = `${runtimeConfig.prompts.wrappers.userRequestOpen}\n${input.content}\n${runtimeConfig.prompts.wrappers.userRequestClose}`
-      const hasAttachments = input.attachmentIds.length > 0
-      if (hasAttachments) {
-        yield emit({
-          type: STREAM_EVENTS.STATUS,
-          phase: STREAM_PHASES.READING_FILES,
-          message: runtimeConfig.chat.statusMessages.readingFiles,
-        })
-      }
-
-      const { buildUserContent } = await import('@/server/services/history-builder')
-      const userContent = await buildUserContent(wrappedContent, linkedAttachmentRows)
-
-      const searchToolName = runtimeConfig.search.toolName
-      const toolCalls: ToolCall[] = []
-      let searchContext = ''
-      let searchResults: SearchResult[] = []
-      let searchImages: SearchImage[] = []
-
-      if (webSearchEnabled) {
-        if (!runtimeConfig.features.searchEnabled) {
+        if (input.webSearchEnabled && !runtimeConfig.features.searchEnabled) {
           throw new TRPCError({
             code: TRPC_CODES.BAD_REQUEST,
             message: AppError.SEARCH_UNAVAILABLE,
           })
         }
 
-        yield emit({
-          type: STREAM_EVENTS.STATUS,
-          phase: STREAM_PHASES.SEARCHING,
-          message: runtimeConfig.chat.statusMessages.searching,
+        const userResult = await persistUserMessage({
+          db: ctx.db,
+          conversationId,
+          content: input.content,
+          clientRequestId: streamRequestId,
+          ...(input.isA2UIAction ? { metadata: { isA2UIAction: true } } : {}),
         })
-        yield emit({
-          type: STREAM_EVENTS.TOOL_START,
-          toolName: searchToolName,
-          input: { query: input.content },
-        })
+        userMessageId = userResult.messageId
 
-        const startedAt = Date.now()
-        const enrichment = await executeSearchEnrichment(input.content, runtimeConfig)
-        searchResults = enrichment.results
-        searchImages = enrichment.images
-
-        yield emit({
-          type: STREAM_EVENTS.TOOL_RESULT,
-          toolName: searchToolName,
-          result: {
-            query: enrichment.query,
-            results: enrichment.results,
-            images: enrichment.images,
-          },
-        })
-        toolCalls.push({
-          name: searchToolName,
-          input: { query: input.content },
-          result: {
-            query: enrichment.query,
-            results: enrichment.results,
-            images: enrichment.images,
-          },
-          durationMs: Date.now() - startedAt,
-        })
-        searchContext = enrichment.context
-      }
-
-      const systemSections = [PROMPTS.CHAT_SYSTEM_PROMPT, runtimeConfig.prompts.chatSystem]
-      systemSections.push(PROMPTS.A2UI_SYSTEM_PROMPT)
-      systemSections.push(runtimeConfig.prompts.a2uiSystem)
-      if (routerResponseFormat === RESPONSE_FORMATS.A2UI) {
-        systemSections.push(PROMPTS.A2UI_FORMAT_POLICY)
-      }
-      if (searchContext) {
-        systemSections.push(searchContext)
-      }
-
-      const { buildEnrichedHistory } = await import('@/server/services/history-builder')
-      const historyMessages = await buildEnrichedHistory(ctx.db, conversationId, {
-        excludeMessageIds: userMessageId ? [userMessageId] : [],
-        stripInlineImages: isImageGenModel,
-      })
-
-      const baseMessages: Message[] = [
-        ...historyMessages,
-        { role: MESSAGE_ROLES.USER, content: userContent },
-      ]
-
-      const { openrouter } = await import('@/lib/ai/client')
-      const { ALL_TOOLS } = await import('@/lib/ai/tools')
-
-      let fullText = ''
-      let thinkingContent = ''
-      let thinkingStartedAt: number | null = null
-      let thinkingDurationMs: number | undefined
-      let a2uiLines: string[] = []
-      let usage: Usage | undefined
-      let streamSequenceMax = 0
-
-      const emitA2UIFromPayload = (payload: string): StreamChunk[] => {
-        const parsedLines = parseA2UIFencePayloadToJsonLines(payload)
-        const events: StreamChunk[] = []
-        for (const line of parsedLines) {
-          a2uiLines.push(line)
-          const a2uiEvent = emit({
-            type: STREAM_EVENTS.A2UI,
-            jsonl: line,
-          })
-          if (typeof a2uiEvent.sequence === 'number') {
-            streamSequenceMax = Math.max(streamSequenceMax, a2uiEvent.sequence)
-          }
-          events.push(a2uiEvent)
+        let linkedAttachmentRows: AttachmentRow[] = []
+        if (input.attachmentIds.length > 0 && userMessageId) {
+          const { linkAttachmentsToMessage } = await import('@/server/services/history-builder')
+          linkedAttachmentRows = await linkAttachmentsToMessage(
+            ctx.db,
+            ctx.userId,
+            input.attachmentIds,
+            userMessageId,
+          )
         }
-        return events
-      }
 
-      {
-        const attemptMessages: Message[] = [
-          { role: MESSAGE_ROLES.SYSTEM, content: systemSections.join('\n\n') },
-          ...baseMessages,
-        ]
+        const userMessageAttachments =
+          userMessageId && linkedAttachmentRows.length === 0
+            ? await ctx.db
+                .select({
+                  id: attachments.id,
+                  fileName: attachments.fileName,
+                  fileType: attachments.fileType,
+                  fileSize: attachments.fileSize,
+                  storageUrl: attachments.storageUrl,
+                })
+                .from(attachments)
+                .where(
+                  and(eq(attachments.messageId, userMessageId), eq(attachments.userId, ctx.userId)),
+                )
+            : linkedAttachmentRows.map((att) => ({
+                id: att.id,
+                fileName: att.fileName,
+                fileType: att.fileType,
+                fileSize: att.fileSize,
+                storageUrl: att.storageUrl,
+              }))
 
-        let inA2UI = false
-        let a2uiBuffer = ''
-        let fenceLookback = ''
-        let thinkingStatusEmitted = false
-        let toolRoundCount = 0
+        yield emit({
+          type: STREAM_EVENTS.USER_MESSAGE_SAVED,
+          messageId: userMessageId,
+          attachments: userMessageAttachments,
+        })
 
-        if (isImageGenModel) {
-          yield emit({
-            type: STREAM_EVENTS.STATUS,
-            phase: STREAM_PHASES.GENERATING_IMAGE,
-            message: STATUS_MESSAGES.GENERATING_IMAGE,
+        const [existingAssistantMessageForTurn] = await ctx.db
+          .select({
+            id: messages.id,
+            content: messages.content,
+            metadata: messages.metadata,
+            tokenCount: messages.tokenCount,
           })
+          .from(messages)
+          .where(
+            and(
+              eq(messages.conversationId, conversationId),
+              eq(messages.role, MESSAGE_ROLES.ASSISTANT),
+              eq(messages.clientRequestId, streamRequestId),
+            ),
+          )
+          .limit(1)
 
-          const { executeImageGeneration } =
-            await import('@/server/services/image-generation-service')
-          const imageResult = await executeImageGeneration({
-            model: selectedModel,
-            messages: baseMessages,
-            signal: combinedSignal,
-            registry,
-          })
-
-          if (imageResult.imageContent.length > 0) {
-            fullText = imageResult.imageContent
-            const textEvent = emit({ type: STREAM_EVENTS.TEXT, content: imageResult.imageContent })
-            if (typeof textEvent.sequence === 'number') {
-              streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
-            }
-            yield textEvent
-          } else {
-            throw new TRPCError({
-              code: TRPC_CODES.BAD_REQUEST,
-              message: AppError.IMAGE_GEN_EMPTY_RESULT,
+        if (existingAssistantMessageForTurn) {
+          if (existingAssistantMessageForTurn.content.trim().length > 0) {
+            yield emit({
+              type: STREAM_EVENTS.TEXT_SET,
+              content: existingAssistantMessageForTurn.content,
             })
           }
 
-          usage = imageResult.usage
-        } else {
-          while (true) {
-            const stream = await openrouter.chat.send(
-              {
-                chatGenerationParams: {
-                  model: selectedModel,
-                  messages: attemptMessages,
-                  stream: true,
-                  maxCompletionTokens: getModelMaxCompletionTokens(registry, selectedModel),
-                  ...(webSearchEnabled
-                    ? { tools: ALL_TOOLS, toolChoice: ToolChoiceOptionAuto.Auto }
-                    : {}),
-                  ...(registry.find((m) => m.id === selectedModel)?.supportsThinking
-                    ? { reasoning: { effort: AI_PARAMS.REASONING_EFFORT } }
-                    : {}),
+          const parsedExistingMetadata = MessageMetadataSchema.safeParse(
+            existingAssistantMessageForTurn.metadata,
+          )
+          if (parsedExistingMetadata.success && parsedExistingMetadata.data.a2uiMessages) {
+            for (const line of parsedExistingMetadata.data.a2uiMessages) {
+              if (typeof line !== 'string') continue
+              yield emit({
+                type: STREAM_EVENTS.A2UI,
+                jsonl: line,
+              })
+            }
+          }
+
+          yield emit({
+            type: STREAM_EVENTS.DONE,
+            usage: parsedExistingMetadata.success ? parsedExistingMetadata.data.usage : undefined,
+            terminalReason: 'done',
+          })
+          return
+        }
+
+        let selectedModel: string | undefined
+        let conversationMode = input.mode
+        let routerReasoning: string | undefined
+        let routerSource: ModelSelectionSource | undefined
+        let routerCategory: ModelCapability | undefined
+        let routerResponseFormat: ModelResponseFormat | undefined
+        let routerConfidence: number | undefined
+        let routerFactors:
+          | Array<{
+              key: string
+              label: string
+              value: string
+            }>
+          | undefined
+        const webSearchEnabled = input.webSearchEnabled
+        const { getModelRegistry, getModelMaxCompletionTokens } = await import('@/lib/ai/registry')
+        const registry = await getModelRegistry({ runtimeConfig })
+
+        if (!input.model) {
+          yield emit({
+            type: STREAM_EVENTS.STATUS,
+            phase: STREAM_PHASES.ROUTING,
+            message: runtimeConfig.chat.statusMessages.routing,
+          })
+        }
+
+        const resolvedDecision = await resolveModelDecision({
+          dbClient: ctx.db,
+          userId: ctx.userId,
+          conversationId,
+          requestedModel: input.model,
+          requestedMode: input.mode,
+          requestedWebSearchEnabled: input.webSearchEnabled,
+          prompt: input.content,
+          registry,
+          runtimeConfig,
+          signal: combinedSignal,
+        })
+
+        selectedModel = resolvedDecision.selectedModel
+        conversationMode = resolvedDecision.requestedMode
+        routerReasoning = resolvedDecision.reasoning
+        routerSource = resolvedDecision.source
+        routerCategory = resolvedDecision.category
+        routerResponseFormat = resolvedDecision.responseFormat
+        routerConfidence = resolvedDecision.confidence
+        routerFactors = resolvedDecision.factors
+
+        yield emit({
+          type: STREAM_EVENTS.MODEL_SELECTED,
+          model: selectedModel,
+          reasoning: resolvedDecision.reasoning,
+          source: resolvedDecision.source,
+          category: resolvedDecision.category,
+          responseFormat: resolvedDecision.responseFormat,
+          confidence: resolvedDecision.confidence,
+          factors: resolvedDecision.factors,
+        })
+
+        if (!selectedModel) {
+          throw new TRPCError({
+            code: TRPC_CODES.INTERNAL_SERVER_ERROR,
+            message: AppError.INVALID_MODEL,
+          })
+        }
+
+        const isImageGenModel =
+          registry.find((m) => m.id === selectedModel)?.supportsImageGeneration ?? false
+
+        const wrappedContent = `${runtimeConfig.prompts.wrappers.userRequestOpen}\n${input.content}\n${runtimeConfig.prompts.wrappers.userRequestClose}`
+        const hasAttachments = input.attachmentIds.length > 0
+        if (hasAttachments) {
+          yield emit({
+            type: STREAM_EVENTS.STATUS,
+            phase: STREAM_PHASES.READING_FILES,
+            message: runtimeConfig.chat.statusMessages.readingFiles,
+          })
+        }
+
+        const { buildUserContent } = await import('@/server/services/history-builder')
+        const userContent = await buildUserContent(wrappedContent, linkedAttachmentRows)
+
+        const searchToolName = runtimeConfig.search.toolName
+        const toolCalls: ToolCall[] = []
+        let searchContext = ''
+        let searchResults: SearchResult[] = []
+        let searchImages: SearchImage[] = []
+
+        if (webSearchEnabled) {
+          if (!runtimeConfig.features.searchEnabled) {
+            throw new TRPCError({
+              code: TRPC_CODES.BAD_REQUEST,
+              message: AppError.SEARCH_UNAVAILABLE,
+            })
+          }
+
+          yield emit({
+            type: STREAM_EVENTS.STATUS,
+            phase: STREAM_PHASES.SEARCHING,
+            message: runtimeConfig.chat.statusMessages.searching,
+          })
+          yield emit({
+            type: STREAM_EVENTS.TOOL_START,
+            toolName: searchToolName,
+            input: { query: input.content },
+          })
+
+          const startedAt = Date.now()
+          const enrichment = await executeSearchEnrichment(input.content, runtimeConfig)
+          searchResults = enrichment.results
+          searchImages = enrichment.images
+
+          yield emit({
+            type: STREAM_EVENTS.TOOL_RESULT,
+            toolName: searchToolName,
+            result: {
+              query: enrichment.query,
+              results: enrichment.results,
+              images: enrichment.images,
+            },
+          })
+          toolCalls.push({
+            name: searchToolName,
+            input: { query: input.content },
+            result: {
+              query: enrichment.query,
+              results: enrichment.results,
+              images: enrichment.images,
+            },
+            durationMs: Date.now() - startedAt,
+          })
+          searchContext = enrichment.context
+        }
+
+        const systemSections = [PROMPTS.CHAT_SYSTEM_PROMPT, runtimeConfig.prompts.chatSystem]
+        systemSections.push(PROMPTS.A2UI_SYSTEM_PROMPT)
+        systemSections.push(runtimeConfig.prompts.a2uiSystem)
+        if (routerResponseFormat === RESPONSE_FORMATS.A2UI) {
+          systemSections.push(PROMPTS.A2UI_FORMAT_POLICY)
+        }
+        if (searchContext) {
+          systemSections.push(searchContext)
+        }
+
+        const { buildEnrichedHistory } = await import('@/server/services/history-builder')
+        const historyMessages = await buildEnrichedHistory(ctx.db, conversationId, {
+          excludeMessageIds: userMessageId ? [userMessageId] : [],
+          stripInlineImages: isImageGenModel,
+        })
+
+        const baseMessages: Message[] = [
+          ...historyMessages,
+          { role: MESSAGE_ROLES.USER, content: userContent },
+        ]
+
+        const { openrouter } = await import('@/lib/ai/client')
+        const { ALL_TOOLS } = await import('@/lib/ai/tools')
+
+        let fullText = ''
+        let thinkingContent = ''
+        let thinkingStartedAt: number | null = null
+        let thinkingDurationMs: number | undefined
+        let a2uiLines: string[] = []
+        let usage: Usage | undefined
+        let streamSequenceMax = 0
+
+        const emitA2UIFromPayload = (payload: string): StreamChunk[] => {
+          const parsedLines = parseA2UIFencePayloadToJsonLines(payload)
+          const events: StreamChunk[] = []
+          for (const line of parsedLines) {
+            a2uiLines.push(line)
+            const a2uiEvent = emit({
+              type: STREAM_EVENTS.A2UI,
+              jsonl: line,
+            })
+            if (typeof a2uiEvent.sequence === 'number') {
+              streamSequenceMax = Math.max(streamSequenceMax, a2uiEvent.sequence)
+            }
+            events.push(a2uiEvent)
+          }
+          return events
+        }
+
+        {
+          const attemptMessages: Message[] = [
+            { role: MESSAGE_ROLES.SYSTEM, content: systemSections.join('\n\n') },
+            ...baseMessages,
+          ]
+
+          let inA2UI = false
+          let a2uiBuffer = ''
+          let fenceLookback = ''
+          let thinkingStatusEmitted = false
+          let toolRoundCount = 0
+
+          if (isImageGenModel) {
+            yield emit({
+              type: STREAM_EVENTS.STATUS,
+              phase: STREAM_PHASES.GENERATING_IMAGE,
+              message: STATUS_MESSAGES.GENERATING_IMAGE,
+            })
+
+            const { executeImageGeneration } =
+              await import('@/server/services/image-generation-service')
+            const imageResult = await executeImageGeneration({
+              model: selectedModel,
+              messages: baseMessages,
+              signal: combinedSignal,
+              registry,
+            })
+
+            if (imageResult.imageContent.length > 0) {
+              fullText = imageResult.imageContent
+              const textEvent = emit({
+                type: STREAM_EVENTS.TEXT,
+                content: imageResult.imageContent,
+              })
+              if (typeof textEvent.sequence === 'number') {
+                streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
+              }
+              yield textEvent
+            } else {
+              throw new TRPCError({
+                code: TRPC_CODES.BAD_REQUEST,
+                message: AppError.IMAGE_GEN_EMPTY_RESULT,
+              })
+            }
+
+            usage = imageResult.usage
+          } else {
+            while (true) {
+              const stream = await openrouter.chat.send(
+                {
+                  chatGenerationParams: {
+                    model: selectedModel,
+                    messages: attemptMessages,
+                    stream: true,
+                    maxCompletionTokens: getModelMaxCompletionTokens(registry, selectedModel),
+                    ...(webSearchEnabled
+                      ? { tools: ALL_TOOLS, toolChoice: ToolChoiceOptionAuto.Auto }
+                      : {}),
+                    ...(registry.find((m) => m.id === selectedModel)?.supportsThinking
+                      ? { reasoning: { effort: AI_PARAMS.REASONING_EFFORT } }
+                      : {}),
+                  },
                 },
-              },
-              { signal: combinedSignal },
-            )
+                { signal: combinedSignal },
+              )
 
-            const toolCallDeltas = new Map<
-              number,
-              { id?: string; name?: string; argsJson: string }
-            >()
-            let roundAssistantText = ''
+              const toolCallDeltas = new Map<
+                number,
+                { id?: string; name?: string; argsJson: string }
+              >()
+              let roundAssistantText = ''
 
-            for await (const streamChunk of stream) {
-              if (streamChunk.usage) {
-                const parsedUsage = UsageSchema.safeParse({
-                  promptTokens: streamChunk.usage.promptTokens ?? 0,
-                  completionTokens: streamChunk.usage.completionTokens ?? 0,
-                  totalTokens: streamChunk.usage.totalTokens ?? 0,
-                })
-                if (parsedUsage.success) {
-                  usage = parsedUsage.data
-                }
-              }
-
-              const delta = streamChunk.choices[0]?.delta
-              if (!delta) continue
-
-              if (delta.toolCalls && delta.toolCalls.length > 0) {
-                for (const toolCallDelta of delta.toolCalls) {
-                  accumulateToolCallDelta(toolCallDeltas, toolCallDelta)
-                }
-              }
-
-              if (delta.reasoning) {
-                if (!thinkingStatusEmitted) {
-                  const thinkingStatusEvent = emit({
-                    type: STREAM_EVENTS.STATUS,
-                    phase: STREAM_PHASES.THINKING,
-                    message: runtimeConfig.chat.statusMessages.thinking,
+              for await (const streamChunk of stream) {
+                if (streamChunk.usage) {
+                  const parsedUsage = UsageSchema.safeParse({
+                    promptTokens: streamChunk.usage.promptTokens ?? 0,
+                    completionTokens: streamChunk.usage.completionTokens ?? 0,
+                    totalTokens: streamChunk.usage.totalTokens ?? 0,
                   })
-                  if (typeof thinkingStatusEvent.sequence === 'number') {
-                    streamSequenceMax = Math.max(streamSequenceMax, thinkingStatusEvent.sequence)
+                  if (parsedUsage.success) {
+                    usage = parsedUsage.data
                   }
-                  yield thinkingStatusEvent
-                  thinkingStatusEmitted = true
                 }
-                if (!thinkingStartedAt) thinkingStartedAt = Date.now()
-                thinkingContent += delta.reasoning
-                const thinkingEvent = emit({
-                  type: STREAM_EVENTS.THINKING,
-                  content: delta.reasoning,
-                  isComplete: false,
-                })
-                if (typeof thinkingEvent.sequence === 'number') {
-                  streamSequenceMax = Math.max(streamSequenceMax, thinkingEvent.sequence)
+
+                const delta = streamChunk.choices[0]?.delta
+                if (!delta) continue
+
+                if (delta.toolCalls && delta.toolCalls.length > 0) {
+                  for (const toolCallDelta of delta.toolCalls) {
+                    accumulateToolCallDelta(toolCallDeltas, toolCallDelta)
+                  }
                 }
-                yield thinkingEvent
-                continue
-              }
 
-              if (!delta.content) continue
+                if (delta.reasoning) {
+                  if (!thinkingStatusEmitted) {
+                    const thinkingStatusEvent = emit({
+                      type: STREAM_EVENTS.STATUS,
+                      phase: STREAM_PHASES.THINKING,
+                      message: runtimeConfig.chat.statusMessages.thinking,
+                    })
+                    if (typeof thinkingStatusEvent.sequence === 'number') {
+                      streamSequenceMax = Math.max(streamSequenceMax, thinkingStatusEvent.sequence)
+                    }
+                    yield thinkingStatusEvent
+                    thinkingStatusEmitted = true
+                  }
+                  if (!thinkingStartedAt) thinkingStartedAt = Date.now()
+                  thinkingContent += delta.reasoning
+                  const thinkingEvent = emit({
+                    type: STREAM_EVENTS.THINKING,
+                    content: delta.reasoning,
+                    isComplete: false,
+                  })
+                  if (typeof thinkingEvent.sequence === 'number') {
+                    streamSequenceMax = Math.max(streamSequenceMax, thinkingEvent.sequence)
+                  }
+                  yield thinkingEvent
+                  continue
+                }
 
-              const prefix = fenceLookback
-              fenceLookback = ''
-              let remaining = prefix + delta.content
+                if (!delta.content) continue
 
-              while (remaining.length > 0) {
-                if (!inA2UI) {
-                  const fenceStartMatch = findA2UIFenceStart(remaining)
-                  if (!fenceStartMatch) {
-                    const fencePattern = AI_MARKUP.A2UI_FENCE_START
-                    let reserveFrom = remaining.length
-                    for (
-                      let tailLen = 1;
-                      tailLen <= Math.min(remaining.length, fencePattern.length);
-                      tailLen++
-                    ) {
-                      const tail = remaining.slice(remaining.length - tailLen)
-                      if (fencePattern.startsWith(tail)) {
-                        reserveFrom = remaining.length - tailLen
+                const prefix = fenceLookback
+                fenceLookback = ''
+                let remaining = prefix + delta.content
+
+                while (remaining.length > 0) {
+                  if (!inA2UI) {
+                    const fenceStartMatch = findA2UIFenceStart(remaining)
+                    if (!fenceStartMatch) {
+                      const fencePattern = AI_MARKUP.A2UI_FENCE_START
+                      let reserveFrom = remaining.length
+                      for (
+                        let tailLen = 1;
+                        tailLen <= Math.min(remaining.length, fencePattern.length);
+                        tailLen++
+                      ) {
+                        const tail = remaining.slice(remaining.length - tailLen)
+                        if (fencePattern.startsWith(tail)) {
+                          reserveFrom = remaining.length - tailLen
+                        }
                       }
+                      if (reserveFrom < remaining.length) {
+                        fenceLookback = remaining.slice(reserveFrom)
+                      }
+                      const emittable = remaining.slice(0, reserveFrom)
+                      if (emittable.length > 0) {
+                        roundAssistantText += emittable
+                        fullText += emittable
+                        const textEvent = emit({
+                          type: STREAM_EVENTS.TEXT,
+                          content: emittable,
+                        })
+                        if (typeof textEvent.sequence === 'number') {
+                          streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
+                        }
+                        yield textEvent
+                      }
+                      remaining = ''
+                      continue
                     }
-                    if (reserveFrom < remaining.length) {
-                      fenceLookback = remaining.slice(reserveFrom)
-                    }
-                    const emittable = remaining.slice(0, reserveFrom)
-                    if (emittable.length > 0) {
-                      roundAssistantText += emittable
-                      fullText += emittable
+
+                    const visiblePrefix = remaining.slice(0, fenceStartMatch.index)
+                    if (visiblePrefix.length > 0) {
+                      roundAssistantText += visiblePrefix
+                      fullText += visiblePrefix
                       const textEvent = emit({
                         type: STREAM_EVENTS.TEXT,
-                        content: emittable,
+                        content: visiblePrefix,
                       })
                       if (typeof textEvent.sequence === 'number') {
                         streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
                       }
                       yield textEvent
                     }
+                    fenceLookback = ''
+
+                    remaining = remaining.slice(fenceStartMatch.index + fenceStartMatch.length)
+                    inA2UI = true
+                    a2uiBuffer = ''
+                    const generatingUiEvent = emit({
+                      type: STREAM_EVENTS.STATUS,
+                      phase: STREAM_PHASES.GENERATING_UI,
+                      message: runtimeConfig.chat.statusMessages.generatingUi,
+                    })
+                    if (typeof generatingUiEvent.sequence === 'number') {
+                      streamSequenceMax = Math.max(streamSequenceMax, generatingUiEvent.sequence)
+                    }
+                    yield generatingUiEvent
+                    continue
+                  }
+
+                  const fenceEndIndex = remaining.indexOf(AI_MARKUP.CODE_FENCE_END)
+                  if (fenceEndIndex < 0) {
+                    a2uiBuffer += remaining
                     remaining = ''
                     continue
                   }
 
-                  const visiblePrefix = remaining.slice(0, fenceStartMatch.index)
-                  if (visiblePrefix.length > 0) {
-                    roundAssistantText += visiblePrefix
-                    fullText += visiblePrefix
-                    const textEvent = emit({
-                      type: STREAM_EVENTS.TEXT,
-                      content: visiblePrefix,
-                    })
-                    if (typeof textEvent.sequence === 'number') {
-                      streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
-                    }
-                    yield textEvent
+                  a2uiBuffer += remaining.slice(0, fenceEndIndex)
+                  const a2uiEvents = emitA2UIFromPayload(a2uiBuffer)
+                  for (const a2uiEvent of a2uiEvents) {
+                    yield a2uiEvent
                   }
-                  fenceLookback = ''
-
-                  remaining = remaining.slice(fenceStartMatch.index + fenceStartMatch.length)
-                  inA2UI = true
                   a2uiBuffer = ''
-                  const generatingUiEvent = emit({
-                    type: STREAM_EVENTS.STATUS,
-                    phase: STREAM_PHASES.GENERATING_UI,
-                    message: runtimeConfig.chat.statusMessages.generatingUi,
-                  })
-                  if (typeof generatingUiEvent.sequence === 'number') {
-                    streamSequenceMax = Math.max(streamSequenceMax, generatingUiEvent.sequence)
-                  }
-                  yield generatingUiEvent
-                  continue
+                  inA2UI = false
+                  remaining = remaining.slice(fenceEndIndex + AI_MARKUP.CODE_FENCE_END.length)
                 }
+              }
 
-                const fenceEndIndex = remaining.indexOf(AI_MARKUP.CODE_FENCE_END)
-                if (fenceEndIndex < 0) {
-                  a2uiBuffer += remaining
-                  remaining = ''
-                  continue
+              if (fenceLookback.length > 0 && !inA2UI) {
+                roundAssistantText += fenceLookback
+                fullText += fenceLookback
+                const textEvent = emit({ type: STREAM_EVENTS.TEXT, content: fenceLookback })
+                if (typeof textEvent.sequence === 'number') {
+                  streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
                 }
+                yield textEvent
+                fenceLookback = ''
+              }
 
-                a2uiBuffer += remaining.slice(0, fenceEndIndex)
+              if (inA2UI && a2uiBuffer.trim().length > 0) {
                 const a2uiEvents = emitA2UIFromPayload(a2uiBuffer)
                 for (const a2uiEvent of a2uiEvents) {
                   yield a2uiEvent
                 }
-                a2uiBuffer = ''
                 inA2UI = false
-                remaining = remaining.slice(fenceEndIndex + AI_MARKUP.CODE_FENCE_END.length)
-              }
-            }
-
-            if (fenceLookback.length > 0 && !inA2UI) {
-              roundAssistantText += fenceLookback
-              fullText += fenceLookback
-              const textEvent = emit({ type: STREAM_EVENTS.TEXT, content: fenceLookback })
-              if (typeof textEvent.sequence === 'number') {
-                streamSequenceMax = Math.max(streamSequenceMax, textEvent.sequence)
-              }
-              yield textEvent
-              fenceLookback = ''
-            }
-
-            if (inA2UI && a2uiBuffer.trim().length > 0) {
-              const a2uiEvents = emitA2UIFromPayload(a2uiBuffer)
-              for (const a2uiEvent of a2uiEvents) {
-                yield a2uiEvent
-              }
-              inA2UI = false
-              a2uiBuffer = ''
-            }
-
-            if (toolCallDeltas.size === 0) {
-              break
-            }
-
-            if (toolRoundCount >= LIMITS.SEARCH_MAX_TOOL_CALL_ROUNDS) {
-              throw new TRPCError({
-                code: TRPC_CODES.BAD_REQUEST,
-                message: runtimeConfig.chat.errors.processing,
-              })
-            }
-
-            const roundToolCalls = buildRoundToolCalls(toolCallDeltas)
-
-            if (roundToolCalls.length === 0) {
-              break
-            }
-
-            attemptMessages.push({
-              role: MESSAGE_ROLES.ASSISTANT,
-              content: roundAssistantText,
-              toolCalls: roundToolCalls,
-            })
-
-            for (const call of roundToolCalls) {
-              if (call.function.name !== searchToolName) {
-                attemptMessages.push(buildUnsupportedToolResponse(call))
-                continue
+                a2uiBuffer = ''
               }
 
-              yield emit({
-                type: STREAM_EVENTS.TOOL_START,
-                toolName: searchToolName,
-                input: { query: parseSearchToolQuery(call.function.arguments, input.content) },
+              if (toolCallDeltas.size === 0) {
+                break
+              }
+
+              if (toolRoundCount >= LIMITS.SEARCH_MAX_TOOL_CALL_ROUNDS) {
+                throw new TRPCError({
+                  code: TRPC_CODES.BAD_REQUEST,
+                  message: runtimeConfig.chat.errors.processing,
+                })
+              }
+
+              const roundToolCalls = buildRoundToolCalls(toolCallDeltas)
+
+              if (roundToolCalls.length === 0) {
+                break
+              }
+
+              attemptMessages.push({
+                role: MESSAGE_ROLES.ASSISTANT,
+                content: roundAssistantText,
+                toolCalls: roundToolCalls,
               })
 
-              const searchResult = await executeSearchToolCall({
-                call,
-                searchToolName,
-                fallbackQuery: input.content,
-                runtimeConfig,
-                existingResults: searchResults,
-                existingImages: searchImages,
+              for (const call of roundToolCalls) {
+                if (call.function.name !== searchToolName) {
+                  attemptMessages.push(buildUnsupportedToolResponse(call))
+                  continue
+                }
+
+                yield emit({
+                  type: STREAM_EVENTS.TOOL_START,
+                  toolName: searchToolName,
+                  input: { query: parseSearchToolQuery(call.function.arguments, input.content) },
+                })
+
+                const searchResult = await executeSearchToolCall({
+                  call,
+                  searchToolName,
+                  fallbackQuery: input.content,
+                  runtimeConfig,
+                  existingResults: searchResults,
+                  existingImages: searchImages,
+                })
+
+                searchResults = searchResult.mergedResults
+                searchImages = searchResult.mergedImages
+
+                yield emit({
+                  type: STREAM_EVENTS.TOOL_RESULT,
+                  toolName: searchToolName,
+                  result: searchResult.toolCallEntry.result,
+                })
+
+                toolCalls.push(searchResult.toolCallEntry)
+                attemptMessages.push(searchResult.toolMessage)
+              }
+
+              toolRoundCount += 1
+            }
+
+            if (thinkingContent) {
+              thinkingDurationMs = thinkingStartedAt ? Date.now() - thinkingStartedAt : undefined
+              const thinkingCompleteEvent = emit({
+                type: STREAM_EVENTS.THINKING,
+                content: '',
+                isComplete: true,
               })
-
-              searchResults = searchResult.mergedResults
-              searchImages = searchResult.mergedImages
-
-              yield emit({
-                type: STREAM_EVENTS.TOOL_RESULT,
-                toolName: searchToolName,
-                result: searchResult.toolCallEntry.result,
-              })
-
-              toolCalls.push(searchResult.toolCallEntry)
-              attemptMessages.push(searchResult.toolMessage)
+              if (typeof thinkingCompleteEvent.sequence === 'number') {
+                streamSequenceMax = Math.max(streamSequenceMax, thinkingCompleteEvent.sequence)
+              }
+              yield thinkingCompleteEvent
             }
 
-            toolRoundCount += 1
-          }
-
-          if (thinkingContent) {
-            thinkingDurationMs = thinkingStartedAt ? Date.now() - thinkingStartedAt : undefined
-            const thinkingCompleteEvent = emit({
-              type: STREAM_EVENTS.THINKING,
-              content: '',
-              isComplete: true,
-            })
-            if (typeof thinkingCompleteEvent.sequence === 'number') {
-              streamSequenceMax = Math.max(streamSequenceMax, thinkingCompleteEvent.sequence)
+            if (a2uiLines.length > 0) {
+              const invalidTypes = validateA2UIComponentTypes(a2uiLines)
+              if (invalidTypes.length > 0) {
+                console.warn('[a2ui] unregistered component types detected:', invalidTypes)
+              }
             }
-            yield thinkingCompleteEvent
-          }
+          } // end else (streaming path)
+        }
 
-          if (a2uiLines.length > 0) {
-            const invalidTypes = validateA2UIComponentTypes(a2uiLines)
-            if (invalidTypes.length > 0) {
-              console.warn('[a2ui] unregistered component types detected:', invalidTypes)
-            }
-          }
-        } // end else (streaming path)
-      }
+        const hasVisibleAssistantOutput = fullText.trim().length > 0 || a2uiLines.length > 0
+        if (!hasVisibleAssistantOutput) {
+          throw new TRPCError({
+            code: TRPC_CODES.INTERNAL_SERVER_ERROR,
+            message: runtimeConfig.chat.errors.processing,
+          })
+        }
 
-      const hasVisibleAssistantOutput = fullText.trim().length > 0 || a2uiLines.length > 0
-      if (!hasVisibleAssistantOutput) {
-        throw new TRPCError({
-          code: TRPC_CODES.INTERNAL_SERVER_ERROR,
-          message: runtimeConfig.chat.errors.processing,
+        const modelEntry = selectedModel ? registry.find((m) => m.id === selectedModel) : undefined
+        const estimatedCost =
+          modelEntry && usage
+            ? (usage.promptTokens * modelEntry.pricing.promptPerMillion +
+                usage.completionTokens * modelEntry.pricing.completionPerMillion) /
+              LIMITS.COST_PER_MILLION_DIVISOR
+            : undefined
+        const usageWithCost = usage ? { ...usage, cost: estimatedCost } : undefined
+
+        const metadata = MessageMetadataSchema.parse({
+          streamRequestId,
+          modelUsed: selectedModel,
+          routerReasoning,
+          routerSource,
+          routerCategory,
+          routerResponseFormat,
+          routerConfidence,
+          routerFactors,
+          requiresSearch: webSearchEnabled,
+          thinkingContent: thinkingContent || undefined,
+          thinkingDurationMs,
+          toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+          searchQuery: webSearchEnabled ? input.content : undefined,
+          searchResults: searchResults.length > 0 ? searchResults : undefined,
+          searchImages: searchImages.length > 0 ? searchImages : undefined,
+          a2uiMessages: a2uiLines.length > 0 ? a2uiLines : undefined,
+          usage: usageWithCost,
+          userMessageId: userMessageId ?? undefined,
         })
-      }
 
-      const modelEntry = selectedModel ? registry.find((m) => m.id === selectedModel) : undefined
-      const estimatedCost =
-        modelEntry && usage
-          ? (usage.promptTokens * modelEntry.pricing.promptPerMillion +
-              usage.completionTokens * modelEntry.pricing.completionPerMillion) /
-            LIMITS.COST_PER_MILLION_DIVISOR
-          : undefined
-      const usageWithCost = usage ? { ...usage, cost: estimatedCost } : undefined
-
-      const metadata = MessageMetadataSchema.parse({
-        streamRequestId,
-        modelUsed: selectedModel,
-        routerReasoning,
-        routerSource,
-        routerCategory,
-        routerResponseFormat,
-        routerConfidence,
-        routerFactors,
-        requiresSearch: webSearchEnabled,
-        thinkingContent: thinkingContent || undefined,
-        thinkingDurationMs,
-        toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-        searchQuery: webSearchEnabled ? input.content : undefined,
-        searchResults: searchResults.length > 0 ? searchResults : undefined,
-        searchImages: searchImages.length > 0 ? searchImages : undefined,
-        a2uiMessages: a2uiLines.length > 0 ? a2uiLines : undefined,
-        usage: usageWithCost,
-        userMessageId: userMessageId ?? undefined,
-      })
-
-      await persistAssistantMessage({
-        db: ctx.db,
-        conversationId,
-        content: fullText,
-        clientRequestId: streamRequestId,
-        metadata,
-        streamSequenceMax,
-        tokenCount: usage?.totalTokens ?? null,
-      })
-
-      await updateConversationSettings({
-        db: ctx.db,
-        conversationId,
-        userId: ctx.userId,
-        settings: {
-          model:
-            resolvedDecision.source === MODEL_SELECTION_SOURCES.AUTO_ROUTER ? null : selectedModel,
-          mode: conversationMode,
-          webSearchEnabled: input.webSearchEnabled,
-        },
-      })
-
-      const doneEvent = emit({
-        type: STREAM_EVENTS.DONE,
-        usage,
-        terminalReason: 'done',
-      })
-      if (typeof doneEvent.sequence === 'number') {
-        streamSequenceMax = Math.max(streamSequenceMax, doneEvent.sequence)
-      }
-      yield doneEvent
-
-      const shouldGenerateTitle = conversation.title === NEW_CHAT_TITLE
-      if (shouldGenerateTitle) {
-        yield emit({
-          type: STREAM_EVENTS.STATUS,
-          phase: STREAM_PHASES.GENERATING_TITLE,
-          message: runtimeConfig.chat.statusMessages.generatingTitle,
+        await persistAssistantMessage({
+          db: ctx.db,
+          conversationId,
+          content: fullText,
+          clientRequestId: streamRequestId,
+          metadata,
+          streamSequenceMax,
+          tokenCount: usage?.totalTokens ?? null,
         })
-        const { generateAndPersistTitle } =
-          await import('@/server/services/title-generation-service')
-        const result = await generateAndPersistTitle({
+
+        await updateConversationSettings({
           db: ctx.db,
           conversationId,
           userId: ctx.userId,
-          currentTitle: conversation.title,
-          fallbackContent: input.content,
-          runtimeConfig,
+          settings: {
+            model:
+              resolvedDecision.source === MODEL_SELECTION_SOURCES.AUTO_ROUTER
+                ? null
+                : selectedModel,
+            mode: conversationMode,
+            webSearchEnabled: input.webSearchEnabled,
+          },
         })
-        if (result?.title) {
-          yield emit({ type: STREAM_EVENTS.TITLE_UPDATED, title: result.title })
+
+        const doneEvent = emit({
+          type: STREAM_EVENTS.DONE,
+          usage,
+          terminalReason: 'done',
+        })
+        if (typeof doneEvent.sequence === 'number') {
+          streamSequenceMax = Math.max(streamSequenceMax, doneEvent.sequence)
         }
-      }
+        yield doneEvent
+
+        const shouldGenerateTitle = conversation.title === NEW_CHAT_TITLE
+        if (shouldGenerateTitle) {
+          yield emit({
+            type: STREAM_EVENTS.STATUS,
+            phase: STREAM_PHASES.GENERATING_TITLE,
+            message: runtimeConfig.chat.statusMessages.generatingTitle,
+          })
+          const { generateAndPersistTitle } =
+            await import('@/server/services/title-generation-service')
+          const result = await generateAndPersistTitle({
+            db: ctx.db,
+            conversationId,
+            userId: ctx.userId,
+            currentTitle: conversation.title,
+            fallbackContent: input.content,
+            runtimeConfig,
+          })
+          if (result?.title) {
+            yield emit({ type: STREAM_EVENTS.TITLE_UPDATED, title: result.title })
+          }
+        }
+      })
     } catch (error) {
       console.error('[chat.stream] terminal error:', getErrorMessage(error))
       const terminal = streamSessions.classifyTerminalError(runtimeConfig, error)
@@ -850,6 +868,23 @@ export const chatRouter = router({
         streamSessions.end(streamSession)
       }
     }
+  }),
+
+  rejoin: protectedProcedure.input(RejoinInputSchema).subscription(async function* ({
+    ctx,
+    input,
+    signal,
+  }) {
+    const session = streamSessions.findByConversation(ctx.userId, input.conversationId)
+    if (!session) {
+      const noStream: RejoinStatusEvent = {
+        type: STREAM_EVENTS.REJOIN_STATUS,
+        status: 'no_active_stream',
+      }
+      yield noStream
+      return
+    }
+    yield* streamSessions.rejoinStream<StreamChunk>(session, signal)
   }),
 
   cancel: protectedProcedure.input(CancelStreamInputSchema).mutation(async ({ ctx, input }) => {

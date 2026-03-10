@@ -2,16 +2,15 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { trpc } from '@/trpc/provider'
+import { useUpdatePreferences } from '@/trpc/mutations'
 import { UX } from '@/config/constants'
 
 export function useSidebar() {
   const [isOpen, setIsOpenState] = useState(true)
   const touchStartX = useRef<number | null>(null)
 
-  const prefsQuery = trpc.userPreferences.get.useQuery(undefined, {
-    staleTime: UX.QUERY_STALE_TIME_FOREVER,
-  })
-  const updatePrefsMutation = trpc.userPreferences.update.useMutation()
+  const prefsQuery = trpc.userPreferences.get.useQuery()
+  const updatePrefsMutation = useUpdatePreferences()
 
   useEffect(() => {
     if (!prefsQuery.data) return

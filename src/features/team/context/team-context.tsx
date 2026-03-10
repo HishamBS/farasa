@@ -2,6 +2,7 @@
 
 import { TEAM_LIMITS } from '@/config/constants'
 import { trpc } from '@/trpc/provider'
+import { useUpdatePreferences } from '@/trpc/mutations'
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import { useParams } from 'next/navigation'
 
@@ -17,10 +18,15 @@ const TeamModeContext = createContext<TeamModeContextValue | null>(null)
 export function TeamModeProvider({ children }: { children: ReactNode }) {
   const params = useParams<{ id?: string[] }>()
   const conversationId = Array.isArray(params.id) ? params.id[0] : undefined
+  const utils = trpc.useUtils()
   const { data: prefs } = trpc.userPreferences.get.useQuery()
-  const updatePrefs = trpc.userPreferences.update.useMutation()
+  const updatePrefs = useUpdatePreferences()
   const updatePrefsMutate = updatePrefs.mutate
-  const updateConversation = trpc.conversation.update.useMutation()
+  const updateConversation = trpc.conversation.update.useMutation({
+    onSettled: (_data, _error, variables) => {
+      void utils.conversation.getById.invalidate({ id: variables.id })
+    },
+  })
   const { data: conversation } = trpc.conversation.getById.useQuery(
     { id: conversationId ?? '' },
     { enabled: Boolean(conversationId) },

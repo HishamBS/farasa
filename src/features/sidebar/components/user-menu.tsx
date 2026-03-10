@@ -1,8 +1,9 @@
 'use client'
 
-import { UI, UX } from '@/config/constants'
+import { UI } from '@/config/constants'
 import { ROUTES } from '@/config/routes'
 import { trpc } from '@/trpc/provider'
+import { useUpdatePreferences } from '@/trpc/mutations'
 import { LogOut, Moon, Sun } from 'lucide-react'
 import { signOut, useSession } from 'next-auth/react'
 import { useTheme } from 'next-themes'
@@ -14,10 +15,8 @@ export function UserMenu() {
   const { resolvedTheme, setTheme } = useTheme()
   const [isMounted, setIsMounted] = useState(false)
   const currentTheme = isMounted ? (resolvedTheme ?? 'dark') : 'dark'
-  const updatePrefsMutation = trpc.userPreferences.update.useMutation()
-  const prefsQuery = trpc.userPreferences.get.useQuery(undefined, {
-    staleTime: UX.QUERY_STALE_TIME_FOREVER,
-  })
+  const updatePrefsMutation = useUpdatePreferences()
+  const prefsQuery = trpc.userPreferences.get.useQuery()
 
   useEffect(() => {
     setIsMounted(true)

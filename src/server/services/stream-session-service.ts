@@ -82,6 +82,7 @@ class StreamSessionService {
     if (activeForRequest?.key === session.key) {
       this.byRequest.delete(session.streamRequestId)
     }
+    session.emitter.removeAllListeners()
   }
 
   async *withBuffering<T>(
@@ -102,19 +103,22 @@ class StreamSessionService {
     let cursor = 0
     let resolver: (() => void) | null = null
 
-    const onUpdate = (): void => {
+    const wake = (): void => {
       if (resolver) {
         resolver()
         resolver = null
       }
     }
-    session.emitter.on('update', onUpdate)
+    session.emitter.on('update', wake)
+    signal?.addEventListener('abort', wake, { once: true })
 
     try {
       while (!signal?.aborted) {
         while (cursor < session.chunkBuffer.length) {
+          // Justified assertion: withBuffering<T> is the sole writer to chunkBuffer,
+          // so the stored unknown values are always T at runtime.
           const chunk = session.chunkBuffer[cursor] as T | undefined
-          if (chunk) yield chunk
+          if (chunk !== undefined) yield chunk
           cursor++
         }
 
@@ -125,7 +129,8 @@ class StreamSessionService {
         })
       }
     } finally {
-      session.emitter.off('update', onUpdate)
+      session.emitter.off('update', wake)
+      signal?.removeEventListener('abort', wake)
     }
   }
 

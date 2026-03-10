@@ -4,6 +4,7 @@ import {
   LIMITS,
   MESSAGE_ROLES,
   NEW_CHAT_TITLE,
+  REJOIN_STATUSES,
   RESPONSE_FORMATS,
   MODEL_SELECTION_SOURCES,
   STATUS_MESSAGES,
@@ -870,7 +871,7 @@ export const chatRouter = router({
     }
   }),
 
-  rejoin: protectedProcedure.input(RejoinInputSchema).subscription(async function* ({
+  rejoin: rateLimitedChatProcedure.input(RejoinInputSchema).subscription(async function* ({
     ctx,
     input,
     signal,
@@ -879,7 +880,7 @@ export const chatRouter = router({
     if (!session) {
       const noStream: RejoinStatusEvent = {
         type: STREAM_EVENTS.REJOIN_STATUS,
-        status: 'no_active_stream',
+        status: REJOIN_STATUSES.NO_ACTIVE_STREAM,
       }
       yield noStream
       return

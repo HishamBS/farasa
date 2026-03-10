@@ -5,6 +5,7 @@ import {
   MESSAGE_ROLES,
   MODEL_SELECTION_SOURCES,
   NEW_CHAT_TITLE,
+  REJOIN_STATUSES,
   STATUS_MESSAGES,
   STREAM_EVENTS,
   STREAM_PHASES,
@@ -49,7 +50,7 @@ import { TRPCError } from '@trpc/server'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
-import { protectedProcedure, rateLimitedChatProcedure, router } from '../trpc'
+import { rateLimitedChatProcedure, router } from '../trpc'
 
 type QueueItem =
   | { done: false; modelId: string; modelIndex: number; chunk: StreamChunk }
@@ -831,7 +832,7 @@ export const teamRouter = router({
     }
   }),
 
-  rejoin: protectedProcedure.input(RejoinInputSchema).subscription(async function* ({
+  rejoin: rateLimitedChatProcedure.input(RejoinInputSchema).subscription(async function* ({
     ctx,
     input,
     signal,
@@ -840,7 +841,7 @@ export const teamRouter = router({
     if (!session) {
       const noStream: RejoinStatusEvent = {
         type: STREAM_EVENTS.REJOIN_STATUS,
-        status: 'no_active_stream',
+        status: REJOIN_STATUSES.NO_ACTIVE_STREAM,
       }
       yield noStream
       return

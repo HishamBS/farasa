@@ -262,16 +262,20 @@ export function useTeamStream({
 
     let rejoinSessionId: string | null = null
 
+    const teardownRejoin = (): void => {
+      if (rejoinSessionId) {
+        endSession(rejoinSessionId)
+        rejoinSessionId = null
+      }
+    }
+
     const sub = trpcClient.team.rejoin.subscribe(
       { conversationId },
       {
         onData(chunk: TeamOutputChunk | RejoinStatusEvent) {
           if (activeSubRef.current) {
             sub.unsubscribe()
-            if (rejoinSessionId) {
-              endSession(rejoinSessionId)
-              rejoinSessionId = null
-            }
+            teardownRejoin()
             return
           }
 
@@ -317,10 +321,7 @@ export function useTeamStream({
             } else if (eventChunk.type === STREAM_EVENTS.ERROR) {
               setPhase(TEAM_STREAM_PHASES.ERROR)
               setError(eventChunk.message)
-              if (rejoinSessionId) {
-                endSession(rejoinSessionId)
-                rejoinSessionId = null
-              }
+              teardownRejoin()
             }
           } else if (chunk.type === TEAM_EVENTS.PERSISTED) {
             setTeamPersisted(true)
@@ -329,10 +330,7 @@ export function useTeamStream({
             setTeamDone(true)
             setTeamId(chunk.teamId)
             setPhase(TEAM_STREAM_PHASES.DONE)
-            if (rejoinSessionId) {
-              endSession(rejoinSessionId)
-              rejoinSessionId = null
-            }
+            teardownRejoin()
             setModelStates((prev) => {
               const next = new Map(prev)
               for (const [modelId, state] of next) {
@@ -348,20 +346,14 @@ export function useTeamStream({
           }
         },
         onComplete() {
-          if (rejoinSessionId) {
-            endSession(rejoinSessionId)
-            rejoinSessionId = null
-          }
+          teardownRejoin()
         },
       },
     )
 
     return () => {
       sub.unsubscribe()
-      if (rejoinSessionId) {
-        endSession(rejoinSessionId)
-        rejoinSessionId = null
-      }
+      teardownRejoin()
     }
   }, [applyChunkToModelState, beginSession, conversationId, endSession])
 

@@ -196,6 +196,10 @@ export const STREAM_EVENTS = {
   REJOIN_STATUS: 'rejoin_status',
 } as const
 
+export const REJOIN_STATUSES = {
+  NO_ACTIVE_STREAM: 'no_active_stream',
+} as const
+
 export const STREAM_PHASES = {
   ROUTING: 'routing',
   THINKING: 'thinking',

@@ -78,19 +78,22 @@ export function useChatStream(conversationId?: string) {
     [endSession],
   )
 
-  const clearActiveSession = useCallback(() => {
+  const cleanupRejoin = useCallback(() => {
     const rejoin = rejoinSubRef.current
-    if (rejoin) {
-      rejoin.unsubscribe()
-      endSession(rejoin.sessionId)
-      rejoinSubRef.current = null
-    }
+    if (!rejoin) return
+    rejoin.unsubscribe()
+    endSession(rejoin.sessionId)
+    rejoinSubRef.current = null
+  }, [endSession])
+
+  const clearActiveSession = useCallback(() => {
+    cleanupRejoin()
 
     const active = activeSessionRef.current
     if (!active) return
     active.unsubscribe()
     teardownSession(active.sessionId)
-  }, [endSession, teardownSession])
+  }, [cleanupRejoin, teardownSession])
 
   const ensureConversationId = useCallback(
     async (input: ChatInput): Promise<string | undefined> => {
@@ -349,12 +352,7 @@ export function useChatStream(conversationId?: string) {
       }
       sendLockRef.current = true
 
-      const rejoin = rejoinSubRef.current
-      if (rejoin) {
-        rejoin.unsubscribe()
-        endSession(rejoin.sessionId)
-        rejoinSubRef.current = null
-      }
+      cleanupRejoin()
 
       const sessionId = crypto.randomUUID()
       beginSession(CHAT_MODES.CHAT, sessionId)
@@ -378,15 +376,12 @@ export function useChatStream(conversationId?: string) {
         })
       })
     },
-    [beginSession, dispatch, endSession, runStreamAttempt, teardownSession],
+    [beginSession, cleanupRejoin, dispatch, runStreamAttempt, teardownSession],
   )
 
   const abort = useCallback(() => {
-    const rejoin = rejoinSubRef.current
-    if (rejoin) {
-      rejoin.unsubscribe()
-      endSession(rejoin.sessionId)
-      rejoinSubRef.current = null
+    if (rejoinSubRef.current) {
+      cleanupRejoin()
       dispatch({ type: STREAM_ACTIONS.CLEAR_PENDING_USER_MESSAGE })
       reset()
       const convId = resolvedConversationIdRef.current
@@ -424,7 +419,7 @@ export function useChatStream(conversationId?: string) {
         }
       })
     }
-  }, [dispatch, endSession, reset, teardownSession, utils])
+  }, [cleanupRejoin, dispatch, reset, teardownSession, utils])
 
   useEffect(() => {
     if (!conversationId) return
@@ -432,17 +427,21 @@ export function useChatStream(conversationId?: string) {
 
     let rejoinSessionId: string | null = null
 
+    const teardownRejoin = (): void => {
+      if (rejoinSessionId) {
+        endSession(rejoinSessionId)
+        rejoinSessionId = null
+      }
+      rejoinSubRef.current = null
+    }
+
     const sub = trpcClient.chat.rejoin.subscribe(
       { conversationId },
       {
         onData(chunk: StreamChunk | RejoinStatusEvent) {
           if (activeSessionRef.current) {
             sub.unsubscribe()
-            if (rejoinSessionId) {
-              endSession(rejoinSessionId)
-              rejoinSessionId = null
-            }
-            rejoinSubRef.current = null
+            teardownRejoin()
             return
           }
 
@@ -496,11 +495,7 @@ export function useChatStream(conversationId?: string) {
           }
 
           if (chunk.type === STREAM_EVENTS.DONE || chunk.type === STREAM_EVENTS.ERROR) {
-            if (rejoinSessionId) {
-              endSession(rejoinSessionId)
-              rejoinSessionId = null
-            }
-            rejoinSubRef.current = null
+            teardownRejoin()
             void utils.conversation.messages.invalidate({ conversationId })
             if (chunk.type === STREAM_EVENTS.DONE) {
               void utils.conversation.getById.invalidate({ id: conversationId })
@@ -509,40 +504,27 @@ export function useChatStream(conversationId?: string) {
           }
         },
         onComplete() {
-          if (rejoinSessionId) {
-            endSession(rejoinSessionId)
-            rejoinSessionId = null
-          }
-          rejoinSubRef.current = null
+          teardownRejoin()
         },
       },
     )
 
     return () => {
       sub.unsubscribe()
-      if (rejoinSessionId) {
-        endSession(rejoinSessionId)
-        rejoinSessionId = null
-      }
-      rejoinSubRef.current = null
+      teardownRejoin()
     }
   }, [beginSession, conversationId, dispatch, endSession, utils])
 
   useEffect(() => {
     return () => {
-      const rejoin = rejoinSubRef.current
-      if (rejoin) {
-        rejoin.unsubscribe()
-        endSession(rejoin.sessionId)
-        rejoinSubRef.current = null
-      }
+      cleanupRejoin()
 
       const active = activeSessionRef.current
       if (!active) return
       active.unsubscribe()
       teardownSession(active.sessionId)
     }
-  }, [endSession, teardownSession])
+  }, [cleanupRejoin, teardownSession])
 
   useEffect(() => {
     const handleNewChatRequested = () => {

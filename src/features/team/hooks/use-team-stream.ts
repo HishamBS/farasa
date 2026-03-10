@@ -16,6 +16,7 @@ import {
 } from '@/features/stream-phases/hooks/use-stream-state'
 import { useStreamSession } from '@/features/chat/context/stream-session-context'
 import type { TeamStreamPhase } from '@/features/team/types'
+import type { RejoinStatusEvent } from '@/schemas/message'
 import type { TeamOutputChunk, TeamStreamInput } from '@/schemas/team'
 import { trpcClient } from '@/trpc/client'
 import type { StreamState, ToolExecutionState } from '@/types/stream'
@@ -36,6 +37,7 @@ type UseTeamStreamReturn = {
 type UseTeamStreamOptions = {
   enabled: boolean
   input: TeamStreamInput | null
+  conversationId?: string
   onConversationCreated?: (conversationId: string) => void
   onTitleUpdated?: (title: string) => void
 }
@@ -48,6 +50,7 @@ type ActiveSubscription = {
 export function useTeamStream({
   enabled,
   input,
+  conversationId,
   onConversationCreated,
   onTitleUpdated,
 }: UseTeamStreamOptions): UseTeamStreamReturn {
@@ -252,6 +255,107 @@ export function useTeamStream({
       endSession(sessionId)
     }
   }, [applyChunkToModelState, beginSession, enabled, endSession, inputKey])
+
+  useEffect(() => {
+    if (!conversationId) return
+    if (activeSubRef.current) return
+
+    let rejoinSessionId: string | null = null
+
+    const teardownRejoin = (): void => {
+      if (rejoinSessionId) {
+        endSession(rejoinSessionId)
+        rejoinSessionId = null
+      }
+    }
+
+    const sub = trpcClient.team.rejoin.subscribe(
+      { conversationId },
+      {
+        onData(chunk: TeamOutputChunk | RejoinStatusEvent) {
+          if (activeSubRef.current) {
+            sub.unsubscribe()
+            teardownRejoin()
+            return
+          }
+
+          if (chunk.type === STREAM_EVENTS.REJOIN_STATUS) return
+
+          if (!rejoinSessionId) {
+            rejoinSessionId = crypto.randomUUID()
+            beginSession(CHAT_MODES.TEAM, rejoinSessionId)
+            setPhase(TEAM_STREAM_PHASES.ACTIVE)
+          }
+
+          if (chunk.type === TEAM_EVENTS.MODEL_CHUNK) {
+            setTeamId(chunk.teamId)
+            setModelOrder((prev) => {
+              if (prev.includes(chunk.modelId)) return prev
+              return [...prev, chunk.modelId]
+            })
+            setModelStates((prev) => applyChunkToModelState(prev, chunk))
+          } else if (chunk.type === TEAM_EVENTS.STREAM_EVENT) {
+            const eventChunk = chunk.chunk
+
+            if (
+              eventChunk.type === STREAM_EVENTS.TITLE_UPDATED &&
+              'title' in eventChunk &&
+              typeof eventChunk.title === 'string'
+            ) {
+              onTitleUpdatedRef.current?.(eventChunk.title)
+            } else if (eventChunk.type === STREAM_EVENTS.CONVERSATION_CREATED) {
+              onConversationCreatedRef.current?.(eventChunk.conversationId)
+            } else if (eventChunk.type === STREAM_EVENTS.TOOL_START) {
+              setTeamToolExecutions((prev) => [
+                ...prev,
+                { name: eventChunk.toolName, input: eventChunk.input },
+              ])
+            } else if (eventChunk.type === STREAM_EVENTS.TOOL_RESULT) {
+              setTeamToolExecutions((prev) =>
+                prev.map((te) =>
+                  te.name === eventChunk.toolName && te.result === undefined
+                    ? { ...te, result: eventChunk.result, completedAt: Date.now() }
+                    : te,
+                ),
+              )
+            } else if (eventChunk.type === STREAM_EVENTS.ERROR) {
+              setPhase(TEAM_STREAM_PHASES.ERROR)
+              setError(eventChunk.message)
+              teardownRejoin()
+            }
+          } else if (chunk.type === TEAM_EVENTS.PERSISTED) {
+            setTeamPersisted(true)
+            setTeamId(chunk.teamId)
+          } else if (chunk.type === TEAM_EVENTS.DONE) {
+            setTeamDone(true)
+            setTeamId(chunk.teamId)
+            setPhase(TEAM_STREAM_PHASES.DONE)
+            teardownRejoin()
+            setModelStates((prev) => {
+              const next = new Map(prev)
+              for (const [modelId, state] of next) {
+                if (
+                  state.phase !== CHAT_STREAM_STATUS.ERROR &&
+                  state.phase !== CHAT_STREAM_STATUS.COMPLETE
+                ) {
+                  next.set(modelId, streamStateReducer(state, { type: STREAM_ACTIONS.DONE }))
+                }
+              }
+              return next
+            })
+          }
+        },
+        onComplete() {
+          teardownRejoin()
+        },
+      },
+    )
+
+    return () => {
+      sub.unsubscribe()
+      teardownRejoin()
+    }
+  }, [applyChunkToModelState, beginSession, conversationId, endSession])
 
   return {
     modelStates,

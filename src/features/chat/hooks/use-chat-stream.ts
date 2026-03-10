@@ -112,9 +112,10 @@ export function useChatStream(conversationId?: string) {
         conversationId: created.id,
       })
       window.history.replaceState(window.history.state, '', ROUTES.CHAT_BY_ID(created.id))
+      void utils.conversation.list.invalidate()
       return created.id
     },
-    [dispatch],
+    [dispatch, utils],
   )
 
   const runStreamAttempt = useCallback(
@@ -212,6 +213,7 @@ export function useChatStream(conversationId?: string) {
                   '',
                   ROUTES.CHAT_BY_ID(chunk.conversationId),
                 )
+                void utils.conversation.list.invalidate()
                 break
               case STREAM_EVENTS.USER_MESSAGE_SAVED: {
                 const convId = resolvedConversationIdRef.current
@@ -445,7 +447,11 @@ export function useChatStream(conversationId?: string) {
             return
           }
 
-          if (chunk.type === STREAM_EVENTS.REJOIN_STATUS) return
+          if (chunk.type === STREAM_EVENTS.REJOIN_STATUS) {
+            void utils.conversation.list.invalidate()
+            if (conversationId) void utils.conversation.getById.invalidate({ id: conversationId })
+            return
+          }
 
           if (!rejoinSessionId) {
             rejoinSessionId = crypto.randomUUID()

@@ -63,10 +63,7 @@ export function Titlebar({ onMenuClick, streamPhase = TITLEBAR_PHASE.IDLE }: Tit
   }, [pathname])
 
   const { data: conversation, isLoading: isLoadingConversation } =
-    trpc.conversation.getById.useQuery(
-      { id: conversationId ?? '' },
-      { enabled: !!conversationId, staleTime: UX.QUERY_STALE_TIME_FOREVER },
-    )
+    trpc.conversation.getById.useQuery({ id: conversationId ?? '' }, { enabled: !!conversationId })
 
   useEffect(() => {
     setActiveConversationId(conversationId ?? undefined)

@@ -226,6 +226,7 @@ export const teamRouter = router({
         userId: ctx.userId,
         conversationId,
         streamRequestId,
+        mode: CHAT_MODES.TEAM,
       })
 
       const resolvedConversationId = conversationId
@@ -837,7 +838,11 @@ export const teamRouter = router({
     input,
     signal,
   }) {
-    const session = streamSessions.findByConversation(ctx.userId, input.conversationId)
+    const session = streamSessions.findByConversationAndMode(
+      ctx.userId,
+      input.conversationId,
+      CHAT_MODES.TEAM,
+    )
     if (!session) {
       const noStream: RejoinStatusEvent = {
         type: STREAM_EVENTS.REJOIN_STATUS,

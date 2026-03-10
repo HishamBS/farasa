@@ -102,6 +102,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
   } = useTeamStream({
     enabled: teamStreamInput !== null,
     input: teamStreamInput,
+    conversationId,
     onConversationCreated: handleTeamConversationCreated,
     onTitleUpdated: handleTeamTitleUpdated,
   })

@@ -1,4 +1,11 @@
-import { CHAT_MODES, LIMITS, MESSAGE_ROLES, STREAM_EVENTS, STREAM_PHASES } from '@/config/constants'
+import {
+  CHAT_MODES,
+  LIMITS,
+  MESSAGE_ROLES,
+  REJOIN_STATUSES,
+  STREAM_EVENTS,
+  STREAM_PHASES,
+} from '@/config/constants'
 import { z } from 'zod'
 import {
   ModelCapabilitySchema,
@@ -194,6 +201,15 @@ export const CancelStreamInputSchema = z.object({
   streamRequestId: z.string().uuid().optional(),
 })
 
+export const RejoinInputSchema = z.object({
+  conversationId: z.string().uuid(),
+})
+
+export const RejoinStatusEventSchema = z.object({
+  type: z.literal(STREAM_EVENTS.REJOIN_STATUS),
+  status: z.literal(REJOIN_STATUSES.NO_ACTIVE_STREAM),
+})
+
 export type ChatMode = z.infer<typeof ChatModeSchema>
 export type MessageRole = z.infer<typeof MessageRoleSchema>
 export type Attachment = z.infer<typeof AttachmentSchema>
@@ -205,3 +221,5 @@ export type ToolCall = z.infer<typeof ToolCallSchema>
 export type MessageMetadata = z.infer<typeof MessageMetadataSchema>
 export type Message = z.infer<typeof MessageSchema>
 export type CancelStreamInput = z.infer<typeof CancelStreamInputSchema>
+export type RejoinInput = z.infer<typeof RejoinInputSchema>
+export type RejoinStatusEvent = z.infer<typeof RejoinStatusEventSchema>

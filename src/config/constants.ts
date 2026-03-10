@@ -193,6 +193,11 @@ export const STREAM_EVENTS = {
   USER_MESSAGE_SAVED: 'user_message_saved',
   CONVERSATION_CREATED: 'conversation_created',
   TITLE_UPDATED: 'title_updated',
+  REJOIN_STATUS: 'rejoin_status',
+} as const
+
+export const REJOIN_STATUSES = {
+  NO_ACTIVE_STREAM: 'no_active_stream',
 } as const
 
 export const STREAM_PHASES = {

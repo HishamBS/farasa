@@ -246,6 +246,25 @@ export const teamRouter = router({
       yield* streamSessions.withBuffering(streamSession, async function* () {
         const conversationId = resolvedConversationId
 
+        const titlePromise =
+          conversation.title === NEW_CHAT_TITLE
+            ? import('@/server/services/title-generation-service')
+                .then(({ generateAndPersistTitle }) =>
+                  generateAndPersistTitle({
+                    db: ctx.db,
+                    conversationId,
+                    userId: ctx.userId,
+                    currentTitle: conversation.title,
+                    fallbackContent: input.content,
+                    runtimeConfig,
+                  }),
+                )
+                .catch((err: unknown) => {
+                  console.error('[team.stream] title gen failed:', getErrorMessage(err))
+                  return null
+                })
+            : null
+
         const userResult = await persistUserMessage({
           db: ctx.db,
           conversationId,
@@ -790,18 +809,8 @@ export const teamRouter = router({
           completedModels: input.models,
         }
 
-        const shouldGenerateTitle = conversation.title === NEW_CHAT_TITLE
-        if (shouldGenerateTitle) {
-          const { generateAndPersistTitle } =
-            await import('@/server/services/title-generation-service')
-          const result = await generateAndPersistTitle({
-            db: ctx.db,
-            conversationId,
-            userId: ctx.userId,
-            currentTitle: conversation.title,
-            fallbackContent: input.content,
-            runtimeConfig,
-          })
+        if (titlePromise) {
+          const result = await titlePromise
           if (result?.title) {
             yield {
               type: TEAM_EVENTS.STREAM_EVENT,

@@ -69,13 +69,20 @@ export function useChatStream(conversationId?: string) {
     })
   }, [conversationId, dispatch])
 
-  const teardownSession = useCallback(
+  const releaseSession = useCallback(
     (sessionId: string) => {
-      activeSessionRef.current = null
       sendLockRef.current = false
       endSession(sessionId)
     },
     [endSession],
+  )
+
+  const teardownSession = useCallback(
+    (sessionId: string) => {
+      activeSessionRef.current = null
+      releaseSession(sessionId)
+    },
+    [releaseSession],
   )
 
   const cleanupRejoin = useCallback(() => {
@@ -288,7 +295,7 @@ export function useChatStream(conversationId?: string) {
                 if (active.isSettled) return
                 active.isSettled = true
                 active.terminalEvent = TERMINAL_EVENTS.DONE
-                teardownSession(sessionId)
+                releaseSession(sessionId)
                 dispatch({ type: STREAM_ACTIONS.DONE })
                 const convId = resolvedConversationIdRef.current
                 if (convId) {
@@ -344,7 +351,7 @@ export function useChatStream(conversationId?: string) {
 
       session.unsubscribe = () => subscription.unsubscribe()
     },
-    [dispatch, ensureConversationId, reset, router, teardownSession, utils],
+    [dispatch, ensureConversationId, releaseSession, reset, router, teardownSession, utils],
   )
 
   const sendMessage = useCallback(

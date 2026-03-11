@@ -295,6 +295,7 @@ export function useChatStream(conversationId?: string) {
                 if (active.isSettled) return
                 active.isSettled = true
                 active.terminalEvent = TERMINAL_EVENTS.DONE
+                // Keep activeSessionRef set (isSettled=true) so rejoin guard prevents chunk replay
                 releaseSession(sessionId)
                 dispatch({ type: STREAM_ACTIONS.DONE })
                 const convId = resolvedConversationIdRef.current

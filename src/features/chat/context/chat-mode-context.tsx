@@ -72,7 +72,6 @@ export function ChatModeProvider({ children }: { children: ReactNode }) {
     },
     onSettled: async (_data, _error, variables) => {
       await utils.conversation.getById.invalidate({ id: variables.id })
-      await utils.conversation.list.invalidate()
     },
   })
 

@@ -24,8 +24,17 @@ export const conversationRouter = router({
     const conditions = [eq(conversations.userId, ctx.userId)]
 
     if (input.cursor) {
-      const cursorDate = new Date(input.cursor)
-      conditions.push(lt(conversations.updatedAt, cursorDate))
+      const separatorIdx = input.cursor.indexOf('|')
+      if (separatorIdx !== -1) {
+        const cursorDate = new Date(input.cursor.slice(0, separatorIdx))
+        const cursorId = input.cursor.slice(separatorIdx + 1)
+        conditions.push(
+          sql`(${conversations.updatedAt}, ${conversations.id}) < (${cursorDate}, ${cursorId})`,
+        )
+      } else {
+        const cursorDate = new Date(input.cursor)
+        conditions.push(lt(conversations.updatedAt, cursorDate))
+      }
     }
 
     if (input.search) {
@@ -44,7 +53,8 @@ export const conversationRouter = router({
     const hasMore = rows.length === fetchLimit
     const items = hasMore ? rows.slice(0, resolvedLimit) : rows
     const lastItem = items[items.length - 1]
-    const nextCursor = hasMore && lastItem ? lastItem.updatedAt.toISOString() : undefined
+    const nextCursor =
+      hasMore && lastItem ? `${lastItem.updatedAt.toISOString()}|${lastItem.id}` : undefined
 
     return { items, nextCursor }
   }),
@@ -162,7 +172,7 @@ export const conversationRouter = router({
 
     const [updated] = await ctx.db
       .update(conversations)
-      .set({ title, updatedAt: new Date() })
+      .set({ title })
       .where(and(eq(conversations.id, input.conversationId), eq(conversations.userId, ctx.userId)))
       .returning({ title: conversations.title })
 

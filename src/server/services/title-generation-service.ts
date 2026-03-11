@@ -73,7 +73,7 @@ export async function generateAndPersistTitle(
     if (safeTitle) {
       await db
         .update(conversations)
-        .set({ title: safeTitle, updatedAt: new Date() })
+        .set({ title: safeTitle })
         .where(and(eq(conversations.id, conversationId), eq(conversations.userId, userId)))
       return { title: safeTitle }
     }

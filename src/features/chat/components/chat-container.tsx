@@ -34,6 +34,7 @@ type PendingA2UIAction = {
   prompt: string
   webSearchEnabled: boolean
   isA2UIAction: boolean
+  conversationId: string | undefined
 }
 
 type ChatContainerProps = {
@@ -257,7 +258,12 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
       const webSearchEnabled = Boolean(custom.detail?.webSearchEnabled)
       const isA2UIAction = Boolean(custom.detail?.isA2UIAction)
       if (isTurnActive) {
-        pendingA2UIRef.current = { prompt, webSearchEnabled, isA2UIAction }
+        pendingA2UIRef.current = {
+          prompt,
+          webSearchEnabled,
+          isA2UIAction,
+          conversationId: effectiveConversationId,
+        }
         return
       }
       sendMessage({
@@ -289,6 +295,7 @@ export function ChatContainer({ conversationId: conversationIdProp }: ChatContai
     const pending = pendingA2UIRef.current
     if (!pending) return
     pendingA2UIRef.current = null
+    if (pending.conversationId && pending.conversationId !== effectiveConversationId) return
     sendMessage({
       content: pending.prompt,
       mode: CHAT_MODES.CHAT,

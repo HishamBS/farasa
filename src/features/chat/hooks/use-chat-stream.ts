@@ -197,9 +197,24 @@ export function useChatStream(conversationId?: string) {
             // Title updates arrive after DONE when session is already torn down —
             // handle before the active session guard (mirrors team mode pattern)
             if (chunk.type === STREAM_EVENTS.TITLE_UPDATED) {
-              void utils.conversation.list.invalidate()
               const convId = resolvedConversationIdRef.current
-              if (convId) void utils.conversation.getById.invalidate({ id: convId })
+              utils.conversation.list.setInfiniteData({}, (old) => {
+                if (!old) return old
+                return {
+                  ...old,
+                  pages: old.pages.map((page) => ({
+                    ...page,
+                    items: page.items.map((c) =>
+                      c.id === convId ? { ...c, title: chunk.title } : c,
+                    ),
+                  })),
+                }
+              })
+              if (convId) {
+                utils.conversation.getById.setData({ id: convId }, (old) =>
+                  old ? { ...old, title: chunk.title } : old,
+                )
+              }
               return
             }
 
@@ -262,11 +277,6 @@ export function useChatStream(conversationId?: string) {
                   phase: chunk.phase,
                   message: chunk.message,
                 })
-                if (chunk.phase === STREAM_PHASES.GENERATING_TITLE) {
-                  const convId = resolvedConversationIdRef.current
-                  void utils.conversation.list.invalidate()
-                  if (convId) void utils.conversation.getById.invalidate({ id: convId })
-                }
                 break
               case STREAM_EVENTS.A2UI:
                 try {
@@ -331,21 +341,20 @@ export function useChatStream(conversationId?: string) {
           onComplete() {
             const active = activeSessionRef.current
             if (!active || active.sessionId !== sessionId) return
-            if (!active.isSettled) {
-              active.isSettled = true
-              active.terminalEvent = TERMINAL_EVENTS.ERROR
-              dispatch({
-                type: STREAM_ACTIONS.ERROR,
-                error: {
-                  message: AppError.CONNECTION_INTERRUPTED,
-                  reasonCode: STREAM_REASON_CODES.STREAM_CLOSED,
-                  recoverable: true,
-                  code: 'STREAM_INCOMPLETE',
-                  attempt: 0,
-                },
-              })
-            }
+            if (active.isSettled) return
+            active.isSettled = true
+            active.terminalEvent = TERMINAL_EVENTS.ERROR
             teardownSession(sessionId)
+            dispatch({
+              type: STREAM_ACTIONS.ERROR,
+              error: {
+                message: AppError.CONNECTION_INTERRUPTED,
+                reasonCode: STREAM_REASON_CODES.STREAM_CLOSED,
+                recoverable: true,
+                code: 'STREAM_INCOMPLETE',
+                attempt: 0,
+              },
+            })
           },
         },
       )
@@ -476,8 +485,21 @@ export function useChatStream(conversationId?: string) {
           }
 
           if (chunk.type === STREAM_EVENTS.TITLE_UPDATED) {
-            void utils.conversation.list.invalidate()
-            void utils.conversation.getById.invalidate({ id: conversationId })
+            utils.conversation.list.setInfiniteData({}, (old) => {
+              if (!old) return old
+              return {
+                ...old,
+                pages: old.pages.map((page) => ({
+                  ...page,
+                  items: page.items.map((c) =>
+                    c.id === conversationId ? { ...c, title: chunk.title } : c,
+                  ),
+                })),
+              }
+            })
+            utils.conversation.getById.setData({ id: conversationId }, (old) =>
+              old ? { ...old, title: chunk.title } : old,
+            )
             return
           }
 
@@ -499,14 +521,6 @@ export function useChatStream(conversationId?: string) {
 
           const action = mapStreamChunkToAction(chunk)
           if (action) dispatch(action)
-
-          if (
-            chunk.type === STREAM_EVENTS.STATUS &&
-            chunk.phase === STREAM_PHASES.GENERATING_TITLE
-          ) {
-            void utils.conversation.list.invalidate()
-            void utils.conversation.getById.invalidate({ id: conversationId })
-          }
 
           if (chunk.type === STREAM_EVENTS.DONE || chunk.type === STREAM_EVENTS.ERROR) {
             teardownRejoin()
